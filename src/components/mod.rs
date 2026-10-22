@@ -6,4 +6,6 @@
 
 #![allow(dead_code, unused_imports)]
 
-// No components yet. Add `src/components/<name>.rs` with a `#[component]` fn.
+pub mod app_shell;
+pub mod avatar;
+pub mod icon;

@@ -43,5 +43,11 @@ sea-orm-migration = { version = "2", default-features = false, features = ["runt
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 
+# The suite's database. `src/tests/support.rs` opens a SQLite *file* per
+# docs/conventions/testing.md, and the driver that reads it is a test-only
+# concern: the deployment backend in rahti.config.json stays postgres, and the
+# feature is unified into the dev build alone.
+sea-orm = { version = "2", default-features = false, features = ["sqlx-sqlite"] }
+
 [build-dependencies]
 rahti-build = "0.0.56"
