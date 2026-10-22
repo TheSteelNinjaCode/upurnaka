@@ -1,0 +1,12 @@
+//! This application, driven through its generated router.
+//!
+//! Add one module per cohesive feature area, not one file per test. Shared
+//! setup and request helpers stay in `support.rs`. See
+//! docs/conventions/testing.md.
+
+mod support;
+use support::*;
+
+mod database;
+mod pages;
+mod rpc;

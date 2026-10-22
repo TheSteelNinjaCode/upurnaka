@@ -1,0 +1,11 @@
+[alias]
+# `cargo dev` — rebuild-and-restart, the half of live reload the server
+# cannot do for itself. The running server already watches `public/` and
+# swaps CSS without a recompile; editing Rust needs a rebuild and a
+# restart, so `cargo watch` re-runs `cargo run` on every save and the
+# browser tab reloads itself when the new server comes up.
+#
+# Needs cargo-watch installed once per machine:
+#
+#     cargo install cargo-watch
+dev = "watch -w src -w rahti.config.json -x run"

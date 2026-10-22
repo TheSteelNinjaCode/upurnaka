@@ -1,0 +1,47 @@
+[package]
+name = "upurnaka"
+version = "0.1.0"
+edition = "2024"
+
+# The application as a library, and a binary that calls it.
+#
+# `src/lib.rs` holds `initialize_application` — the database, the migrations,
+# the auth policy, the router — and `src/main.rs` binds the public listener.
+# The split is what lets an optional native package start the same application:
+# Android has no `main` to reach, it loads a library and calls into it. See
+# docs/conventions/native-packaging.md.
+[lib]
+name = "upurnaka"
+path = "src/lib.rs"
+
+[[bin]]
+name = "upurnaka"
+path = "src/main.rs"
+
+# `native/` is the optional Tauri shell, written by `cargo rahti native init`.
+# Excluded so that a web build never resolves a native dependency; it is its
+# own workspace and is built from inside itself.
+[workspace]
+exclude = ["native"]
+
+[dependencies]
+axum = "0.8.9"
+rahti = { version = "0.0.56", features = ["mcp", "ws"] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.7", features = ["catch-panic", "fs"] }
+
+# The database. Yours to manage from here on: an upgrade adds a dependency
+# a feature it just wrote needs, and changes nothing else in this file —
+# a version bump is a version bump.
+sea-orm = { version = "2", default-features = false, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
+sea-orm-migration = { version = "2", default-features = false, features = ["runtime-tokio-rustls", "sqlx-postgres"] }
+
+# What `src/tests/support.rs` needs to drive the generated router in-process:
+# a request in, a response out, no port bound. See docs/conventions/testing.md.
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
+
+[build-dependencies]
+rahti-build = "0.0.56"

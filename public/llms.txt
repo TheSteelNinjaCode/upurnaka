@@ -1,0 +1,11 @@
+# upurnaka
+
+> A Rahti application. Replace this paragraph with the public service summary an agent should know.
+
+- Home: /
+- MCP discovery: /.well-known/mcp.json
+- MCP endpoint: /mcp/
+
+## Services
+
+Describe the services, ideal customers, deliverables, constraints, pricing approach, and contact path here. Keep secrets and private implementation details out of this public file.

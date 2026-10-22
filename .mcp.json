@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "rahti": {
+      "command": "rahti-mcp",
+      "args": ["--project", "."]
+    }
+  }
+}

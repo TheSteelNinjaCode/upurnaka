@@ -1,0 +1,93 @@
+{
+  "$schema": "https://rahti.tsnc.tech/schema/1.json",
+  "schema": 1,
+  "createdWith": "0.0.56",
+
+  "app": {
+    "dir": "src/app",
+    "public": "public"
+  },
+
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000
+  },
+
+  "ws": true,
+
+  "mcp": true,
+
+  "css": {
+    "engine": "tailwind",
+    "entry": "src/app/globals.css",
+    "output": "public/css/styles.css",
+    "version": "4.3.3",
+    "download": true
+  },
+
+  "db": {
+    "backend": "postgres",
+    "models": "src/models",
+    "migrations": "src/migrations"
+  },
+
+  "scaffold": {
+    ".cargo/config.toml": "5675293261431ed64942cfc5d554fabc08822b106bca13d7730bbe9778a1d831",
+    ".gitignore": "4890edfa56b7331c6dcdf37c52cedecaddf94a8bf3953894e6c0284924951d5b",
+    ".mcp.json": "10a277456ab5248083818a193d300cd051f8473e7936e0bc348b6dc5a7d8e3f6",
+    "AGENTS.md": "fcf4981e282fd3c9e3c669bf095a75d8272b6b42edf362ef13e061bbc4b113fe",
+    "CLAUDE.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49",
+    "Cargo.toml": "be748bf544d78cd5808cede0a7db3d5bc430589a017f6a73c8fb8fda6d1a0379",
+    "build.rs": "fc7d282ed8eb42af8e67099bc698c08fe90bb1e9a62a46b8ab4627addaba1c65",
+    "docs/conventions/application-timezone.md": "52c2b99764cad8629a6824f7fc01c39a743bdfdd2de143aef0011dce426b1210",
+    "docs/conventions/authentication.md": "38b1a901c9245d05e0cb66752ff9259b3a55d38aa2db4c73378aac713e73e8b1",
+    "docs/conventions/authorization.md": "de594583178ab0e49ac9f5eb2dd1cd0c96f8bd91aab728541853d264884a9138",
+    "docs/conventions/background-jobs.md": "871583fd4aae0a3d3244dfc617f8030253b40d11228759624261224b3545e2c9",
+    "docs/conventions/caching.md": "b8e975c2fe530753774c5f295818b8daa74dcfb8156073a16e47d2d86d88939a",
+    "docs/conventions/configuration-and-tooling.md": "3508cd3487a53ab5a04b8abe7566d19efdb75a14c4a680b9233c1ed4d1e01fa4",
+    "docs/conventions/database.md": "1e75092b63aa654358ce889ac7387b74e9ce771a2273e4a83fd845217ad0853f",
+    "docs/conventions/diagnostics.md": "1c36f202881a4cf4d814357d4d956df21fc4699cfcfbe81354f8b69966e0e387",
+    "docs/conventions/error-handling.md": "e2d650533370311d233eba7775f7f4b3d423bbe33abc586b65070112207da263",
+    "docs/conventions/localization.md": "f07958cb9ca084c71900e36f2c0a6dbfd6d15a8349bff56e282f9a3a2ebe06cd",
+    "docs/conventions/metadata-and-seo.md": "ecbfe072c2b75f21f9a2a378d7cd5a7f2c9730a6526e92c20466ae350b11ba32",
+    "docs/conventions/native-packaging.md": "3cb3d8b58aa55e05606105568a0cabf8f050ef7e39f3bed247f5ff0abe9f52f7",
+    "docs/conventions/production-observability.md": "c827ef8e52b4689779011c81e1416a15615454d01aba09f82c9719c1408b1c8c",
+    "docs/conventions/pulsepoint-hooks.md": "be8a10250e815a974192d75d9540344315a15e1aad40b46fda62c884bb919327",
+    "docs/conventions/pulsepoint-navigation.md": "5d674b73ecc6d650a7178a040e6d39055fb563ad18cd25b6a9986f3d97fbf933",
+    "docs/conventions/pulsepoint-performance.md": "96ca313114002ef917eef1bc5c5cb1faeb256b5ab93486fda05f88402ee7ef4d",
+    "docs/conventions/pulsepoint-web-apis.md": "30d30a35fd88c51e74787e2ed95496c20db08c97fb962aa92e256914a428e58d",
+    "docs/conventions/pulsepoint.md": "c4bdeb44866e77f46060b4f8e7e0fb3c06c141613dd6543b6a82944931e9439d",
+    "docs/conventions/rate-limiting.md": "f924c5afaa86d4297cb46ec2f77eb7e498c1939fd0f4658b0421e5fba4d0d734",
+    "docs/conventions/rendering-and-components.md": "59db52c6f4f8767435653c9d50f693398fb988e9c1272ddf8eb4e65f7f83b479",
+    "docs/conventions/request-pipeline.md": "512e266bc0abbf8309cb58e216cafc2c694c5a8e03eaa447f5076d46ef755d51",
+    "docs/conventions/routing.md": "dbc9f3ea2819a05f50dd6b8bae1dbacb79d73c4024b2b1714fa6f28f5eb4bf4f",
+    "docs/conventions/rpc-and-uploads.md": "796f3dad23de42cb0726d1d0051439565890e9873ab0cefb87f428512ae68562",
+    "docs/conventions/security-middleware.md": "684cd0fe2b524e967b0d31bd9f97a79a46cfb0f14a83c9ad46eea232a2945938",
+    "docs/conventions/security.md": "5cf0336127606f9b415963986a17ad7d5c8831eb326daa81df1f6db1c4d5bd72",
+    "docs/conventions/static-generation.md": "e2074cabf9edbca6c5a248c8e6c796375143b1f8f92d856ce71c74c90ac21128",
+    "docs/conventions/task-scheduling.md": "79074e75dbf036c302551b37059146b3bf7401ce6e6cfe064f7ce47233e216ee",
+    "docs/conventions/testing.md": "3a603f8ebcc4c6c0e7324e587931814fd2d69e6b95131c2a6adc5f344440f0df",
+    "docs/conventions/validation.md": "71784682ef90a83b2ee8b9c9be0727c15ddb1401b46035b262dd46f7c2e53a05",
+    "docs/conventions/websockets.md": "9b87b886bbcd13433d490b7b8ca6e2e2d39ad569fb1c77ea0e85dd2ce76ab624",
+    "jsconfig.json": "e1cbc9153a7c05754310ec888804ec3261613a144b237f4c0b473458164d6a89",
+    "public/favicon.ico": "b80e55bc975389e0b22bceb5efbd2de1514435e249fb5b6fc3938ac1f4ec74c5",
+    "public/js/main.js": "46efd6deef2b47d2c31b190a08ba503ec16e9ee4d320f7d9efee4b7ec61895d5",
+    "public/js/pp-reactive-v2.min.js": "c4d6699ce1cfe3122a1e1c551cbad696993bb3804ce04da1cf64833d87fb623b",
+    "public/js/pp.d.ts": "fef09891b9a0aa880d92c56f5eaff287da8f1e0195b01cf1aab6c40a1c46dbe0",
+    "public/js/tailwind-merge.mjs": "bb843b41186520f990a35330687da381a76ae7af89432fe2400afb7d73852181",
+    "public/llms.txt": "4d7fa1c1269fc2f8d3bf188248bd37c398ccc7bd4ac6930289cc12bc8cc40abc",
+    "src/app/globals.css": "eb9dcd730325ffb79eefe4a189961b0005774a7613242564b16edf47ea02b97f",
+    "src/app/layout.rs": "8431fd192f43b997bdf356ec930288eda6b11fdb245eca065ae6a8be772b598f",
+    "src/app/page.rs": "82e69207a3b67178a9c9016a5168a6d531c3666b5295305234cce0fb75a352a3",
+    "src/db.rs": "4ba4f27c26669b1c77d228b365d321e8f9d2eb7b47755480f183c89a5fb5e0e3",
+    "src/lib.rs": "a334fcd7e16b684f57059aa0ed3a10234c72b5ad5f1459b363fd914b352e09b9",
+    "src/main.rs": "44b4dcdf6d2b4db95bcc0616982ae64a97659f64449f0b69ea478f60641ac953",
+    "src/migrations/m20260101_000001_create_todo.rs": "4d0a3b0af2737e22d1438e249c47113e6b04d4663e8fbbeb80a8a2ba4f937fa7",
+    "src/models/todo.rs": "dfffc01cdc0d69fce46c6935b9088043797807fca65df267617142f8c3591540",
+    "src/tests/database.rs": "d55dfe4c12690d3d3d0f03542feb1b3908f7a7035d353b51d12b7ad789c23676",
+    "src/tests/mod.rs": "2fb31b854f216058954557b960544915bbae186c8da5c9f82b5d29ebde7e9238",
+    "src/tests/pages.rs": "630d2ccda335b69d442975982785a1f7aadd6be1f34f7f0f61a56612555b205f",
+    "src/tests/rpc.rs": "6f1711932e5e0ef25a31095932a9d1553f0132a83a7e82ebafff2e022ba57d49",
+    "src/tests/support.rs": "8d12be6f890a1648bfc891c1d0d810de9e00fc9b5b19d33b2f55152b942d3d46"
+  }
+}
