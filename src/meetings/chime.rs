@@ -55,6 +55,16 @@ pub struct Settings {
 pub fn settings() -> Option<&'static Settings> {
     static SETTINGS: OnceLock<Option<Settings>> = OnceLock::new();
 
+    // The test suite never reaches AWS. A developer's `.env` has a real media
+    // region in it, so without this line `cargo test` would create, and bill
+    // for, real Chime meetings — and the tests covering the unconfigured path
+    // would pass or fail depending on whose machine ran them. A compile-time
+    // answer rather than an environment one, because an environment this
+    // process does not control is exactly what is being guarded against.
+    if cfg!(test) {
+        return None;
+    }
+
     SETTINGS
         .get_or_init(|| {
             // The same `.env` the database and auth read; idempotent, so it

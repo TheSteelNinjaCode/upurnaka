@@ -65,23 +65,21 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     <div
                         class="relative mt-7 flex aspect-video w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-xl border border-edge bg-sunken"
                     >
-                        <span
-                            class="flex flex-col items-center gap-4"
-                            hidden={camera && cameraLive}
+                        <video
+                            pp-ref={localVideo}
+                            class="absolute inset-0 h-full w-full -scale-x-100 rounded-xl object-cover"
+                            onloadedmetadata={setCameraLive(true)}
+                            onemptied={setCameraLive(false)}
+                            muted
+                            playsinline
                         >
+                        </video>
+                        <span class="relative flex flex-col items-center gap-4" hidden={cameraLive}>
                             <Avatar initials="JA" size="xl" presence="online" />
                             <span class="text-[13px] text-muted">
                                 {camera ? "Starting your camera…" : "Your camera is turned off"}
                             </span>
                         </span>
-                        <video
-                            pp-ref={localVideo}
-                            class="absolute inset-0 h-full w-full -scale-x-100 rounded-xl object-cover"
-                            hidden={!camera || !cameraLive}
-                            muted
-                            playsinline
-                        >
-                        </video>
                     </div>
                     <div class="mt-4 grid grid-cols-4 gap-3" hidden={remoteCount === 0}>
                         <template pp-for="slot in remoteSlots">
@@ -215,7 +213,6 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     // handed are ever touched by it: re-renders leave their
                     // srcObject alone because nothing below re-creates them.
                     const SDK_URL = "/js/vendor/amazon-chime-sdk.js";
-                    const REMOTE_SLOTS = 4;
 
                     const localVideo = pp.ref(null);
                     const meetingAudio = pp.ref(null);
@@ -230,6 +227,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     // reads it.
                     const call = pp.ref(null);
                     const tileSlots = pp.ref(new Map());
+                    // The SDK, and the device controller the preview and the meeting
+                    // share. Shared on purpose: a camera somebody turned on before
+                    // joining keeps running through the join rather than being torn
+                    // down and started again.
+                    const devices = pp.ref(null);
                     // Filled in when the SDK loads, so the stop handler can
                     // read the enum without importing the module again.
                     const statusCodes = pp.ref(null);
@@ -286,7 +288,6 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         if (tile.localTile) {
                             if (localVideo.current) {
                                 live.av.bindVideoElement(tile.tileId, localVideo.current);
-                                setCameraLive(true);
                             }
                             return;
                         }
@@ -356,47 +357,118 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         const live = call.current;
                         call.current = null;
                         tileSlots.current = new Map();
-                        setCameraLive(false);
                         setRemoteTiles([false, false, false, false]);
-                        if (!live) return;
+
+                        // The camera goes off with the call rather than staying on
+                        // over a pre-join screen nobody is looking at — and the
+                        // button goes back with it, or it would read "on" above a
+                        // picture that is no longer being taken.
+                        setCamera(false);
 
                         try {
-                            live.av.stopLocalVideoTile();
-                            await live.av.stopVideoInput();
-                            await live.av.stopAudioInput();
-                            live.av.stop();
+                            if (live) live.av.stopLocalVideoTile();
+                            await closeCamera();
+                            if (live) {
+                                await live.av.stopAudioInput();
+                                live.av.stop();
+                            }
                         } catch (failure) {
                             // Leaving a call that is already gone is not a
                             // failure anybody needs to hear about.
                         }
                     });
 
-                    async function startCamera(av) {
-                        const cameras = await av.listVideoInputDevices();
-                        if (cameras.length === 0) {
-                            setError("No camera was found.");
-                            return;
+                    // The SDK and the device controller, loaded once. Reached
+                    // before a meeting exists, because the camera preview is
+                    // a device, not a meeting.
+                    async function ensureDevices() {
+                        if (devices.current) return devices.current;
+
+                        const sdk = await import(SDK_URL);
+                        statusCodes.current = sdk.MeetingSessionStatusCode;
+                        const logger = new sdk.ConsoleLogger("upurnaka", sdk.LogLevel.WARN);
+
+                        devices.current = {
+                            sdk,
+                            logger,
+                            controller: new sdk.DefaultDeviceController(logger),
+                            videoInput: false,
+                            previewing: false,
+                        };
+                        return devices.current;
+                    }
+
+                    // Open the camera. Safe to call when it is already open.
+                    async function openCamera() {
+                        const kit = await ensureDevices();
+                        if (kit.videoInput) return kit;
+
+                        const cameras = await kit.controller.listVideoInputDevices();
+                        if (cameras.length === 0) throw new Error("No camera was found.");
+
+                        const stream = await kit.controller.startVideoInput(cameras[0].deviceId);
+
+                        // A camera that enumerates and then hands back no live track is one
+                        // the browser refused or another application is holding. Chime
+                        // reports most of those by throwing; this covers the rest, so the
+                        // button cannot sit on "Camera on" above a black rectangle.
+                        const track = stream && stream.getVideoTracks()[0];
+                        if (!track || track.readyState !== "live") {
+                            try {
+                                await kit.controller.stopVideoInput();
+                            } catch (failure) {
+                                // Nothing was started; nothing to stop.
+                            }
+                            throw new Error(
+                                "The camera could not be started. Check this site's camera permission.",
+                            );
                         }
-                        await av.startVideoInput(cameras[0].deviceId);
-                        av.startLocalVideoTile();
+
+                        kit.videoInput = true;
+                        return kit;
+                    }
+
+                    async function closeCamera() {
+                        const kit = devices.current;
+                        stopPreview();
+                        setCameraLive(false);
+                        if (!kit || !kit.videoInput) return;
+                        await kit.controller.stopVideoInput();
+                        kit.videoInput = false;
+                    }
+
+                    // The picture before the meeting: Teams shows you yourself
+                    // while you decide. There is no conference yet, so this is
+                    // the device controller's own preview rather than a tile.
+                    function startPreview() {
+                        const kit = devices.current;
+                        if (!kit || kit.previewing || !localVideo.current) return;
+                        kit.controller.startVideoPreviewForVideoInput(localVideo.current);
+                        kit.previewing = true;
+                    }
+
+                    // Also what hands the element back before a tile binds it.
+                    function stopPreview() {
+                        const kit = devices.current;
+                        if (!kit || !kit.previewing) return;
+                        if (localVideo.current) {
+                            kit.controller.stopVideoPreviewForVideoInput(localVideo.current);
+                        }
+                        kit.previewing = false;
                     }
 
                     // Open the audio and video session Chime just gave us a
                     // seat in.
                     async function connect(info) {
-                        const sdk = await import(SDK_URL);
-                        statusCodes.current = sdk.MeetingSessionStatusCode;
-
-                        const logger = new sdk.ConsoleLogger("upurnaka", sdk.LogLevel.WARN);
-                        const devices = new sdk.DefaultDeviceController(logger);
-                        const configuration = new sdk.MeetingSessionConfiguration(
+                        const kit = await ensureDevices();
+                        const configuration = new kit.sdk.MeetingSessionConfiguration(
                             info.meeting,
                             info.attendee,
                         );
-                        const meetingSession = new sdk.DefaultMeetingSession(
+                        const meetingSession = new kit.sdk.DefaultMeetingSession(
                             configuration,
-                            logger,
-                            devices,
+                            kit.logger,
+                            kit.controller,
                         );
                         const av = meetingSession.audioVideo;
 
@@ -418,7 +490,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         av.start();
 
                         if (!microphone) av.realtimeMuteLocalAudio();
-                        if (camera) await startCamera(av);
+
+                        if (camera) {
+                            // The preview was holding the video element; the
+                            // meeting's own tile takes it over.
+                            stopPreview();
+                            await openCamera();
+                            av.startLocalVideoTile();
+                        }
                     }
 
                     // The server finds or creates the Chime conference and
@@ -459,18 +538,30 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     async function toggleCamera() {
                         const next = !camera;
                         setCamera(next);
-                        const live = call.current;
-                        if (!live) return;
+                        setError("");
+
                         try {
-                            if (next) {
-                                await startCamera(live.av);
+                            if (!next) {
+                                if (call.current) call.current.av.stopLocalVideoTile();
+                                await closeCamera();
+                                return;
+                            }
+
+                            await openCamera();
+
+                            if (call.current) {
+                                stopPreview();
+                                call.current.av.startLocalVideoTile();
                             } else {
-                                live.av.stopLocalVideoTile();
-                                await live.av.stopVideoInput();
-                                setCameraLive(false);
+                                startPreview();
                             }
                         } catch (failure) {
-                            setError(failure.message || "The camera could not be changed.");
+                            // A refused permission or a camera another application
+                            // already holds. Put the button back rather than leaving
+                            // it on over a picture that is never going to arrive.
+                            setCamera(false);
+                            setCameraLive(false);
+                            setError(failure.message || "The camera could not be started.");
                         }
                     }
 

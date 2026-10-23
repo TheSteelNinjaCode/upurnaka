@@ -197,6 +197,10 @@ async fn joining_without_a_name_is_refused() {
 /// Asking to join with no provider configured is a server error naming the
 /// misconfiguration in the log — not a panic, and not a browser that waits
 /// forever on a call nobody is going to answer.
+///
+/// "No provider" is guaranteed rather than assumed: `chime::settings`
+/// returns `None` under `cfg(test)`, so this holds on a machine whose `.env`
+/// has a real media region in it, and the suite never calls AWS.
 #[tokio::test]
 async fn joining_without_a_provider_is_a_server_error() {
     let id = mint("Provider-less huddle").await;
