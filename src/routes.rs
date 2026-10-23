@@ -12,6 +12,8 @@ pub const PORT: u16 = 3000;
 /// Static asset root from rahti.config.json.
 pub const PUBLIC_DIR: &str = "public";
 
+#[path = "app/meet/error.rs"]
+mod e_meet;
 #[path = "app/layout.rs"]
 mod l_root;
 #[path = "app/activity/page.rs"]
@@ -28,6 +30,8 @@ mod p_communities;
 mod p_copilot;
 #[path = "app/meet/page.rs"]
 mod p_meet;
+#[path = "app/meet/j/[id]/page.rs"]
+mod p_meet_j_id;
 #[path = "app/people/page.rs"]
 mod p_people;
 #[path = "app/page.rs"]
@@ -39,6 +43,7 @@ const PAGE_RPCS: &[&str] = &[
     "create_community",
     "create_meeting",
     "create_meeting_link",
+    "delete_meeting_link",
     "invite_to_teams",
     "send_message",
 ];
@@ -105,6 +110,7 @@ async fn rpc_p_meet(req: axum::extract::Request) -> axum::response::Response {
     };
     match name.as_str() {
         "create_meeting_link" => p_meet::__rahti_rpc_create_meeting_link(req).await,
+        "delete_meeting_link" => p_meet::__rahti_rpc_delete_meeting_link(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -130,6 +136,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
         ::rahti::StaticRoute::fixed("/chat"),
         ::rahti::StaticRoute::fixed("/communities"),
         ::rahti::StaticRoute::fixed("/copilot"),
+        ::rahti::StaticRoute::undeclared(&["/meet/j/{id}"]),
         ::rahti::StaticRoute::fixed("/meet"),
         ::rahti::StaticRoute::fixed("/"),
         ::rahti::StaticRoute::fixed("/people"),
@@ -141,12 +148,13 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/` [GET, POST] — src/app/page.rs (layouts: src/app/layout.rs)
 /// - `/apps` [GET, POST] — src/app/apps/page.rs (layouts: src/app/layout.rs)
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message)
-/// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; rpc: create_meeting_link)
+/// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, delete_meeting_link)
 /// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: invite_to_teams)
 /// - `/copilot` [GET, POST] — src/app/copilot/page.rs (layouts: src/app/layout.rs)
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
+/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs)
 ///
 /// Every page above also answers the component rpcs, because a
 /// component posts to the page it was rendered on: save_usage_survey.
@@ -171,12 +179,6 @@ pub fn router() -> Router {
             "/chat",
             axum::routing::get(p_chat::page).layer(axum::middleware::map_response(|res| {
                 ::rahti::apply_metadata(p_chat::metadata(), res)
-            })),
-        )
-        .route(
-            "/meet",
-            axum::routing::get(p_meet::page).layer(axum::middleware::map_response(|res| {
-                ::rahti::apply_metadata(p_meet::metadata(), res)
             })),
         )
         .route(
@@ -223,6 +225,35 @@ pub fn router() -> Router {
         ))
         .layer(axum::middleware::from_fn(::rahti::auth_guard));
 
+    // src/app/layout.rs > src/app/meet/error.rs
+    let group_1 = Router::new()
+        .route(
+            "/meet",
+            axum::routing::get(p_meet::page).layer(axum::middleware::map_response(|res| {
+                ::rahti::apply_metadata(p_meet::metadata(), res)
+            })),
+        )
+        .route("/meet/j/{id}", axum::routing::get(p_meet_j_id::page))
+        .layer(tower_http::catch_panic::CatchPanicLayer::custom(
+            ::rahti::panic_response,
+        ))
+        .layer(axum::middleware::map_response(|res| {
+            ::rahti::apply_error(e_meet::error, res)
+        }))
+        .layer(axum::middleware::map_response(|res| {
+            ::rahti::apply_root_layout_metadata(
+                l_root::layout,
+                "layout_74cbcab0",
+                l_root::metadata(),
+                res,
+            )
+        }))
+        .layer(axum::middleware::from_fn_with_state(
+            ::rahti::request_pipeline::state(),
+            ::rahti::request_pipeline::middleware,
+        ))
+        .layer(axum::middleware::from_fn(::rahti::auth_guard));
+
     let rpc = Router::new()
         .route("/activity", axum::routing::post(rpc_components))
         .route("/apps", axum::routing::post(rpc_components))
@@ -230,6 +261,7 @@ pub fn router() -> Router {
         .route("/chat", axum::routing::post(rpc_p_chat))
         .route("/communities", axum::routing::post(rpc_p_communities))
         .route("/copilot", axum::routing::post(rpc_components))
+        .route("/meet/j/{id}", axum::routing::post(rpc_components))
         .route("/meet", axum::routing::post(rpc_p_meet))
         .route("/", axum::routing::post(rpc_components))
         .route("/people", axum::routing::post(rpc_p_people))
@@ -245,6 +277,7 @@ pub fn router() -> Router {
 
     Router::new()
         .merge(group_0)
+        .merge(group_1)
         .merge(rpc)
         // Optional authenticated Streamable HTTP MCP endpoint.
         .merge(::rahti::mcp::http_routes())

@@ -27,15 +27,8 @@ async fn a_malformed_message_payload_is_a_400() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
-/// Meet hands out the identifier, so the browser cannot invent one.
-#[tokio::test]
-async fn a_meeting_link_is_minted_by_the_server() {
-    let (status, body) = rpc("/meet", "create_meeting_link", r#"{"title":"Weekly sync"}"#).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert!(body.contains("https://meet.upurnaka.test/j/"), "{body}");
-    assert!(body.contains("Weekly sync"), "{body}");
-}
+// Meet's own round trips — minting a link, listing it, resolving it — are in
+// `meetings.rs`, which covers the store and the join route with them.
 
 /// The calendar parses the form's strings before the grid is allowed to show
 /// the meeting.

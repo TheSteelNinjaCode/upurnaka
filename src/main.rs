@@ -5,7 +5,7 @@
 //! left here is the part only a web deployment has: the public address, and a
 //! terminal to report to.
 
-use upurnaka::{initialize_application, rahti, routes};
+use upurnaka::{db, initialize_application, rahti, routes};
 
 #[tokio::main]
 async fn main() {
@@ -19,6 +19,31 @@ async fn main() {
             std::process::exit(1);
         }
     };
+
+    // `cargo run -- --migrate` applies pending migrations and stops.
+    //
+    // Deliberate, and behind an argument, because a server that changes a
+    // schema because somebody restarted it is a surprise — and the
+    // production version of that surprise is much worse. This is the branch
+    // docs/conventions/database.md asks for: one command, run by a person
+    // who meant to run it.
+    if std::env::args().any(|argument| argument == "--migrate") {
+        if !db::is_connected() {
+            eprintln!("rahti: no database is configured — set DATABASE_URL first.");
+            std::process::exit(1);
+        }
+
+        match db::migrate().await {
+            Ok(()) => println!("Migrations applied."),
+            Err(error) => {
+                eprintln!("rahti: {error}");
+                std::process::exit(1);
+            }
+        }
+
+        rahti::jobs::finish_shutdown().await;
+        return;
+    }
 
     // Static export runs this same startup and router without binding a
     // listener, so build-time HTML cannot drift from the live application.

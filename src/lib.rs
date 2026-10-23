@@ -23,6 +23,10 @@ pub mod db;
 pub mod migrations;
 pub mod models;
 
+/// Meeting links: the store behind Meet, and the seam a real meeting
+/// provider plugs into. Two pages need it, so it is not page-local.
+pub mod meetings;
+
 /// This application's tests, grouped by area under `src/tests/` and driven
 /// through the generated router. See docs/conventions/testing.md.
 #[cfg(test)]
@@ -52,7 +56,10 @@ pub struct StartupError {
 impl StartupError {
     #[allow(dead_code)]
     fn new(step: &'static str, message: impl Into<String>) -> Self {
-        StartupError { step, message: message.into() }
+        StartupError {
+            step,
+            message: message.into(),
+        }
     }
 }
 

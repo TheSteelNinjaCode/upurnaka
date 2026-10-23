@@ -8,5 +8,6 @@ mod support;
 use support::*;
 
 mod database;
+mod meetings;
 mod pages;
 mod rpc;
