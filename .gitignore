@@ -14,3 +14,9 @@
 *.db
 *.db-shm
 *.db-wal
+
+# The one-off vendoring tool's dependencies. `tools/vendor-chime-sdk.mjs`
+# and its package.json are committed; what npm downloads for them is not,
+# and nothing in `cargo run` needs it.
+/tools/node_modules
+/tools/package-lock.json

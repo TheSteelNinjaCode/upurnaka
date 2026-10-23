@@ -1,0 +1,16 @@
+{
+  "name": "upurnaka-tools",
+  "private": true,
+  "type": "module",
+  "description": "One-off vendoring for public/js/. Not part of building or running the application.",
+  "scripts": {
+    "vendor-chime": "node vendor-chime-sdk.mjs"
+  },
+  "devDependencies": {
+    "amazon-chime-sdk-js": "3.32.0",
+    "esbuild": "0.28.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

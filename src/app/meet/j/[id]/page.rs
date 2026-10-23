@@ -63,22 +63,49 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     </h1>
                     <p class="mt-1 text-[13px] text-muted">"Meeting ID "@{&code}</p>
                     <div
-                        class="mt-7 flex aspect-video w-full flex-col items-center justify-center gap-4 rounded-xl border border-edge bg-sunken"
+                        class="relative mt-7 flex aspect-video w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-xl border border-edge bg-sunken"
                     >
-                        <Avatar initials="JA" size="xl" presence="online" />
-                        <p class="text-[13px] text-muted" hidden={camera}>
-                            "Your camera is turned off"
-                        </p>
-                        <p class="text-[13px] text-muted" hidden={!camera}>
-                            "Camera preview appears here once a meeting provider is connected."
-                        </p>
+                        <span
+                            class="flex flex-col items-center gap-4"
+                            hidden={camera && cameraLive}
+                        >
+                            <Avatar initials="JA" size="xl" presence="online" />
+                            <span class="text-[13px] text-muted">
+                                {camera ? "Starting your camera…" : "Your camera is turned off"}
+                            </span>
+                        </span>
+                        <video
+                            pp-ref={localVideo}
+                            class="absolute inset-0 h-full w-full -scale-x-100 rounded-xl object-cover"
+                            hidden={!camera || !cameraLive}
+                            muted
+                            playsinline
+                        >
+                        </video>
                     </div>
+                    <div class="mt-4 grid grid-cols-4 gap-3" hidden={remoteCount === 0}>
+                        <template pp-for="slot in remoteSlots">
+                            <div
+                                key={slot.index}
+                                class="relative aspect-video overflow-hidden rounded-lg border border-edge bg-sunken"
+                                hidden={!slot.active}
+                            >
+                                <video
+                                    pp-ref={slot.ref}
+                                    class="h-full w-full object-cover"
+                                    playsinline
+                                >
+                                </video>
+                            </div>
+                        </template>
+                    </div>
+                    <audio pp-ref={meetingAudio} class="hidden"></audio>
                     <div class="mt-5 flex items-center justify-center gap-3">
                         <button
                             type="button"
                             class={microphone ? CONTROL_ON : CONTROL_OFF}
                             aria-pressed={microphone}
-                            onclick={setMicrophone(on => !on)}
+                            onclick={toggleMicrophone()}
                         >
                             <span class="flex" hidden={!microphone}>
                                 <Icon name="mic" class="h-[18px] w-[18px]" />
@@ -92,7 +119,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             type="button"
                             class={camera ? CONTROL_ON : CONTROL_OFF}
                             aria-pressed={camera}
-                            onclick={setCamera(on => !on)}
+                            onclick={toggleCamera()}
                         >
                             <span class="flex" hidden={!camera}>
                                 <Icon name="video" class="h-[18px] w-[18px]" />
@@ -183,13 +210,46 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const code = @{Json(&code)};
                     const providerReady = @{Json(&provider_ready)};
 
+                    // The SDK is a megabyte, so it is imported inside the join
+                    // rather than on the page, and only the elements it is
+                    // handed are ever touched by it: re-renders leave their
+                    // srcObject alone because nothing below re-creates them.
+                    const SDK_URL = "/js/vendor/amazon-chime-sdk.js";
+                    const REMOTE_SLOTS = 4;
+
+                    const localVideo = pp.ref(null);
+                    const meetingAudio = pp.ref(null);
+                    const remote0 = pp.ref(null);
+                    const remote1 = pp.ref(null);
+                    const remote2 = pp.ref(null);
+                    const remote3 = pp.ref(null);
+                    const remoteRefs = [remote0, remote1, remote2, remote3];
+
+                    // The live call. A ref, not state: a re-render must never
+                    // rebuild a meeting session, and nothing in the markup
+                    // reads it.
+                    const call = pp.ref(null);
+                    const tileSlots = pp.ref(new Map());
+                    // Filled in when the SDK loads, so the stop handler can
+                    // read the enum without importing the module again.
+                    const statusCodes = pp.ref(null);
+
                     const [microphone, setMicrophone] = pp.state(true);
                     const [camera, setCamera] = pp.state(false);
+                    const [cameraLive, setCameraLive] = pp.state(false);
+                    const [remoteTiles, setRemoteTiles] = pp.state([false, false, false, false]);
                     const [displayName, setDisplayName] = pp.state("Jefferson Abraham");
                     const [joining, setJoining] = pp.state(false);
                     const [session, setSession] = pp.state(null);
                     const [error, setError] = pp.state("");
                     const [toast, setToast] = pp.state("");
+
+                    const remoteCount = remoteTiles.filter(Boolean).length;
+                    const remoteSlots = remoteRefs.map((ref, index) => ({
+                        index,
+                        ref,
+                        active: remoteTiles[index],
+                    }));
 
                     // Read off the session for the panel, because a binding
                     // renders text and `session.Meeting.MeetingId` on a null
@@ -214,6 +274,153 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         }
                     }
 
+                    // Chime hands a tile update for every camera in the
+                    // meeting, local and remote. Wrapped in pp.event because
+                    // the SDK keeps these for the life of the call and they
+                    // have to read the state of the render they run in, not
+                    // the one that registered them.
+                    const onTileUpdate = pp.event((tile) => {
+                        const live = call.current;
+                        if (!live || !tile.boundAttendeeId) return;
+
+                        if (tile.localTile) {
+                            if (localVideo.current) {
+                                live.av.bindVideoElement(tile.tileId, localVideo.current);
+                                setCameraLive(true);
+                            }
+                            return;
+                        }
+
+                        let slot = tileSlots.current.get(tile.tileId);
+                        if (slot === undefined) {
+                            slot = remoteTiles.findIndex(
+                                (taken, index) =>
+                                    !taken && !hasSlot(index),
+                            );
+                            // Four tiles on screen is what this layout holds.
+                            // A fifth camera is in the meeting and audible,
+                            // it simply is not shown.
+                            if (slot < 0) return;
+                            tileSlots.current.set(tile.tileId, slot);
+                        }
+
+                        const element = remoteRefs[slot].current;
+                        if (element) live.av.bindVideoElement(tile.tileId, element);
+                        setRemoteTiles((current) => withSlot(current, slot, true));
+                    });
+
+                    const onTileRemoved = pp.event((tileId) => {
+                        const slot = tileSlots.current.get(tileId);
+                        if (slot === undefined) return;
+                        tileSlots.current.delete(tileId);
+                        setRemoteTiles((current) => withSlot(current, slot, false));
+                    });
+
+                    // Chime ended the call from its side — the meeting was
+                    // deleted, or the connection could not be recovered.
+                    // Chime ended the session from its side. "Left" is this
+                    // browser's own `leave()` coming back around, and the
+                    // reader does not need to be told what they just did.
+                    const onAudioVideoStop = pp.event((sessionStatus) => {
+                        const code = sessionStatus.statusCode();
+                        const codes = statusCodes.current;
+                        if (codes && code === codes.Left) return;
+
+                        teardown();
+                        setSession(null);
+                        setError(
+                            codes && code === codes.MeetingEnded
+                                ? "The meeting ended."
+                                : "The connection to the meeting was lost.",
+                        );
+                    });
+
+                    function hasSlot(index) {
+                        for (const taken of tileSlots.current.values()) {
+                            if (taken === index) return true;
+                        }
+                        return false;
+                    }
+
+                    function withSlot(slots, index, value) {
+                        const next = slots.slice();
+                        next[index] = value;
+                        return next;
+                    }
+
+                    // Everything the SDK holds: microphone, camera, the
+                    // peer connection. Best effort, because this also runs
+                    // when the component is going away and a throw there
+                    // would leave the rest unreleased.
+                    const teardown = pp.event(async () => {
+                        const live = call.current;
+                        call.current = null;
+                        tileSlots.current = new Map();
+                        setCameraLive(false);
+                        setRemoteTiles([false, false, false, false]);
+                        if (!live) return;
+
+                        try {
+                            live.av.stopLocalVideoTile();
+                            await live.av.stopVideoInput();
+                            await live.av.stopAudioInput();
+                            live.av.stop();
+                        } catch (failure) {
+                            // Leaving a call that is already gone is not a
+                            // failure anybody needs to hear about.
+                        }
+                    });
+
+                    async function startCamera(av) {
+                        const cameras = await av.listVideoInputDevices();
+                        if (cameras.length === 0) {
+                            setError("No camera was found.");
+                            return;
+                        }
+                        await av.startVideoInput(cameras[0].deviceId);
+                        av.startLocalVideoTile();
+                    }
+
+                    // Open the audio and video session Chime just gave us a
+                    // seat in.
+                    async function connect(info) {
+                        const sdk = await import(SDK_URL);
+                        statusCodes.current = sdk.MeetingSessionStatusCode;
+
+                        const logger = new sdk.ConsoleLogger("upurnaka", sdk.LogLevel.WARN);
+                        const devices = new sdk.DefaultDeviceController(logger);
+                        const configuration = new sdk.MeetingSessionConfiguration(
+                            info.meeting,
+                            info.attendee,
+                        );
+                        const meetingSession = new sdk.DefaultMeetingSession(
+                            configuration,
+                            logger,
+                            devices,
+                        );
+                        const av = meetingSession.audioVideo;
+
+                        av.addObserver({
+                            videoTileDidUpdate: onTileUpdate,
+                            videoTileWasRemoved: onTileRemoved,
+                            audioVideoDidStop: onAudioVideoStop,
+                        });
+
+                        const microphones = await av.listAudioInputDevices();
+                        if (microphones.length > 0) {
+                            await av.startAudioInput(microphones[0].deviceId);
+                        }
+                        if (meetingAudio.current) {
+                            await av.bindAudioElement(meetingAudio.current);
+                        }
+
+                        call.current = { session: meetingSession, av };
+                        av.start();
+
+                        if (!microphone) av.realtimeMuteLocalAudio();
+                        if (camera) await startCamera(av);
+                    }
+
                     // The server finds or creates the Chime conference and
                     // mints this person's seat. The join token in the reply
                     // is a credential for this browser and this attendee —
@@ -227,17 +434,59 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 id: code,
                                 display_name: displayName,
                             });
+                            await connect(info);
                             setSession(info);
                         } catch (failure) {
+                            await teardown();
                             setError(failure.message || "The meeting could not be joined.");
                         } finally {
                             setJoining(false);
                         }
                     }
 
-                    function leave() {
+                    async function toggleMicrophone() {
+                        const next = !microphone;
+                        setMicrophone(next);
+                        const live = call.current;
+                        if (!live) return;
+                        if (next) {
+                            live.av.realtimeUnmuteLocalAudio();
+                        } else {
+                            live.av.realtimeMuteLocalAudio();
+                        }
+                    }
+
+                    async function toggleCamera() {
+                        const next = !camera;
+                        setCamera(next);
+                        const live = call.current;
+                        if (!live) return;
+                        try {
+                            if (next) {
+                                await startCamera(live.av);
+                            } else {
+                                live.av.stopLocalVideoTile();
+                                await live.av.stopVideoInput();
+                                setCameraLive(false);
+                            }
+                        } catch (failure) {
+                            setError(failure.message || "The camera could not be changed.");
+                        }
+                    }
+
+                    async function leave() {
+                        await teardown();
                         setSession(null);
                     }
+
+                    // Navigating away mid-call must release the microphone
+                    // and camera, or the browser keeps showing this tab as
+                    // recording.
+                    pp.effect(() => {
+                        return () => {
+                            teardown();
+                        };
+                    }, []);
                 "##</script>
             </main>
         </AppShell>
