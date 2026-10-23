@@ -158,6 +158,55 @@ async fn a_revoked_link_stops_resolving_and_stops_being_listed() {
     );
 }
 
+/// The pre-join screen says plainly when no provider is wired, rather than
+/// offering a call there is nothing behind. The suite runs with no
+/// `CHIME_MEDIA_REGION`, so this is the state it sees.
+#[tokio::test]
+async fn the_join_page_says_when_no_provider_is_configured() {
+    let id = mint("Unprovisioned sync").await;
+
+    let (status, body) = get(&format!("/meet/j/{id}")).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("No meeting provider is configured"), "{body}");
+    assert!(body.contains("CHIME_MEDIA_REGION"), "{body}");
+}
+
+/// The join RPC is a second front door onto a meeting, so it checks the code
+/// the way the page does: an unknown one is a 404 before any provider call.
+#[tokio::test]
+async fn joining_an_unknown_code_is_refused() {
+    let payload = r#"{"id":"nosuchmeeting00","display_name":"Ada"}"#;
+    let (status, _) = rpc("/meet/j/nosuchmeeting00", "join_meeting", payload).await;
+
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// A seat needs a name on it.
+#[tokio::test]
+async fn joining_without_a_name_is_refused() {
+    let id = mint("Nameless attendee").await;
+
+    let payload = format!("{{\"id\":\"{id}\",\"display_name\":\"  \"}}");
+    let (status, body) = rpc(&format!("/meet/j/{id}"), "join_meeting", &payload).await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body.contains("display_name"), "{body}");
+}
+
+/// Asking to join with no provider configured is a server error naming the
+/// misconfiguration in the log — not a panic, and not a browser that waits
+/// forever on a call nobody is going to answer.
+#[tokio::test]
+async fn joining_without_a_provider_is_a_server_error() {
+    let id = mint("Provider-less huddle").await;
+
+    let payload = format!("{{\"id\":\"{id}\",\"display_name\":\"Ada Lovelace\"}}");
+    let (status, _) = rpc(&format!("/meet/j/{id}"), "join_meeting", &payload).await;
+
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+}
+
 /// Revoking without an id is a 422 naming it.
 #[tokio::test]
 async fn revoking_nothing_is_refused() {

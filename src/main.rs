@@ -87,12 +87,12 @@ async fn main() {
         app.router
             .into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-        .with_graceful_shutdown(async {
-            rahti::shutdown_signal().await;
-            println!("\nShutting down...");
-        })
-        .await
-        .unwrap();
+    .with_graceful_shutdown(async {
+        rahti::shutdown_signal().await;
+        println!("\nShutting down...");
+    })
+    .await
+    .unwrap();
 
     // HTTP has stopped accepting work. Finish jobs already accepted during
     // the request drain, bounded by each queue's shutdown grace period.

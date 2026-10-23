@@ -45,6 +45,7 @@ const PAGE_RPCS: &[&str] = &[
     "create_meeting_link",
     "delete_meeting_link",
     "invite_to_teams",
+    "join_meeting",
     "send_message",
 ];
 
@@ -102,6 +103,18 @@ async fn rpc_p_communities(req: axum::extract::Request) -> axum::response::Respo
     }
 }
 
+/// The rpcs of src/app/meet/j/[id]/page.rs, reached by POST on its own URL.
+async fn rpc_p_meet_j_id(req: axum::extract::Request) -> axum::response::Response {
+    let name = match ::rahti::rpc_name(req.headers()) {
+        Ok(name) => name,
+        Err(res) => return res,
+    };
+    match name.as_str() {
+        "join_meeting" => p_meet_j_id::__rahti_rpc_join_meeting(req).await,
+        _ => component_rpc(&name, req).await,
+    }
+}
+
 /// The rpcs of src/app/meet/page.rs, reached by POST on its own URL.
 async fn rpc_p_meet(req: axum::extract::Request) -> axum::response::Response {
     let name = match ::rahti::rpc_name(req.headers()) {
@@ -154,7 +167,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
-/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs)
+/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting)
 ///
 /// Every page above also answers the component rpcs, because a
 /// component posts to the page it was rendered on: save_usage_survey.
@@ -261,7 +274,7 @@ pub fn router() -> Router {
         .route("/chat", axum::routing::post(rpc_p_chat))
         .route("/communities", axum::routing::post(rpc_p_communities))
         .route("/copilot", axum::routing::post(rpc_components))
-        .route("/meet/j/{id}", axum::routing::post(rpc_components))
+        .route("/meet/j/{id}", axum::routing::post(rpc_p_meet_j_id))
         .route("/meet", axum::routing::post(rpc_p_meet))
         .route("/", axum::routing::post(rpc_components))
         .route("/people", axum::routing::post(rpc_p_people))

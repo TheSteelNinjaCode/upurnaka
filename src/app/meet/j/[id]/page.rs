@@ -4,9 +4,18 @@
 //! all — somebody who was sent one opens it here, sets their camera and
 //! microphone the way they want them, and joins.
 //!
-//! The call itself is not connected yet. `crate::meetings::provision` is the
-//! seam a real provider plugs into, and until one does, "Join now" puts the
-//! reader in the lobby and says so rather than pretending.
+//! "Join now" calls [`join_meeting`], which reaches AWS Chime SDK Meetings
+//! through `crate::meetings::join`: a conference is found or created for this
+//! link and a seat in it is minted for this person. What comes back is a
+//! `MeetingSessionConfiguration`'s two arguments, ready for
+//! `amazon-chime-sdk-js` to open audio and video with.
+//!
+//! The media client itself is not loaded here yet — see the note in the
+//! connected panel below. Everything up to it is live, so a join either
+//! produces real Chime credentials or a real failure.
+//!
+//! With no `CHIME_MEDIA_REGION` configured there is no provider, and the
+//! button says so instead of calling one.
 
 use axum::extract::Path;
 use axum::http::StatusCode;
@@ -14,8 +23,8 @@ use axum::http::StatusCode;
 use crate::components::app_shell::AppShell;
 use crate::components::avatar::Avatar;
 use crate::components::icon::Icon;
-use crate::meetings;
-use crate::rahti::{Error, Html, Json, Metadata, Page, Result, html};
+use crate::meetings::{self, JoinInfo, chime};
+use crate::rahti::{Error, Html, Json, Metadata, Page, Result, Validator, html, rpc};
 
 pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
     // A revoked link and a code nobody ever minted read the same from here,
@@ -30,6 +39,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
     let title = link.title.clone();
     let code = link.id.clone();
+
+    // Decided on the server, because it is a deployment fact rather than
+    // something the browser could discover: with no provider configured the
+    // button must not pretend there is a call to join.
+    let provider_ready = chime::is_configured();
 
     let content = html! {
         <AppShell active="meet">
@@ -89,38 +103,68 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             {camera ? "Camera on" : "Camera off"}
                         </button>
                     </div>
-                    <div class="mt-7 flex items-center justify-center gap-3" hidden={joined}>
-                        <button
-                            type="button"
-                            class="h-10 rounded-md bg-brand px-8 text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover"
-                            onclick={setJoined(true)}
-                        >
-                            "Join now"
-                        </button>
-                        <button
-                            type="button"
-                            class="flex h-10 items-center gap-2 rounded-md border border-edge bg-raised px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                            onclick={share()}
-                        >
-                            <Icon name="copy" class="h-4 w-4" />
-                            "Copy link"
-                        </button>
+                    <div class="mt-7 flex flex-col items-center gap-4" hidden={session !== null}>
+                        <label class="flex items-center gap-3 text-[13px] text-muted">
+                            "Your name"
+                            <input
+                                name="display_name"
+                                type="text"
+                                class="h-9 w-[260px] rounded border border-edge bg-raised px-3 text-[13px] text-ink placeholder:text-subtle focus:border-brand focus:outline-none"
+                                autocomplete="name"
+                                value={displayName}
+                                oninput={setDisplayName(target.value)}
+                            />
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <button
+                                type="button"
+                                class="h-10 rounded-md bg-brand px-8 text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
+                                disabled={!providerReady || joining || displayName.trim().length === 0}
+                                onclick={joinNow()}
+                            >
+                                {joining ? "Joining…" : "Join now"}
+                            </button>
+                            <button
+                                type="button"
+                                class="flex h-10 items-center gap-2 rounded-md border border-edge bg-raised px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
+                                onclick={share()}
+                            >
+                                <Icon name="copy" class="h-4 w-4" />
+                                "Copy link"
+                            </button>
+                        </div>
+                        <p class="text-xs text-busy" hidden={!error}>{error}</p>
+                        <p class="text-xs text-subtle" hidden={providerReady}>
+                            "No meeting provider is configured, so this link has no call behind it. Set CHIME_MEDIA_REGION to connect one."
+                        </p>
                     </div>
                     <div
-                        class="mt-7 rounded-lg border border-edge bg-raised px-6 py-5 text-center"
-                        hidden={!joined}
+                        class="mt-7 rounded-lg border border-edge bg-raised px-6 py-5"
+                        hidden={session === null}
                     >
-                        <p class="text-[15px] font-semibold text-ink">"You're in the lobby"</p>
-                        <p class="mt-2 text-[13px] text-muted">
-                            "The link resolves and the meeting is real, but no call is dialled yet — a meeting provider has still to be connected."
+                        <p class="text-center text-[15px] font-semibold text-ink">
+                            "Connected to the meeting"
                         </p>
-                        <button
-                            type="button"
-                            class="mt-5 h-9 rounded-md border border-edge bg-surface px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                            onclick={setJoined(false)}
-                        >
-                            "Leave"
-                        </button>
+                        <dl class="mx-auto mt-5 grid max-w-[520px] grid-cols-2 gap-y-2 text-[13px]">
+                            <dt class="text-muted">"Conference"</dt>
+                            <dd class="truncate text-right text-ink">{conferenceId}</dd>
+                            <dt class="text-muted">"Media region"</dt>
+                            <dd class="truncate text-right text-ink">{mediaRegion}</dd>
+                            <dt class="text-muted">"You are"</dt>
+                            <dd class="truncate text-right text-ink">{attendeeName}</dd>
+                        </dl>
+                        <p class="mt-5 text-center text-xs text-subtle">
+                            "Chime has the conference and this seat in it. Audio and video still need amazon-chime-sdk-js loaded in the page."
+                        </p>
+                        <p class="mt-5 text-center">
+                            <button
+                                type="button"
+                                class="h-9 rounded-md border border-edge bg-surface px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
+                                onclick={leave()}
+                            >
+                                "Leave"
+                            </button>
+                        </p>
                     </div>
                 </div>
                 <div
@@ -136,11 +180,23 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const CONTROL_OFF = "flex h-10 items-center gap-2 rounded-md border border-busy bg-busy/15 px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-busy/25";
 
                     const url = @{Json(&link.url)};
+                    const code = @{Json(&code)};
+                    const providerReady = @{Json(&provider_ready)};
 
                     const [microphone, setMicrophone] = pp.state(true);
                     const [camera, setCamera] = pp.state(false);
-                    const [joined, setJoined] = pp.state(false);
+                    const [displayName, setDisplayName] = pp.state("Jefferson Abraham");
+                    const [joining, setJoining] = pp.state(false);
+                    const [session, setSession] = pp.state(null);
+                    const [error, setError] = pp.state("");
                     const [toast, setToast] = pp.state("");
+
+                    // Read off the session for the panel, because a binding
+                    // renders text and `session.Meeting.MeetingId` on a null
+                    // session would throw during the render that hides it.
+                    const conferenceId = session ? session.meeting.MeetingId : "";
+                    const mediaRegion = session ? session.meeting.MediaRegion : "";
+                    const attendeeName = session ? session.attendee.ExternalUserId : "";
 
                     pp.effect(() => {
                         if (!toast) return;
@@ -157,6 +213,31 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             setToast("Copy the link from the address bar: " + absolute);
                         }
                     }
+
+                    // The server finds or creates the Chime conference and
+                    // mints this person's seat. The join token in the reply
+                    // is a credential for this browser and this attendee —
+                    // it stays in this state and goes nowhere else.
+                    async function joinNow() {
+                        if (joining) return;
+                        setJoining(true);
+                        setError("");
+                        try {
+                            const info = await pp.rpc("join_meeting", {
+                                id: code,
+                                display_name: displayName,
+                            });
+                            setSession(info);
+                        } catch (failure) {
+                            setError(failure.message || "The meeting could not be joined.");
+                        } finally {
+                            setJoining(false);
+                        }
+                    }
+
+                    function leave() {
+                        setSession(null);
+                    }
                 "##</script>
             </main>
         </AppShell>
@@ -168,4 +249,25 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             .title(&title)
             .description(format!("Join {title} on upurnaka.")),
     ))
+}
+
+/// Take a seat in the conference behind a meeting link.
+///
+/// The join code is checked the same way the page checked it: a revoked or
+/// unknown one is a 404 here too, because an RPC a browser can call is a
+/// second front door and guarding only the page would leave it open.
+#[rpc]
+pub async fn join_meeting(id: String, display_name: String) -> Result<JoinInfo> {
+    let id = id.trim().to_string();
+    let display_name = display_name.trim().to_string();
+
+    let mut validator = Validator::new();
+    validator
+        .required("id", &id)
+        .max_chars("id", &id, 64)
+        .required("display_name", &display_name)
+        .max_chars("display_name", &display_name, 64);
+    validator.finish()?;
+
+    meetings::join(&id, &display_name).await
 }

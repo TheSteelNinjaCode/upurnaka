@@ -25,6 +25,15 @@ pub struct Model {
     pub created_at: DateTimeUtc,
     /// When the organizer revoked it, UTC. `None` while the link still works.
     pub revoked_at: Option<DateTimeUtc>,
+    /// The Chime meeting currently behind this link, if there is one.
+    ///
+    /// Nullable, and expected to be null most of the time. A Chime meeting
+    /// ends when the last attendee leaves; the link outlives it and gets a
+    /// fresh conference the next time somebody joins. This column is a cache
+    /// of which one is live, never the authority for whether the link is.
+    pub provider_meeting_id: Option<String>,
+    /// The media region that conference was created in.
+    pub media_region: Option<String>,
 }
 
 /// Nothing points at this table yet. The empty enum is how that is written.

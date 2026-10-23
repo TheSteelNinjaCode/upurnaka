@@ -36,6 +36,8 @@ tower-http = { version = "0.7", features = ["catch-panic", "fs"] }
 # a version bump is a version bump.
 sea-orm = { version = "2", default-features = false, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
 sea-orm-migration = { version = "2", default-features = false, features = ["runtime-tokio-rustls", "sqlx-postgres"] }
+aws-config = { version = "1.13.0", features = ["behavior-version-latest"] }
+aws-sdk-chimesdkmeetings = "1.119.0"
 
 # What `src/tests/support.rs` needs to drive the generated router in-process:
 # a request in, a response out, no port bound. See docs/conventions/testing.md.

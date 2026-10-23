@@ -6,16 +6,22 @@
 //! than in `page.rs`, because two pages need them: `/meet` lists and mints,
 //! `/meet/j/{id}` resolves.
 //!
-//! ## The provider seam
+//! ## Two lifetimes
 //!
-//! [`provision`] is the one function that knows how a meeting comes into
-//! existence. Today it mints an identifier and nothing else: there is no call
-//! to join yet, only a URL that resolves to a lobby. When a real provider
-//! arrives — AWS Chime SDK Meetings is the obvious candidate — it is that
-//! function that calls it and returns what the provider hands back, and
-//! [`Provisioned`] that grows the fields to carry it. Validation, storage,
-//! the list, the join route and the revoke are already in place around it and
-//! do not change.
+//! A meeting *link* and a *conference* are not the same thing, and keeping
+//! them apart is most of what this module does.
+//!
+//! The link is this application's: a join code, a title, a row, reusable for
+//! as long as the organizer wants it. The conference is AWS Chime SDK
+//! Meetings' (see [`chime`]): it exists while people are in it and Chime
+//! cleans it up after the last one leaves. So a link spends most of its life
+//! with no conference behind it, and [`join`] is where one is found or made.
+//! `provider_meeting_id` on the row is a cache of which conference is live,
+//! never the authority for whether the link is.
+//!
+//! With no `CHIME_MEDIA_REGION` configured there is no provider, and a link
+//! is still a link: it mints, lists, resolves and revokes, and the lobby says
+//! so rather than pretending.
 //!
 //! ## Where rows live
 //!
@@ -26,6 +32,8 @@
 //! moment a connection string is configured and `db::migrate()` has run, the
 //! same calls write rows.
 
+pub mod chime;
+
 use std::sync::{Mutex, OnceLock};
 
 use serde::Serialize;
@@ -33,6 +41,7 @@ use serde::Serialize;
 use crate::db;
 use crate::models::meeting_link;
 use crate::rahti::time::{self, DateTime, Utc};
+use crate::rahti::{Error, Result};
 
 /// A meeting link, in the shape the browser is given it.
 ///
@@ -54,40 +63,40 @@ pub struct MeetingLink {
     pub created_at: DateTime<Utc>,
 }
 
-/// What a provider hands back when a meeting is created.
+/// Everything one browser needs to connect to a conference.
 ///
-/// One field today. A provider that returns a conference id, a region, a
-/// media placement or a set of attendee credentials adds them here, and
-/// [`create`] decides which of them are worth a column.
-pub struct Provisioned {
-    /// The identifier the join URL carries.
-    pub id: String,
-}
-
-/// Bring a meeting into existence.
-///
-/// The identifier is the server's to hand out. A browser that picked its own
-/// could collide with somebody else's meeting, and a guessable one is a
-/// meeting strangers can walk into, so both halves of that — the round trip
-/// and the entropy — are the point even while nothing is dialled yet.
-async fn provision(_title: &str) -> crate::rahti::Result<Provisioned> {
-    Ok(Provisioned { id: mint_id() })
+/// The two fields are `amazon-chime-sdk-js`'s own arguments, in its own
+/// shape: `new MeetingSessionConfiguration(meeting, attendee)`.
+#[derive(Debug, Serialize)]
+pub struct JoinInfo {
+    pub meeting: chime::MeetingResponse,
+    pub attendee: chime::AttendeeResponse,
 }
 
 /// Mint a link and keep it.
-pub async fn create(title: String) -> crate::rahti::Result<MeetingLink> {
-    let provisioned = provision(&title).await?;
+///
+/// No conference yet. Chime bills and reaps by conference, and a link that
+/// nobody has opened should cost nothing and expire from nothing — so the
+/// provider is not called until somebody actually arrives.
+pub async fn create(title: String) -> Result<MeetingLink> {
     let now = Utc::now();
+
+    // The identifier is the server's to hand out. A browser that picked its
+    // own could collide with somebody else's meeting, and a guessable one is
+    // a meeting strangers can walk into.
+    let id = mint_id();
 
     if db::is_connected() {
         use sea_orm::ActiveModelTrait;
         use sea_orm::ActiveValue::Set;
 
         let saved = meeting_link::ActiveModel {
-            id: Set(provisioned.id),
+            id: Set(id),
             title: Set(title),
             created_at: Set(now),
             revoked_at: Set(None),
+            provider_meeting_id: Set(None),
+            media_region: Set(None),
         }
         .insert(db::db())
         .await?;
@@ -96,17 +105,19 @@ pub async fn create(title: String) -> crate::rahti::Result<MeetingLink> {
     }
 
     let row = meeting_link::Model {
-        id: provisioned.id,
+        id,
         title,
         created_at: now,
         revoked_at: None,
+        provider_meeting_id: None,
+        media_region: None,
     };
     memory().lock().unwrap().push(row.clone());
     Ok(shown(row))
 }
 
 /// Every link this account still owns, newest first.
-pub async fn list() -> crate::rahti::Result<Vec<MeetingLink>> {
+pub async fn list() -> Result<Vec<MeetingLink>> {
     if db::is_connected() {
         use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 
@@ -135,15 +146,20 @@ pub async fn list() -> crate::rahti::Result<Vec<MeetingLink>> {
 /// A revoked link reads the same as one that never existed. Telling a
 /// stranger which of the two they found is a fact about this account they
 /// have no claim on.
-pub async fn find(id: &str) -> crate::rahti::Result<Option<MeetingLink>> {
+pub async fn find(id: &str) -> Result<Option<MeetingLink>> {
+    Ok(row(id).await?.map(shown))
+}
+
+/// The stored row behind a live join code.
+async fn row(id: &str) -> Result<Option<meeting_link::Model>> {
     if db::is_connected() {
         use sea_orm::EntityTrait;
 
-        let row = meeting_link::Entity::find_by_id(id.to_string())
+        let found = meeting_link::Entity::find_by_id(id.to_string())
             .one(db::db())
             .await?;
 
-        return Ok(row.filter(|row| row.revoked_at.is_none()).map(shown));
+        return Ok(found.filter(|row| row.revoked_at.is_none()));
     }
 
     Ok(memory()
@@ -151,30 +167,116 @@ pub async fn find(id: &str) -> crate::rahti::Result<Option<MeetingLink>> {
         .unwrap()
         .iter()
         .find(|row| row.id == id && row.revoked_at.is_none())
-        .cloned()
-        .map(shown))
+        .cloned())
+}
+
+/// Connect somebody to the conference behind a link, making one if there is
+/// none live.
+///
+/// This is the only place the provider is reached for a join, and the only
+/// place a join token is minted. The token is this caller's alone: it is
+/// returned to the browser that asked and is never stored, logged or reused.
+pub async fn join(id: &str, display_name: &str) -> Result<JoinInfo> {
+    let Some(row) = row(id).await? else {
+        return Err(Error::public(
+            axum::http::StatusCode::NOT_FOUND,
+            "That meeting link is no longer available. Ask the organizer for a new one.",
+        ));
+    };
+
+    let meeting = conference_for(&row).await?;
+    let attendee = chime::create_attendee(&meeting.meeting_id, &attendee_id(display_name)).await?;
+
+    Ok(JoinInfo { meeting, attendee })
+}
+
+/// The live conference behind a link: the one it remembers, or a new one.
+///
+/// Three outcomes, and the middle one is the common one. The row names a
+/// conference and Chime still has it — reuse. The row names one Chime has
+/// cleaned up, or names none at all — create, and remember which. Both
+/// writes are best-effort against the row, because the conference is already
+/// real by then and failing the join over a cache update would be worse than
+/// looking it up again next time.
+async fn conference_for(row: &meeting_link::Model) -> Result<chime::MeetingResponse> {
+    if let Some(existing) = &row.provider_meeting_id {
+        if let Some(meeting) = chime::meeting_or_none(existing).await? {
+            return Ok(meeting);
+        }
+    }
+
+    let meeting = chime::create_meeting(&row.id).await?;
+    remember_conference(
+        &row.id,
+        Some(&meeting.meeting_id),
+        Some(&meeting.media_region),
+    )
+    .await;
+    Ok(meeting)
+}
+
+/// Record which conference a link is currently pointing at.
+///
+/// Deliberately infallible from the caller's side: this is a cache of the
+/// provider's state, and the provider is the authority. A failed write costs
+/// one extra `GetMeeting` later.
+async fn remember_conference(id: &str, meeting_id: Option<&str>, media_region: Option<&str>) {
+    if db::is_connected() {
+        use sea_orm::ActiveModelTrait;
+        use sea_orm::ActiveValue::{Set, Unchanged};
+
+        let update = meeting_link::ActiveModel {
+            id: Unchanged(id.to_string()),
+            provider_meeting_id: Set(meeting_id.map(str::to_string)),
+            media_region: Set(media_region.map(str::to_string)),
+            ..Default::default()
+        }
+        .update(db::db())
+        .await;
+
+        if let Err(error) = update {
+            eprintln!("meetings: could not record the conference for {id}: {error}");
+        }
+        return;
+    }
+
+    if let Some(row) = memory().lock().unwrap().iter_mut().find(|row| row.id == id) {
+        row.provider_meeting_id = meeting_id.map(str::to_string);
+        row.media_region = media_region.map(str::to_string);
+    }
 }
 
 /// Revoke a link. `false` when there was nothing to revoke.
-pub async fn revoke(id: &str) -> crate::rahti::Result<bool> {
+///
+/// Ends the conference as well as the link. Somebody who was handed this URL
+/// is in the meeting *because of it*, so taking the link away and leaving
+/// them connected would revoke nothing that matters.
+pub async fn revoke(id: &str) -> Result<bool> {
     let now = Utc::now();
 
+    let Some(row) = row(id).await? else {
+        return Ok(false);
+    };
+
+    if let Some(meeting_id) = &row.provider_meeting_id {
+        if chime::is_configured() {
+            chime::delete_meeting(meeting_id).await?;
+        }
+    }
+
     if db::is_connected() {
-        use sea_orm::ActiveValue::Set;
-        use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel};
+        use sea_orm::ActiveModelTrait;
+        use sea_orm::ActiveValue::{Set, Unchanged};
 
-        let found = meeting_link::Entity::find_by_id(id.to_string())
-            .one(db::db())
-            .await?
-            .filter(|row| row.revoked_at.is_none());
+        meeting_link::ActiveModel {
+            id: Unchanged(row.id),
+            revoked_at: Set(Some(now)),
+            provider_meeting_id: Set(None),
+            ..Default::default()
+        }
+        .update(db::db())
+        .await?;
 
-        let Some(row) = found else {
-            return Ok(false);
-        };
-
-        let mut active = row.into_active_model();
-        active.revoked_at = Set(Some(now));
-        active.update(db::db()).await?;
         return Ok(true);
     }
 
@@ -187,7 +289,26 @@ pub async fn revoke(id: &str) -> crate::rahti::Result<bool> {
         return Ok(false);
     };
     row.revoked_at = Some(now);
+    row.provider_meeting_id = None;
     Ok(true)
+}
+
+/// A Chime `ExternalUserId` for one person arriving at one meeting.
+///
+/// Chime allows 2–64 characters and treats this as opaque, so it carries the
+/// display name for the benefit of anyone reading an attendee list, plus a
+/// nonce: two people called "Jefferson Abraham" in one meeting are two
+/// attendees, and the same person in two tabs is as well.
+fn attendee_id(display_name: &str) -> String {
+    let name: String = display_name
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '-')
+        .take(40)
+        .collect();
+    let name = name.trim();
+    let name = if name.is_empty() { "Guest" } else { name };
+
+    format!("{name}#{}", &mint_id()[..8])
 }
 
 /// A stored row, as the browser is shown it.

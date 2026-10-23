@@ -9,6 +9,7 @@
 
 pub mod m20260101_000001_create_todo;
 pub mod m20261022_000001_create_meeting_link;
+pub mod m20261022_000002_add_meeting_provider;
 
 /// The application's migrations, in the order they are applied.
 pub struct Migrator;
@@ -18,6 +19,7 @@ impl ::sea_orm_migration::MigratorTrait for Migrator {
         vec![
             Box::new(m20260101_000001_create_todo::Migration),
             Box::new(m20261022_000001_create_meeting_link::Migration),
+            Box::new(m20261022_000002_add_meeting_provider::Migration),
         ]
     }
 }
