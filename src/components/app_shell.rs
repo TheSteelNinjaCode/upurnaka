@@ -74,11 +74,11 @@ pub fn AppShell(active: &str, children: Html) -> Html {
             <header class="relative z-40 flex h-12 shrink-0 items-center gap-1 px-2.5">
                 <a
                     href="/chat"
-                    class="mr-1 flex h-8 w-8 items-center justify-center rounded-md hover:bg-hover"
+                    class="ml-2 mr-1 flex h-8 w-8 items-center justify-center rounded-md hover:bg-hover"
                     title="Teams"
                     aria-label="Teams"
                 >
-                    <img src="/images/upurnaka-logo.png" alt="" class="h-5 w-5" />
+                    <img src="/images/upurnaka-logo.png" alt="" class="h-[22px] w-[22px]" />
                 </a>
                 <button
                     type="button"
