@@ -78,7 +78,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     title="Teams"
                     aria-label="Teams"
                 >
-                    <Icon name="teams" class="h-[22px] w-[22px]" />
+                    <img src="/images/upurnaka-logo.png" alt="" class="h-4 w-4 rounded-[4px]" />
                 </a>
                 <button
                     type="button"
