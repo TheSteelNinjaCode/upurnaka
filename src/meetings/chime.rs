@@ -34,6 +34,7 @@ use std::sync::OnceLock;
 use aws_config::BehaviorVersion;
 use aws_sdk_chimesdkmeetings::Client;
 use aws_sdk_chimesdkmeetings::config::{Credentials, Region};
+use aws_smithy_http_client::tls::{self, rustls_provider::CryptoMode};
 use aws_sdk_chimesdkmeetings::types::{Attendee, MediaPlacement, Meeting};
 use serde::Serialize;
 use tokio::sync::OnceCell;
@@ -251,6 +252,20 @@ async fn client() -> Result<&'static Client> {
     Ok(CLIENT
         .get_or_init(|| async {
             let mut loader = aws_config::defaults(BehaviorVersion::latest());
+
+            // The SDK ships no default HTTPS client here on purpose: its
+            // `default-https-client` feature is off in Cargo.toml, because it
+            // would build rustls on aws-lc-rs and drag ~68 MB of C through
+            // CMake into every release build. Ring is what the rest of this
+            // binary already links -- sea-orm/sqlx resolves to it -- so saying
+            // so here costs one TLS stack instead of three. This also means
+            // the client is REQUIRED: without it the SDK has no connector and
+            // every call fails at dispatch.
+            loader = loader.http_client(
+                aws_smithy_http_client::Builder::new()
+                    .tls_provider(tls::Provider::Rustls(CryptoMode::Ring))
+                    .build_https(),
+            );
 
             // The control plane's region, which is not necessarily the media
             // region. Only chosen here when the environment names neither,
