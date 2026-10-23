@@ -33,7 +33,7 @@ use std::sync::OnceLock;
 
 use aws_config::BehaviorVersion;
 use aws_sdk_chimesdkmeetings::Client;
-use aws_sdk_chimesdkmeetings::config::Region;
+use aws_sdk_chimesdkmeetings::config::{Credentials, Region};
 use aws_sdk_chimesdkmeetings::types::{Attendee, MediaPlacement, Meeting};
 use serde::Serialize;
 use tokio::sync::OnceCell;
@@ -61,11 +61,7 @@ pub fn settings() -> Option<&'static Settings> {
             // does not matter which of them got there first.
             crate::rahti::load_env();
 
-            std::env::var("CHIME_MEDIA_REGION")
-                .ok()
-                .map(|region| region.trim().to_string())
-                .filter(|region| !region.is_empty())
-                .map(|media_region| Settings { media_region })
+            setting("CHIME_MEDIA_REGION").map(|media_region| Settings { media_region })
         })
         .as_ref()
 }
@@ -249,8 +245,26 @@ async fn client() -> Result<&'static Client> {
             // The control plane's region, which is not necessarily the media
             // region. Only chosen here when the environment names neither,
             // so an operator who sets `AWS_REGION` is not overridden.
-            if region_from_environment().is_none() {
-                loader = loader.region(Region::new(settings.media_region.clone()));
+            let region = setting("AWS_REGION")
+                .or_else(|| setting("AWS_DEFAULT_REGION"))
+                .unwrap_or_else(|| settings.media_region.clone());
+            loader = loader.region(Region::new(region));
+
+            // A key pair written in `.env` is used as written. Anything else
+            // — a profile, an EC2/ECS/Lambda role, SSO — is left to the
+            // default chain, which is also what a *blank* pair gets: see
+            // `setting`, and the note beside these names in `.env`.
+            if let (Some(key_id), Some(secret)) = (
+                setting("AWS_ACCESS_KEY_ID"),
+                setting("AWS_SECRET_ACCESS_KEY"),
+            ) {
+                loader = loader.credentials_provider(Credentials::new(
+                    key_id,
+                    secret,
+                    setting("AWS_SESSION_TOKEN"),
+                    None,
+                    "upurnaka-env",
+                ));
             }
 
             Client::new(&loader.load().await)
@@ -258,10 +272,18 @@ async fn client() -> Result<&'static Client> {
         .await)
 }
 
-fn region_from_environment() -> Option<String> {
-    ["AWS_REGION", "AWS_DEFAULT_REGION"]
-        .into_iter()
-        .find_map(|name| std::env::var(name).ok())
+/// An environment value this application reads itself, where blank means
+/// absent.
+///
+/// The distinction matters for the AWS names. The SDK's own environment
+/// provider stops the credential chain when it finds `AWS_ACCESS_KEY_ID`
+/// set, so a key left as `""` in a hand-edited `.env` does not fall through
+/// to a profile or an instance role — it fails the call with an invalid
+/// key. Reading them here instead makes an empty line and a missing line the
+/// same thing, which is what somebody editing that file expects.
+fn setting(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
 }

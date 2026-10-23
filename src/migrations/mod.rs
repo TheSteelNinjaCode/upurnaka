@@ -7,7 +7,6 @@
 
 #![allow(dead_code, unused_imports)]
 
-pub mod m20260101_000001_create_todo;
 pub mod m20261022_000001_create_meeting_link;
 pub mod m20261022_000002_add_meeting_provider;
 
@@ -17,7 +16,6 @@ pub struct Migrator;
 impl ::sea_orm_migration::MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn ::sea_orm_migration::MigrationTrait>> {
         vec![
-            Box::new(m20260101_000001_create_todo::Migration),
             Box::new(m20261022_000001_create_meeting_link::Migration),
             Box::new(m20261022_000002_add_meeting_provider::Migration),
         ]
