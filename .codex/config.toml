@@ -1,0 +1,6 @@
+[mcp_servers.rahti]
+command = "rahti-mcp"
+args = [
+    "--project",
+    ".",
+]
