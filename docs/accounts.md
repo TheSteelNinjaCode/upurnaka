@@ -49,6 +49,44 @@ links from before accounts were introduced have no owner: signed-in people can
 still join them by URL, but they do not appear in anyone's personal list and
 cannot be claimed by registering first.
 
+## Roles and user administration
+
+Public registration always creates an **active user** with the `user` role.
+There is no client-selectable role. The single `admin` is created explicitly:
+
+```text
+cargo run -- --migrate
+cargo run -- --seed-admin
+```
+
+By default the seed creates `Administrator`, with login `admin@upurnaka.local`,
+and generates a random initial password. Initial credentials are written to
+the git-ignored `.rahti/admin-credentials.txt`; they are never printed or put in
+source control. Optional `SEED_ADMIN_EMAIL`, `SEED_ADMIN_NAME`, and
+`SEED_ADMIN_PASSWORD` values in the ignored `.env` or process environment
+override these defaults. When a password is supplied, no credentials file is
+written. Re-running the command leaves the existing admin and password intact.
+The administrator enrolls their own authenticator on first sign-in.
+
+The database constrains admin role membership to one account. Seeding cannot
+promote an existing regular account. `/users` and each of its RPCs require the
+live database admin role. Admins can search/paginate, create, read, edit,
+activate/deactivate, and permanently delete regular users. The admin record
+cannot be edited, deactivated, or deleted through this page.
+
+Admin-created users receive an initial password and enroll their own
+authenticator at first sign-in; the admin never receives their OTP key.
+New accounts, including public registrations, are active by default.
+
+Every authenticated dynamic request rechecks the database for account presence,
+activation, completed OTP enrollment, and session version. Deactivation blocks
+existing cookies on the next request, cancels pending OTP challenges, and
+increments the session version. Reactivation permits a fresh sign-in, without
+reviving old cookies or challenges. Profile edits also require a fresh sign-in.
+Deletion removes the user, invalidates their sessions, and revokes their meeting
+links in the same database transaction. This does not forcibly disconnect
+already-established third-party media streams.
+
 ## Current scope
 
 Email is a normalized login identifier, not a verified mailbox. This release
@@ -66,3 +104,7 @@ codes, lockout, expired/replaced challenges, replay, concurrent verification,
 single-use recovery, session cookies, private routes/RPCs, and meeting ownership.
 The browser journey registers, enrolls, saves codes, enters the account page,
 signs out, checks the route guard, and signs in again with a recovery code.
+Administration tests cover each role boundary, default roles, seed idempotence,
+database singleton constraints, session revocation, pending OTP cancellation,
+and a browser journey through user creation, editing, status changes, searching,
+and deletion.

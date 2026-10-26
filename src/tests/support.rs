@@ -41,6 +41,52 @@ pub(super) async fn setup() {
             );
             crate::db::connect_to(&url).await.expect("a test database");
             crate::db::migrate().await.expect("the migrations");
+            // Existing workspace tests use real, active account rows alongside signed cookies.
+            use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, sea_query::Expr};
+            for (id, name, email, admin) in [
+                (
+                    "legacy-test-user",
+                    "Jefferson Abraham",
+                    "fixture@example.com",
+                    false,
+                ),
+                ("other-user", "Other User", "other@example.com", false),
+                (
+                    "test-admin",
+                    "Test Administrator",
+                    "admin-test@example.com",
+                    true,
+                ),
+            ] {
+                let row_id = if admin {
+                    crate::users::seed_admin(
+                        name.into(),
+                        email.into(),
+                        "a long unique password".into(),
+                    )
+                    .await
+                    .unwrap()
+                    .id
+                } else {
+                    crate::auth::create_account(
+                        name.into(),
+                        email.into(),
+                        "a long unique password".into(),
+                        "a long unique password".into(),
+                        crate::auth::Role::User,
+                    )
+                    .await
+                    .unwrap()
+                    .id
+                };
+                crate::models::account::Entity::update_many()
+                    .col_expr(crate::models::account::Column::Id, Expr::value(id))
+                    .col_expr(crate::models::account::Column::Verified, Expr::value(true))
+                    .filter(crate::models::account::Column::Id.eq(row_id))
+                    .exec(crate::db::db())
+                    .await
+                    .unwrap();
+            }
         })
         .await;
 }
@@ -129,10 +175,14 @@ pub(super) fn test_cookie() -> String {
 }
 
 pub(super) fn cookie_for(id: &str, name: &str, email: &str) -> String {
+    signed_cookie(rahti::serde_json::json!({"id":id,"name":name,"email":email}))
+}
+
+pub(super) fn signed_cookie(user: rahti::serde_json::Value) -> String {
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
     use hmac::{Hmac, KeyInit, Mac};
     let settings = rahti::auth::settings();
-    let payload = rahti::serde_json::json!({"user": {"id": id, "name": name, "email": email},
+    let payload = rahti::serde_json::json!({"user": user,
         "exp": rahti::time::Utc::now().timestamp() + 3600});
     let body = URL_SAFE_NO_PAD.encode(payload.to_string());
     let mut mac = Hmac::<sha2::Sha256>::new_from_slice(settings.secret.as_bytes()).unwrap();

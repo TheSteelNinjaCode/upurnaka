@@ -35,7 +35,37 @@ pub struct PublicUser {
     pub id: String,
     pub name: String,
     pub email: String,
+    #[serde(default)]
+    pub role: Role,
+    #[serde(default)]
+    pub session_version: i64,
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Role {
+    Admin,
+    #[default]
+    User,
+}
+
+impl From<&account::Model> for PublicUser {
+    fn from(row: &account::Model) -> Self {
+        Self {
+            id: row.id.clone(),
+            name: row.name.clone(),
+            email: row.email.clone(),
+            role: if row.role == "admin" {
+                Role::Admin
+            } else {
+                Role::User
+            },
+            session_version: row.session_version,
+        }
+    }
+}
+
+tokio::task_local! { pub(crate) static REQUEST_USER: Option<PublicUser>; }
 
 impl PublicUser {
     pub fn initials(&self) -> String {
@@ -49,11 +79,18 @@ impl PublicUser {
 }
 
 pub fn current() -> Option<PublicUser> {
-    rahti::auth::user()
+    REQUEST_USER
+        .try_with(Clone::clone)
+        .unwrap_or_else(|_| rahti::auth::user())
 }
 
 pub fn authorization() -> rahti::authorization::Gate {
     let mut gate = rahti::authorization::Gate::new();
+    gate.define_resource::<PublicUser, PublicUser, _>("users.manage", |session, live| {
+        session.id == live.id
+            && live.role == Role::Admin
+            && session.session_version == live.session_version
+    });
     gate.define_resource::<PublicUser, String, _>("meetings.manage", |user, owner| {
         user.id == *owner
     });
@@ -224,6 +261,24 @@ pub async fn register(
     password: String,
     confirmation: String,
 ) -> Result<Challenge> {
+    let row = create_account(name, email, password, confirmation, Role::User).await?;
+    let token = random_token();
+    account::Entity::update_many()
+        .col_expr(account::Column::ChallengeHash, Expr::value(digest(&token)))
+        .col_expr(account::Column::ChallengeExpires, Expr::value(now() + 600))
+        .filter(account::Column::Id.eq(&row.id))
+        .exec(db::db())
+        .await?;
+    challenge(row, token)
+}
+
+pub(crate) async fn create_account(
+    name: String,
+    email: String,
+    password: String,
+    confirmation: String,
+    role: Role,
+) -> Result<account::Model> {
     let email = email.trim().to_lowercase();
     let name = name.trim().to_string();
     validate(&email, &password)?;
@@ -235,19 +290,21 @@ pub async fn register(
     v.finish()?;
     ready()?;
     let secret = Secret::generate();
-    let token = random_token();
     let row = account::ActiveModel {
         id: Set(random_token()), email: Set(email), name: Set(name),
         password_hash: Set(hash_password(password).await?), otp_secret: Set(encrypt(secret.as_bytes())?),
         verified: Set(false), last_step: Set(-1), recovery_hashes: Set(String::new()),
-        challenge_hash: Set(digest(&token)), challenge_expires: Set(now() + 600),
+        challenge_hash: Set(String::new()), challenge_expires: Set(0),
         attempts: Set(0), locked_until: Set(0),
+        role: Set(if role == Role::Admin { "admin".into() } else { "user".into() }),
+        active: Set(true), session_version: Set(0),
+        admin_slot: Set(if role == Role::Admin { Some(1) } else { None }),
     }.insert(db::db()).await.map_err(|e| {
         if e.sql_err().is_some_and(|e| matches!(e, sea_orm::SqlErr::UniqueConstraintViolation(_))) {
             Error::new(StatusCode::CONFLICT, "Unable to register this email. If you already registered, sign in to continue setup.")
         } else { Error::from(e) }
     })?;
-    challenge(row, token)
+    Ok(row)
 }
 
 fn challenge(row: account::Model, token: String) -> Result<Challenge> {
@@ -293,7 +350,7 @@ pub async fn begin_signin(email: String, password: String) -> Result<Challenge> 
     let Some(row) = row else {
         return Err(invalid());
     };
-    if row.locked_until > now() {
+    if !row.active || row.locked_until > now() {
         return Err(invalid());
     }
     if !matches {
@@ -346,7 +403,7 @@ pub async fn finish_signin(token: String, code: String) -> Result<SignedIn> {
         .one(db::db())
         .await?
         .ok_or_else(invalid)?;
-    if row.locked_until > now() {
+    if !row.active || row.locked_until > now() {
         return Err(invalid());
     }
     let totp = authenticator(decrypt(&row.otp_secret)?, row.email.clone())?;
@@ -391,6 +448,8 @@ pub async fn finish_signin(token: String, code: String) -> Result<SignedIn> {
         .col_expr(account::Column::Attempts, Expr::value(0))
         .filter(account::Column::Id.eq(&row.id))
         .filter(account::Column::ChallengeHash.eq(digest(&token)))
+        .filter(account::Column::Active.eq(true))
+        .filter(account::Column::SessionVersion.eq(row.session_version))
         .filter(account::Column::LastStep.eq(row.last_step))
         .filter(account::Column::LockedUntil.lte(now()))
         .filter(account::Column::ChallengeExpires.gt(now()))
@@ -399,11 +458,7 @@ pub async fn finish_signin(token: String, code: String) -> Result<SignedIn> {
     if result.rows_affected != 1 {
         return Err(invalid());
     }
-    rahti::auth::sign_in(&PublicUser {
-        id: row.id,
-        name: row.name,
-        email: row.email,
-    });
+    rahti::auth::sign_in(&PublicUser::from(&row));
     Ok(SignedIn { recovery_codes })
 }
 

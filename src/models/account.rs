@@ -18,6 +18,10 @@ pub struct Model {
     pub challenge_expires: i64,
     pub attempts: i32,
     pub locked_until: i64,
+    pub role: String,
+    pub active: bool,
+    pub session_version: i64,
+    pub admin_slot: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

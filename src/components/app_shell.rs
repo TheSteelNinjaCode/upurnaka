@@ -71,10 +71,14 @@ pub fn AppShell(active: &str, children: Html) -> Html {
         .filter_map(|s| s.chars().next())
         .collect::<String>()
         .to_uppercase();
-    let rail = Html::concat(
-        RAIL.iter()
-            .map(|(key, label, href)| RailLink(rail_icon(key), label, href, *key == active)),
-    );
+    let mut links: Vec<Html> = RAIL
+        .iter()
+        .map(|(key, label, href)| RailLink(rail_icon(key), label, href, *key == active))
+        .collect();
+    if user.role == crate::auth::Role::Admin {
+        links.push(RailLink("contacts", "Users", "/users", active == "users"));
+    }
+    let rail = Html::concat(links);
 
     let apps_class = if active == "apps" {
         "flex h-11 w-11 items-center justify-center rounded-md bg-raised text-brand-ink"

@@ -11,6 +11,11 @@ pub fn metadata() -> Metadata {
 pub async fn page() -> Result<Html> {
     crate::auth::ready()?;
     let user = crate::auth::current().unwrap_or_default();
+    let role_label = if user.role == crate::auth::Role::Admin {
+        "Admin"
+    } else {
+        "User"
+    };
     let remaining = crate::models::account::Entity::find_by_id(&user.id)
         .one(crate::db::db())
         .await?
@@ -28,6 +33,10 @@ pub async fn page() -> Result<Html> {
                     <section class="rounded-xl border border-edge bg-surface p-6">
                         <h2 class="mb-5 text-lg font-semibold">"Profile"</h2>
                         <dl class="space-y-4 text-sm">
+                            <div>
+                                <dt class="text-muted">"Role"</dt>
+                                <dd class="mt-1">@{role_label}</dd>
+                            </div>
                             <div>
                                 <dt class="text-muted">"Name"</dt>
                                 <dd class="mt-1">@{user.name}</dd>

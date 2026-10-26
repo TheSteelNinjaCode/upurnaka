@@ -10,11 +10,11 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, sea_query::Expr};
 use tower::ServiceExt;
 
 #[derive(Clone, Default)]
-struct Client {
+pub(super) struct Client {
     cookies: std::collections::BTreeMap<String, String>,
 }
 impl Client {
-    async fn request(
+    pub(super) async fn request(
         &mut self,
         path: &str,
         rpc: Option<(&str, Value)>,
@@ -74,19 +74,19 @@ impl Client {
         .unwrap();
         (status, headers, body)
     }
-    async fn new() -> Self {
+    pub(super) async fn new() -> Self {
         let mut c = Self::default();
         c.request("/signin", None).await;
         c
     }
-    async fn call(&mut self, name: &str, data: Value) -> (StatusCode, Value) {
+    pub(super) async fn call(&mut self, name: &str, data: Value) -> (StatusCode, Value) {
         let (s, _, b) = self.request("/signin", Some((name, data))).await;
         (
             s,
             serde_json::from_str(&b).unwrap_or_else(|_| json!({"raw": b})),
         )
     }
-    async fn register(&mut self, email: &str) -> Value {
+    pub(super) async fn register(&mut self, email: &str) -> Value {
         let (s, body) = self
             .call(
                 "register_account",
@@ -108,7 +108,13 @@ impl Client {
         body
     }
 }
-fn otp(setup: &Value, email: &str) -> String {
+impl Client {
+    pub(super) fn with_cookie(&mut self, cookie: String) {
+        let (key, value) = cookie.split_once('=').unwrap();
+        self.cookies.insert(key.into(), value.into());
+    }
+}
+pub(super) fn otp(setup: &Value, email: &str) -> String {
     let secret = totp_rs::Secret::try_from_base32(setup["setup_key"].as_str().unwrap())
         .unwrap()
         .as_bytes()

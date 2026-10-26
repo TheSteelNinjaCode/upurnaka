@@ -40,6 +40,8 @@ mod p_register;
 mod p_root;
 #[path = "app/signin/page.rs"]
 mod p_signin;
+#[path = "app/users/page.rs"]
+mod p_users;
 
 /// The app's own page rpcs, which the registry fallback must not answer:
 /// a page's rpc belongs to that page's URL.
@@ -48,11 +50,16 @@ const PAGE_RPCS: &[&str] = &[
     "create_community",
     "create_meeting",
     "create_meeting_link",
+    "create_user",
     "delete_meeting_link",
+    "delete_user",
     "invite_to_teams",
     "join_meeting",
+    "list_users",
     "rename_meeting_link",
     "send_message",
+    "set_user_active",
+    "update_user",
 ];
 
 /// The rpcs written beside a component, reached from whatever page
@@ -152,6 +159,22 @@ async fn rpc_p_people(req: axum::extract::Request) -> axum::response::Response {
     }
 }
 
+/// The rpcs of src/app/users/page.rs, reached by POST on its own URL.
+async fn rpc_p_users(req: axum::extract::Request) -> axum::response::Response {
+    let name = match ::rahti::rpc_name(req.headers()) {
+        Ok(name) => name,
+        Err(res) => return res,
+    };
+    match name.as_str() {
+        "list_users" => p_users::__rahti_rpc_list_users(req).await,
+        "create_user" => p_users::__rahti_rpc_create_user(req).await,
+        "update_user" => p_users::__rahti_rpc_update_user(req).await,
+        "set_user_active" => p_users::__rahti_rpc_set_user_active(req).await,
+        "delete_user" => p_users::__rahti_rpc_delete_user(req).await,
+        _ => component_rpc(&name, req).await,
+    }
+}
+
 /// Pages the in-process static exporter considers.
 pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
     vec![
@@ -167,6 +190,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
         ::rahti::StaticRoute::fixed("/people"),
         ::rahti::StaticRoute::fixed("/register"),
         ::rahti::StaticRoute::fixed("/signin"),
+        ::rahti::StaticRoute::fixed("/users"),
     ]
 }
 
@@ -176,6 +200,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/apps` [GET, POST] — src/app/apps/page.rs (layouts: src/app/layout.rs)
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, create_chat_meeting)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link)
+/// - `/users` [GET, POST] — src/app/users/page.rs (layouts: src/app/layout.rs; rpc: list_users, create_user, update_user, set_user_active, delete_user)
 /// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: invite_to_teams)
 /// - `/signin` [GET, POST] — src/app/signin/page.rs (layouts: src/app/layout.rs)
 /// - `/account` [GET, POST] — src/app/account/page.rs (layouts: src/app/layout.rs)
@@ -208,6 +233,12 @@ pub fn router() -> Router {
             "/chat",
             axum::routing::get(p_chat::page).layer(axum::middleware::map_response(|res| {
                 ::rahti::apply_metadata(p_chat::metadata(), res)
+            })),
+        )
+        .route(
+            "/users",
+            axum::routing::get(p_users::page).layer(axum::middleware::map_response(|res| {
+                ::rahti::apply_metadata(p_users::metadata(), res)
             })),
         )
         .route(
@@ -308,6 +339,7 @@ pub fn router() -> Router {
         .route("/people", axum::routing::post(rpc_p_people))
         .route("/register", axum::routing::post(rpc_components))
         .route("/signin", axum::routing::post(rpc_components))
+        .route("/users", axum::routing::post(rpc_p_users))
         .layer(tower_http::catch_panic::CatchPanicLayer::custom(
             ::rahti::rpc_panic_response,
         ))
