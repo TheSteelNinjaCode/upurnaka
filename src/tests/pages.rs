@@ -386,3 +386,112 @@ async fn shortcuts_control_chat_from_body_and_composer() {
     browser.press("Escape").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
+
+/// The new conversation view keeps the self-chat intact, supports recipient
+/// chips and group names, and turns a first message into a session-local thread.
+#[tokio::test]
+async fn new_chat_composes_a_group_and_preserves_other_drafts() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .click("textarea[aria-label='Type a message']")
+        .await
+        .unwrap();
+    browser.type_text("Saved self draft").await.unwrap();
+    browser
+        .click("button[aria-label='New chat']")
+        .await
+        .unwrap();
+    browser.wait_for("document.activeElement.getAttribute('aria-label') === 'Recipients' && !document.querySelector('.new-chat-empty').hidden && document.querySelector('textarea').value === ''").await.unwrap();
+    browser.type_text("not-an-email@").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("!document.querySelector('.new-chat-recipient-error').hidden && document.querySelectorAll('.new-chat-chip').length === 0").await.unwrap();
+    browser
+        .click("textarea[aria-label='Type a message']")
+        .await
+        .unwrap();
+    browser.type_text("First group draft").await.unwrap();
+    let blocked: bool = browser
+        .eval("document.querySelector('button[aria-label=Send]').disabled")
+        .await
+        .unwrap();
+    assert!(
+        blocked,
+        "a new conversation requires recipients before sending"
+    );
+    browser
+        .click("aside .chat-self-entry button")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('textarea').value === 'Saved self draft' && document.querySelector('.new-chat-header').hidden").await.unwrap();
+    browser
+        .click("button[aria-label='New message']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('textarea').value === 'First group draft' && document.activeElement.getAttribute('aria-label') === 'Recipients'").await.unwrap();
+    // Replace the invalid recipient left in the draft with a valid one.
+    let _: bool = browser
+        .eval("document.activeElement.select(); true")
+        .await
+        .unwrap();
+    browser.type_text("alex@example.com").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("document.querySelectorAll('.new-chat-chip').length === 1 && document.querySelector('[aria-label=Recipients]').value === ''").await.unwrap();
+    browser.type_text("Avery").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser
+        .wait_for("document.querySelectorAll('.new-chat-chip').length === 2")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Remove Avery']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelectorAll('.new-chat-chip').length === 1")
+        .await
+        .unwrap();
+    browser.type_text("Avery").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser
+        .click("button[aria-label='Show group name']")
+        .await
+        .unwrap();
+    browser.wait_for("document.activeElement.getAttribute('aria-label') === 'Group name' && !document.querySelector('.new-chat-group').hidden").await.unwrap();
+    browser.type_text("Project team").await.unwrap();
+    browser
+        .click("button[aria-label='Hide group name']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.new-chat-group').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Show group name']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('[aria-label=\"Group name\"]').value === 'Project team'")
+        .await
+        .unwrap();
+    browser.click("button[aria-label=Send]").await.unwrap();
+    browser.wait_for("document.querySelector('.new-chat-header').hidden && document.querySelector('main h2').textContent.includes('Project team') && document.querySelector('[aria-label=Messages]').textContent.includes('First group draft')").await.unwrap();
+    browser
+        .click("aside .chat-self-entry button")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('textarea').value === 'Saved self draft' && !document.querySelector('[aria-label=Messages]').textContent.includes('First group draft')").await.unwrap();
+    let _: bool = browser.eval("document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'n',ctrlKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser.wait_for("!document.querySelector('.new-chat-header').hidden && document.activeElement.getAttribute('aria-label') === 'Recipients'").await.unwrap();
+    let fills: bool = browser.eval("Math.abs(document.querySelector('main').getBoundingClientRect().right-innerWidth) <= 1 && Math.abs(document.querySelector('main').getBoundingClientRect().bottom-innerHeight) <= 1").await.unwrap();
+    assert!(fills, "new chat must retain the full-height shell layout");
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}

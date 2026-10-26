@@ -119,7 +119,7 @@ pub fn KeyboardShortcuts() -> Html {
                     setCollapsed(previous => previous.includes(title) ? previous.filter(item => item !== title) : [...previous, title]);
                 }
                 const availableActions = new Set([
-                    "Show keyboard shortcuts", "Open Search", "Show commands", "Go to a specific chat or channel",
+                    "Show keyboard shortcuts", "Start new chat", "Open Search", "Show commands", "Go to a specific chat or channel",
                     "Zoom in", "Zoom out", "Reset zoom level", "Toggle app bar",
                     "Go to compose box", "Go back", "Go forward", "Move focus to app list", "Move focus to message pane",
                     "Open 1st app on app bar", "Open 2nd app on app bar", "Open 3rd app on app bar", "Open 4th app on app bar",

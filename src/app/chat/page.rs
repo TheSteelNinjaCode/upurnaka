@@ -51,6 +51,9 @@ pub async fn page() -> Html {
                                 class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
                                 title="New chat"
                                 aria-label="New chat"
+                                aria-keyshortcuts="Control+n"
+                                onclick={openNewChat()}
+                                disabled={sending}
                             >
                                 <Icon name="compose" class="h-[18px] w-[18px]" />
                             </button>
@@ -106,7 +109,8 @@ pub async fn page() -> Html {
                             <button
                                 type="button"
                                 class={selected === "self" ? ROW_ON : ROW_OFF}
-                                onclick={setSelected("self")}
+                                onclick={selectThread("self")}
+                                disabled={sending}
                             >
                                 <Avatar initials="JA" size="md" presence="online" />
                                 <span class="truncate text-[13px] font-semibold text-ink">
@@ -125,28 +129,66 @@ pub async fn page() -> Html {
                             </span>
                             "Chats"
                         </button>
+                        <button
+                            type="button"
+                            class={selected === "new" ? ROW_ON : ROW_OFF}
+                            hidden={!chatsOpen || !newRowMatches}
+                            onclick={openNewChat()}
+                            disabled={sending}
+                            aria-label="New message"
+                        >
+                            <span
+                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-hover text-muted"
+                            >
+                                <Icon name="chat" class="h-4 w-4" />
+                            </span>
+                            <span class="truncate text-[13px] font-semibold">"New message"</span>
+                        </button>
+                        <template pp-for="thread in visibleThreads">
+                            <button
+                                key={thread.id}
+                                type="button"
+                                class={selected === thread.id ? ROW_ON : ROW_OFF}
+                                hidden={!chatsOpen}
+                                onclick={selectThread(thread.id)}
+                                disabled={sending}
+                            >
+                                <span
+                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
+                                >
+                                    {initials(thread.label)}
+                                </span>
+                                <span class="min-w-0 truncate text-[13px] font-semibold">
+                                    {thread.label}
+                                </span>
+                            </button>
+                        </template>
                         <p
                             class="px-3 py-2 text-xs leading-relaxed text-subtle"
-                            hidden={!chatsOpen || hasChatFilter}
+                            hidden={!chatsOpen || hasChatFilter || hasNewChat || threads.length > 1}
                         >
                             "Nobody has written to you yet. Start a chat and it will show up here."
                         </p>
                         <p
                             class="px-3 py-2 text-xs leading-relaxed text-subtle"
                             role="status"
-                            hidden={!hasChatFilter || selfMatches}
+                            hidden={!hasChatFilter || selfMatches || visibleThreads.length > 0 || newRowMatches}
                         >
                             "No chats match your filter."
                         </p>
                     </div>
                 </aside>
                 <main
-                    class="flex min-h-0 flex-1 flex-col rounded-tl-xl border-l border-t border-line bg-surface"
+                    class="flex min-h-0 min-w-0 flex-1 flex-col rounded-tl-xl border-l border-t border-line bg-surface"
                 >
-                    <header class="flex h-14 shrink-0 items-center gap-3 px-5">
-                        <Avatar initials="JA" size="md" presence="online" />
+                    <header class="flex h-14 shrink-0 items-center gap-3 px-5" hidden={newChat}>
+                        <span
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
+                        >
+                            {initials(currentThread.label)}
+                        </span>
                         <h2 class="truncate text-[15px] font-semibold text-ink">
-                            "Jefferson Abraham (You)"
+                            {currentThread.label}
                         </h2>
                         <div class="ml-auto flex items-center gap-0.5">
                             <button
@@ -168,6 +210,98 @@ pub async fn page() -> Html {
                             </button>
                         </div>
                     </header>
+                    <section
+                        class="new-chat-header"
+                        hidden={!newChat}
+                        aria-label="New conversation recipients"
+                    >
+                        <div class="new-chat-group" hidden={!groupNameOpen}>
+                            <label for={groupNameId}>"Group name:"</label>
+                            <input
+                                id={groupNameId}
+                                pp-ref={groupNameInput}
+                                aria-label="Group name"
+                                maxlength="80"
+                                value={groupName}
+                                oninput={setGroupName(target.value)}
+                                disabled={sending}
+                            />
+                        </div>
+                        <div class="new-chat-to">
+                            <label for={recipientId}>"To:"</label>
+                            <div class="new-chat-recipient-field">
+                                <template pp-for="recipient in recipients">
+                                    <span class="new-chat-chip" key={recipient}>
+                                        <span>{recipient}</span>
+                                        <button
+                                            type="button"
+                                            aria-label={"Remove " + recipient}
+                                            onclick={removeRecipient(recipient)}
+                                            disabled={sending}
+                                        >
+                                            <Icon name="close" class="h-3.5 w-3.5" />
+                                        </button>
+                                    </span>
+                                </template>
+                                <input
+                                    id={recipientId}
+                                    pp-ref={recipientInput}
+                                    aria-label="Recipients"
+                                    placeholder="Enter name, email or phone number"
+                                    autocomplete="off"
+                                    value={recipientQuery}
+                                    oninput={changeRecipient(target.value)}
+                                    onkeydown={handleRecipientKey(event)}
+                                    disabled={sending}
+                                    aria-invalid={!!recipientError}
+                                    aria-describedby={recipientErrorId}
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                class="new-chat-group-toggle"
+                                aria-label={groupNameOpen ? "Hide group name" : "Show group name"}
+                                aria-expanded={groupNameOpen}
+                                onclick={toggleGroupName()}
+                                disabled={sending}
+                            >
+                                <span class={groupNameOpen ? "flex rotate-180" : "flex"}>
+                                    <Icon name="chevron-down" class="h-5 w-5" />
+                                </span>
+                            </button>
+                        </div>
+                        <p
+                            class="new-chat-recipient-error"
+                            id={recipientErrorId}
+                            role="alert"
+                            hidden={!recipientError}
+                        >
+                            {recipientError}
+                        </p>
+                        <div class="new-chat-suggestions" hidden={!recipientQuery.trim()}>
+                            <button
+                                type="button"
+                                hidden={!suggestSelf}
+                                onclick={addRecipient("Jefferson Abraham (You)")}
+                                disabled={sending}
+                            >
+                                <span
+                                    class="flex h-8 w-8 items-center justify-center rounded-full bg-avatar text-xs text-avatar-ink"
+                                >
+                                    "JA"
+                                </span>
+                                <span>"Jefferson Abraham (You)"</span>
+                            </button>
+                            <button
+                                type="button"
+                                onclick={addRecipient(recipientQuery)}
+                                disabled={sending}
+                            >
+                                "Add "
+                                <strong>{recipientQuery}</strong>
+                            </button>
+                        </div>
+                    </section>
                     <div
                         class="chat-conversation-search px-8 py-2"
                         hidden={!conversationSearchOpen}
@@ -195,7 +329,7 @@ pub async fn page() -> Html {
                     >
                         <div
                             class="m-auto flex max-w-sm flex-col items-center py-10 text-center"
-                            hidden={messages.length > 0}
+                            hidden={newChat || messages.length > 0}
                         >
                             <Avatar initials="JA" size="xl" presence="none" />
                             <h3 class="mt-7 text-[17px] font-semibold text-ink">
@@ -204,6 +338,17 @@ pub async fn page() -> Html {
                             <p class="mt-2.5 text-[13px] leading-relaxed text-muted">
                                 "This chat is just for you…with you. Use it for drafts, send files to yourself, or get to know chat features a little better."
                             </p>
+                        </div>
+                        <div class="new-chat-empty" hidden={!newChat}>
+                            <div class="new-chat-art" aria-hidden="true">
+                                <span class="new-chat-bubble"></span>
+                                <span class="new-chat-pencil"></span>
+                                <span class="new-chat-dot purple"></span>
+                                <span class="new-chat-dot green"></span>
+                                <span class="new-chat-dot yellow"></span>
+                            </div>
+                            <h2>"You're starting a new conversation"</h2>
+                            <p>"Type your first message below."</p>
                         </div>
                         <div class="w-full py-5" hidden={messages.length === 0}>
                             <template pp-for="message in matchingMessages">
@@ -299,11 +444,14 @@ pub async fn page() -> Html {
                                 class="flex h-8 w-8 items-center justify-center rounded text-brand-ink transition-colors hover:bg-hover disabled:text-subtle"
                                 title="Send"
                                 aria-label="Send"
-                                disabled={draft.trim().length === 0}
+                                disabled={draft.trim().length === 0 || sending || (newChat && recipients.length === 0)}
                             >
                                 <Icon name="send" class="h-[18px] w-[18px]" />
                             </button>
                         </form>
+                        <p class="mt-2 text-xs text-subtle" hidden={selected === "self"}>
+                            "New conversations are previews. Messages aren't delivered to recipients yet."
+                        </p>
                         <p class="mt-2 text-xs text-busy" hidden={!error}>{error}</p>
                     </div>
                 </main>
@@ -378,6 +526,38 @@ pub async fn page() -> Html {
                     </form>
                 </section>
                 <style>r##"
+                    .new-chat-header {position:relative;flex-shrink:0;border-bottom:1px solid var(--color-line);}
+                    .new-chat-to,.new-chat-group {display:flex;align-items:center;gap:14px;min-height:64px;padding:12px 28px;font-size:14px;}
+                    .new-chat-to:focus-within,.new-chat-group:focus-within {box-shadow:inset 0 -2px var(--color-brand-ink);}
+                    .new-chat-group {border-bottom:1px solid var(--color-edge);}
+                    .new-chat-header label {flex-shrink:0;color:var(--color-ink);}
+                    .new-chat-header input {flex:1;min-width:140px;background:transparent;outline:none;border:0;color:var(--color-ink);font:inherit;}
+                    .new-chat-header input::placeholder {color:var(--color-muted);}
+                    .new-chat-recipient-field {display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:0;}
+                    .new-chat-chip {display:inline-flex;align-items:center;gap:6px;max-width:100%;border-radius:5px;background:var(--color-brand-soft);padding:4px 8px;font-size:13px;}
+                    .new-chat-chip>span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+                    .new-chat-chip button,.new-chat-group-toggle {display:grid;place-items:center;flex-shrink:0;cursor:pointer;border-radius:4px;color:var(--color-muted);}
+                    .new-chat-group-toggle {width:32px;height:32px;}
+                    .new-chat-group-toggle:hover {background:var(--color-hover);}
+                    .new-chat-suggestions {position:absolute;top:100%;left:28px;right:28px;z-index:20;border:1px solid var(--color-edge);border-radius:6px;background:var(--color-raised);box-shadow:0 8px 22px #0006;padding:4px;}
+                    .new-chat-suggestions button {display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;text-align:left;font-size:13px;cursor:pointer;}
+                    .new-chat-suggestions button:hover {background:var(--color-hover);}
+                    .new-chat-recipient-error {padding:0 28px 8px;color:#ffb0ba;font-size:12px;}
+                    .new-chat-empty {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;flex:1;text-align:center;padding:28px 0;}
+                    .new-chat-empty h2 {font-size:17px;font-weight:600;margin-top:14px;}
+                    .new-chat-empty p {font-size:14px;color:var(--color-muted);}
+                    .new-chat-art {position:relative;width:200px;height:185px;isolation:isolate;}
+                    .new-chat-bubble {position:absolute;inset:14px 16px 10px 28px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#48484d,#29292f 58%,#1f1f24 80%);box-shadow:inset 3px 2px 7px #ffffff20,4px 5px 8px #0005;}
+                    .new-chat-bubble::after {content:"";position:absolute;bottom:-4px;left:22px;width:30px;height:38px;transform:skewY(-30deg);border-radius:0 0 5px 10px;background:linear-gradient(120deg,#35353c,#222228);z-index:-1;}
+                    .new-chat-pencil {position:absolute;left:114px;top:4px;width:40px;height:126px;transform:rotate(40deg);border-radius:20px 20px 2px 2px;background:linear-gradient(90deg,#ffb342,#ffdd7a 45%,#ed883b);box-shadow:inset -5px 0 6px #a74d3a40,4px 5px 10px #0006;}
+                    .new-chat-pencil::before {content:"";position:absolute;top:0;left:0;right:0;height:30px;border-radius:20px 20px 0 0;background:linear-gradient(90deg,#777,#bbb,#888);}
+                    .new-chat-pencil::after {content:"";position:absolute;top:100%;border-left:20px solid transparent;border-right:20px solid transparent;border-top:30px solid #ffe495;}
+                    .new-chat-dot {position:absolute;top:108px;width:21px;height:21px;border-radius:50%;box-shadow:inset -3px -3px 5px #0005,1px 2px 3px #0005;}
+                    .new-chat-dot.purple {left:5px;background:radial-gradient(at 30% 20%,#dbbaff,#9460ed 65%);}
+                    .new-chat-dot.green {left:31px;background:radial-gradient(at 30% 20%,#f3ffbd,#a3ce53 65%);}
+                    .new-chat-dot.yellow {left:57px;background:radial-gradient(at 30% 20%,#fffccb,#edd445 65%);}
+                    .new-chat-header[hidden],.new-chat-group[hidden],.new-chat-empty[hidden],.new-chat-suggestions[hidden],.new-chat-suggestions button[hidden],.new-chat-recipient-error[hidden] {display:none;}
+
                     .chat-list-search {padding:12px 20px 0;}
                     .chat-list-search input {width:100%;height:36px;padding:8px 12px;background:#292929;border:0;border-bottom:2px solid var(--color-brand-ink);border-radius:4px;color:var(--color-ink);font-size:13px;outline:none;}
                     .chat-list-search input::placeholder {color:#999;}
@@ -420,8 +600,27 @@ pub async fn page() -> Html {
                     const [favoritesOpen, setFavoritesOpen] = pp.state(true);
                     const [chatsOpen, setChatsOpen] = pp.state(true);
                     const [selected, setSelected] = pp.state("self");
-                    const [messages, setMessages] = pp.state([]);
-                    const [draft, setDraft] = pp.state("");
+                    // Conversations currently live in this page, like the original
+                    // self-chat. The message RPC validates text; it does not deliver
+                    // messages to external recipients.
+                    const [threads, setThreads] = pp.state([{id:"self", label:"Jefferson Abraham (You)", messages:[], draft:"", recipients:[]}]);
+                    const [hasNewChat, setHasNewChat] = pp.state(false);
+                    const [newDraft, setNewDraft] = pp.state("");
+                    const [recipients, setRecipients] = pp.state([]);
+                    const [recipientQuery, setRecipientQuery] = pp.state("");
+                    const [recipientError, setRecipientError] = pp.state("");
+                    const [groupName, setGroupName] = pp.state("");
+                    const [groupNameOpen, setGroupNameOpen] = pp.state(false);
+                    const recipientInput = pp.ref(null);
+                    const groupNameInput = pp.ref(null);
+                    const recipientId = pp.id();
+                    const groupNameId = pp.id();
+                    const recipientErrorId = pp.id();
+                    const newChat = selected === "new";
+                    const currentThread = threads.find(thread => thread.id === selected) || threads[0];
+                    const messages = newChat ? [] : currentThread.messages;
+                    const draft = newChat ? newDraft : currentThread.draft;
+                    const suggestSelf = !recipients.includes("Jefferson Abraham (You)") && /jefferson|abraham|@gmail/i.test(recipientQuery);
                     const [sending, setSending] = pp.state(false);
                     const [error, setError] = pp.state("");
                     const [searchOpen, setSearchOpen] = pp.state(false);
@@ -440,13 +639,60 @@ pub async fn page() -> Html {
                     const hasChatFilter = !!chatFilter.trim() || filters.unread || filters.meetings || filters.unmuted;
                     const selfMatches = "Jefferson Abraham (You)".toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
 
+                    const newRowMatches = hasNewChat && "new message".includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
+                    const visibleThreads = threads.filter(thread => thread.id !== "self" && thread.label.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings);
+                    function initials(label) {return label.trim().split(/\s+/).slice(0,2).map(word => word[0] || "").join("").toUpperCase();}
+                    function setDraft(value) {
+                        if (newChat) setNewDraft(value);
+                        else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread, draft:value} : thread));
+                    }
+                    function selectThread(id) {
+                        if (sending) return;
+                        setSelected(id); setConversationQuery(""); setConversationSearchOpen(false); setError("");
+                    }
+                    function openNewChat() {
+                        if (sending) return;
+                        setHasNewChat(true); setSelected("new"); setChatsOpen(true);
+                        setChatFilter(""); setFilters({unread:false, meetings:false, unmuted:false});
+                        setConversationQuery(""); setConversationSearchOpen(false); setError("");
+                        recipientInput.current?.focus();
+                    }
+                    pp.effect(() => {if (newChat) recipientInput.current?.focus();}, [newChat]);
+                    pp.effect(() => {if (newChat && groupNameOpen) groupNameInput.current?.focus();}, [newChat, groupNameOpen]);
+                    function toggleGroupName() {
+                        setGroupNameOpen(open => !open);
+                        if (groupNameOpen) recipientInput.current?.focus();
+                    }
+                    function changeRecipient(value) {setRecipientQuery(value); setRecipientError("");}
+                    function addRecipient(raw) {
+                        const value = raw.trim();
+                        if (!value) return;
+                        if (value.length > 120 || (value.includes("@") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) {
+                            setRecipientError("Enter a valid name, email address or phone number (up to 120 characters)."); return;
+                        }
+                        if (recipients.length >= 20) {setRecipientError("You can add up to 20 recipients."); return;}
+                        if (!recipients.some(item => item.toLocaleLowerCase() === value.toLocaleLowerCase())) setRecipients(previous => [...previous, value]);
+                        setRecipientQuery(""); setRecipientError(""); recipientInput.current?.focus();
+                    }
+                    function removeRecipient(value) {setRecipients(previous => previous.filter(item => item !== value)); recipientInput.current?.focus();}
+                    function handleRecipientKey(event) {
+                        if (event.isComposing) return;
+                        if (event.key === "Enter" || event.key === ";" || event.key === ",") {
+                            event.preventDefault(); addRecipient(recipientQuery);
+                        } else if (event.key === "Backspace" && !recipientQuery && recipients.length) {
+                            event.preventDefault(); setRecipients(previous => previous.slice(0,-1));
+                        } else if (event.key === "Escape") {
+                            event.preventDefault(); setRecipientQuery(""); setRecipientError(""); composerInput.current?.focus();
+                        }
+                    }
                     const matchingMessages = messages.filter(message => message.text.toLocaleLowerCase().includes(conversationQuery.trim().toLocaleLowerCase()));
                     const handleChatShortcut = pp.event(event => {
                         if (meetingOpen || event.isComposing) return;
                         const key = event.key.toLowerCase();
                         const control = (event.ctrlKey || event.metaKey) && !event.altKey;
                         let action = null;
-                        if (control && !event.shiftKey && key === "r") action = () => composerInput.current?.focus();
+                        if (control && !event.shiftKey && key === "n") action = openNewChat;
+                        else if (control && !event.shiftKey && key === "r") action = () => composerInput.current?.focus();
                         else if (control && !event.shiftKey && key === "m") action = () => messagePane.current?.focus();
                         else if (control && !event.shiftKey && key === "f") action = openConversationSearch;
                         else if (control && !event.shiftKey && key === "j") action = () => {
@@ -591,14 +837,23 @@ pub async fn page() -> Html {
                     async function send(event) {
                         event.preventDefault();
                         const text = draft.trim();
-                        if (!text || sending) return;
+                        if (!text || sending || (newChat && recipients.length === 0)) return;
+                        const targetId = selected;
+                        const targetLabel = groupName.trim() || recipients.join(", ");
+                        const targetRecipients = [...recipients];
 
                         setSending(true);
                         setError("");
                         try {
                             const message = await pp.rpc("send_message", { text });
-                            setMessages((current) => current.concat([message]));
-                            setDraft("");
+                            if (targetId === "new") {
+                                const id = "chat-" + crypto.randomUUID();
+                                setThreads(previous => [...previous, {id, label:targetLabel, recipients:targetRecipients, messages:[message], draft:""}]);
+                                setSelected(id); setHasNewChat(false); setNewDraft("");
+                                setRecipients([]); setRecipientQuery(""); setGroupName(""); setGroupNameOpen(false);
+                            } else {
+                                setThreads(previous => previous.map(thread => thread.id === targetId ? {...thread, messages:[...thread.messages, message], draft:""} : thread));
+                            }
                         } catch (failure) {
                             setError(failure.message || "The message could not be sent.");
                         } finally {
