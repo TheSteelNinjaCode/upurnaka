@@ -5,17 +5,17 @@ use crate::{
     rahti::{self, Error, Result, Validator},
 };
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce, aead::Aead};
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use axum::http::StatusCode;
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-use rand::{RngCore, rngs::OsRng};
+use rand::{TryRng, rngs::SysRng};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, ExprTrait, QueryFilter,
     sea_query::Expr,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use totp_rs::{Algorithm, Secret, TOTP};
+use totp_rs::{Algorithm, Builder, Secret, Totp};
 
 pub fn settings() -> rahti::auth::AuthSettings {
     rahti::auth::AuthSettings {
@@ -121,7 +121,9 @@ fn digest(value: &str) -> String {
 }
 fn random_token() -> String {
     let mut b = [0; 32];
-    OsRng.fill_bytes(&mut b);
+    SysRng
+        .try_fill_bytes(&mut b)
+        .expect("operating system randomness");
     URL_SAFE_NO_PAD.encode(b)
 }
 pub(crate) fn ready() -> Result<()> {
@@ -154,7 +156,9 @@ fn cipher() -> Aes256Gcm {
 }
 fn encrypt(secret: &[u8]) -> Result<String> {
     let mut nonce = [0; 12];
-    OsRng.fill_bytes(&mut nonce);
+    SysRng
+        .try_fill_bytes(&mut nonce)
+        .map_err(|_| unavailable())?;
     let encrypted = cipher()
         .encrypt(&Nonce::from(nonce), secret)
         .map_err(|_| unavailable())?;
@@ -170,22 +174,22 @@ fn decrypt(value: &str) -> Result<Vec<u8>> {
         .decrypt(&Nonce::from(nonce), &bytes[12..])
         .map_err(|_| unavailable())
 }
-pub(crate) fn authenticator(secret: Vec<u8>, email: String) -> Result<TOTP> {
-    TOTP::new(
-        Algorithm::SHA1,
-        6,
-        0,
-        30,
-        secret,
-        Some("upurnaka".into()),
-        email,
-    )
-    .map_err(|_| unavailable())
+pub(crate) fn authenticator(secret: Vec<u8>, email: String) -> Result<Totp> {
+    Builder::new()
+        .with_algorithm(Algorithm::SHA1)
+        .with_digits(6)
+        .with_skew(0)
+        .with_step_duration(30)
+        .with_secret(secret)
+        .with_issuer(Some("upurnaka"))
+        .with_account_name(email)
+        .build()
+        .map_err(|_| unavailable())
 }
 async fn hash_password(password: String) -> Result<String> {
     tokio::task::spawn_blocking(move || {
         Argon2::default()
-            .hash_password(password.as_bytes(), &SaltString::generate(&mut OsRng))
+            .hash_password(password.as_bytes())
             .map(|h| h.to_string())
             .map_err(|_| unavailable())
     })
@@ -230,13 +234,11 @@ pub async fn register(
         .same("confirmation", &confirmation, "password", &password);
     v.finish()?;
     ready()?;
-    let secret = Secret::generate_secret()
-        .to_bytes()
-        .map_err(|_| unavailable())?;
+    let secret = Secret::generate();
     let token = random_token();
     let row = account::ActiveModel {
         id: Set(random_token()), email: Set(email), name: Set(name),
-        password_hash: Set(hash_password(password).await?), otp_secret: Set(encrypt(&secret)?),
+        password_hash: Set(hash_password(password).await?), otp_secret: Set(encrypt(secret.as_bytes())?),
         verified: Set(false), last_step: Set(-1), recovery_hashes: Set(String::new()),
         challenge_hash: Set(digest(&token)), challenge_expires: Set(now() + 600),
         attempts: Set(0), locked_until: Set(0),
@@ -259,10 +261,10 @@ fn challenge(row: account::Model, token: String) -> Result<Challenge> {
     let totp = authenticator(decrypt(&row.otp_secret)?, row.email)?;
     Ok(Challenge {
         token,
-        setup_key: Some(totp.get_secret_base32()),
+        setup_key: Some(totp.secret().to_base32()),
         qr: Some(format!(
             "data:image/png;base64,{}",
-            totp.get_qr_base64().map_err(|_| unavailable())?
+            totp.to_qr_base64().map_err(|_| unavailable())?
         )),
     })
 }
@@ -350,8 +352,8 @@ pub async fn finish_signin(token: String, code: String) -> Result<SignedIn> {
     let totp = authenticator(decrypt(&row.otp_secret)?, row.email.clone())?;
     let code = code.trim();
     let step = now() / 30;
-    let accepted =
-        (step - 1..=step + 1).find(|s| *s > row.last_step && totp.check(code, (*s * 30) as u64));
+    let accepted = (step - 1..=step + 1)
+        .find(|s| *s > row.last_step && totp.check(code, (*s * 30) as u64).is_some());
     let recovery = digest(&code.to_ascii_uppercase());
     let mut hashes: Vec<String> = row.recovery_hashes.lines().map(str::to_string).collect();
     let recovered = row.verified && accepted.is_none() && hashes.contains(&recovery);
@@ -364,7 +366,9 @@ pub async fn finish_signin(token: String, code: String) -> Result<SignedIn> {
         recovery_codes = (0..8)
             .map(|_| {
                 let mut bytes = [0; 10];
-                OsRng.fill_bytes(&mut bytes);
+                SysRng
+                    .try_fill_bytes(&mut bytes)
+                    .expect("operating system randomness");
                 bytes.iter().map(|b| format!("{b:02X}")).collect::<String>()
             })
             .collect();

@@ -130,7 +130,7 @@ pub(super) fn test_cookie() -> String {
 
 pub(super) fn cookie_for(id: &str, name: &str, email: &str) -> String {
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     let settings = rahti::auth::settings();
     let payload = rahti::serde_json::json!({"user": {"id": id, "name": name, "email": email},
         "exp": rahti::time::Utc::now().timestamp() + 3600});

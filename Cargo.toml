@@ -27,15 +27,15 @@ exclude = ["native"]
 [dependencies]
 axum = "0.8.9"
 rahti = { version = "0.0.60", features = ["mcp", "ws"] }
-serde = { version = "1", features = ["derive"] }
-tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.7", features = ["catch-panic", "fs"] }
+serde = { version = "1.0.229", features = ["derive"] }
+tokio = { version = "1.54.1", features = ["full"] }
+tower-http = { version = "0.7.1", features = ["catch-panic", "fs"] }
 
 # The database. Yours to manage from here on: an upgrade adds a dependency
 # a feature it just wrote needs, and changes nothing else in this file —
 # a version bump is a version bump.
-sea-orm = { version = "2", default-features = false, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
-sea-orm-migration = { version = "2", default-features = false, features = ["runtime-tokio-rustls", "sqlx-postgres"] }
+sea-orm = { version = "2.0.4", default-features = false, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
+sea-orm-migration = { version = "2.0.4", default-features = false, features = ["runtime-tokio-rustls", "sqlx-postgres"] }
 # AWS, with its TLS picked rather than inherited. Left on their defaults, these
 # two crates build *two* complete TLS stacks: `default-https-client` pulls
 # rustls 0.23 on aws-lc-rs — whose `aws-lc-sys` compiles ~68 MB of C through
@@ -62,26 +62,26 @@ aws-smithy-http-client = { version = "1.5.1", default-features = false, features
     "rustls-ring",
 ] }
 rahti-icons = "=0.0.27"
-argon2 = "0.5"
-aes-gcm = "0.10"
-base64 = "0.22"
-rand = "0.8"
-sha2 = "0.10"
-totp-rs = { version = "5.7", features = ["qr", "gen_secret"] }
+argon2 = "0.6.0"
+aes-gcm = "0.11.1"
+base64 = "0.23.1"
+rand = "0.10.3"
+sha2 = "0.11.1"
+totp-rs = { version = "6.0.0", default-features = false, features = ["std", "qr", "gen_secret"] }
 
 # What `src/tests/support.rs` needs to drive the generated router in-process:
 # a request in, a response out, no port bound. See docs/conventions/testing.md.
 [dev-dependencies]
-hmac = "0.12"
+hmac = "0.13.0"
 rahti = { version = "0.0.60", features = ["browser-test"] }
-http-body-util = "0.1"
-tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1.5"
+tower = { version = "0.5.3", features = ["util"] }
 
 # The suite's database. `src/tests/support.rs` opens a SQLite *file* per
 # docs/conventions/testing.md, and the driver that reads it is a test-only
 # concern: the deployment backend in rahti.config.json stays postgres, and the
 # feature is unified into the dev build alone.
-sea-orm = { version = "2", default-features = false, features = ["sqlx-sqlite"] }
+sea-orm = { version = "2.0.4", default-features = false, features = ["sqlx-sqlite"] }
 
 [build-dependencies]
 rahti-build = "0.0.60"
