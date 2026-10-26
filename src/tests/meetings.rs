@@ -85,6 +85,11 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
             ([("content-type", "text/javascript")], include_str!("fixtures/chime-room.js"))
         }))
         .layer(axum::middleware::from_fn(|request: axum::extract::Request, next: axum::middleware::Next| async move {
+            // This UI test uses a synthetic join response rather than a real
+            // admitted provider seat. The full moderation tests cover this RPC.
+            if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("resume_meeting_audio") {
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from("true")).unwrap();
+            }
             if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("join_meeting") {
                 return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"meeting":{"MeetingId":"fixture"},"attendee":{"AttendeeId":"self","ExternalUserId":"Jefferson Abraham#fixture"}}"#)).unwrap();
             }
@@ -359,6 +364,106 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .wait_for("document.querySelector('.room-raised-hand').hidden")
         .await
         .unwrap();
+    // Only sustained local, unmuted audio starts automatic lowering. Advance
+    // the wall clock while keeping the real interval and browser bindings live.
+    let _: bool = browser.eval("window.originalHandClock = Date.now; window.handClockOffset = 0; Date.now = () => window.originalHandClock() + window.handClockOffset; true").await.unwrap();
+    browser
+        .click("button[aria-label='Raise hand']")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.roomFixture.volume(0.8, true); window.handClockOffset += 3000; true")
+        .await
+        .unwrap();
+    browser.pause(std::time::Duration::from_millis(1100)).await;
+    assert!(browser.eval::<bool>("document.querySelector('.room-hand-auto-lower').hidden && !document.querySelector('.room-raised-hand').hidden").await.unwrap());
+    browser
+        .click("button[aria-label='Toggle meeting microphone']")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.roomFixture.volume(0, false); window.handClockOffset += 60000; true")
+        .await
+        .unwrap();
+    browser.pause(std::time::Duration::from_millis(1100)).await;
+    assert!(browser.eval::<bool>("document.querySelector('.room-hand-auto-lower').hidden && !document.querySelector('.room-raised-hand').hidden").await.unwrap(), "a silent raised hand has no expiry");
+    browser
+        .click("button[aria-label='Toggle meeting camera']")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.roomFixture.volume(0.6, false); window.handClockOffset += 3000; true")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.room-hand-auto-lower').hidden && document.querySelector('.room-hand-auto-lower').textContent.includes('5 seconds')").await.unwrap();
+    browser
+        .click(".room-hand-auto-lower > button")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.handClockOffset += 10000; window.roomFixture.volume(0.7, false); true")
+        .await
+        .unwrap();
+    browser.pause(std::time::Duration::from_millis(1100)).await;
+    assert!(browser.eval::<bool>("document.querySelector('.room-hand-auto-lower').hidden && !document.querySelector('.room-raised-hand').hidden").await.unwrap(), "Keep it raised cancels automatic lowering for this raise");
+    browser
+        .click("button[aria-label='Toggle meeting camera']")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Raise hand']")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Raise hand']")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("window.roomFixture.volume(0.6, false); window.roomFixture.volume(0, null); window.handClockOffset += 3000; true").await.unwrap();
+    browser.pause(std::time::Duration::from_millis(1100)).await;
+    assert!(
+        browser
+            .eval::<bool>("document.querySelector('.room-hand-auto-lower').hidden")
+            .await
+            .unwrap(),
+        "a brief noise spike must not trigger the warning"
+    );
+    let _: bool = browser
+        .eval("window.roomFixture.volume(0.6, false); window.handClockOffset += 3000; true")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-hand-auto-lower').hidden")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.roomFixture.observer.audioVideoDidStartConnecting(true); true")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.room-hand-auto-lower').hidden")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("window.roomFixture.observer.audioVideoDidStart(); window.handClockOffset += 6000; true").await.unwrap();
+    browser.pause(std::time::Duration::from_millis(1100)).await;
+    assert!(browser.eval::<bool>("document.querySelector('.room-hand-auto-lower').hidden && !document.querySelector('.room-raised-hand').hidden").await.unwrap(), "reconnecting cancels a stale countdown");
+    let _: bool = browser
+        .eval("window.roomFixture.volume(0.6, false); window.handClockOffset += 3000; true")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-hand-auto-lower').hidden")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.handClockOffset += 6000; true")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-raised-hand').hidden && document.querySelector('.room-hand-auto-lower').hidden && document.querySelector('button[aria-label=\"Raise hand\"]').getAttribute('aria-pressed') === 'false'").await.unwrap();
+    assert!(browser.eval::<bool>("window.roomFixture.sent.filter(message => message.kind === 'hand').at(-1).raised === false").await.unwrap(), "automatic lowering must notify the other attendees");
+    let _: bool = browser
+        .eval("Date.now = window.originalHandClock; true")
+        .await
+        .unwrap();
     let _: bool = browser
         .eval(
             r##"
@@ -395,7 +500,7 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.meeting-room').hidden && !document.querySelector('.meeting-body').hidden").await.unwrap();
-    let stopped: bool = browser.eval("window.roomFixture.stopped && window.roomFixture.controller.stream.getTracks().every(track => track.readyState === 'ended')").await.unwrap();
+    let stopped: bool = browser.eval("window.roomFixture.stopped && window.roomFixture.volume === null && window.roomFixture.controller.stream.getTracks().every(track => track.readyState === 'ended')").await.unwrap();
     assert!(stopped, "leaving must stop the transport and camera");
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }

@@ -561,8 +561,39 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         pp-style={"--room-rows: " + railRows}
                     >
                         <section
+                            class="room-hand-auto-lower absolute left-1/2 top-3 z-5 w-[min(360px,90%)] -translate-x-1/2 rounded-lg border border-edge bg-raised p-4 text-sm shadow-xl"
+                            role="status"
+                            hidden={!handRaised || handLowerAt === 0}
+                            aria-label="Automatic hand lowering"
+                        >
+                            <div class="flex items-start gap-2">
+                                <Icon name="hand" class="h-5 w-5 shrink-0 text-away" />
+                                <strong class="flex-1">
+                                    "Your hand will lower in "
+                                    {handLowerSeconds}
+                                    " seconds"
+                                </strong>
+                                <button
+                                    type="button"
+                                    aria-label="Dismiss and keep hand raised"
+                                    onclick={keepHandRaised()}
+                                    class="text-muted"
+                                >
+                                    "×"
+                                </button>
+                            </div>
+                            <p class="my-3 text-muted">"We noticed you spoke."</p>
+                            <button
+                                type="button"
+                                onclick={keepHandRaised()}
+                                class="w-full rounded bg-brand px-4 py-2 font-medium text-white"
+                            >
+                                "Keep it raised"
+                            </button>
+                        </section>
+                        <section
                             class="room-lobby-notice absolute left-1/2 top-3 z-5 w-[min(380px,90%)] -translate-x-1/2 rounded-lg border border-edge bg-raised p-4 shadow-xl"
-                            hidden={!isOrganizer || lobbyRequests.length === 0 || roomPanel === "people"}
+                            hidden={!isOrganizer || lobbyRequests.length === 0 || roomPanel === "people" || handLowerAt > 0}
                             aria-label="Waiting in the lobby"
                         >
                             <strong class="text-sm">"Waiting in the lobby"</strong>
@@ -591,7 +622,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         <div
                             class="room-hand-notice absolute left-1/2 top-3 z-4 flex max-w-[90%] -translate-x-1/2 items-center gap-3 rounded-lg border border-edge bg-raised px-4 py-3 text-sm shadow-xl"
                             role="status"
-                            hidden={!handNotice}
+                            hidden={!handNotice || handLowerAt > 0}
                         >
                             <Icon name="hand" class="h-5 w-5 shrink-0 text-away" />
                             <span class="truncate">{handNotice}" raised their hand"</span>
@@ -1175,6 +1206,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const [elapsed, setElapsed] = pp.state(0);
                     const [roomPanel, setRoomPanel] = pp.state("");
                     const [handRaised, setHandRaised] = pp.state(false);
+                    const [handLowerAt, setHandLowerAt] = pp.state(0);
+                    const [handLowerSeconds, setHandLowerSeconds] = pp.state(0);
+                    const handAutoKept = pp.ref(false);
+                    const handSpeech = pp.ref({ volume: 0, muted: true, since: 0 });
                     const [reactionsOpen, setReactionsOpen] = pp.state(false);
                     const [toolbarBottom, setToolbarBottom] = pp.state(72);
                     const [roomMenuStyle, setRoomMenuStyle] = pp.state("");
@@ -1227,7 +1262,41 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const elapsedLabel = Math.floor(elapsed / 60).toString().padStart(2, "0") + ":" + (elapsed % 60).toString().padStart(2, "0");
 
                     const onClockTick = pp.event(() => {
-                        if (startedAt.current) setElapsed(Math.floor((Date.now() - startedAt.current) / 1000));
+                        const now = Date.now();
+                        if (startedAt.current) setElapsed(Math.floor((now - startedAt.current) / 1000));
+                        if (!handRaised || handAutoKept.current) return;
+                        if (connectionStatus !== "connected") {
+                            handSpeech.current.since = 0;
+                            setHandLowerAt(0);
+                            return;
+                        }
+                        if (handLowerAt) {
+                            setHandLowerSeconds(Math.max(0, Math.ceil((handLowerAt - now) / 1000)));
+                            if (now >= handLowerAt) {
+                                // Do not repeatedly retry a failed data-message send.
+                                keepHandRaised();
+                                updateHand(false);
+                            }
+                        } else if (!microphone || handSpeech.current.muted || call.current?.av.realtimeIsLocalAudioMuted()) {
+                            handSpeech.current.since = 0;
+                        } else if (handSpeech.current.volume >= 0.1 && !handSpeech.current.since) {
+                            handSpeech.current.since = now;
+                        } else if (handSpeech.current.since && now - handSpeech.current.since >= 2000) {
+                            setHandLowerAt(now + 5000);
+                            setHandLowerSeconds(5);
+                        }
+                    });
+
+                    const onLocalHandVolume = pp.event((attendeeId, volume, muted) => {
+                        const live = call.current;
+                        if (!live || attendeeId !== live.attendeeId) return;
+                        const activity = handSpeech.current;
+                        if (volume !== null) activity.volume = volume;
+                        if (muted !== null) activity.muted = muted;
+                        const speaking = handRaised && microphone && connectionStatus === "connected" &&
+                            !activity.muted && !live.av.realtimeIsLocalAudioMuted() && activity.volume >= 0.1;
+                        if (!speaking) activity.since = 0;
+                        else if (!activity.since) activity.since = Date.now();
                     });
                     pp.effect(() => {
                         if (!handNotice) return;
@@ -1311,7 +1380,13 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         } catch(failure) { setError(failure.message); }
                         finally { setApplyingBackground(false); }
                     }
-                    const onConnectionStarting = pp.event(reconnecting => setConnectionStatus(reconnecting ? "reconnecting" : "connecting"));
+                    const onConnectionStarting = pp.event(reconnecting => {
+                        setConnectionStatus(reconnecting ? "reconnecting" : "connecting");
+                        handSpeech.current.since = 0;
+                        handSpeech.current.volume = 0;
+                        setHandLowerAt(0);
+                        setHandLowerSeconds(0);
+                    });
                     const onConnectionStarted = pp.event(() => {
                         setConnectionStatus("connected");
                         if (!startedAt.current) startedAt.current = Date.now();
@@ -1410,12 +1485,26 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     }
 
                     function raiseHand() {
+                        updateHand(!handRaised);
+                    }
+
+                    function updateHand(raised) {
                         try {
-                            const raised = !handRaised;
                             sendMeetingEvent({ kind: "hand", raised });
                             setHandRaised(raised);
+                            setHandLowerAt(0);
+                            setHandLowerSeconds(0);
+                            handAutoKept.current = false;
+                            handSpeech.current.since = 0;
                             setPeople(current => current.map(person => person.id === selfAttendeeId ? { ...person, raised } : person));
                         } catch (failure) { setError(failure.message); }
+                    }
+
+                    function keepHandRaised() {
+                        handAutoKept.current = true;
+                        handSpeech.current.since = 0;
+                        setHandLowerAt(0);
+                        setHandLowerSeconds(0);
                     }
 
                     function sendReaction(emoji) {
@@ -1781,6 +1870,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setMoreOpen(false);
                         setReactionsOpen(false);
                         setHandRaised(false);
+                        setHandLowerAt(0); setHandLowerSeconds(0);
+                        handAutoKept.current = false;
+                        handSpeech.current = { volume: 0, muted: true, since: 0 };
                         setHandNotice(''); setPinnedId(''); setSpotlightId(''); setHideSelf(false); setTileMenu(null);
                         setLobbyRequests([]);
                         setReactionNotice("");
@@ -1805,6 +1897,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 live.av.stopContentShare();
                                 live.av.realtimeUnsubscribeToAttendeeIdPresence(onPresence);
                                 live.av.realtimeUnsubscribeFromReceiveDataMessage("upurnaka-room");
+                                live.av.realtimeUnsubscribeFromVolumeIndicator(live.attendeeId);
                                 await live.av.stopAudioInput();
                                 live.av.stop();
                             }
@@ -1960,6 +2053,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         }
 
                         call.current = { session: meetingSession, av, attendeeId: info.attendee.AttendeeId };
+                        av.realtimeSubscribeToVolumeIndicator(info.attendee.AttendeeId, onLocalHandVolume);
                         setPeople([{ id: info.attendee.AttendeeId, name: displayName, initials: initials(displayName), raised: false }]);
                         av.start();
 

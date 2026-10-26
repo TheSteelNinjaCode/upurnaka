@@ -976,6 +976,9 @@
   .w-\[min\(340px\,calc\(100vw-32px\)\)\] {
     width: min(340px, calc(100vw - 32px));
   }
+  .w-\[min\(360px\,90\%\)\] {
+    width: min(360px, 90%);
+  }
   .w-\[min\(380px\,90\%\)\] {
     width: min(380px, 90%);
   }

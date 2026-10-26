@@ -66,6 +66,17 @@ Raised hands show a gold frame, hand badge, and a six-second dismissible
 notification naming the participant. Lowering the hand clears the persistent
 badge/frame. These controls preserve existing camera elements and streams.
 
+While your own hand is raised, two seconds of sustained, unmuted microphone
+activity starts a five-second "Your hand will lower" countdown. The app uses
+Chime's local volume notifications (at least 10% volume), so this is an audio
+activity heuristic, not speech recognition; no audio is recorded or transcribed.
+Silence and muted microphones do not expire a raised hand. "Keep it raised" or
+the dismiss button cancels automatic lowering for this raise; lowering and
+raising again enables it again. Expiry sends the same hand-lowered event as the
+manual button, updating other participants. Camera state does not affect it.
+Disconnects cancel a pending countdown; leaving clears the audio subscription
+and all countdown state.
+
 Apply the new schema with `cargo run -- --migrate` before restarting. No npm or
 additional Rust dependencies are required. Router tests exercise authorization,
 ticket lifecycle, shared spotlight/mute, cancellation, expiry, and malformed
