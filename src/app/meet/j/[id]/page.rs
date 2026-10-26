@@ -251,7 +251,12 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     <span>"Meeting ID: "@{&code}</span>
                 </footer>
             </div>
-            <section class="meeting-room" aria-label="Meeting room" hidden={session === null}>
+            <section
+                class="meeting-room"
+                aria-label="Meeting room"
+                hidden={session === null}
+                onpointerdown={dismissRoomMenusOutside(event)}
+            >
                 <header class="room-toolbar">
                     <div class="room-time">
                         <Icon name="shield" class="h-5 w-5" />
@@ -303,9 +308,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             type="button"
                             class="room-tool "
                             aria-label="Send a reaction"
+                            pp-ref={reactionTrigger}
                             aria-expanded={reactionsOpen}
                             disabled={connectionStatus !== "connected"}
-                            onclick={setReactionsOpen(!reactionsOpen)}
+                            onclick={toggleRoomMenu("reactions")}
                         >
                             <Icon name="emoji" class="h-6 w-6" />
                             <span>"React"</span>
@@ -324,8 +330,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             type="button"
                             class="room-tool "
                             aria-label="More meeting options"
+                            pp-ref={moreTrigger}
                             aria-expanded={moreOpen}
-                            onclick={setMoreOpen(!moreOpen)}
+                            onclick={toggleRoomMenu("more")}
                         >
                             <Icon name="more" class="h-6 w-6" />
                             <span>"More"</span>
@@ -383,7 +390,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <span>"Leave"</span>
                         </button>
                     </div>
-                    <div class="room-reactions" hidden={!reactionsOpen}>
+                    <div class="room-reactions" pp-ref={reactionMenu} hidden={!reactionsOpen}>
                         <button
                             type="button"
                             aria-label="Send thumbs up"
@@ -413,11 +420,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             "😄"
                         </button>
                     </div>
-                    <div class="room-more-menu" hidden={!moreOpen}>
+                    <div class="room-more-menu" pp-ref={moreMenu} hidden={!moreOpen}>
                         <button type="button" onclick={openRoomBackgrounds()}>
                             "Background settings"
                         </button>
-                        <button type="button" onclick={share()}>"Copy meeting link"</button>
+                        <button type="button" onclick={copyRoomLink()}>"Copy meeting link"</button>
                     </div>
                 </header>
                 <div class={backgroundsOpen ? "room-content with-backgrounds" : "room-content"}>
@@ -799,6 +806,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
                     const localVideo = pp.ref(null);
                     const roomLocalVideo = pp.ref(null);
+                    const reactionTrigger = pp.ref(null);
+                    const moreTrigger = pp.ref(null);
+                    const reactionMenu = pp.ref(null);
+                    const moreMenu = pp.ref(null);
                     const startedAt = pp.ref(0);
                     const shareStream = pp.ref(null);
                     const meetingAudio = pp.ref(null);
@@ -921,11 +932,13 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     }
 
                     function toggleRoomPanel(panel) {
+                        dismissRoomMenus();
                         setRoomPanel(roomPanel === panel ? "" : panel);
                         setBackgroundsOpen(false);
                     }
 
                     function openRoomBackgrounds() {
+                        dismissRoomMenus();
                         setRoomPanel("");
                         setMoreOpen(false);
                         setBackgroundsOpen(true);
@@ -1065,7 +1078,35 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     }
 
                     function handleBackgroundKey(event) {
-                        if (event.key === "Escape") setBackgroundsOpen(false);
+                        if (event.key !== "Escape") return;
+                        const trigger = reactionsOpen ? reactionTrigger.current : moreOpen ? moreTrigger.current : null;
+                        dismissRoomMenus();
+                        setBackgroundsOpen(false);
+                        if (trigger) {
+                            event.preventDefault();
+                            trigger.focus();
+                        }
+                    }
+
+                    function dismissRoomMenus() {
+                        if (reactionsOpen) setReactionsOpen(false);
+                        if (moreOpen) setMoreOpen(false);
+                    }
+
+                    function toggleRoomMenu(menu) {
+                        const opening = menu === "reactions" ? !reactionsOpen : !moreOpen;
+                        setReactionsOpen(menu === "reactions" && opening);
+                        setMoreOpen(menu === "more" && opening);
+                    }
+
+                    function dismissRoomMenusOutside(event) {
+                        if ([reactionTrigger, moreTrigger, reactionMenu, moreMenu].some(ref => ref.current?.contains(event.target))) return;
+                        dismissRoomMenus();
+                    }
+
+                    function copyRoomLink() {
+                        dismissRoomMenus();
+                        share();
                     }
 
                     async function selectBackground(id, custom) {

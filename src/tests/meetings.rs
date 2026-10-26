@@ -83,6 +83,56 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     browser
+        .wait_for("!document.querySelector('.room-reactions').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='More meeting options']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-reactions').hidden && !document.querySelector('.room-more-menu').hidden").await.unwrap();
+    browser
+        .click("button[aria-label='Send a reaction']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.room-reactions').hidden && document.querySelector('.room-more-menu').hidden").await.unwrap();
+    browser
+        .click("button[aria-label='Meeting chat']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-reactions').hidden && document.querySelector('.room-more-menu').hidden").await.unwrap();
+    browser
+        .click("button[aria-label='More meeting options']")
+        .await
+        .unwrap();
+    browser.click(".room-stage").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.room-more-menu').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='More meeting options']")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("document.querySelector('.room-more-menu').hidden && document.activeElement.getAttribute('aria-label') === 'More meeting options'").await.unwrap();
+    browser
+        .click("button[aria-label='Send a reaction']")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Send a reaction']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.room-reactions').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Send a reaction']")
+        .await
+        .unwrap();
+    browser
         .click("button[aria-label='Send thumbs up']")
         .await
         .unwrap();
