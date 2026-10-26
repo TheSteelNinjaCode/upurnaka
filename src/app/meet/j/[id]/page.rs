@@ -541,7 +541,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <template pp-for="slot in remoteSlots">
                                 <div
                                     key={slot.index}
-                                    class={slot.content ? TILE + " col-span-full" : TILE}
+                                    class={slot.content ? TILE + " room-content-tile col-span-full" : TILE + " room-person-video"}
+                                    data-attendee-id={slot.attendeeId}
                                     hidden={!slot.active}
                                 >
                                     <video
@@ -551,6 +552,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         playsinline
                                     >
                                     </video>
+                                    <span
+                                        class="room-hand-indicator absolute left-3 top-3 z-1 inline-flex items-center gap-2 rounded-md bg-black/75 px-2.5 py-2 text-xs font-medium text-away"
+                                        role="status"
+                                        aria-label={slot.name + " has raised their hand"}
+                                        hidden={!slot.raised}
+                                    >
+                                        <Icon name="hand" class="h-4 w-4 shrink-0" />
+                                        "Hand raised"
+                                    </span>
                                     <span
                                         class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                                     >
@@ -562,16 +572,25 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 <div
                                     key={person.id}
                                     class={TILE + " room-person-off flex items-center justify-center"}
+                                    data-attendee-id={person.id}
                                     hidden={person.hasVideo}
                                 >
                                     <span class={AVATAR + " h-[120px] w-[120px] text-[42px]"}>
                                         {person.initials}
                                     </span>
                                     <span
+                                        class="room-hand-indicator absolute left-3 top-3 z-1 inline-flex items-center gap-2 rounded-md bg-black/75 px-2.5 py-2 text-xs font-medium text-away"
+                                        role="status"
+                                        aria-label={person.name + " has raised their hand"}
+                                        hidden={!person.raised}
+                                    >
+                                        <Icon name="hand" class="h-4 w-4 shrink-0" />
+                                        "Hand raised"
+                                    </span>
+                                    <span
                                         class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                                     >
                                         {person.name}
-                                        {person.raised ? " · Hand raised" : ""}
                                     </span>
                                 </div>
                             </template>
@@ -611,13 +630,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 {displayName}
                                 " (You)"
                             </span>
-                        </div>
-                        <div
-                            class="room-raised-hand absolute left-5 top-5 z-2 flex gap-2.5 rounded-md bg-raised px-3.5 py-2.5 text-[13px] text-away"
-                            hidden={!handRaised}
-                        >
-                            <Icon name="hand" class="h-5 w-5" />
-                            "Your hand is raised"
+                            <span
+                                class="room-raised-hand room-hand-indicator absolute left-3 top-3 z-1 inline-flex items-center gap-2 rounded-md bg-black/75 px-2.5 py-2 text-xs font-medium text-away"
+                                role="status"
+                                aria-label="Your hand is raised"
+                                hidden={!handRaised}
+                            >
+                                <Icon name="hand" class="h-4 w-4 shrink-0" />
+                                "Hand raised"
+                            </span>
                         </div>
                         <div
                             class="room-reaction-toast absolute bottom-16 left-1/2 z-2 -translate-x-1/2 rounded-3xl bg-raised/70 px-6 py-3 text-[28px]"
@@ -945,6 +966,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         active: remoteTiles[index],
                         name: tileDetails[index] ? tileDetails[index].name : "Participant",
                         content: tileDetails[index] ? tileDetails[index].content : false,
+                        attendeeId: tileDetails[index] ? tileDetails[index].id : "",
+                        raised: !!tileDetails[index] && !tileDetails[index].content && people.some(person => person.id === tileDetails[index].id && person.raised),
                     }));
                     const selfAttendeeId = session ? session.attendee.AttendeeId : "";
                     const remotePeople = people.filter(person => person.id !== selfAttendeeId).map(person => ({

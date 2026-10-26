@@ -17,7 +17,7 @@ export class DefaultDeviceController {
 }
 export class DefaultMeetingSession {
   constructor(configuration, logger, controller) {
-    const fixture = { sent: [], stopped: false, muted: false, controller };
+    const fixture = { sent: [], stopped: false, muted: false, controller, remoteStreams: new Map() };
     globalThis.roomFixture = fixture;
     const av = {
       addObserver(observer) { fixture.observer = observer; },
@@ -32,12 +32,20 @@ export class DefaultMeetingSession {
       async chooseAudioOutput() {},
       async stopAudioInput() {},
       start() { setTimeout(() => fixture.observer.audioVideoDidStart(), 10); },
-      stop() { fixture.stopped = true; fixture.observer.audioVideoDidStop({ statusCode: () => 0 }); },
+      stop() { fixture.stopped = true; fixture.remoteStreams.forEach(stream => stream.getTracks().forEach(track => track.stop())); fixture.observer.audioVideoDidStop({ statusCode: () => 0 }); },
       realtimeMuteLocalAudio() { fixture.muted = true; },
       realtimeUnmuteLocalAudio() { fixture.muted = false; },
       startLocalVideoTile() { fixture.observer.videoTileDidUpdate({ localTile: true, tileId: 1, boundAttendeeId: configuration.attendee.AttendeeId }); },
       stopLocalVideoTile() {},
-      bindVideoElement(tile, video) { video.srcObject = controller.stream; },
+      bindVideoElement(tile, video) {
+        if (tile === 1) { video.srcObject = controller.stream; return; }
+        if (!fixture.remoteStreams.has(tile)) {
+          const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360;
+          const paint = canvas.getContext('2d'); paint.fillStyle = '#385c73'; paint.fillRect(0, 0, 640, 360);
+          fixture.remoteStreams.set(tile, canvas.captureStream(15));
+        }
+        video.srcObject = fixture.remoteStreams.get(tile);
+      },
       async startContentShare(stream) { fixture.shared = stream; fixture.shareObserver.contentShareDidStart?.(); },
       stopContentShare() { fixture.shared?.getTracks().forEach(track => track.stop()); fixture.shareObserver.contentShareDidStop?.(); },
     };

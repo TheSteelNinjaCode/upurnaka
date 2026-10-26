@@ -137,6 +137,68 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .wait_for("!document.querySelector('.room-raised-hand').hidden")
         .await
         .unwrap();
+    // A remote hand is attendee state, independent of whether a camera tile exists.
+    let _: bool = browser.eval(r##"
+        window.raiseGuestHand = raised => window.roomFixture.message({
+            data: new Uint8Array([1]), senderAttendeeId:'guest', senderExternalUserId:'Ada Lovelace#fixture',
+            json: () => ({kind:'hand', raised})
+        });
+        window.raiseGuestHand(true); true
+    "##).await.unwrap();
+    browser.wait_for("!document.querySelector('.room-person-off[data-attendee-id=guest] .room-hand-indicator').hidden").await.unwrap();
+    let _: bool = browser.eval("window.roomFixture.observer.videoTileDidUpdate({tileId:10,boundAttendeeId:'guest',boundExternalUserId:'Ada Lovelace#fixture',paused:false}); true").await.unwrap();
+    browser.wait_for("!document.querySelector('.room-person-video[data-attendee-id=guest]').hidden && document.querySelector('.room-person-off[data-attendee-id=guest]').hidden && !document.querySelector('.room-person-video[data-attendee-id=guest] .room-hand-indicator').hidden").await.unwrap();
+    let visible_above_video: bool = browser.eval(r##"
+        (() => {
+            const tile = document.querySelector('.room-person-video[data-attendee-id=guest]');
+            const badge = tile.querySelector('.room-hand-indicator');
+            const rect = badge.getBoundingClientRect();
+            window.handTestVideo = tile.querySelector('video');
+            window.handTestStream = window.handTestVideo.srcObject;
+            return rect.width > 0 && rect.height > 0 && badge.querySelector('svg') !== null &&
+                badge.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
+        })()
+    "##).await.unwrap();
+    assert!(
+        visible_above_video,
+        "the hand icon must be visible above the playing video"
+    );
+    let _: bool = browser
+        .eval("window.raiseGuestHand(false); true")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-person-video[data-attendee-id=guest] .room-hand-indicator').hidden").await.unwrap();
+    let preserved: bool = browser.eval("document.querySelector('.room-person-video[data-attendee-id=guest] video') === window.handTestVideo && window.handTestVideo.srcObject === window.handTestStream && window.handTestStream.active").await.unwrap();
+    assert!(
+        preserved,
+        "hand updates must preserve the SDK's video element and stream"
+    );
+    // Screen-sharing tiles must not acquire the camera owner's hand badge.
+    let _: bool = browser.eval("window.raiseGuestHand(true); window.roomFixture.observer.videoTileDidUpdate({tileId:11,boundAttendeeId:'guest#content',boundExternalUserId:'Ada Lovelace#fixture',isContent:true,paused:false}); true").await.unwrap();
+    browser.wait_for("!document.querySelector('.room-content-tile').hidden && !document.querySelector('.room-person-video[data-attendee-id=guest] .room-hand-indicator').hidden").await.unwrap();
+    assert!(
+        browser
+            .eval::<bool>(
+                "document.querySelector('.room-content-tile .room-hand-indicator').hidden"
+            )
+            .await
+            .unwrap()
+    );
+    // Pausing, resuming, and removing the camera must retain the raised hand on the visible card.
+    let _: bool = browser.eval("window.roomFixture.observer.videoTileDidUpdate({tileId:10,boundAttendeeId:'guest',boundExternalUserId:'Ada Lovelace#fixture',paused:true}); true").await.unwrap();
+    browser.wait_for("!document.querySelector('.room-person-off[data-attendee-id=guest]').hidden && !document.querySelector('.room-person-off[data-attendee-id=guest] .room-hand-indicator').hidden").await.unwrap();
+    let _: bool = browser.eval("window.roomFixture.observer.videoTileDidUpdate({tileId:10,boundAttendeeId:'guest',boundExternalUserId:'Ada Lovelace#fixture',paused:false}); true").await.unwrap();
+    browser.wait_for("!document.querySelector('.room-person-video[data-attendee-id=guest]').hidden && !document.querySelector('.room-person-video[data-attendee-id=guest] .room-hand-indicator').hidden").await.unwrap();
+    let _: bool = browser
+        .eval("window.roomFixture.observer.videoTileWasRemoved(10); true")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.room-person-off[data-attendee-id=guest]').hidden && !document.querySelector('.room-person-off[data-attendee-id=guest] .room-hand-indicator').hidden").await.unwrap();
+    let _: bool = browser
+        .eval("window.raiseGuestHand(false); true")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-person-off[data-attendee-id=guest] .room-hand-indicator').hidden").await.unwrap();
     browser
         .click("button[aria-label='Meeting chat']")
         .await
@@ -224,8 +286,18 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     browser.wait_for("!document.querySelector('.room-local-video').hidden && document.querySelector('.room-local-video').srcObject !== null").await.unwrap();
+    assert!(browser.eval::<bool>("!document.querySelector('.room-raised-hand').hidden && document.querySelector('.room-raised-hand').parentElement === document.querySelector('.room-local-video').parentElement").await.unwrap(), "your hand badge must stay with your camera tile");
     browser
         .click("button[aria-label='Toggle meeting camera']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-local-video').hidden && !document.querySelector('.room-raised-hand').hidden").await.unwrap();
+    browser
+        .click("button[aria-label='Raise hand']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.room-raised-hand').hidden")
         .await
         .unwrap();
     let _: bool = browser
