@@ -501,6 +501,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const shortcutsDialog = pp.ref(null);
                 const moreButton = pp.ref(null);
                 function openShortcuts() {
+                    pageShortcuts.current?.dismissPopovers?.();
                     setMenu("");
                     if (!shortcutsDialog.current.open) shortcutsDialog.current.showModal();
                 }
@@ -522,7 +523,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         return;
                     }
                     if (shortcutsDialog.current.open || survey !== 0) return;
-                    pageShortcuts.current?.handleKey(event);
+                    pageShortcuts.current?.handleKey?.(event);
                     if (event.defaultPrevented) return;
                     if (control && !event.shiftKey && ["e", "g", "/"].includes(key)) {
                         event.preventDefault(); setMenu("");
@@ -589,6 +590,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 }
 
                 function toggleMenu(name) {
+                    pageShortcuts.current?.dismissPopovers?.();
                     setMenu((open) => (open === name ? "" : name));
                 }
 

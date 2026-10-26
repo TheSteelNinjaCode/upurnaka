@@ -406,6 +406,14 @@ pub async fn page() -> Result {
                     const joinInput = pp.ref(null);
                     const scheduleTrigger = pp.ref(null);
                     const scheduleFirst = pp.ref(null);
+                    const shellControls = pp.context(window.UpurnakaShortcutContext);
+                    const dismissPopovers = pp.event(() => {
+                        setCompose(false);
+                        setJoinOpen(false);
+                        setScheduleOpen(false);
+                        setMenuFor("");
+                    });
+                    pp.imperativeHandle(shellControls, () => ({dismissPopovers}), [shellControls, dismissPopovers]);
                     pp.effect(() => {
                         if (joinOpen) joinInput.current?.focus();
                     }, [joinOpen]);

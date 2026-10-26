@@ -1,6 +1,59 @@
 use super::*;
 
 #[tokio::test]
+async fn opening_a_header_menu_closes_meet_popovers() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/meet"))
+        .await
+        .unwrap();
+    for header in ["Settings and more", "Your profile"] {
+        for (trigger, panel) in [
+            (
+                "button[aria-controls='meeting-join-dialog']",
+                "#meeting-join-dialog",
+            ),
+            (
+                "button[aria-controls='meeting-schedule-options']",
+                "#meeting-schedule-options",
+            ),
+            ("main button", "main input[name=title]"),
+        ] {
+            browser.click(trigger).await.unwrap();
+            browser
+                .wait_for(&format!(
+                    "document.querySelector({panel:?}).getBoundingClientRect().height > 0"
+                ))
+                .await
+                .unwrap();
+            browser
+                .click(&format!("button[aria-label='{header}']"))
+                .await
+                .unwrap();
+            browser.wait_for(&format!("document.querySelector({panel:?}).getBoundingClientRect().height === 0 && document.querySelector('button[aria-label=\"{header}\"]').getAttribute('aria-expanded') === 'true'")).await.unwrap();
+            browser
+                .click(&format!("button[aria-label='{header}']"))
+                .await
+                .unwrap();
+            assert!(
+                browser
+                    .eval::<bool>(&format!(
+                        "document.querySelector({panel:?}).getBoundingClientRect().height === 0"
+                    ))
+                    .await
+                    .unwrap(),
+                "closing the header must not reopen the page popover"
+            );
+        }
+    }
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn shell_dropdowns_stay_above_meet_actions() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
