@@ -302,7 +302,9 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     </div>
                 </div>
             </header>
-            <div class={paneOpen ? "flex min-h-0 flex-1" : "flex min-h-0 flex-1 panes-collapsed"}>
+            <div
+                class={paneOpen ? "shell-body flex min-h-0 flex-1" : "shell-body flex min-h-0 flex-1 panes-collapsed"}
+            >
                 <nav
                     class="flex w-[68px] shrink-0 flex-col items-center gap-1 pb-3"
                     aria-label="Teams sections"

@@ -1,5 +1,32 @@
 use super::*;
 
+/// A context provider must not shrink-wrap the page or remove it from the
+/// shell's flex layout. Check the hydrated geometry, not just the markup.
+#[tokio::test]
+async fn shell_pages_fill_the_content_area() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    for path in ["/meet", "/chat"] {
+        browser
+            .goto(&format!("http://{address}{path}"))
+            .await
+            .unwrap();
+        browser
+            .wait_for("document.querySelector('.shortcuts-row') !== null")
+            .await
+            .unwrap();
+        let fills: bool = browser.eval("(() => { const page = document.querySelector('main').getBoundingClientRect(); return Math.abs(page.right - innerWidth) <= 1 && Math.abs(page.bottom - innerHeight) <= 1 && Math.abs(page.top - 48) <= 1; })()").await.unwrap();
+        assert!(
+            fills,
+            "{path} must fill the width and height beside the rail"
+        );
+    }
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
 #[tokio::test]
 async fn chat_search_and_meet_now_controls_work() {
     setup().await;

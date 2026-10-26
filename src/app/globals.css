@@ -111,3 +111,9 @@ body {
 .panes-collapsed .list-pane {
   display: none;
 }
+
+/* The shortcut provider carries context, not a layout box. Page roots must
+   remain flex items beside the activity rail. */
+.shell-body > pp-context-provider {
+  display: contents;
+}
