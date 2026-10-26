@@ -45,27 +45,39 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
     let provider_ready = chime::is_configured();
 
     let content = html! {
-        <main class="meeting-join" onkeydown={handleBackgroundKey(event)}>
+        <main
+            class="meeting-join h-dvh overflow-auto bg-pane text-ink **:focus-visible:outline-2 **:focus-visible:outline-offset-4 **:focus-visible:outline-ring"
+            onkeydown={handleBackgroundKey(event)}
+        >
             <div
-                class={backgroundsOpen ? "meeting-body with-backgrounds" : "meeting-body"}
+                class="meeting-body group/body mx-auto max-w-[1460px] px-5 pb-6 min-[851px]:flex min-[851px]:h-full min-[851px]:flex-col min-[851px]:gap-[clamp(10px,1.8dvh,20px)] min-[851px]:px-[clamp(24px,4vw,64px)] min-[851px]:pb-4 min-[1101px]:data-[backgrounds=true]:ml-0 min-[1101px]:data-[backgrounds=true]:w-[calc(100%-340px)] min-[1101px]:data-[backgrounds=true]:px-6"
+                data-backgrounds={backgroundsOpen}
                 hidden={session !== null}
             >
-                <div class="meeting-account">
+                <div
+                    class="meeting-account relative mx-auto flex w-fit max-w-full items-center gap-4 rounded-b-md bg-raised px-6 py-5 shadow-md shadow-black/20 max-[480px]:gap-2.5 max-[480px]:p-3.5 min-[851px]:shrink-0 min-[851px]:py-[clamp(12px,1.8dvh,20px)]"
+                >
                     <Avatar initials="JA" size="lg" presence="none" />
-                    <div class="meeting-account-name">
+                    <div
+                        class="flex min-w-40 flex-col gap-0.5 text-[15px] max-[480px]:min-w-0 max-[480px]:text-[13px]"
+                    >
                         <strong>{displayName || "Your name"}</strong>
-                        <span>"Joining as a guest"</span>
+                        <span class="text-[13px] text-muted">"Joining as a guest"</span>
                     </div>
                     <button
                         type="button"
-                        class="meeting-text-button"
+                        class="cursor-pointer text-link hover:underline"
                         onclick={setEditingName(!editingName)}
                     >
                         {editingName ? "Done" : "Change"}
                     </button>
-                    <label class="meeting-name-editor" hidden={!editingName}>
+                    <label
+                        class="meeting-name-editor absolute inset-x-0 top-full z-2 grid gap-2 bg-raised p-4 text-[13px] shadow-lg shadow-black/30"
+                        hidden={!editingName}
+                    >
                         "Your name"
                         <input
+                            class="rounded-[3px] border border-edge bg-surface p-[9px] text-ink"
                             name="display_name"
                             aria-label="Your name"
                             autocomplete="name"
@@ -75,32 +87,52 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         />
                     </label>
                 </div>
-                <div class="meeting-heading">
-                    <span class="meeting-logo">
+                <div
+                    class="mb-8 mt-11 flex flex-col items-center gap-6 text-center max-[480px]:mt-9 min-[851px]:m-0 min-[851px]:shrink-0 min-[851px]:gap-[clamp(10px,1.5dvh,20px)] min-[851px]:pt-[clamp(4px,2dvh,26px)]"
+                >
+                    <span
+                        class="grid h-[52px] w-[52px] place-items-center rounded-xl bg-linear-145 from-brand-ink to-brand-press text-white shadow-[8px_5px_0_-3px_var(--color-brand)] min-[851px]:h-[clamp(40px,5dvh,52px)] min-[851px]:w-[clamp(40px,5dvh,52px)]"
+                    >
                         <Icon name="teams" class="h-9 w-9" />
                     </span>
-                    <h1>@{&title}</h1>
+                    <h1
+                        class="text-[23px] font-semibold leading-[1.3] wrap-anywhere min-[851px]:text-[clamp(22px,2.7dvh,26px)]"
+                    >
+                        @{&title}
+                    </h1>
                 </div>
-                <div class="meeting-setup">
-                    <section class="meeting-camera" aria-label="Camera preview">
-                        <div class="meeting-preview">
+                <div
+                    class="grid grid-cols-1 gap-6 min-[851px]:max-h-[min(52dvh,520px)] min-[851px]:min-h-0 min-[851px]:flex-1 min-[851px]:grid-cols-[1.13fr_1fr] min-[1101px]:group-data-[backgrounds=true]/body:gap-4"
+                >
+                    <section
+                        class="flex min-w-0 flex-col overflow-hidden rounded-md border border-edge bg-surface"
+                        aria-label="Camera preview"
+                    >
+                        <div
+                            class="relative grid aspect-video min-h-[220px] flex-1 place-items-center min-[851px]:aspect-auto min-[851px]:min-h-0"
+                        >
                             <video
                                 pp-ref={localVideo}
-                                class="meeting-local-video"
+                                class="absolute inset-0 h-full w-full -scale-x-100 object-cover"
                                 onloadedmetadata={setCameraLive(true)}
                                 onemptied={setCameraLive(false)}
                                 muted
                                 playsinline
                             >
                             </video>
-                            <div class="meeting-camera-off" hidden={cameraLive}>
+                            <div
+                                class="meeting-camera-off relative flex flex-col items-center gap-[18px] text-[17px] text-muted"
+                                hidden={cameraLive}
+                            >
                                 <Icon name="video-off" class="h-8 w-8" />
                                 <strong>
                                     {camera ? "Starting your camera…" : "Your camera is turned off"}
                                 </strong>
                             </div>
                         </div>
-                        <div class="meeting-camera-toolbar">
+                        <div
+                            class="flex min-h-16 items-center gap-[18px] border-t border-edge px-6 py-3 text-muted max-[480px]:gap-2.5 max-[480px]:p-3 min-[851px]:min-h-14 min-[851px]:px-5 min-[851px]:py-2.5 min-[1101px]:group-data-[backgrounds=true]/body:gap-2.5 min-[1101px]:group-data-[backgrounds=true]/body:px-3"
+                        >
                             <Icon name="video-off" class="h-6 w-6" />
                             <button
                                 type="button"
@@ -108,15 +140,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 aria-label="Camera"
                                 aria-checked={camera}
                                 disabled={applyingBackground || joining}
-                                class={camera ? "meeting-toggle is-on" : "meeting-toggle"}
+                                class={TOGGLE}
                                 onclick={toggleCamera()}
                             >
-                                <span></span>
+                                <span class={TOGGLE_KNOB}></span>
                             </button>
-                            <span class="meeting-toolbar-divider"></span>
+                            <span class="ml-2 mr-0.5 h-[30px] border-l border-edge"></span>
                             <button
                                 type="button"
-                                class="meeting-background-button"
+                                class="meeting-background-button flex cursor-pointer items-center gap-2.5 text-left text-sm text-muted hover:text-ink aria-expanded:text-brand-ink"
                                 aria-expanded={backgroundsOpen}
                                 onclick={setBackgroundsOpen(!backgroundsOpen)}
                             >
@@ -125,13 +157,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             </button>
                         </div>
                     </section>
-                    <section class="meeting-audio" aria-label="Audio options">
+                    <section class="flex min-w-0 flex-col gap-2" aria-label="Audio options">
                         <div
-                            class={audioMode === "computer" ? "meeting-audio-card selected" : "meeting-audio-card"}
+                            class="overflow-hidden rounded-md border border-edge bg-raised min-[851px]:flex min-[851px]:flex-1 min-[851px]:flex-col"
                         >
-                            <label class="meeting-audio-choice">
+                            <label class={AUDIO_CHOICE}>
                                 <input
                                     type="radio"
+                                    class="h-6 w-6 shrink-0 accent-brand-ink"
                                     name="audio-mode"
                                     value="computer"
                                     checked={audioMode === "computer"}
@@ -140,10 +173,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 />
                                 <strong>"Computer audio"</strong>
                             </label>
-                            <div class="meeting-audio-devices" hidden={audioMode !== "computer"}>
-                                <div class="meeting-device-row">
+                            <div
+                                class="meeting-audio-devices border-t border-edge bg-surface px-[26px] py-[18px] max-[480px]:px-[18px] max-[480px]:py-3.5 min-[851px]:flex-1 min-[851px]:px-6 min-[851px]:py-3 min-[1101px]:group-data-[backgrounds=true]/body:px-4"
+                                hidden={audioMode !== "computer"}
+                            >
+                                <div class={DEVICE_ROW}>
                                     <Icon name="mic" class="h-6 w-6" />
                                     <select
+                                        class={DEVICE_SELECT}
                                         aria-label="Microphone"
                                         value={microphoneDevice}
                                         onfocus={refreshDevices()}
@@ -162,16 +199,16 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         role="switch"
                                         aria-label="Microphone"
                                         aria-checked={microphone}
-                                        class={microphone ? "meeting-toggle is-on" : "meeting-toggle"}
+                                        class={TOGGLE}
                                         onclick={toggleMicrophone()}
                                     >
-                                        <span></span>
+                                        <span class={TOGGLE_KNOB}></span>
                                     </button>
                                 </div>
-                                <div class="meeting-device-row">
+                                <div class={DEVICE_ROW}>
                                     <svg
                                         aria-hidden="true"
-                                        class="meeting-speaker-icon"
+                                        class="h-6 w-6 shrink-0"
                                         width="24"
                                         height="24"
                                         viewBox="0 0 24 24"
@@ -185,6 +222,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         <path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14" />
                                     </svg>
                                     <select
+                                        class={DEVICE_SELECT}
                                         aria-label="Speakers"
                                         value={speakerDevice}
                                         onfocus={refreshDevices()}
@@ -201,7 +239,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 </div>
                                 <button
                                     type="button"
-                                    class="meeting-text-button meeting-test-audio"
+                                    class="mb-0.5 ml-auto mt-4 block cursor-pointer text-[15px] text-link hover:underline min-[851px]:mt-2.5"
                                     onclick={testSpeaker()}
                                 >
                                     "Test speaker"
@@ -209,15 +247,21 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             </div>
                         </div>
                         <label
-                            class="meeting-audio-card meeting-audio-choice meeting-unavailable"
+                            class={twMerge(AUDIO_CARD + " " + AUDIO_CHOICE + " cursor-not-allowed text-subtle")}
                             title="Phone audio is not available"
                         >
-                            <input type="radio" name="audio-mode" disabled />
-                            "Phone audio"
-                        </label>
-                        <label class="meeting-audio-card meeting-audio-choice">
                             <input
                                 type="radio"
+                                class="h-6 w-6 shrink-0 accent-brand-ink"
+                                name="audio-mode"
+                                disabled
+                            />
+                            "Phone audio"
+                        </label>
+                        <label class={AUDIO_CARD + " " + AUDIO_CHOICE}>
+                            <input
+                                type="radio"
+                                class="h-6 w-6 shrink-0 accent-brand-ink"
                                 name="audio-mode"
                                 value="none"
                                 checked={audioMode === "none"}
@@ -229,168 +273,213 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     </section>
                 </div>
                 <audio pp-ref={meetingAudio} class="hidden"></audio>
-                <div class="meeting-actions" hidden={session !== null}>
-                    <a href="/meet" class="meeting-cancel">"Cancel"</a>
+                <div
+                    class="mt-7 flex shrink-0 justify-end gap-3 min-[851px]:mt-0"
+                    hidden={session !== null}
+                >
+                    <a
+                        href="/meet"
+                        class="inline-flex min-h-10 min-w-[118px] items-center justify-center rounded border border-edge bg-surface px-[22px] py-2 text-base font-semibold text-ink hover:bg-hover"
+                    >
+                        "Cancel"
+                    </a>
                     <button
                         type="button"
-                        class="meeting-primary"
+                        class="meeting-primary inline-flex min-h-10 min-w-[118px] cursor-pointer items-center justify-center rounded bg-brand px-[22px] py-2 text-base font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-45"
                         disabled={!providerReady || joining || applyingBackground || displayName.trim().length === 0}
                         onclick={joinNow()}
                     >
                         {joining ? "Joining…" : "Join now"}
                     </button>
                 </div>
-                <p class="meeting-error" role="alert" hidden={!error}>{error}</p>
-                <p class="meeting-provider-note" hidden={providerReady}>
+                <p
+                    class="mt-4 shrink-0 text-right text-sm text-danger-ink min-[851px]:mt-0"
+                    role="alert"
+                    hidden={!error}
+                >
+                    {error}
+                </p>
+                <p
+                    class="mt-4 shrink-0 text-right text-[13px] text-muted min-[851px]:mt-0"
+                    hidden={providerReady}
+                >
                     "This meeting is unavailable right now. Please contact the organizer."
                 </p>
-                <footer class="meeting-footer">
-                    <button type="button" class="meeting-text-button" onclick={share()}>
+                <footer
+                    class="meeting-footer mt-9 flex shrink-0 flex-wrap items-center justify-center gap-6 text-xs text-subtle max-[480px]:gap-2.5 min-[851px]:mt-auto min-[851px]:flex-nowrap"
+                >
+                    <button
+                        type="button"
+                        class="cursor-pointer text-link hover:underline"
+                        onclick={share()}
+                    >
                         "Copy meeting link"
                     </button>
                     <span>"Meeting ID: "@{&code}</span>
                 </footer>
             </div>
             <section
-                class="meeting-room"
+                class="meeting-room absolute inset-0 flex flex-col overflow-hidden bg-pane"
                 aria-label="Meeting room"
                 hidden={session === null}
                 onpointerdown={dismissRoomMenusOutside(event)}
             >
-                <header class="room-toolbar">
-                    <div class="room-time">
+                <header
+                    class="relative z-3 flex h-[72px] shrink-0 items-center justify-between gap-6 border-b border-line bg-raised px-5 py-1 max-[1000px]:gap-2 max-[1000px]:px-2.5 max-[650px]:h-auto max-[650px]:min-h-16 max-[650px]:items-start"
+                >
+                    <div
+                        class="flex shrink-0 items-center gap-3 text-sm tabular-nums text-muted max-[1000px]:gap-1.5 max-[1000px]:text-xs max-[650px]:pt-[18px]"
+                    >
                         <Icon name="shield" class="h-5 w-5" />
                         <span>{elapsedLabel}</span>
                     </div>
-                    <div class="room-tools">
+                    <div
+                        class="flex items-center gap-1.5 max-[1000px]:gap-0 max-[650px]:flex-wrap max-[650px]:justify-end"
+                    >
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="Record"
                             disabled
                             title="Recording is not available in this workspace"
                         >
-                            <Icon name="record" class="h-6 w-6" />
+                            <Icon name="record" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"Record"</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="Meeting chat"
                             aria-pressed={roomPanel === "chat"}
                             onclick={toggleRoomPanel("chat")}
                         >
-                            <Icon name="chat" class="h-6 w-6" />
+                            <Icon name="chat" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"Chat"</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="Participants"
                             aria-pressed={roomPanel === "people"}
                             onclick={toggleRoomPanel("people")}
                         >
-                            <Icon name="people" class="h-6 w-6" />
+                            <Icon name="people" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"People"</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="Raise hand"
                             aria-pressed={handRaised}
                             disabled={connectionStatus !== "connected"}
                             onclick={raiseHand()}
                         >
-                            <Icon name="hand" class="h-6 w-6" />
+                            <Icon name="hand" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>{handRaised ? "Lower" : "Raise"}</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="Send a reaction"
                             pp-ref={reactionTrigger}
                             aria-expanded={reactionsOpen}
                             disabled={connectionStatus !== "connected"}
                             onclick={toggleRoomMenu("reactions")}
                         >
-                            <Icon name="emoji" class="h-6 w-6" />
+                            <Icon name="emoji" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"React"</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="Change meeting view"
                             aria-pressed={focusView}
                             onclick={setFocusView(!focusView)}
                         >
-                            <Icon name="grid" class="h-6 w-6" />
+                            <Icon name="grid" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"View"</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="More meeting options"
                             pp-ref={moreTrigger}
                             aria-expanded={moreOpen}
                             onclick={toggleRoomMenu("more")}
                         >
-                            <Icon name="more" class="h-6 w-6" />
+                            <Icon name="more" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"More"</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="Toggle meeting camera"
                             aria-pressed={camera}
                             disabled={applyingBackground || joining}
                             onclick={toggleCamera()}
                         >
                             <span hidden={!camera}>
-                                <Icon name="video" class="h-6 w-6" />
+                                <Icon
+                                    name="video"
+                                    class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5"
+                                />
                             </span>
                             <span hidden={camera}>
-                                <Icon name="video-off" class="h-6 w-6" />
+                                <Icon
+                                    name="video-off"
+                                    class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5"
+                                />
                             </span>
                             <span>"Camera"</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="Toggle meeting microphone"
                             aria-pressed={microphone}
                             disabled={audioMode === "none"}
                             onclick={toggleMicrophone()}
                         >
                             <span hidden={!microphone}>
-                                <Icon name="mic" class="h-6 w-6" />
+                                <Icon name="mic" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             </span>
                             <span hidden={microphone}>
-                                <Icon name="mic-off" class="h-6 w-6" />
+                                <Icon
+                                    name="mic-off"
+                                    class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5"
+                                />
                             </span>
                             <span>"Mic"</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool "
+                            class={ROOM_TOOL}
                             aria-label="Share screen"
                             aria-pressed={sharingScreen}
                             disabled={connectionStatus !== "connected" || startingShare}
                             onclick={toggleScreenShare()}
                         >
-                            <Icon name="share-screen" class="h-6 w-6" />
+                            <Icon
+                                name="share-screen"
+                                class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5"
+                            />
                             <span>{sharingScreen ? "Stop share" : "Share"}</span>
                         </button>
                         <button
                             type="button"
-                            class="room-tool room-leave"
+                            class={ROOM_LEAVE}
                             aria-label="Leave meeting"
                             onclick={leave()}
                         >
-                            <Icon name="leave" class="h-6 w-6" />
+                            <Icon name="leave" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"Leave"</span>
                         </button>
                     </div>
-                    <div class="room-reactions" pp-ref={reactionMenu} hidden={!reactionsOpen}>
+                    <div
+                        class="room-reactions absolute right-60 top-[68px] z-5 flex gap-2 rounded-md border border-edge bg-raised p-2 shadow-xl shadow-black/40 *:cursor-pointer *:p-2 *:text-[26px] max-[650px]:right-4 max-[650px]:top-28"
+                        pp-ref={reactionMenu}
+                        hidden={!reactionsOpen}
+                    >
                         <button
                             type="button"
                             aria-label="Send thumbs up"
@@ -420,44 +509,65 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             "😄"
                         </button>
                     </div>
-                    <div class="room-more-menu" pp-ref={moreMenu} hidden={!moreOpen}>
+                    <div
+                        class="room-more-menu absolute right-[200px] top-[68px] z-5 grid gap-1 rounded-md border border-edge bg-raised p-2 shadow-xl shadow-black/40 *:cursor-pointer *:rounded-[3px] *:px-4 *:py-2.5 *:text-left *:text-[13px] *:hover:bg-hover max-[650px]:right-4 max-[650px]:top-28"
+                        pp-ref={moreMenu}
+                        hidden={!moreOpen}
+                    >
                         <button type="button" onclick={openRoomBackgrounds()}>
                             "Background settings"
                         </button>
                         <button type="button" onclick={copyRoomLink()}>"Copy meeting link"</button>
                     </div>
                 </header>
-                <div class={backgroundsOpen ? "room-content with-backgrounds" : "room-content"}>
-                    <main class={focusView ? "room-stage focus-view" : "room-stage"}>
+                <div
+                    class="flex min-h-0 flex-1 min-[1101px]:data-[backgrounds=true]:mr-[340px]"
+                    data-backgrounds={backgroundsOpen}
+                >
+                    <main class="room-stage relative min-h-0 min-w-0 flex-1 overflow-hidden">
                         <div
-                            class="room-connection"
+                            class="absolute left-1/2 top-[18px] z-2 -translate-x-1/2 rounded bg-raised px-4 py-2 text-[13px]"
                             role="status"
                             hidden={connectionStatus === "connected"}
                         >
                             {connectionStatus === "reconnecting" ? "Reconnecting to the meeting…" : "Connecting to the meeting…"}
                         </div>
                         <div
-                            class="room-remote-gallery"
+                            class={focusView ? GALLERY_FOCUS : GALLERY}
                             hidden={remoteCount === 0 && remotePeople.length === 0}
                         >
                             <template pp-for="slot in remoteSlots">
                                 <div
                                     key={slot.index}
-                                    class={slot.content ? "room-person-tile room-content-tile" : "room-person-tile"}
+                                    class={slot.content ? TILE + " col-span-full" : TILE}
                                     hidden={!slot.active}
                                 >
-                                    <video pp-ref={slot.ref} autoplay playsinline></video>
-                                    <span class="room-person-name">{slot.name}</span>
+                                    <video
+                                        pp-ref={slot.ref}
+                                        class="h-full w-full object-contain"
+                                        autoplay
+                                        playsinline
+                                    >
+                                    </video>
+                                    <span
+                                        class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
+                                    >
+                                        {slot.name}
+                                    </span>
                                 </div>
                             </template>
                             <template pp-for="person in remotePeople">
                                 <div
                                     key={person.id}
-                                    class="room-person-tile room-person-off"
+                                    class={TILE + " room-person-off flex items-center justify-center"}
                                     hidden={person.hasVideo}
                                 >
-                                    <span class="room-avatar">{person.initials}</span>
-                                    <span class="room-person-name">
+                                    <span class={AVATAR + " h-[120px] w-[120px] text-[42px]"}>
+                                        {person.initials}
+                                    </span>
+                                    <span
+                                        class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
+                                    >
                                         {person.name}
                                         {person.raised ? " · Hand raised" : ""}
                                     </span>
@@ -465,59 +575,95 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             </template>
                         </div>
                         <div
-                            class={remoteCount === 0 && remotePeople.length === 0 ? "room-self alone" : "room-self"}
+                            class={remoteCount === 0 && remotePeople.length === 0 ? SELF_ALONE : SELF_TILE}
                         >
                             <video
                                 pp-ref={roomLocalVideo}
-                                class="room-local-video"
+                                class="room-local-video absolute inset-0 h-full w-full -scale-x-100 object-contain"
                                 hidden={!camera}
                                 muted
                                 autoplay
                                 playsinline
                             >
                             </video>
-                            <div class="room-waiting" hidden={camera}>
-                                <span class="room-avatar">{myInitials}</span>
-                                <h1 hidden={remoteCount > 0 || remotePeople.length > 0}>
+                            <div
+                                class="room-waiting absolute inset-0 flex flex-col items-center justify-center gap-12 max-[650px]:gap-[30px]"
+                                hidden={camera}
+                            >
+                                <span
+                                    class={remoteCount === 0 && remotePeople.length === 0 ? AVATAR_ALONE : AVATAR_TILE}
+                                >
+                                    {myInitials}
+                                </span>
+                                <h1
+                                    class="px-4 text-center text-[clamp(18px,2vw,26px)] font-semibold"
+                                    hidden={remoteCount > 0 || remotePeople.length > 0}
+                                >
                                     {connectionStatus === "connected" ? "Waiting for others to join…" : "Joining your meeting…"}
                                 </h1>
                             </div>
                             <span
-                                class="room-self-name"
+                                class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                                 hidden={remoteCount === 0 && remotePeople.length === 0}
                             >
                                 {displayName}
                                 " (You)"
                             </span>
                         </div>
-                        <div class="room-raised-hand" hidden={!handRaised}>
+                        <div
+                            class="room-raised-hand absolute left-5 top-5 z-2 flex gap-2.5 rounded-md bg-raised px-3.5 py-2.5 text-[13px] text-away"
+                            hidden={!handRaised}
+                        >
                             <Icon name="hand" class="h-5 w-5" />
                             "Your hand is raised"
                         </div>
-                        <div class="room-reaction-toast" role="status" hidden={!reactionNotice}>
+                        <div
+                            class="room-reaction-toast absolute bottom-16 left-1/2 z-2 -translate-x-1/2 rounded-3xl bg-raised/70 px-6 py-3 text-[28px]"
+                            role="status"
+                            hidden={!reactionNotice}
+                        >
                             {reactionNotice}
                         </div>
-                        <p class="room-error" role="alert" hidden={!error}>{error}</p>
+                        <p
+                            class="absolute inset-x-5 bottom-5 z-2 rounded bg-destructive/20 p-2.5 text-[13px] text-danger-ink"
+                            role="alert"
+                            hidden={!error}
+                        >
+                            {error}
+                        </p>
                     </main>
-                    <aside class="room-side-panel" hidden={!roomPanel}>
-                        <header>
+                    <aside
+                        class="room-side-panel flex min-h-0 w-80 shrink-0 flex-col border-l border-line bg-surface max-[1000px]:w-[280px] max-[650px]:absolute max-[650px]:bottom-0 max-[650px]:right-0 max-[650px]:top-[116px] max-[650px]:z-2 max-[650px]:w-[min(320px,90vw)]"
+                        hidden={!roomPanel}
+                    >
+                        <header
+                            class="flex items-center justify-between px-5 py-[22px] text-[17px] font-semibold"
+                        >
                             <h2>
                                 {roomPanel === "people" ? "People (" + people.length + ")" : "Meeting chat"}
                             </h2>
                             <button
                                 type="button"
+                                class="cursor-pointer"
                                 aria-label="Close meeting panel"
                                 onclick={setRoomPanel("")}
                             >
                                 <Icon name="close" class="h-5 w-5" />
                             </button>
                         </header>
-                        <div class="room-people-list" hidden={roomPanel !== "people"}>
-                            <p>"In this meeting"</p>
+                        <div class="overflow-auto px-5" hidden={roomPanel !== "people"}>
+                            <p class="my-3 text-xs text-subtle">"In this meeting"</p>
                             <template pp-for="person in people">
-                                <div key={person.id} class="room-person-row">
-                                    <span>{person.initials}</span>
-                                    <strong>
+                                <div
+                                    key={person.id}
+                                    class="my-[18px] flex items-center gap-3 text-[13px]"
+                                >
+                                    <span
+                                        class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-avatar text-avatar-ink"
+                                    >
+                                        {person.initials}
+                                    </span>
+                                    <strong class="flex-1 font-medium wrap-anywhere">
                                         {person.name}
                                         {person.id === selfAttendeeId ? " (You)" : ""}
                                     </strong>
@@ -526,24 +672,41 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     </span>
                                 </div>
                             </template>
-                            <button type="button" class="meeting-text-button" onclick={share()}>
+                            <button
+                                type="button"
+                                class="cursor-pointer text-link hover:underline"
+                                onclick={share()}
+                            >
                                 "Copy invite link"
                             </button>
                         </div>
-                        <div class="room-chat-panel" hidden={roomPanel !== "chat"}>
-                            <div class="room-chat-messages" aria-live="polite">
-                                <p class="room-chat-empty" hidden={chatMessages.length > 0}>
+                        <div class="flex min-h-0 flex-1 flex-col" hidden={roomPanel !== "chat"}>
+                            <div
+                                class="room-chat-messages flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto px-[18px]"
+                                aria-live="polite"
+                            >
+                                <p
+                                    class="text-[13px] leading-relaxed text-muted"
+                                    hidden={chatMessages.length > 0}
+                                >
                                     "Chat with everyone in this meeting. Messages are available during the call."
                                 </p>
                                 <template pp-for="message in chatMessages">
-                                    <article key={message.id}>
-                                        <strong>{message.name}</strong>
-                                        <p>{message.text}</p>
+                                    <article
+                                        key={message.id}
+                                        class="rounded-md bg-raised p-3 text-[13px] wrap-anywhere"
+                                    >
+                                        <strong class="text-xs text-link">{message.name}</strong>
+                                        <p class="mt-[5px] whitespace-pre-wrap">{message.text}</p>
                                     </article>
                                 </template>
                             </div>
-                            <form onsubmit={sendChat(event)}>
+                            <form
+                                class="m-4 flex gap-2 rounded-md border border-edge p-2"
+                                onsubmit={sendChat(event)}
+                            >
                                 <input
+                                    class="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
                                     aria-label="Message everyone"
                                     placeholder="Type a message"
                                     maxlength="500"
@@ -552,6 +715,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 />
                                 <button
                                     type="submit"
+                                    class="cursor-pointer disabled:cursor-default disabled:opacity-40"
                                     aria-label="Send meeting message"
                                     disabled={!chatDraft.trim() || connectionStatus !== "connected"}
                                 >
@@ -563,47 +727,51 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                 </div>
             </section>
             <aside
-                class="meeting-background-panel"
+                class="meeting-background-panel fixed inset-y-0 right-0 z-5 flex w-[340px] flex-col border-l border-line bg-surface max-[1100px]:w-[min(340px,92vw)] max-[1100px]:shadow-2xl max-[1100px]:shadow-black/40"
                 aria-label="Background settings"
                 hidden={!backgroundsOpen}
             >
-                <header class="meeting-background-header">
-                    <h2>"Background settings"</h2>
+                <header class="flex items-center justify-between gap-3 px-5 py-6">
+                    <h2 class="text-lg font-semibold">"Background settings"</h2>
                     <button
                         type="button"
+                        class="cursor-pointer p-1.5 text-muted hover:text-ink"
                         aria-label="Close background settings"
                         onclick={setBackgroundsOpen(false)}
                     >
                         <Icon name="close" class="h-5 w-5" />
                     </button>
                 </header>
-                <div class="meeting-background-content">
-                    <div class="meeting-background-grid">
+                <div class="min-h-0 overflow-y-auto px-5 pb-6 pt-2">
+                    <div class="grid grid-cols-3 gap-2">
                         <button
                             type="button"
-                            class={backgroundId === "none" ? "meeting-background-option chosen" : "meeting-background-option"}
+                            class={BACKGROUND_OPTION}
                             aria-pressed={backgroundId === "none"}
                             disabled={applyingBackground || joining}
                             onclick={selectBackground("none")}
                         >
-                            <span class="meeting-background-symbol">"⊘"</span>
+                            <span class="text-[25px] leading-7">"⊘"</span>
                             <span>"None"</span>
                         </button>
                         <button
                             type="button"
-                            class={backgroundId === "blur" ? "meeting-background-option chosen" : "meeting-background-option"}
+                            class={BACKGROUND_OPTION}
                             aria-pressed={backgroundId === "blur"}
                             disabled={applyingBackground || joining}
                             onclick={selectBackground("blur")}
                         >
-                            <span class="meeting-background-symbol">"≋"</span>
+                            <span class="text-[25px] leading-7">"≋"</span>
                             <span>"Standard blur"</span>
                         </button>
-                        <label class="meeting-background-option meeting-background-upload">
+                        <label
+                            class={BACKGROUND_OPTION + " focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-ring"}
+                        >
                             <Icon name="plus" class="h-6 w-6" />
                             <span>"Add new"</span>
                             <input
                                 type="file"
+                                class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                                 accept="image/jpeg,image/png,image/webp"
                                 aria-label="Upload background image"
                                 disabled={applyingBackground || joining}
@@ -614,185 +782,72 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <button
                                 key={background.id}
                                 type="button"
-                                class={backgroundId === background.id ? "meeting-background-option meeting-background-image chosen" : "meeting-background-option meeting-background-image"}
+                                class={BACKGROUND_OPTION}
                                 aria-label={background.name}
                                 aria-pressed={backgroundId === background.id}
                                 disabled={applyingBackground || joining}
                                 onclick={selectBackground(background.id)}
                             >
-                                <img src={background.url} alt="" />
-                                <span>{background.name}</span>
+                                <img
+                                    src={background.url}
+                                    alt=""
+                                    class="absolute inset-0 h-full w-full object-cover"
+                                />
+                                <span
+                                    class="absolute inset-x-0 bottom-0 bg-black/60 px-0.5 py-[3px] text-center"
+                                >
+                                    {background.name}
+                                </span>
                             </button>
                         </template>
                     </div>
-                    <p class="meeting-background-hint" role="status">
+                    <p class="mt-[18px] text-xs leading-relaxed text-subtle" role="status">
                         {applyingBackground ? "Applying background…" : camera ? "Your selected background is applied to your camera and meeting video." : "Turn on your camera to preview your background."}
                     </p>
-                    <p class="meeting-background-error" role="alert" hidden={!backgroundError}>
+                    <p
+                        class="meeting-background-error mt-3.5 text-[13px] leading-normal text-danger-ink"
+                        role="alert"
+                        hidden={!backgroundError}
+                    >
                         {backgroundError}
                     </p>
-                    <p class="meeting-background-hint">
+                    <p class="mt-[18px] text-xs leading-relaxed text-subtle">
                         "Custom images stay in this tab. Camera processing happens on your device."
                     </p>
                 </div>
             </aside>
-            <div class="meeting-toast" role="status" hidden={!toast}>{toast}</div>
-            <style>r##"
-                .meeting-join {height:100dvh;overflow:auto;background:#1f1f1f;color:#f5f5f5;font-family:var(--font-ui);}
-                .meeting-body {max-width:1460px;padding:0 40px 24px;margin:0 auto;}
-                .meeting-account {position:relative;display:flex;align-items:center;gap:16px;width:fit-content;max-width:100%;margin:0 auto;padding:20px 24px;background:#292929;border-radius:0 0 6px 6px;box-shadow:0 3px 6px #0003;}
-                .meeting-account-name {display:flex;flex-direction:column;gap:2px;font-size:15px;min-width:160px;}
-                .meeting-account-name>span {font-size:13px;color:#c7c7c7;}
-                .meeting-text-button {color:#a6a3ff;background:transparent;border:0;cursor:pointer;font:inherit;}
-                .meeting-text-button:hover {text-decoration:underline;}
-                .meeting-name-editor {position:absolute;top:100%;left:0;right:0;z-index:2;background:#292929;padding:16px;box-shadow:0 6px 12px #0004;display:grid;gap:8px;font-size:13px;}
-                .meeting-name-editor input {background:#1f1f1f;border:1px solid #777;border-radius:3px;padding:9px;color:white;}
-                .meeting-heading {display:flex;align-items:center;flex-direction:column;gap:24px;text-align:center;margin:70px 0 52px;}
-                .meeting-logo {display:grid;place-items:center;width:52px;height:52px;border-radius:12px;background:linear-gradient(145deg,#aaa1ff,#5147b9);color:white;box-shadow:8px 5px 0 -3px #7061d8;}
-                .meeting-heading h1 {font-size:26px;font-weight:600;line-height:1.3;overflow-wrap:anywhere;}
-                .meeting-setup {display:grid;grid-template-columns:1.13fr 1fr;gap:24px;}
-                .meeting-camera {display:flex;flex-direction:column;border:1px solid #525252;border-radius:5px;overflow:hidden;background:#242424;min-width:0;}
-                .meeting-preview {position:relative;flex:1;min-height:270px;aspect-ratio:16/9;display:grid;place-items:center;}
-                .meeting-local-video {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
-                .meeting-camera-off {position:relative;display:flex;flex-direction:column;align-items:center;gap:18px;color:#b5b5b5;font-size:17px;}
-                .meeting-camera-toolbar {display:flex;align-items:center;gap:18px;min-height:64px;padding:12px 24px;border-top:1px solid #525252;color:#c9c9c9;}
-                .meeting-toggle {border:1px solid #aaa;border-radius:20px;background:transparent;width:48px;height:25px;padding:3px;flex-shrink:0;cursor:pointer;}
-                .meeting-toggle>span {display:block;width:17px;height:17px;border-radius:50%;background:#aaa;transition:transform .15s;}
-                .meeting-toggle.is-on {background:#9790fa;border-color:#9790fa;}
-                .meeting-toggle.is-on>span {background:#242424;transform:translateX(22px);}
-                .meeting-toolbar-divider {height:30px;border-left:1px solid #525252;margin:0 2px 0 8px;}
-                .meeting-unavailable {color:#888;cursor:not-allowed;}
-                button.meeting-unavailable {display:flex;align-items:center;gap:10px;font-size:14px;}
-                .meeting-audio {display:flex;flex-direction:column;gap:8px;min-width:0;}
-                .meeting-audio-card {background:#292929;border:1px solid #525252;border-radius:5px;overflow:hidden;}
-                .meeting-audio-choice {display:flex;align-items:center;gap:16px;padding:23px 26px;font-size:17px;cursor:pointer;min-height:66px;}
-                .meeting-audio-choice input {width:24px;height:24px;accent-color:#9790fa;flex-shrink:0;}
-                .meeting-audio-devices {border-top:1px solid #525252;background:#202020;padding:18px 26px;}
-                .meeting-device-row {display:flex;align-items:center;gap:16px;min-height:47px;color:#ddd;}
-                .meeting-device-row select {width:100%;min-width:0;background:transparent;color:#ddd;border:0;font:inherit;font-size:16px;text-overflow:ellipsis;padding:6px 0;}
-                .meeting-device-row option {background:#292929;}
-                .meeting-speaker-icon {font-size:21px;width:24px;flex-shrink:0;}
-                .meeting-test-audio {display:block;margin:16px 0 2px auto;font-size:15px;}
-                .meeting-actions {display:flex;justify-content:flex-end;gap:12px;margin-top:28px;}
-                .meeting-primary,.meeting-cancel {display:inline-flex;align-items:center;justify-content:center;min-width:118px;min-height:40px;border-radius:4px;font-size:16px;font-weight:600;padding:8px 22px;}
-                .meeting-primary {background:#5b53b3;color:white;cursor:pointer;}
-                .meeting-primary:hover {background:#7067cc;}
-                .meeting-primary:disabled {opacity:.45;cursor:not-allowed;}
-                .meeting-cancel {border:1px solid #777;background:#242424;color:white;}
-                .meeting-cancel:hover {background:#333;}
-                .meeting-footer {display:flex;align-items:center;justify-content:center;gap:24px;margin-top:70px;font-size:12px;color:#999;}
-                .meeting-error {margin-top:16px;color:#ffacb5;text-align:right;font-size:14px;}
-                .meeting-provider-note {margin-top:16px;color:#bbb;text-align:right;font-size:13px;}
-                .meeting-connected {display:flex;align-items:center;justify-content:flex-end;gap:20px;margin-top:24px;}
-                .meeting-remote-grid {display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px;}
-                .meeting-remote-tile {aspect-ratio:16/9;overflow:hidden;border-radius:4px;background:#242424;}
-                .meeting-toast {position:fixed;bottom:24px;left:24px;padding:14px 20px;background:#333;border:1px solid #666;border-radius:5px;font-size:14px;}
-                .meeting-join :focus-visible {outline:2px solid #b7b1ff;outline-offset:4px;}
-                .meeting-join [hidden] {display:none!important;}
-                .meeting-background-button {display:flex;align-items:center;gap:10px;font-size:14px;color:#ddd;cursor:pointer;text-align:left;}
-                .meeting-background-button:hover {color:white;}
-                .meeting-background-button[aria-expanded="true"] {color:#b7b1ff;}
-                .meeting-background-panel {position:fixed;right:0;top:0;bottom:0;width:340px;background:#202020;border-left:1px solid #383838;display:flex;flex-direction:column;z-index:5;}
-                .meeting-background-header {display:flex;align-items:center;justify-content:space-between;padding:24px 20px;gap:12px;}
-                .meeting-background-header h2 {font-size:18px;font-weight:600;}
-                .meeting-background-header button {padding:6px;cursor:pointer;color:#bbb;}
-                .meeting-background-content {min-height:0;overflow-y:auto;padding:8px 20px 24px;}
-                .meeting-background-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
-                .meeting-background-option {position:relative;min-width:0;height:70px;background:#333;border:2px solid transparent;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;overflow:hidden;font-size:11px;color:#eee;}
-                .meeting-background-option:hover {border-color:#aaa;}
-                .meeting-background-option.chosen {border-color:#a39bff;box-shadow:0 0 0 1px #a39bff;}
-                .meeting-background-option.chosen:after {content:"✓";position:absolute;right:3px;top:1px;line-height:18px;width:18px;text-align:center;background:#514a9f;border-radius:50%;color:white;}
-                .meeting-background-option:disabled {cursor:wait;opacity:.6;}
-                .meeting-background-symbol {font-size:25px;line-height:28px;}
-                .meeting-background-image img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-                .meeting-background-image>span {position:absolute;bottom:0;left:0;right:0;background:#0009;padding:3px 2px;text-align:center;}
-                .meeting-background-upload input {position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
-                .meeting-background-upload:focus-within {outline:2px solid #b7b1ff;outline-offset:3px;}
-                .meeting-background-hint {font-size:12px;line-height:1.6;color:#aaa;margin-top:18px;}
-                .meeting-background-error {font-size:13px;line-height:1.5;color:#ffacb5;margin-top:14px;}
-                @media(min-width:1101px) {.meeting-body.with-backgrounds {width:calc(100% - 340px);margin-left:0;padding-left:24px;padding-right:24px;}.meeting-body.with-backgrounds .meeting-setup {gap:16px;}.meeting-body.with-backgrounds .meeting-camera-toolbar{gap:10px;padding-left:12px;padding-right:12px;}.meeting-body.with-backgrounds .meeting-audio-choice,.meeting-body.with-backgrounds .meeting-audio-devices{padding-left:16px;padding-right:16px;}.meeting-body.with-backgrounds .meeting-device-row{gap:8px;}.meeting-body.with-backgrounds .meeting-device-row select{font-size:14px;}}
-                @media(max-width:1100px) {.meeting-background-panel{width:min(340px,92vw);box-shadow:-12px 0 30px #0006;}}
-                .meeting-room {position:absolute;inset:0;display:flex;flex-direction:column;background:#1f1f1f;overflow:hidden;}
-                .room-toolbar {position:relative;display:flex;align-items:center;justify-content:space-between;gap:24px;height:72px;flex-shrink:0;border-bottom:1px solid #3c3c3c;background:#292929;padding:4px 20px;z-index:3;}
-                .room-time {display:flex;align-items:center;gap:12px;font-size:14px;color:#ccc;font-variant-numeric:tabular-nums;flex-shrink:0;}
-                .room-tools {display:flex;align-items:center;gap:6px;}
-                .room-tool {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:56px;height:60px;padding:6px 10px;border-radius:5px;color:#ddd;font-size:12px;cursor:pointer;}
-                .room-tool:hover,.room-tool[aria-pressed="true"] {background:#3b3b3b;color:white;}
-                .room-tool:disabled {opacity:.4;cursor:not-allowed;}
-                .room-tool[aria-pressed="true"] {box-shadow:inset 0 -2px #aaa0ff;}
-                .room-leave {margin-left:14px;color:#e88991;}
-                .room-leave:hover {background:#713640;}
-                .room-content {display:flex;flex:1;min-height:0;}
-                .room-stage {position:relative;flex:1;min-width:0;min-height:0;overflow:hidden;}
-                .room-self {position:absolute;bottom:20px;right:20px;width:200px;height:130px;border:1px solid #444;border-radius:8px;overflow:hidden;background:#292929;z-index:1;}
-                .room-self.alone {inset:0;width:100%;height:100%;border:0;border-radius:0;background:transparent;}
-                .room-local-video {position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform:scaleX(-1);}
-                .room-waiting {position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:48px;}
-                .room-avatar {display:grid;place-items:center;width:clamp(140px,15vw,220px);height:clamp(140px,15vw,220px);border-radius:50%;background:#d2dbea;color:#253b60;font-size:clamp(50px,6vw,86px);font-weight:600;flex-shrink:0;}
-                .room-waiting h1 {font-size:clamp(18px,2vw,26px);font-weight:600;text-align:center;padding:0 16px;}
-                .room-self:not(.alone) .room-avatar {width:64px;height:64px;font-size:25px;}
-                .room-self-name,.room-person-name {position:absolute;left:12px;bottom:10px;max-width:calc(100% - 24px);font-size:12px;padding:4px 7px;border-radius:4px;background:#0009;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-                .room-connection {position:absolute;top:18px;left:50%;transform:translateX(-50%);z-index:2;background:#333;padding:8px 16px;border-radius:4px;font-size:13px;}
-                .room-remote-gallery {height:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));grid-auto-rows:minmax(0,1fr);gap:12px;padding:18px;}
-                .room-person-tile {position:relative;min-height:0;min-width:0;overflow:hidden;border-radius:8px;background:#292929;}
-                .room-person-tile video {height:100%;width:100%;object-fit:contain;}
-                .room-person-off {display:flex;align-items:center;justify-content:center;}
-                .room-person-off .room-avatar {width:120px;height:120px;font-size:42px;}
-                .room-stage.focus-view .room-remote-gallery {grid-template-columns:1fr;}
-                .room-content-tile {grid-column:1/-1;}
-                .room-side-panel {width:320px;flex-shrink:0;border-left:1px solid #3c3c3c;background:#242424;display:flex;flex-direction:column;min-height:0;}
-                .room-side-panel>header {display:flex;align-items:center;justify-content:space-between;padding:22px 20px;font-size:17px;font-weight:600;}
-                .room-side-panel button {cursor:pointer;}
-                .room-people-list {padding:0 20px;overflow:auto;}
-                .room-people-list>p {font-size:12px;color:#aaa;margin:12px 0;}
-                .room-person-row {display:flex;align-items:center;gap:12px;margin:18px 0;font-size:13px;}
-                .room-person-row>span:first-child {display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#cbd4e5;color:#253b60;flex-shrink:0;}
-                .room-person-row strong {flex:1;font-weight:500;overflow-wrap:anywhere;}
-                .room-chat-panel {display:flex;flex-direction:column;min-height:0;flex:1;}
-                .room-chat-messages {flex:1;min-height:0;overflow:auto;padding:0 18px;display:flex;flex-direction:column;gap:14px;}
-                .room-chat-empty {font-size:13px;color:#bbb;line-height:1.6;}
-                .room-chat-messages article {background:#333;padding:12px;border-radius:5px;font-size:13px;overflow-wrap:anywhere;}
-                .room-chat-messages article strong {font-size:12px;color:#c5bfff;}
-                .room-chat-messages article p {margin-top:5px;white-space:pre-wrap;}
-                .room-chat-panel form {display:flex;margin:16px;border:1px solid #666;border-radius:5px;padding:8px;gap:8px;}
-                .room-chat-panel input {flex:1;min-width:0;background:transparent;font-size:13px;outline:none;}
-                .room-chat-panel button:disabled {opacity:.4;}
-                .room-reactions,.room-more-menu {position:absolute;top:68px;right:240px;background:#333;border:1px solid #555;box-shadow:0 5px 18px #0006;border-radius:5px;padding:8px;z-index:5;}
-                .room-reactions {display:flex;gap:8px;}
-                .room-reactions button {font-size:26px;padding:8px;cursor:pointer;}
-                .room-more-menu {display:grid;gap:4px;right:200px;}
-                .room-more-menu button {padding:10px 16px;text-align:left;font-size:13px;cursor:pointer;border-radius:3px;}
-                .room-more-menu button:hover {background:#444;}
-                .room-raised-hand {position:absolute;top:20px;left:20px;display:flex;gap:10px;padding:10px 14px;color:#e7c67b;background:#333;border-radius:5px;font-size:13px;z-index:2;}
-                .room-reaction-toast {position:absolute;bottom:64px;left:50%;transform:translateX(-50%);font-size:28px;z-index:2;background:#333b;border-radius:24px;padding:12px 24px;}
-                .room-error {position:absolute;bottom:20px;left:20px;right:20px;font-size:13px;color:#ffb6c1;background:#38252a;padding:10px;border-radius:4px;z-index:2;}
-                @media(min-width:1101px) {.room-content.with-backgrounds {margin-right:340px;}}
-                @media(max-width:1000px) {.room-toolbar{padding:4px 10px;gap:8px;}.room-tools{gap:0;}.room-tool{padding:6px;min-width:45px;font-size:11px;}.room-time{gap:6px;font-size:12px;}.room-leave{margin-left:4px;}.room-side-panel{width:280px;}}
-                @media(max-width:650px) {.room-toolbar{height:auto;min-height:64px;align-items:flex-start;}.room-time{padding-top:18px;}.room-tools{flex-wrap:wrap;justify-content:flex-end;}.room-tool{min-width:40px;height:52px;}.room-tool svg{width:20px;height:20px;}.room-side-panel{position:absolute;right:0;top:116px;bottom:0;width:min(320px,90vw);z-index:2;}.room-self:not(.alone){width:130px;height:90px;}.room-reactions,.room-more-menu{right:16px;top:112px;}.room-waiting{gap:30px;}}
-                @media(min-width:851px) {
-                    .meeting-body {height:100%;display:flex;flex-direction:column;gap:clamp(10px,1.8dvh,20px);padding:0 clamp(24px,4vw,64px) 16px;}
-                    .meeting-account {flex-shrink:0;padding:clamp(12px,1.8dvh,20px) 24px;}
-                    .meeting-heading {flex-shrink:0;margin:0;padding-top:clamp(4px,2dvh,26px);gap:clamp(10px,1.5dvh,20px);}
-                    .meeting-logo {width:clamp(40px,5dvh,52px);height:clamp(40px,5dvh,52px);}
-                    .meeting-heading h1 {font-size:clamp(22px,2.7dvh,26px);}
-                    .meeting-setup {flex:1;min-height:0;max-height:min(52dvh,520px);}
-                    .meeting-preview {min-height:0;aspect-ratio:auto;}
-                    .meeting-camera-toolbar {min-height:56px;padding:10px 20px;}
-                    .meeting-audio-card:first-child {flex:1;display:flex;flex-direction:column;}
-                    .meeting-audio-choice {flex-shrink:0;min-height:56px;padding:16px 24px;font-size:16px;}
-                    .meeting-audio-devices {flex:1;padding:12px 24px;}
-                    .meeting-device-row {min-height:42px;}
-                    .meeting-test-audio {margin-top:10px;}
-                    .meeting-actions,.meeting-connected {flex-shrink:0;margin-top:0;}
-                    .meeting-footer {flex-shrink:0;margin-top:auto;}
-                    .meeting-error,.meeting-provider-note {flex-shrink:0;margin-top:0;}
-                }
-                @media(max-width:850px) {.meeting-body{padding:0 20px 24px;}.meeting-heading{margin:44px 0 32px;}.meeting-setup{grid-template-columns:1fr;}.meeting-preview{min-height:220px;}.meeting-heading h1{font-size:23px;}.meeting-footer{margin-top:36px;flex-wrap:wrap;}}
-                @media(max-width:480px) {.meeting-account{padding:14px;gap:10px;}.meeting-account-name{min-width:0;font-size:13px;}.meeting-camera-toolbar{padding:12px;gap:10px;}.meeting-audio-choice{padding:20px;}.meeting-audio-devices{padding:14px 18px;}.meeting-footer{gap:10px;}.meeting-heading{margin-top:36px;}}
-            "##</style>
+            <div
+                class="fixed bottom-6 left-6 rounded-md border border-edge bg-raised px-5 py-3.5 text-sm"
+                role="status"
+                hidden={!toast}
+            >
+                {toast}
+            </div>
             <script>r##"
                     const CONTROL_ON = "flex h-10 items-center gap-2 rounded-md border border-edge bg-raised px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-hover";
                     const CONTROL_OFF = "flex h-10 items-center gap-2 rounded-md border border-busy bg-busy/15 px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-busy/25";
+
+                    // Repeated class lists. The pre-join body carries
+                    // `data-backgrounds`, so its children tighten up through
+                    // `group-data-[backgrounds=true]/body` when the background
+                    // panel takes 340px of a wide window.
+                    const TOGGLE = "group/toggle h-[25px] w-12 shrink-0 cursor-pointer rounded-full border border-subtle bg-transparent p-[3px] aria-checked:border-brand-ink aria-checked:bg-brand-ink";
+                    const TOGGLE_KNOB = "block h-[17px] w-[17px] rounded-full bg-subtle transition-transform duration-150 group-aria-checked/toggle:translate-x-[22px] group-aria-checked/toggle:bg-surface";
+                    const AUDIO_CARD = "overflow-hidden rounded-md border border-edge bg-raised";
+                    const AUDIO_CHOICE = "flex min-h-[66px] cursor-pointer items-center gap-4 px-[26px] py-[23px] text-[17px] max-[480px]:p-5 min-[851px]:min-h-14 min-[851px]:shrink-0 min-[851px]:px-6 min-[851px]:py-4 min-[851px]:text-base min-[1101px]:group-data-[backgrounds=true]/body:px-4";
+                    const DEVICE_ROW = "flex min-h-[47px] items-center gap-4 text-ink min-[851px]:min-h-[42px] min-[1101px]:group-data-[backgrounds=true]/body:gap-2";
+                    const DEVICE_SELECT = "w-full min-w-0 text-ellipsis bg-transparent py-1.5 text-base text-ink [&_option]:bg-raised min-[1101px]:group-data-[backgrounds=true]/body:text-sm";
+                    const ROOM_TOOL = "flex h-[60px] min-w-14 cursor-pointer flex-col items-center justify-center gap-[5px] rounded-md px-2.5 py-1.5 text-xs text-ink hover:bg-hover aria-pressed:bg-hover aria-pressed:shadow-[inset_0_-2px_var(--color-brand-ink)] disabled:cursor-not-allowed disabled:opacity-40 max-[1000px]:min-w-[45px] max-[1000px]:p-1.5 max-[1000px]:text-[11px] max-[650px]:h-[52px] max-[650px]:min-w-10";
+                    const ROOM_LEAVE = twMerge(ROOM_TOOL + " ml-3.5 text-danger-ink hover:bg-destructive/40 max-[1000px]:ml-1");
+                    const GALLERY = "grid h-full auto-rows-[minmax(0,1fr)] grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-3 p-[18px]";
+                    const GALLERY_FOCUS = twMerge(GALLERY + " grid-cols-1");
+                    const TILE = "relative min-h-0 min-w-0 overflow-hidden rounded-lg bg-raised";
+                    const SELF_ALONE = "absolute inset-0 z-1 overflow-hidden";
+                    const SELF_TILE = "absolute bottom-5 right-5 z-1 h-[130px] w-[200px] overflow-hidden rounded-lg border border-edge bg-raised max-[650px]:h-[90px] max-[650px]:w-[130px]";
+                    const AVATAR = "grid shrink-0 place-items-center rounded-full bg-avatar font-semibold text-avatar-ink";
+                    const AVATAR_ALONE = AVATAR + " h-[clamp(140px,15vw,220px)] w-[clamp(140px,15vw,220px)] text-[clamp(50px,6vw,86px)]";
+                    const AVATAR_TILE = AVATAR + " h-16 w-16 text-[25px]";
+                    const BACKGROUND_OPTION = "meeting-background-option relative flex h-[70px] min-w-0 cursor-pointer flex-col items-center justify-center gap-[3px] overflow-hidden rounded-[3px] border-2 border-transparent bg-raised text-[11px] text-ink hover:border-subtle aria-pressed:border-brand-ink aria-pressed:ring-1 aria-pressed:ring-brand-ink aria-pressed:after:absolute aria-pressed:after:right-[3px] aria-pressed:after:top-px aria-pressed:after:w-[18px] aria-pressed:after:rounded-full aria-pressed:after:bg-brand-press aria-pressed:after:text-center aria-pressed:after:leading-[18px] aria-pressed:after:text-white aria-pressed:after:content-['✓'] disabled:cursor-wait disabled:opacity-60";
 
                     const url = @{Json(&link.url)};
                     const code = @{Json(&code)};

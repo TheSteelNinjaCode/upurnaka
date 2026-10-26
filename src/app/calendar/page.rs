@@ -139,7 +139,7 @@ pub async fn page() -> Html {
                 </div>
                 <div class="flex shrink-0 border-b border-line pr-2">
                     <div class="w-[72px] shrink-0"></div>
-                    <div class="grid flex-1" pp-style={gridStyle}>
+                    <div class={"grid flex-1 " + gridColumns}>
                         <template pp-for="day in days">
                             <div key={day.key} class={day.today ? HEAD_ON : HEAD_OFF}>
                                 <span class="text-[22px] font-semibold leading-none">
@@ -162,7 +162,7 @@ pub async fn page() -> Html {
                             </template>
                         </div>
                         <div class="relative flex-1">
-                            <div class="grid" pp-style={gridStyle}>
+                            <div class={"grid " + gridColumns}>
                                 <template pp-for="cell in cells">
                                     <div key={cell.key} class="h-14 border-b border-l border-line">
                                         <div class="h-1/2 border-b border-dotted border-line"></div>
@@ -357,7 +357,9 @@ pub async fn page() -> Html {
 
                     const days = buildDays();
                     const title = MONTHS[days[0].month] + " " + days[0].year;
-                    const gridStyle = "grid-template-columns: repeat(" + days.length + ", minmax(0, 1fr))";
+                    // One column per day shown: Day, Work week or Week.
+                    const GRID_COLUMNS = { 1: "grid-cols-1", 5: "grid-cols-5", 7: "grid-cols-7" };
+                    const gridColumns = GRID_COLUMNS[days.length];
 
                     function hourLabel(hour) {
                         const suffix = hour < 12 ? " AM" : " PM";

@@ -25,7 +25,7 @@ pub async fn page() -> Html {
                         <div class="flex items-center gap-0.5">
                             <button
                                 type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
+                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink aria-pressed:text-brand-ink"
                                 title="Search chats"
                                 aria-label="Search chats"
                                 aria-expanded={searchOpen}
@@ -37,7 +37,7 @@ pub async fn page() -> Html {
                             </button>
                             <button
                                 type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
+                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink aria-expanded:text-brand-ink"
                                 title="Meet now"
                                 aria-label="Meet now"
                                 aria-expanded={meetingOpen}
@@ -59,9 +59,10 @@ pub async fn page() -> Html {
                             </button>
                         </div>
                     </div>
-                    <div class="chat-list-search" hidden={!searchOpen}>
+                    <div class="chat-list-search px-5 pt-3" hidden={!searchOpen}>
                         <input
                             pp-ref={chatSearchInput}
+                            class="h-9 w-full rounded border-b-2 border-brand-ink bg-raised px-3 py-2 text-[13px] text-ink outline-none placeholder:text-subtle"
                             type="search"
                             aria-label="Filter by person or chat name"
                             placeholder="Filter by person or chat name"
@@ -211,14 +212,18 @@ pub async fn page() -> Html {
                         </div>
                     </header>
                     <section
-                        class="new-chat-header"
+                        class="new-chat-header relative shrink-0 border-b border-line"
                         hidden={!newChat}
                         aria-label="New conversation recipients"
                     >
-                        <div class="new-chat-group" hidden={!groupNameOpen}>
-                            <label for={groupNameId}>"Group name:"</label>
+                        <div
+                            class="new-chat-group flex min-h-16 items-center gap-3.5 px-7 py-3 text-sm focus-within:shadow-[inset_0_-2px_var(--color-brand-ink)] border-b border-edge"
+                            hidden={!groupNameOpen}
+                        >
+                            <label for={groupNameId} class="shrink-0 text-ink">"Group name:"</label>
                             <input
                                 id={groupNameId}
+                                class="min-w-[140px] flex-1 bg-transparent text-ink outline-none placeholder:text-muted"
                                 pp-ref={groupNameInput}
                                 aria-label="Group name"
                                 maxlength="80"
@@ -227,14 +232,20 @@ pub async fn page() -> Html {
                                 disabled={sending}
                             />
                         </div>
-                        <div class="new-chat-to">
-                            <label for={recipientId}>"To:"</label>
-                            <div class="new-chat-recipient-field">
+                        <div
+                            class="flex min-h-16 items-center gap-3.5 px-7 py-3 text-sm focus-within:shadow-[inset_0_-2px_var(--color-brand-ink)]"
+                        >
+                            <label for={recipientId} class="shrink-0 text-ink">"To:"</label>
+                            <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                                 <template pp-for="recipient in recipients">
-                                    <span class="new-chat-chip" key={recipient}>
-                                        <span>{recipient}</span>
+                                    <span
+                                        class="new-chat-chip inline-flex max-w-full items-center gap-1.5 rounded-[5px] bg-brand-soft px-2 py-1 text-[13px]"
+                                        key={recipient}
+                                    >
+                                        <span class="truncate">{recipient}</span>
                                         <button
                                             type="button"
+                                            class="grid shrink-0 cursor-pointer place-items-center rounded text-muted"
                                             aria-label={"Remove " + recipient}
                                             onclick={removeRecipient(recipient)}
                                             disabled={sending}
@@ -246,6 +257,7 @@ pub async fn page() -> Html {
                                 <input
                                     id={recipientId}
                                     pp-ref={recipientInput}
+                                    class="min-w-[140px] flex-1 bg-transparent text-ink outline-none placeholder:text-muted"
                                     aria-label="Recipients"
                                     placeholder="Enter name, email or phone number"
                                     autocomplete="off"
@@ -259,7 +271,7 @@ pub async fn page() -> Html {
                             </div>
                             <button
                                 type="button"
-                                class="new-chat-group-toggle"
+                                class="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded text-muted hover:bg-hover"
                                 aria-label={groupNameOpen ? "Hide group name" : "Show group name"}
                                 aria-expanded={groupNameOpen}
                                 onclick={toggleGroupName()}
@@ -271,16 +283,20 @@ pub async fn page() -> Html {
                             </button>
                         </div>
                         <p
-                            class="new-chat-recipient-error"
+                            class="new-chat-recipient-error px-7 pb-2 text-xs text-danger-ink"
                             id={recipientErrorId}
                             role="alert"
                             hidden={!recipientError}
                         >
                             {recipientError}
                         </p>
-                        <div class="new-chat-suggestions" hidden={!recipientQuery.trim()}>
+                        <div
+                            class="absolute inset-x-7 top-full z-20 rounded-md border border-edge bg-raised p-1 shadow-xl shadow-black/40"
+                            hidden={!recipientQuery.trim()}
+                        >
                             <button
                                 type="button"
+                                class="flex w-full cursor-pointer items-center gap-2.5 rounded px-3 py-2.5 text-left text-[13px] hover:bg-hover"
                                 hidden={!suggestSelf}
                                 onclick={addRecipient("Jefferson Abraham (You)")}
                                 disabled={sending}
@@ -294,6 +310,7 @@ pub async fn page() -> Html {
                             </button>
                             <button
                                 type="button"
+                                class="flex w-full cursor-pointer items-center gap-2.5 rounded px-3 py-2.5 text-left text-[13px] hover:bg-hover"
                                 onclick={addRecipient(recipientQuery)}
                                 disabled={sending}
                             >
@@ -339,16 +356,21 @@ pub async fn page() -> Html {
                                 "This chat is just for you…with you. Use it for drafts, send files to yourself, or get to know chat features a little better."
                             </p>
                         </div>
-                        <div class="new-chat-empty" hidden={!newChat}>
-                            <div class="new-chat-art" aria-hidden="true">
+                        <div
+                            class="new-chat-empty flex flex-1 flex-col items-center justify-center gap-6 py-7 text-center"
+                            hidden={!newChat}
+                        >
+                            <div class="relative isolate h-[185px] w-[200px]" aria-hidden="true">
                                 <span class="new-chat-bubble"></span>
                                 <span class="new-chat-pencil"></span>
                                 <span class="new-chat-dot purple"></span>
                                 <span class="new-chat-dot green"></span>
                                 <span class="new-chat-dot yellow"></span>
                             </div>
-                            <h2>"You're starting a new conversation"</h2>
-                            <p>"Type your first message below."</p>
+                            <h2 class="mt-3.5 text-[17px] font-semibold">
+                                "You're starting a new conversation"
+                            </h2>
+                            <p class="text-sm text-muted">"Type your first message below."</p>
                         </div>
                         <div class="w-full py-5" hidden={messages.length === 0}>
                             <template pp-for="message in matchingMessages">
@@ -455,20 +477,23 @@ pub async fn page() -> Html {
                         <p class="mt-2 text-xs text-busy" hidden={!error}>{error}</p>
                     </div>
                 </main>
-                <div class="chat-meeting-backdrop" hidden={!meetingOpen} onclick={closeMeetNow()}>
+                <div class="fixed inset-0 z-45" hidden={!meetingOpen} onclick={closeMeetNow()}>
                 </div>
                 <section
-                    class="chat-meet-now"
+                    class="chat-meet-now fixed z-46 w-[min(380px,calc(100vw-32px))] rounded-md border border-line bg-raised p-[22px] shadow-2xl shadow-black/70"
                     role="dialog"
                     aria-labelledby="chat-meet-now-title"
                     style={meetingPosition}
                     hidden={!meetingOpen}
                     onkeydown={handleMeetingKey(event)}
                 >
-                    <header>
-                        <h2 id="chat-meet-now-title">"Start a meeting now"</h2>
+                    <header class="mb-[22px] flex items-center justify-between gap-[18px]">
+                        <h2 id="chat-meet-now-title" class="text-[17px] font-semibold">
+                            "Start a meeting now"
+                        </h2>
                         <button
                             type="button"
+                            class="cursor-pointer text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label="Close meeting popup"
                             disabled={meetingBusy}
                             onclick={closeMeetNow()}
@@ -477,9 +502,12 @@ pub async fn page() -> Html {
                         </button>
                     </header>
                     <form onsubmit={startChatMeeting(event)} novalidate>
-                        <label for="chat-meeting-name">"Meeting name"</label>
+                        <label for="chat-meeting-name" class="mb-1.5 block text-sm">
+                            "Meeting name"
+                        </label>
                         <input
                             id="chat-meeting-name"
+                            class="h-10 w-full rounded border border-edge border-b-2 border-b-brand-ink bg-surface px-3 py-2 text-ink outline-none text-sm"
                             pp-ref={meetingNameInput}
                             name="title"
                             aria-label="Meeting name"
@@ -490,17 +518,23 @@ pub async fn page() -> Html {
                             oninput={changeMeetingTitle(target.value)}
                             disabled={meetingBusy}
                         />
-                        <p class="chat-meeting-error" role="alert" hidden={!meetingError}>
+                        <p
+                            class="mt-2.5 text-xs text-danger-ink"
+                            role="alert"
+                            hidden={!meetingError}
+                        >
                             {meetingError}
                         </p>
-                        <div class="chat-meeting-share" hidden={!sharedMeeting}>
+                        <div class="chat-meeting-share mt-3.5" hidden={!sharedMeeting}>
                             <input
+                                class="h-10 w-full rounded border border-edge border-b-2 border-b-brand-ink bg-surface px-3 py-2 text-ink outline-none text-xs"
                                 aria-label="Meeting link"
                                 readonly
                                 value={sharedMeeting ? meetingAbsolute(sharedMeeting.url) : ""}
                             />
-                            <p role="status">{meetingNotice}</p>
+                            <p class="mt-2 text-xs text-muted" role="status">{meetingNotice}</p>
                             <a
+                                class="mt-1.5 inline-block text-xs text-link hover:underline"
                                 href={sharedMeeting ? sharedMeeting.url : "/meet"}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -510,7 +544,7 @@ pub async fn page() -> Html {
                         </div>
                         <button
                             type="button"
-                            class="chat-meeting-share-button"
+                            class="chat-meeting-share-button mt-[22px] block h-10 w-full cursor-pointer rounded text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 border border-edge bg-transparent hover:bg-hover"
                             disabled={meetingBusy || !meetingTitle.trim()}
                             onclick={getChatMeetingLink()}
                         >
@@ -518,7 +552,7 @@ pub async fn page() -> Html {
                         </button>
                         <button
                             type="submit"
-                            class="chat-meeting-start"
+                            class="chat-meeting-start mt-2.5 block h-10 w-full cursor-pointer rounded text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 bg-brand text-white hover:bg-brand-hover"
                             disabled={meetingBusy || !meetingTitle.trim()}
                         >
                             {meetingBusy ? "Please wait…" : "Start meeting"}
@@ -526,27 +560,8 @@ pub async fn page() -> Html {
                     </form>
                 </section>
                 <style>r##"
-                    .new-chat-header {position:relative;flex-shrink:0;border-bottom:1px solid var(--color-line);}
-                    .new-chat-to,.new-chat-group {display:flex;align-items:center;gap:14px;min-height:64px;padding:12px 28px;font-size:14px;}
-                    .new-chat-to:focus-within,.new-chat-group:focus-within {box-shadow:inset 0 -2px var(--color-brand-ink);}
-                    .new-chat-group {border-bottom:1px solid var(--color-edge);}
-                    .new-chat-header label {flex-shrink:0;color:var(--color-ink);}
-                    .new-chat-header input {flex:1;min-width:140px;background:transparent;outline:none;border:0;color:var(--color-ink);font:inherit;}
-                    .new-chat-header input::placeholder {color:var(--color-muted);}
-                    .new-chat-recipient-field {display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:0;}
-                    .new-chat-chip {display:inline-flex;align-items:center;gap:6px;max-width:100%;border-radius:5px;background:var(--color-brand-soft);padding:4px 8px;font-size:13px;}
-                    .new-chat-chip>span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-                    .new-chat-chip button,.new-chat-group-toggle {display:grid;place-items:center;flex-shrink:0;cursor:pointer;border-radius:4px;color:var(--color-muted);}
-                    .new-chat-group-toggle {width:32px;height:32px;}
-                    .new-chat-group-toggle:hover {background:var(--color-hover);}
-                    .new-chat-suggestions {position:absolute;top:100%;left:28px;right:28px;z-index:20;border:1px solid var(--color-edge);border-radius:6px;background:var(--color-raised);box-shadow:0 8px 22px #0006;padding:4px;}
-                    .new-chat-suggestions button {display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;text-align:left;font-size:13px;cursor:pointer;}
-                    .new-chat-suggestions button:hover {background:var(--color-hover);}
-                    .new-chat-recipient-error {padding:0 28px 8px;color:#ffb0ba;font-size:12px;}
-                    .new-chat-empty {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;flex:1;text-align:center;padding:28px 0;}
-                    .new-chat-empty h2 {font-size:17px;font-weight:600;margin-top:14px;}
-                    .new-chat-empty p {font-size:14px;color:var(--color-muted);}
-                    .new-chat-art {position:relative;width:200px;height:185px;isolation:isolate;}
+                    /* The new-conversation illustration: layered gradients and pseudo-element
+                       shapes that utilities cannot express readably. */
                     .new-chat-bubble {position:absolute;inset:14px 16px 10px 28px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#48484d,#29292f 58%,#1f1f24 80%);box-shadow:inset 3px 2px 7px #ffffff20,4px 5px 8px #0005;}
                     .new-chat-bubble::after {content:"";position:absolute;bottom:-4px;left:22px;width:30px;height:38px;transform:skewY(-30deg);border-radius:0 0 5px 10px;background:linear-gradient(120deg,#35353c,#222228);z-index:-1;}
                     .new-chat-pencil {position:absolute;left:114px;top:4px;width:40px;height:126px;transform:rotate(40deg);border-radius:20px 20px 2px 2px;background:linear-gradient(90deg,#ffb342,#ffdd7a 45%,#ed883b);box-shadow:inset -5px 0 6px #a74d3a40,4px 5px 10px #0006;}
@@ -556,31 +571,6 @@ pub async fn page() -> Html {
                     .new-chat-dot.purple {left:5px;background:radial-gradient(at 30% 20%,#dbbaff,#9460ed 65%);}
                     .new-chat-dot.green {left:31px;background:radial-gradient(at 30% 20%,#f3ffbd,#a3ce53 65%);}
                     .new-chat-dot.yellow {left:57px;background:radial-gradient(at 30% 20%,#fffccb,#edd445 65%);}
-                    .new-chat-header[hidden],.new-chat-group[hidden],.new-chat-empty[hidden],.new-chat-suggestions[hidden],.new-chat-suggestions button[hidden],.new-chat-recipient-error[hidden] {display:none;}
-
-                    .chat-list-search {padding:12px 20px 0;}
-                    .chat-list-search input {width:100%;height:36px;padding:8px 12px;background:#292929;border:0;border-bottom:2px solid var(--color-brand-ink);border-radius:4px;color:var(--color-ink);font-size:13px;outline:none;}
-                    .chat-list-search input::placeholder {color:#999;}
-                    .list-pane button[aria-label="Search chats"][aria-pressed="true"],.list-pane button[aria-label="Meet now"][aria-expanded="true"] {color:var(--color-brand-ink);}
-                    .chat-meeting-backdrop {position:fixed;inset:0;z-index:45;}
-                    .chat-meet-now {position:fixed;z-index:46;width:min(380px,calc(100vw - 32px));background:#292929;border:1px solid #333;border-radius:5px;padding:22px;box-shadow:0 10px 28px #0007;}
-                    .chat-meet-now>header {display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px;}
-                    .chat-meet-now h2 {font-size:17px;font-weight:600;}
-                    .chat-meet-now>header button {color:#ccc;cursor:pointer;}
-                    .chat-meet-now label {display:block;font-size:14px;margin-bottom:6px;}
-                    .chat-meet-now input {width:100%;height:40px;padding:8px 12px;background:#222;border:1px solid #666;border-bottom:2px solid var(--color-brand-ink);border-radius:4px;color:white;outline:none;font-size:14px;}
-                    .chat-meet-now form>button {width:100%;height:40px;display:block;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;}
-                    .chat-meeting-share-button {border:1px solid #666;margin-top:22px;background:transparent;}
-                    .chat-meeting-share-button:hover {background:#333;}
-                    .chat-meeting-start {margin-top:10px;background:var(--color-brand);color:white;}
-                    .chat-meeting-start:hover {background:var(--color-brand-hover);}
-                    .chat-meet-now button:disabled {opacity:.5;cursor:not-allowed;}
-                    .chat-meeting-error {font-size:12px;color:#ffb0ba;margin-top:10px;}
-                    .chat-meeting-share {margin-top:14px;}
-                    .chat-meeting-share input {font-size:12px;border:1px solid #555;}
-                    .chat-meeting-share p {font-size:12px;color:#bbb;margin-top:8px;}
-                    .chat-meeting-share a {display:inline-block;font-size:12px;color:var(--color-link);margin-top:6px;}
-                    .chat-meet-now[hidden],.chat-list-search[hidden],.chat-meeting-backdrop[hidden],.chat-meeting-share[hidden] {display:none;}
                 "##</style>
                 <script>r##"
                     const PILL_ON = "h-7 shrink-0 rounded-full border border-brand bg-brand-soft px-3 text-xs font-semibold text-ink";

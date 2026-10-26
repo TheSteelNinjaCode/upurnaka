@@ -5,25 +5,38 @@ use crate::rahti::{Html, component, html};
 #[component]
 pub fn KeyboardShortcuts() -> Html {
     html! {
-        <div class="shortcuts-content">
-            <header class="shortcuts-header">
-                <div class="shortcuts-title">
-                    <h2>"Keyboard shortcuts"</h2>
+        <div class="flex h-full min-h-0 flex-col text-base leading-[1.45]">
+            <header class="shrink-0 px-[22px] pb-3 pt-6 min-[901px]:px-[34px] min-[901px]:pt-8">
+                <div class="shortcuts-title mb-[22px] flex items-center justify-between gap-5">
+                    <h2 class="text-xl font-bold min-[651px]:text-[22px]">"Keyboard shortcuts"</h2>
                     <form method="dialog">
-                        <button type="submit" aria-label="Close keyboard shortcuts">
+                        <button
+                            type="submit"
+                            class="grid h-8 w-8 cursor-pointer place-items-center rounded text-muted hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
+                            aria-label="Close keyboard shortcuts"
+                        >
                             <Icon name="close" class="h-6 w-6" />
                         </button>
                     </form>
                 </div>
-                <div class="shortcuts-controls">
-                    <div class="shortcuts-profile">
-                        <label for={profileId}>"Use shortcuts from other apps"</label>
-                        <div class="shortcuts-profile-row">
-                            <select id={profileId} aria-label="Shortcut profile">
+                <div
+                    class="flex flex-col items-stretch gap-3.5 min-[651px]:flex-row min-[651px]:items-end min-[651px]:justify-between min-[651px]:gap-7"
+                >
+                    <div class="w-full min-[651px]:w-3/5 min-[901px]:w-1/2">
+                        <label for={profileId} class="mb-[5px] block">
+                            "Use shortcuts from other apps"
+                        </label>
+                        <div class="flex gap-3.5">
+                            <select
+                                id={profileId}
+                                class="h-11 w-full min-w-0 rounded-md border border-edge bg-raised px-3.5 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
+                                aria-label="Shortcut profile"
+                            >
                                 <option value="teams">"Teams only (default)"</option>
                             </select>
                             <button
                                 type="button"
+                                class="h-11 min-w-[76px] cursor-not-allowed rounded-md bg-sunken px-5 font-semibold text-subtle min-[901px]:min-w-[124px]"
                                 disabled
                                 title="The default shortcut profile is already applied"
                             >
@@ -31,10 +44,13 @@ pub fn KeyboardShortcuts() -> Html {
                             </button>
                         </div>
                     </div>
-                    <div class="shortcuts-search">
+                    <div
+                        class="flex h-11 w-full items-center gap-2.5 rounded-md bg-surface px-4 text-subtle focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ring min-[651px]:w-2/5 min-[901px]:w-[34%]"
+                    >
                         <Icon name="search" class="h-5 w-5" />
                         <input
                             type="search"
+                            class="w-full min-w-0 bg-transparent text-ink outline-none"
                             aria-label="Filter shortcuts"
                             placeholder="Filter shortcuts"
                             value={filter}
@@ -43,42 +59,61 @@ pub fn KeyboardShortcuts() -> Html {
                     </div>
                 </div>
             </header>
-            <div class="shortcuts-scroll scroll-thin" tabindex="0" aria-label="Shortcut categories">
+            <div
+                class="scroll-thin min-h-0 flex-1 overflow-y-auto overscroll-contain px-[22px] min-[901px]:px-[34px] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
+                tabindex="0"
+                aria-label="Shortcut categories"
+            >
                 <template pp-for="section in shown">
-                    <section class="shortcuts-section" key={section.title}>
+                    <section
+                        class="shortcuts-section border-b border-edge pb-[18px] pt-3 last-of-type:border-b-0"
+                        key={section.title}
+                    >
                         <button
                             type="button"
-                            class="shortcuts-section-toggle"
+                            class="shortcuts-section-toggle mb-2 flex cursor-pointer items-center gap-3.5 rounded px-2 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
                             aria-expanded={!collapsed.includes(section.title) || searching}
                             onclick={toggleSection(section.title)}
                         >
                             <span
-                                class={collapsed.includes(section.title) && !searching ? "shortcuts-chevron collapsed" : "shortcuts-chevron"}
+                                class={collapsed.includes(section.title) && !searching ? "inline-flex -rotate-90" : "inline-flex"}
                             >
                                 <Icon name="chevron-down" class="h-5 w-5" />
                             </span>
                             {section.title}
                         </button>
                         <div hidden={collapsed.includes(section.title) && !searching}>
-                            <p class="shortcuts-note" hidden={section.title !== "Message actions"}>
+                            <p
+                                class="mb-1.5 ml-2 mr-7 text-sm text-muted min-[651px]:mx-7"
+                                hidden={section.title !== "Message actions"}
+                            >
                                 "Single-character shortcuts are supported only for actions in this section."
                             </p>
-                            <div class="shortcuts-columns">
+                            <div
+                                class="grid grid-cols-1 gap-0 px-2 min-[651px]:grid-cols-2 min-[651px]:gap-6 min-[901px]:gap-9 min-[901px]:px-7"
+                            >
                                 <template pp-for="column in section.columns">
-                                    <dl class="shortcuts-column" key={column.id}>
+                                    <dl key={column.id}>
                                         <template pp-for="shortcut in column.items">
-                                            <div class="shortcuts-row" key={shortcut[0]}>
-                                                <dt>
+                                            <div
+                                                class="shortcuts-row grid min-h-[60px] grid-cols-[minmax(0,1fr)_minmax(115px,1fr)] items-center gap-2.5 text-sm min-[901px]:grid-cols-[minmax(0,1.3fr)_minmax(150px,1fr)] min-[901px]:gap-4 min-[901px]:text-base"
+                                                key={shortcut[0]}
+                                            >
+                                                <dt class="py-2">
                                                     {shortcut[0]}
                                                     <span
-                                                        class="shortcuts-unavailable"
+                                                        class="mt-0.5 block text-[11px] leading-[1.3] text-subtle"
                                                         hidden={availableActions.has(shortcut[0])}
                                                     >
                                                         "Not available yet"
                                                     </span>
                                                 </dt>
                                                 <dd>
-                                                    <kbd>{shortcut[1]}</kbd>
+                                                    <kbd
+                                                        class="block whitespace-nowrap rounded-full bg-surface px-2 py-2.5 text-center font-[inherit]"
+                                                    >
+                                                        {shortcut[1]}
+                                                    </kbd>
                                                 </dd>
                                             </div>
                                         </template>
@@ -88,21 +123,29 @@ pub fn KeyboardShortcuts() -> Html {
                         </div>
                     </section>
                 </template>
-                <p class="shortcuts-empty" role="status" hidden={shown.length > 0}>
+                <p
+                    class="shortcuts-empty px-4 py-[60px] text-center text-muted"
+                    role="status"
+                    hidden={shown.length > 0}
+                >
                     "No shortcuts found. Try another action or key combination."
                 </p>
             </div>
-            <footer class="shortcuts-footer">
+            <footer
+                class="flex shrink-0 flex-wrap items-center gap-2 px-[30px] py-[18px] text-sm min-[651px]:gap-3 min-[901px]:px-11 min-[901px]:py-[22px] min-[901px]:text-base"
+            >
                 <a
                     href="https://support.microsoft.com/office/keyboard-shortcuts-for-microsoft-teams-2e8e2a70-e8d8-4a19-949b-4c36dd5292d2"
+                    class="text-brand-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
                     target="_blank"
                     rel="noopener noreferrer"
                 >
                     "See shortcuts for all platforms"
                 </a>
-                <span aria-hidden="true"></span>
+                <span class="hidden h-6 w-px bg-edge min-[651px]:block" aria-hidden="true"></span>
                 <a
                     href="https://support.microsoft.com/office/office-accessibility-center-resources-for-people-with-disabilities-ecab0fcf-d143-4fe8-a2ff-6cd596bddc6d"
+                    class="text-brand-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
                     target="_blank"
                     rel="noopener noreferrer"
                 >
@@ -319,46 +362,6 @@ pub fn KeyboardShortcuts() -> Html {
                     )}))
                 })).filter(section => section.columns.some(column => column.items.length));
             "##</script>
-            <style>r##"
-                .shortcuts-dialog { width:calc(100vw - 32px);max-width:1080px;height:calc(100dvh - 32px);max-height:1400px;margin:auto;padding:0;border:0;border-radius:12px;background:#292929;color:#f5f5f5;box-shadow:0 24px 80px #0008; }
-                .shortcuts-dialog::backdrop { background:#0008; }
-                .shortcuts-content { display:flex;flex-direction:column;height:100%;min-height:0;font-size:16px;line-height:1.45; }
-                .shortcuts-header { flex-shrink:0;padding:32px 34px 12px; }
-                .shortcuts-title { display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:20px; }
-                .shortcuts-title h2 { font-size:22px;font-weight:700; }
-                .shortcuts-title button { display:grid;place-items:center;width:32px;height:32px;color:#ccc;border-radius:4px;cursor:pointer; }
-                .shortcuts-title button:hover { background:#3d3d3d; }
-                .shortcuts-controls { display:flex;align-items:flex-end;justify-content:space-between;gap:28px; }
-                .shortcuts-profile { width:50%; }
-                .shortcuts-profile label { display:block;margin-bottom:5px; }
-                .shortcuts-profile-row { display:flex;gap:14px; }
-                .shortcuts-profile select { width:100%;min-width:0;height:44px;padding:0 14px;color:inherit;background:#292929;border:1px solid #666;border-radius:5px;font:inherit; }
-                .shortcuts-profile-row>button { height:44px;min-width:124px;padding:0 20px;border-radius:5px;background:#141414;color:#666;font-weight:600;cursor:not-allowed; }
-                .shortcuts-search { display:flex;align-items:center;gap:10px;width:34%;height:44px;padding:0 16px;border-radius:6px;background:#1f1f1f;color:#aaa; }
-                .shortcuts-search:focus-within { outline:2px solid #a6a7ef;outline-offset:1px; }
-                .shortcuts-search input { width:100%;min-width:0;background:transparent;border:0;outline:none;color:#f5f5f5;font:inherit; }
-                .shortcuts-scroll { flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 34px; }
-                .shortcuts-section { border-bottom:1px solid #515151;padding:12px 0 18px; }
-                .shortcuts-section:last-of-type { border-bottom:0; }
-                .shortcuts-section-toggle { display:flex;align-items:center;gap:14px;padding:10px 8px;margin-bottom:8px;font-weight:600;border-radius:4px;cursor:pointer; }
-                .shortcuts-chevron { display:inline-flex; }
-                .shortcuts-chevron.collapsed { transform:rotate(-90deg); }
-                .shortcuts-columns { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:36px;padding:0 28px; }
-                .shortcuts-row { display:grid;grid-template-columns:minmax(0,1.3fr) minmax(150px,1fr);align-items:center;gap:16px;min-height:60px; }
-                .shortcuts-row dt { padding:8px 0; }
-                .shortcuts-row dd { margin:0; }
-                .shortcuts-unavailable { display:block;color:#aaa;font-size:11px;line-height:1.3;margin-top:2px; }
-                .shortcuts-row kbd { display:block;padding:10px 8px;border-radius:999px;background:#1f1f1f;text-align:center;white-space:nowrap;font-family:inherit;font-size:inherit; }
-                .shortcuts-note { margin:0 28px 6px;color:#ccc;font-size:14px; }
-                .shortcuts-empty { padding:60px 16px;text-align:center;color:#ccc; }
-                .shortcuts-footer { display:flex;align-items:center;flex-wrap:wrap;gap:12px;flex-shrink:0;padding:22px 44px; }
-                .shortcuts-footer a { color:#9992f5;text-decoration:underline;text-underline-offset:2px; }
-                .shortcuts-footer>span { height:24px;width:1px;background:#1f1f1f; }
-                .shortcuts-dialog :focus-visible { outline:2px solid #ddd;outline-offset:3px; }
-                .shortcuts-dialog [hidden] { display:none; }
-                @media(max-width:900px) { .shortcuts-header { padding:24px 22px 12px; }.shortcuts-scroll { padding:0 22px; }.shortcuts-profile { width:60%; }.shortcuts-search { width:40%; }.shortcuts-columns { gap:24px;padding:0 8px; }.shortcuts-row { grid-template-columns:minmax(0,1fr) minmax(115px,1fr);gap:10px;font-size:14px; }.shortcuts-profile-row>button { min-width:76px; }.shortcuts-footer { padding:18px 30px;font-size:14px; } }
-                @media(max-width:650px) { .shortcuts-controls { flex-direction:column;align-items:stretch;gap:14px; }.shortcuts-profile,.shortcuts-search { width:100%; }.shortcuts-columns { grid-template-columns:minmax(0,1fr);gap:0; }.shortcuts-title h2 { font-size:20px; }.shortcuts-footer>span { display:none; }.shortcuts-footer { gap:8px; }.shortcuts-note { margin-left:8px; } }
-            "##</style>
         </div>
     }
 }

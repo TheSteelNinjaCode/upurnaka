@@ -60,8 +60,7 @@ pub async fn page() -> Result {
                                     <input
                                         name="title"
                                         type="text"
-                                        class="h-9 w-full rounded-t bg-hover px-3 text-[13px] text-ink placeholder:text-subtle focus:outline-none"
-                                        style="border-bottom: 2px solid var(--color-brand)"
+                                        class="h-9 w-full rounded-t bg-hover px-3 text-[13px] text-ink border-b-2 border-brand placeholder:text-subtle focus:outline-none"
                                         aria-label="Meeting title"
                                         autocomplete="off"
                                         placeholder="Meeting title"
@@ -125,7 +124,7 @@ pub async fn page() -> Result {
                             <div
                                 key={link.id}
                                 data-meeting-id={link.id}
-                                class="meeting-link-card relative rounded-lg border border-edge bg-raised px-5 py-4"
+                                class="group relative rounded-lg border border-edge bg-raised px-5 py-4"
                             >
                                 <div class="flex items-start justify-between">
                                     <span
@@ -142,13 +141,13 @@ pub async fn page() -> Result {
                                         <Icon name="more" class="h-[18px] w-[18px]" />
                                     </button>
                                 </div>
-                                <div class="meeting-link-title-row">
-                                    <p class="truncate text-[15px] font-semibold text-ink">
+                                <div class="mt-3 flex min-w-0 items-center gap-2">
+                                    <p class="min-w-0 truncate text-[15px] font-semibold text-ink">
                                         {link.title}
                                     </p>
                                     <button
                                         type="button"
-                                        class={editingId === link.id ? "meeting-rename-button editing" : "meeting-rename-button"}
+                                        class={editingId === link.id ? RENAME_EDITING : RENAME}
                                         aria-label="Edit meeting name"
                                         title="Edit meeting name"
                                         onclick={openRename(link, event)}
@@ -231,17 +230,20 @@ pub async fn page() -> Result {
                 >
                 </div>
                 <div
-                    class="meeting-rename-dialog"
+                    class="meeting-rename-dialog fixed z-45 w-[min(340px,calc(100vw-32px))] rounded-md border border-line bg-raised p-[22px] shadow-2xl shadow-black/70"
                     role="dialog"
                     aria-labelledby="meeting-rename-title"
                     style={renamePosition}
                     hidden={!editingId}
                     onkeydown={handleRenameKey(event)}
                 >
-                    <header>
-                        <h2 id="meeting-rename-title">"Edit meeting name"</h2>
+                    <header class="mb-[18px] flex items-center justify-between gap-4">
+                        <h2 id="meeting-rename-title" class="text-[17px] font-semibold">
+                            "Edit meeting name"
+                        </h2>
                         <button
                             type="button"
+                            class="grid cursor-pointer place-items-center text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label="Close name editor"
                             disabled={renaming}
                             onclick={closeRename()}
@@ -252,6 +254,7 @@ pub async fn page() -> Result {
                     <form onsubmit={saveRename(event)} novalidate>
                         <input
                             pp-ref={renameInput}
+                            class="h-10 w-full rounded border-b-2 border-brand-ink bg-surface px-3 py-2 text-sm text-ink outline-none"
                             name="title"
                             aria-label="Meeting name"
                             type="text"
@@ -261,13 +264,17 @@ pub async fn page() -> Result {
                             disabled={renaming}
                             oninput={setRenameTitle(target.value)}
                         />
-                        <p class="meeting-rename-error" role="alert" hidden={!renameError}>
+                        <p
+                            class="mt-2.5 text-xs text-danger-ink"
+                            role="alert"
+                            hidden={!renameError}
+                        >
                             {renameError}
                         </p>
-                        <footer>
+                        <footer class="mt-4 flex justify-end gap-3">
                             <button
                                 type="button"
-                                class="meeting-rename-cancel"
+                                class="meeting-rename-cancel h-[38px] min-w-28 cursor-pointer rounded border border-edge bg-transparent text-sm font-semibold transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
                                 disabled={renaming}
                                 onclick={closeRename()}
                             >
@@ -275,7 +282,7 @@ pub async fn page() -> Result {
                             </button>
                             <button
                                 type="submit"
-                                class="meeting-rename-save"
+                                class="meeting-rename-save h-[38px] min-w-28 cursor-pointer rounded bg-brand text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
                                 disabled={renaming || !renameTitle.trim()}
                             >
                                 {renaming ? "Saving…" : "Save"}
@@ -291,31 +298,13 @@ pub async fn page() -> Result {
                     <Icon name="check-circle" class="h-[18px] w-[18px] text-online" />
                     {toast}
                 </div>
-                <style>r##"
-                    .meeting-link-title-row {display:flex;align-items:center;gap:8px;margin-top:12px;min-width:0;}
-                    .meeting-link-title-row>p {min-width:0;}
-                    .meeting-rename-button {display:grid;place-items:center;width:26px;height:26px;flex-shrink:0;border-radius:4px;color:var(--color-muted);opacity:0;cursor:pointer;transition:opacity .12s,color .12s;}
-                    .meeting-link-card:hover .meeting-rename-button,.meeting-link-card:focus-within .meeting-rename-button {opacity:1;}
-                    .meeting-rename-button.editing {opacity:1;color:var(--color-brand-ink);}
-                    .meeting-rename-button:hover,.meeting-rename-button:focus-visible {color:var(--color-brand-ink);background:var(--color-hover);}
-                    .meeting-rename-dialog {position:fixed;z-index:45;width:min(340px,calc(100vw - 32px));padding:22px;background:#292929;border:1px solid #383838;border-radius:5px;box-shadow:0 12px 32px #0008;}
-                    .meeting-rename-dialog>header {display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;}
-                    .meeting-rename-dialog h2 {font-size:17px;font-weight:600;}
-                    .meeting-rename-dialog>header button {display:grid;place-items:center;color:#ccc;cursor:pointer;}
-                    .meeting-rename-dialog input {width:100%;height:40px;background:#1f1f1f;border:0;border-bottom:2px solid #a398ff;border-radius:4px;padding:8px 12px;font-size:14px;color:white;outline:none;}
-                    .meeting-rename-dialog footer {display:flex;justify-content:flex-end;gap:12px;margin-top:16px;}
-                    .meeting-rename-dialog footer button {height:38px;min-width:112px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;}
-                    .meeting-rename-cancel {border:1px solid #666;background:transparent;}
-                    .meeting-rename-save {background:var(--color-brand);color:white;}
-                    .meeting-rename-save:hover {background:var(--color-brand-hover);}
-                    .meeting-rename-dialog button:disabled {opacity:.5;cursor:not-allowed;}
-                    .meeting-rename-error {font-size:12px;color:#ffb0ba;margin-top:10px;}
-                    .meeting-rename-dialog[hidden] {display:none;}
-                    @media(hover:none) {.meeting-rename-button{opacity:1;}}
-                "##</style>
                 <script>r##"
                     const EMPTY = "rounded-lg border border-edge bg-raised px-8 py-7";
                     const EMPTY_WIDE = EMPTY + " col-span-2";
+                    // The rename pencil shows on card hover or focus; touch screens
+                    // have no hover, so it stays visible there.
+                    const RENAME = "grid h-[26px] w-[26px] shrink-0 cursor-pointer place-items-center rounded text-muted opacity-0 transition-[opacity,color] duration-100 hover:bg-hover hover:text-brand-ink focus-visible:bg-hover focus-visible:text-brand-ink group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100";
+                    const RENAME_EDITING = twMerge(RENAME + " opacity-100 text-brand-ink");
 
                     const [links, setLinks] = pp.state(@{Json(&links)});
                     const [compose, setCompose] = pp.state(false);

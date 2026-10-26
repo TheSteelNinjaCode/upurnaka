@@ -176,8 +176,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             "JA"
                         </span>
                         <span
-                            class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-chrome"
-                            pp-style={presenceStyle}
+                            class={"absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-chrome " + PRESENCE_COLORS[presence]}
                         >
                         </span>
                     </button>
@@ -486,7 +485,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 </div>
             </div>
             <dialog
-                class="shortcuts-dialog"
+                class="shortcuts-dialog m-auto h-[calc(100dvh-32px)] max-h-[1400px] w-[calc(100vw-32px)] max-w-[1080px] rounded-xl border-0 bg-raised p-0 text-ink shadow-2xl shadow-black/50 backdrop:bg-black/50"
                 pp-ref={shortcutsDialog}
                 aria-label="Keyboard shortcuts"
                 onclose={restoreShortcutsFocus()}
@@ -577,13 +576,12 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const [saveError, setSaveError] = pp.state("");
 
                 const PRESENCE_COLORS = {
-                    online: "#6bb700",
-                    busy: "#c4314b",
-                    away: "#eaa300",
-                    offline: "#8a8886",
+                    online: "bg-online",
+                    busy: "bg-busy",
+                    away: "bg-away",
+                    offline: "bg-offline",
                 };
 
-                const presenceStyle = "background-color: " + PRESENCE_COLORS[presence];
                 const summary = primaryUse && category ? primaryUse + " · " + category : "";
 
                 function togglePane() {
