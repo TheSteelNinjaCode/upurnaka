@@ -319,9 +319,6 @@
   .top-\[18px\] {
     top: 18px;
   }
-  .top-\[68px\] {
-    top: 68px;
-  }
   .top-\[72px\] {
     top: 72px;
   }
@@ -354,12 +351,6 @@
   }
   .right-11 {
     right: calc(var(--spacing) * 11);
-  }
-  .right-60 {
-    right: calc(var(--spacing) * 60);
-  }
-  .right-\[200px\] {
-    right: 200px;
   }
   .-bottom-0\.5 {
     bottom: calc(var(--spacing) * -0.5);
@@ -996,6 +987,9 @@
   }
   .w-full {
     width: 100%;
+  }
+  .w-max {
+    width: max-content;
   }
   .w-px {
     width: 1px;
@@ -2990,17 +2984,11 @@
     .max-\[650px\]\:absolute {
       position: absolute;
     }
-    .max-\[650px\]\:top-28 {
-      top: calc(var(--spacing) * 28);
-    }
     .max-\[650px\]\:top-\[116px\] {
       top: 116px;
     }
     .max-\[650px\]\:right-0 {
       right: 0px;
-    }
-    .max-\[650px\]\:right-4 {
-      right: calc(var(--spacing) * 4);
     }
     .max-\[650px\]\:bottom-0 {
       bottom: 0px;

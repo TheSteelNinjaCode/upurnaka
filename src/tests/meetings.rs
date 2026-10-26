@@ -252,6 +252,52 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
     browser.press("Escape").await.unwrap();
     browser.wait_for("document.querySelector('.room-more-menu').hidden && document.activeElement.getAttribute('aria-label') === 'More meeting options'").await.unwrap();
     browser
+        .click("button[aria-label='More meeting options']")
+        .await
+        .unwrap();
+    browser
+        .click(".room-more-menu button:first-child")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.meeting-background-panel').hidden && document.querySelector('.room-more-menu').hidden").await.unwrap();
+    browser.wait_for(r##"(() => {
+        const panel = document.querySelector('.meeting-background-panel').getBoundingClientRect();
+        const toolbar = document.querySelector('.meeting-room > header').getBoundingClientRect();
+        return panel.top >= toolbar.bottom && Array.from(document.querySelectorAll('.meeting-room > header > div:first-of-type + div > button')).every(button => {
+            const rect = button.getBoundingClientRect();
+            return button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+        });
+    })()"##).await.unwrap();
+    browser
+        .click("button[aria-label='Send a reaction']")
+        .await
+        .unwrap();
+    browser.wait_for(r##"(() => {
+        const menu = document.querySelector('.room-reactions');
+        const rect = menu.getBoundingClientRect();
+        const panel = document.querySelector('.meeting-background-panel').getBoundingClientRect();
+        return !menu.hidden && rect.left >= 8 && rect.right <= panel.left - 7 && rect.bottom <= innerHeight &&
+            Array.from(menu.querySelectorAll('button')).every(button => {
+                const r = button.getBoundingClientRect();
+                return button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+            });
+    })()"##).await.unwrap();
+    browser
+        .click("button[aria-label='Send laugh']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-reactions').hidden && !document.querySelector('.room-reaction-toast').hidden").await.unwrap();
+    browser
+        .click("button[aria-label='More meeting options']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-more-menu').getBoundingClientRect().right <= document.querySelector('.meeting-background-panel').getBoundingClientRect().left - 7").await.unwrap();
+    browser
+        .click("button[aria-label='Close background settings']")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser
         .click("button[aria-label='Send a reaction']")
         .await
         .unwrap();

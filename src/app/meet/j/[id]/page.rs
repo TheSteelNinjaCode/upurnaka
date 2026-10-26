@@ -344,6 +344,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                 onpointerdown={dismissRoomMenusOutside(event)}
             >
                 <header
+                    pp-ref={roomToolbar}
                     class="relative z-3 flex h-[72px] shrink-0 items-center justify-between gap-6 border-b border-line bg-raised px-5 py-1 max-[1000px]:gap-2 max-[1000px]:px-2.5 max-[650px]:h-auto max-[650px]:min-h-16 max-[650px]:items-start"
                 >
                     <div
@@ -501,7 +502,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         </button>
                     </div>
                     <div
-                        class="room-reactions absolute right-60 top-[68px] z-5 flex gap-2 rounded-md border border-edge bg-raised p-2 shadow-xl shadow-black/40 *:cursor-pointer *:p-2 *:text-[26px] max-[650px]:right-4 max-[650px]:top-28"
+                        class="room-reactions fixed z-5 flex w-max gap-2 overflow-auto rounded-md border border-edge bg-raised p-2 shadow-xl shadow-black/40 *:cursor-pointer *:p-2 *:text-[26px]"
+                        style={roomMenuStyle}
                         pp-ref={reactionMenu}
                         hidden={!reactionsOpen}
                     >
@@ -535,7 +537,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         </button>
                     </div>
                     <div
-                        class="room-more-menu absolute right-[200px] top-[68px] z-5 grid gap-1 rounded-md border border-edge bg-raised p-2 shadow-xl shadow-black/40 *:cursor-pointer *:rounded-[3px] *:px-4 *:py-2.5 *:text-left *:text-[13px] *:hover:bg-hover max-[650px]:right-4 max-[650px]:top-28"
+                        class="room-more-menu fixed z-5 grid w-max gap-1 overflow-auto rounded-md border border-edge bg-raised p-2 shadow-xl shadow-black/40 *:cursor-pointer *:rounded-[3px] *:px-4 *:py-2.5 *:text-left *:text-[13px] *:hover:bg-hover"
+                        style={roomMenuStyle}
                         pp-ref={moreMenu}
                         hidden={!moreOpen}
                     >
@@ -974,6 +977,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             <aside
                 class="meeting-background-panel fixed inset-y-0 right-0 z-5 flex w-[340px] flex-col border-l border-line bg-surface max-[1100px]:w-[min(340px,92vw)] max-[1100px]:shadow-2xl max-[1100px]:shadow-black/40"
                 aria-label="Background settings"
+                pp-ref={backgroundPanel}
+                style={session ? "top:" + toolbarBottom + "px" : ""}
+                onpointerdown={dismissRoomMenus()}
                 hidden={!backgroundsOpen}
             >
                 <header class="flex items-center justify-between gap-3 px-5 py-6">
@@ -1107,6 +1113,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const localVideo = pp.ref(null);
                     const roomLocalVideo = pp.ref(null);
                     const reactionTrigger = pp.ref(null);
+                    const roomToolbar = pp.ref(null);
+                    const backgroundPanel = pp.ref(null);
                     const moreTrigger = pp.ref(null);
                     const reactionMenu = pp.ref(null);
                     const moreMenu = pp.ref(null);
@@ -1168,6 +1176,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const [roomPanel, setRoomPanel] = pp.state("");
                     const [handRaised, setHandRaised] = pp.state(false);
                     const [reactionsOpen, setReactionsOpen] = pp.state(false);
+                    const [toolbarBottom, setToolbarBottom] = pp.state(72);
+                    const [roomMenuStyle, setRoomMenuStyle] = pp.state("");
                     const [reactionNotice, setReactionNotice] = pp.state("");
                     const [moreOpen, setMoreOpen] = pp.state(false);
                     const [focusView, setFocusView] = pp.state(false);
@@ -1500,9 +1510,41 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
                     function toggleRoomMenu(menu) {
                         const opening = menu === "reactions" ? !reactionsOpen : !moreOpen;
+                        if (opening && window.innerWidth <= 650) setBackgroundsOpen(false);
                         setReactionsOpen(menu === "reactions" && opening);
                         setMoreOpen(menu === "more" && opening);
                     }
+
+                    // The toolbar can wrap on phones. Keep settings beneath its actual
+                    // height and clamp popovers to the stage, clear of the settings pane.
+                    const positionRoomMenus = pp.event(() => {
+                        if (!session) return;
+                        if (backgroundsOpen && (reactionsOpen || moreOpen) && window.innerWidth <= 650) {
+                            setBackgroundsOpen(false);
+                            return;
+                        }
+                        const toolbar = roomToolbar.current;
+                        if (!toolbar) return;
+                        const bottom = Math.ceil(toolbar.getBoundingClientRect().bottom);
+                        setToolbarBottom(bottom);
+                        const menu = reactionsOpen ? reactionMenu.current : moreOpen ? moreMenu.current : null;
+                        const trigger = reactionsOpen ? reactionTrigger.current : moreOpen ? moreTrigger.current : null;
+                        if (!menu || !trigger) return;
+                        const right = backgroundsOpen && backgroundPanel.current
+                            ? backgroundPanel.current.getBoundingClientRect().left - 8 : window.innerWidth - 8;
+                        const width = Math.min(menu.getBoundingClientRect().width, Math.max(0, right - 8));
+                        const left = Math.max(8, Math.min(trigger.getBoundingClientRect().left, right - width));
+                        const top = bottom + 4;
+                        setRoomMenuStyle("left:" + left + "px;top:" + top + "px;max-width:" + Math.max(0, right - 8) + "px;max-height:" + Math.max(0, window.innerHeight - top - 8) + "px");
+                    });
+                    pp.layoutEffect(() => {
+                        if (!session) return;
+                        positionRoomMenus();
+                        const observer = new ResizeObserver(positionRoomMenus);
+                        [document.documentElement, roomToolbar.current, backgroundPanel.current, reactionMenu.current, moreMenu.current]
+                            .filter(Boolean).forEach(element => observer.observe(element));
+                        return () => observer.disconnect();
+                    }, [session !== null, backgroundsOpen, reactionsOpen, moreOpen]);
 
                     function dismissRoomMenusOutside(event) {
                         if (tileMenuElement.current?.contains(event.target)) return;
