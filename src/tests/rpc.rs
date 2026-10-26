@@ -1,5 +1,29 @@
 use super::*;
 
+#[tokio::test]
+async fn chat_meet_now_creates_a_persistent_validated_link() {
+    let (status, body) = rpc(
+        "/chat",
+        "create_chat_meeting",
+        r#"{"title":"  Meet now from Chat  "}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("Meet now from Chat"));
+    assert!(body.contains("/meet/j/"));
+    let (_, listing) = get("/meet").await;
+    assert!(listing.contains("Meet now from Chat"));
+    for payload in [
+        r#"{"title":"   "}"#.to_string(),
+        format!(r#"{{"title":"{}"}}"#, "x".repeat(121)),
+    ] {
+        let (status, _) = rpc("/chat", "create_chat_meeting", &payload).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    }
+    let (status, _) = rpc("/chat", "create_chat_meeting", r#"{"name":"Wrong field"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
 /// The composer's round trip: text in, a stamped message out.
 #[tokio::test]
 async fn the_composer_sends_a_message() {

@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::components::app_shell::AppShell;
 use crate::components::avatar::Avatar;
 use crate::components::icon::Icon;
+use crate::meetings::{self, MeetingLink};
 use crate::rahti::time;
 use crate::rahti::{Html, Metadata, Result, Validator, html, rpc};
 
@@ -27,6 +28,10 @@ pub async fn page() -> Html {
                                 class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
                                 title="Search chats"
                                 aria-label="Search chats"
+                                aria-expanded={searchOpen}
+                                aria-pressed={searchOpen}
+                                pp-ref={chatSearchTrigger}
+                                onclick={toggleChatSearch()}
                             >
                                 <Icon name="search" class="h-[18px] w-[18px]" />
                             </button>
@@ -35,6 +40,9 @@ pub async fn page() -> Html {
                                 class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
                                 title="Meet now"
                                 aria-label="Meet now"
+                                aria-expanded={meetingOpen}
+                                pp-ref={meetNowTrigger}
+                                onclick={openMeetNow(event)}
                             >
                                 <Icon name="video" class="h-[18px] w-[18px]" />
                             </button>
@@ -47,6 +55,17 @@ pub async fn page() -> Html {
                                 <Icon name="compose" class="h-[18px] w-[18px]" />
                             </button>
                         </div>
+                    </div>
+                    <div class="chat-list-search" hidden={!searchOpen}>
+                        <input
+                            pp-ref={chatSearchInput}
+                            type="search"
+                            aria-label="Filter by person or chat name"
+                            placeholder="Filter by person or chat name"
+                            value={chatFilter}
+                            oninput={setChatFilter(target.value)}
+                            onkeydown={handleSearchKey(event)}
+                        />
                     </div>
                     <div class="flex items-center gap-2 px-5 py-3">
                         <button
@@ -83,7 +102,7 @@ pub async fn page() -> Html {
                             </span>
                             "Favorites"
                         </button>
-                        <div class="mt-0.5" hidden={!favoritesOpen}>
+                        <div class="chat-self-entry mt-0.5" hidden={!favoritesOpen || !selfMatches}>
                             <button
                                 type="button"
                                 class={selected === "self" ? ROW_ON : ROW_OFF}
@@ -108,9 +127,16 @@ pub async fn page() -> Html {
                         </button>
                         <p
                             class="px-3 py-2 text-xs leading-relaxed text-subtle"
-                            hidden={!chatsOpen}
+                            hidden={!chatsOpen || hasChatFilter}
                         >
                             "Nobody has written to you yet. Start a chat and it will show up here."
+                        </p>
+                        <p
+                            class="px-3 py-2 text-xs leading-relaxed text-subtle"
+                            role="status"
+                            hidden={!hasChatFilter || selfMatches}
+                        >
+                            "No chats match your filter."
                         </p>
                     </div>
                 </aside>
@@ -250,6 +276,101 @@ pub async fn page() -> Html {
                         <p class="mt-2 text-xs text-busy" hidden={!error}>{error}</p>
                     </div>
                 </main>
+                <div class="chat-meeting-backdrop" hidden={!meetingOpen} onclick={closeMeetNow()}>
+                </div>
+                <section
+                    class="chat-meet-now"
+                    role="dialog"
+                    aria-labelledby="chat-meet-now-title"
+                    style={meetingPosition}
+                    hidden={!meetingOpen}
+                    onkeydown={handleMeetingKey(event)}
+                >
+                    <header>
+                        <h2 id="chat-meet-now-title">"Start a meeting now"</h2>
+                        <button
+                            type="button"
+                            aria-label="Close meeting popup"
+                            disabled={meetingBusy}
+                            onclick={closeMeetNow()}
+                        >
+                            <Icon name="close" class="h-5 w-5" />
+                        </button>
+                    </header>
+                    <form onsubmit={startChatMeeting(event)} novalidate>
+                        <label for="chat-meeting-name">"Meeting name"</label>
+                        <input
+                            id="chat-meeting-name"
+                            pp-ref={meetingNameInput}
+                            name="title"
+                            aria-label="Meeting name"
+                            type="text"
+                            maxlength="120"
+                            autocomplete="off"
+                            value={meetingTitle}
+                            oninput={changeMeetingTitle(target.value)}
+                            disabled={meetingBusy}
+                        />
+                        <p class="chat-meeting-error" role="alert" hidden={!meetingError}>
+                            {meetingError}
+                        </p>
+                        <div class="chat-meeting-share" hidden={!sharedMeeting}>
+                            <input
+                                aria-label="Meeting link"
+                                readonly
+                                value={sharedMeeting ? meetingAbsolute(sharedMeeting.url) : ""}
+                            />
+                            <p role="status">{meetingNotice}</p>
+                            <a
+                                href={sharedMeeting ? sharedMeeting.url : "/meet"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                "Open meeting in a new tab"
+                            </a>
+                        </div>
+                        <button
+                            type="button"
+                            class="chat-meeting-share-button"
+                            disabled={meetingBusy || !meetingTitle.trim()}
+                            onclick={getChatMeetingLink()}
+                        >
+                            {meetingBusy ? "Creating…" : "Get a link to share"}
+                        </button>
+                        <button
+                            type="submit"
+                            class="chat-meeting-start"
+                            disabled={meetingBusy || !meetingTitle.trim()}
+                        >
+                            {meetingBusy ? "Please wait…" : "Start meeting"}
+                        </button>
+                    </form>
+                </section>
+                <style>r##"
+                    .chat-list-search {padding:12px 20px 0;}
+                    .chat-list-search input {width:100%;height:36px;padding:8px 12px;background:#292929;border:0;border-bottom:2px solid var(--color-brand-ink);border-radius:4px;color:var(--color-ink);font-size:13px;outline:none;}
+                    .chat-list-search input::placeholder {color:#999;}
+                    .list-pane button[aria-label="Search chats"][aria-pressed="true"],.list-pane button[aria-label="Meet now"][aria-expanded="true"] {color:var(--color-brand-ink);}
+                    .chat-meeting-backdrop {position:fixed;inset:0;z-index:45;}
+                    .chat-meet-now {position:fixed;z-index:46;width:min(380px,calc(100vw - 32px));background:#292929;border:1px solid #333;border-radius:5px;padding:22px;box-shadow:0 10px 28px #0007;}
+                    .chat-meet-now>header {display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px;}
+                    .chat-meet-now h2 {font-size:17px;font-weight:600;}
+                    .chat-meet-now>header button {color:#ccc;cursor:pointer;}
+                    .chat-meet-now label {display:block;font-size:14px;margin-bottom:6px;}
+                    .chat-meet-now input {width:100%;height:40px;padding:8px 12px;background:#222;border:1px solid #666;border-bottom:2px solid var(--color-brand-ink);border-radius:4px;color:white;outline:none;font-size:14px;}
+                    .chat-meet-now form>button {width:100%;height:40px;display:block;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;}
+                    .chat-meeting-share-button {border:1px solid #666;margin-top:22px;background:transparent;}
+                    .chat-meeting-share-button:hover {background:#333;}
+                    .chat-meeting-start {margin-top:10px;background:var(--color-brand);color:white;}
+                    .chat-meeting-start:hover {background:var(--color-brand-hover);}
+                    .chat-meet-now button:disabled {opacity:.5;cursor:not-allowed;}
+                    .chat-meeting-error {font-size:12px;color:#ffb0ba;margin-top:10px;}
+                    .chat-meeting-share {margin-top:14px;}
+                    .chat-meeting-share input {font-size:12px;border:1px solid #555;}
+                    .chat-meeting-share p {font-size:12px;color:#bbb;margin-top:8px;}
+                    .chat-meeting-share a {display:inline-block;font-size:12px;color:var(--color-link);margin-top:6px;}
+                    .chat-meet-now[hidden],.chat-list-search[hidden],.chat-meeting-backdrop[hidden],.chat-meeting-share[hidden] {display:none;}
+                "##</style>
                 <script>r##"
                     const PILL_ON = "h-7 shrink-0 rounded-full border border-brand bg-brand-soft px-3 text-xs font-semibold text-ink";
                     const PILL_OFF = "h-7 shrink-0 rounded-full border border-edge px-3 text-xs text-muted transition-colors hover:bg-hover hover:text-ink";
@@ -264,6 +385,115 @@ pub async fn page() -> Html {
                     const [draft, setDraft] = pp.state("");
                     const [sending, setSending] = pp.state(false);
                     const [error, setError] = pp.state("");
+                    const [searchOpen, setSearchOpen] = pp.state(false);
+                    const [chatFilter, setChatFilter] = pp.state("");
+                    const chatSearchInput = pp.ref(null);
+                    const chatSearchTrigger = pp.ref(null);
+                    const [meetingOpen, setMeetingOpen] = pp.state(false);
+                    const [meetingTitle, setMeetingTitle] = pp.state("Meeting with Jefferson Abraham");
+                    const [meetingBusy, setMeetingBusy] = pp.state(false);
+                    const [meetingError, setMeetingError] = pp.state("");
+                    const [meetingNotice, setMeetingNotice] = pp.state("");
+                    const [sharedMeeting, setSharedMeeting] = pp.state(null);
+                    const [meetingPosition, setMeetingPosition] = pp.state("");
+                    const meetingNameInput = pp.ref(null);
+                    const meetNowTrigger = pp.ref(null);
+                    const hasChatFilter = !!chatFilter.trim() || filters.unread || filters.meetings || filters.unmuted;
+                    const selfMatches = "Jefferson Abraham (You)".toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
+
+                    pp.effect(() => {
+                        if (searchOpen && chatSearchInput.current) chatSearchInput.current.focus();
+                    }, [searchOpen]);
+                    pp.effect(() => {
+                        if (meetingOpen && !meetingBusy && meetingNameInput.current) {
+                            meetingNameInput.current.focus();
+                            meetingNameInput.current.select();
+                        }
+                    }, [meetingOpen, meetingBusy]);
+
+                    function toggleChatSearch() {
+                        setSearchOpen(!searchOpen);
+                        if (searchOpen) setChatFilter("");
+                    }
+                    function handleSearchKey(event) {
+                        if (event.key === "Escape") {
+                            setChatFilter(""); setSearchOpen(false);
+                            if (chatSearchTrigger.current) chatSearchTrigger.current.focus();
+                        }
+                    }
+                    function openMeetNow(event) {
+                        const anchor = event.currentTarget.getBoundingClientRect();
+                        const width = Math.min(380, innerWidth - 32);
+                        const left = Math.max(16, Math.min(anchor.left - width / 2, innerWidth - width - 16));
+                        const top = Math.max(16, Math.min(anchor.bottom + 10, innerHeight - 430));
+                        setMeetingPosition("left:" + left + "px;top:" + top + "px");
+                        setMeetingError("");
+                        setMeetingOpen(true);
+                    }
+                    function closeMeetNow() {
+                        if (meetingBusy) return;
+                        setMeetingOpen(false);
+                        if (meetNowTrigger.current) meetNowTrigger.current.focus();
+                    }
+                    function handleMeetingKey(event) {
+                        if (event.key === "Escape") { event.preventDefault(); closeMeetNow(); }
+                    }
+                    function changeMeetingTitle(value) {
+                        setMeetingTitle(value);
+                        setSharedMeeting(null);
+                        setMeetingNotice("");
+                        setMeetingError("");
+                    }
+                    function meetingAbsolute(url) { return location.origin + url; }
+                    async function ensureChatMeeting(requestedTitle) {
+                        if (sharedMeeting && sharedMeeting.title === requestedTitle.trim()) return sharedMeeting;
+                        const created = await pp.rpc("create_chat_meeting", { title: requestedTitle });
+                        setSharedMeeting(created);
+                        return created;
+                    }
+                    async function getChatMeetingLink() {
+                        if (meetingBusy) return;
+                        setMeetingBusy(true);
+                        setMeetingError("");
+                        try {
+                            const created = await ensureChatMeeting(meetingNameInput.current.value);
+                            try {
+                                await navigator.clipboard.writeText(meetingAbsolute(created.url));
+                                setMeetingNotice("Meeting link copied to clipboard.");
+                            } catch (failure) {
+                                setMeetingNotice("Your meeting link is ready. Select the link above to copy it.");
+                            }
+                        } catch (failure) { setMeetingError(failure.errors?.title?.[0] || failure.message || "The meeting could not be created."); }
+                        finally { setMeetingBusy(false); }
+                    }
+                    async function startChatMeeting(event) {
+                        event.preventDefault();
+                        const payload = Object.fromEntries(new FormData(event.currentTarget));
+                        const requestedTitle = String(payload.title || "").trim();
+                        if (meetingBusy || !requestedTitle) return;
+                        setMeetingError("");
+                        if (sharedMeeting && sharedMeeting.title === requestedTitle) {
+                            window.open(sharedMeeting.url, "_blank", "noopener,noreferrer");
+                            return;
+                        }
+                        // Open during the click gesture, then navigate only after
+                        // the server has created the real meeting link.
+                        const tab = window.open("about:blank", "_blank");
+                        if (tab) tab.opener = null;
+                        setMeetingBusy(true);
+                        try {
+                            const created = await ensureChatMeeting(requestedTitle);
+                            if (tab && !tab.closed) tab.location.replace(meetingAbsolute(created.url));
+                            else setMeetingNotice("Your meeting is ready. Use Open meeting in a new tab above.");
+                        } catch (failure) {
+                            try {
+                                if (tab && !tab.closed && tab.location.href === "about:blank") tab.close();
+                            } catch (closedTab) {
+                                // A tab the user navigated elsewhere is theirs to keep.
+                            }
+                            setMeetingError(failure.errors?.title?.[0] || failure.message || "The meeting could not be started.");
+                        } finally { setMeetingBusy(false); }
+                    }
 
                     function toggleFilter(name) {
                         setFilters((current) => ({ ...current, [name]: !current[name] }));
@@ -327,4 +557,16 @@ pub async fn send_message(text: String) -> Result<Message> {
         time: now.format("%-I:%M %p").to_string(),
         text,
     })
+}
+
+/// Chat's Meet now action creates the same persistent link listed by Meet.
+#[rpc]
+pub async fn create_chat_meeting(title: String) -> Result<MeetingLink> {
+    let title = title.trim().to_string();
+    let mut validator = Validator::new();
+    validator
+        .required("title", &title)
+        .max_chars("title", &title, 120);
+    validator.finish()?;
+    meetings::create(title).await
 }

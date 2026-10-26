@@ -38,6 +38,7 @@ mod p_root;
 /// The app's own page rpcs, which the registry fallback must not answer:
 /// a page's rpc belongs to that page's URL.
 const PAGE_RPCS: &[&str] = &[
+    "create_chat_meeting",
     "create_community",
     "create_meeting",
     "create_meeting_link",
@@ -86,6 +87,7 @@ async fn rpc_p_chat(req: axum::extract::Request) -> axum::response::Response {
     };
     match name.as_str() {
         "send_message" => p_chat::__rahti_rpc_send_message(req).await,
+        "create_chat_meeting" => p_chat::__rahti_rpc_create_chat_meeting(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -159,7 +161,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 ///
 /// - `/` [GET, POST] — src/app/page.rs (layouts: src/app/layout.rs)
 /// - `/apps` [GET, POST] — src/app/apps/page.rs (layouts: src/app/layout.rs)
-/// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message)
+/// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, create_chat_meeting)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link)
 /// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: invite_to_teams)
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)

@@ -1,5 +1,107 @@
 use super::*;
 
+#[tokio::test]
+async fn chat_search_and_meet_now_controls_work() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Search chats']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.chat-list-search').hidden && document.activeElement.getAttribute('aria-label') === 'Filter by person or chat name'").await.unwrap();
+    browser.type_text("No matching person").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.chat-self-entry').hidden")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-list-search').hidden && !document.querySelector('.chat-self-entry').hidden").await.unwrap();
+    browser
+        .click("button[aria-label='Meet now']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.chat-meet-now').hidden && document.activeElement.getAttribute('aria-label') === 'Meeting name'").await.unwrap();
+    browser
+        .type_text("Meeting from chat controls")
+        .await
+        .unwrap();
+    browser.click(".chat-meeting-share-button").await.unwrap();
+    browser.wait_for("document.querySelector('input[aria-label=\"Meeting link\"]').value.includes('/meet/j/') && !document.querySelector('.chat-meeting-share-button').disabled").await.unwrap();
+    let shared: String = browser
+        .eval("document.querySelector('input[aria-label=\"Meeting link\"]').value")
+        .await
+        .unwrap();
+    let id = shared.rsplit('/').next().unwrap();
+    assert_eq!(
+        crate::meetings::find(id).await.unwrap().unwrap().title,
+        "Meeting from chat controls"
+    );
+    // Observe tab creation without opening an uncontrolled window in the suite.
+    let _: bool = browser.eval(r#"
+        window.open = (url, target) => {
+            window.chatOpenedURL = url;
+            window.chatOpenedTarget = target;
+            window.chatOpenedTab = { opener: window, closed:false, location:{ href:'about:blank', replace(url) { window.chatOpenedURL=url; } }, close() { this.closed=true; } };
+            return window.chatOpenedTab;
+        }; true
+    "#).await.unwrap();
+    browser.click(".chat-meeting-start").await.unwrap();
+    browser
+        .wait_for(
+            "window.chatOpenedTarget === '_blank' && window.chatOpenedURL.includes('/meet/j/')",
+        )
+        .await
+        .unwrap();
+    let reused: bool = browser
+        .eval(&format!("window.chatOpenedURL === '/meet/j/{id}'"))
+        .await
+        .unwrap();
+    assert!(
+        reused,
+        "Start must reuse the link already offered for sharing"
+    );
+    browser.press("Escape").await.unwrap();
+    browser
+        .click("button[aria-label='Meet now']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.chat-meet-now').hidden && document.activeElement.getAttribute('aria-label') === 'Meeting name' && document.activeElement.selectionEnd === document.activeElement.value.length").await.unwrap();
+    browser.type_text("Direct meeting from chat").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-meeting-share').hidden && !document.querySelector('.chat-meeting-start').disabled").await.unwrap();
+    browser.click(".chat-meeting-start").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.chat-meeting-start').disabled")
+        .await
+        .unwrap();
+    browser.wait_for("window.chatOpenedURL !== 'about:blank' && window.chatOpenedURL.includes('/meet/j/') && window.chatOpenedTab.opener === null && !document.querySelector('.chat-meeting-start').disabled").await.unwrap();
+    let direct: String = browser.eval("window.chatOpenedURL").await.unwrap();
+    assert_eq!(
+        crate::meetings::find(direct.rsplit('/').next().unwrap())
+            .await
+            .unwrap()
+            .unwrap()
+            .title,
+        "Direct meeting from chat"
+    );
+    browser
+        .wait_for("document.activeElement.getAttribute('aria-label') === 'Meeting name'")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.chat-meet-now').hidden")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
 /// Mount the real runtime under the framework's Trusted Types CSP. Server
 /// rendering alone cannot catch a script sink that prevents hydration.
 #[tokio::test]
