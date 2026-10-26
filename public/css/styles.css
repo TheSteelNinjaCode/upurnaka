@@ -306,14 +306,11 @@
   .right-4 {
     right: calc(var(--spacing) * 4);
   }
+  .right-10 {
+    right: calc(var(--spacing) * 10);
+  }
   .right-11 {
     right: calc(var(--spacing) * 11);
-  }
-  .right-\[78px\] {
-    right: 78px;
-  }
-  .right-\[122px\] {
-    right: 122px;
   }
   .-bottom-0\.5 {
     bottom: calc(var(--spacing) * -0.5);
@@ -1913,9 +1910,6 @@
     .hover\:bg-brand-hover:hover {
       background-color: var(--color-brand-hover);
     }
-    .hover\:bg-busy:hover {
-      background-color: var(--color-busy);
-    }
     .hover\:bg-busy\/25:hover {
       background-color: color-mix(in srgb, #c4314b 25%, transparent);
     }
@@ -1943,9 +1937,6 @@
     }
     .hover\:text-ink:hover {
       color: var(--color-ink);
-    }
-    .hover\:text-white:hover {
-      color: var(--color-white);
     }
     .hover\:underline:hover {
       text-decoration-line: underline;

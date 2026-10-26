@@ -155,34 +155,8 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         >
                         </span>
                     </button>
-                    <div class="ml-2 flex items-center">
-                        <button
-                            type="button"
-                            class="flex h-8 w-10 items-center justify-center text-muted transition-colors hover:bg-hover hover:text-ink"
-                            title="Minimize"
-                            aria-label="Minimize"
-                        >
-                            <Icon name="minimize" class="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                            type="button"
-                            class="flex h-8 w-10 items-center justify-center text-muted transition-colors hover:bg-hover hover:text-ink"
-                            title="Maximize"
-                            aria-label="Maximize"
-                        >
-                            <Icon name="maximize" class="h-3 w-3" />
-                        </button>
-                        <button
-                            type="button"
-                            class="flex h-8 w-10 items-center justify-center text-muted transition-colors hover:bg-busy hover:text-white"
-                            title="Close"
-                            aria-label="Close"
-                        >
-                            <Icon name="close" class="h-3.5 w-3.5" />
-                        </button>
-                    </div>
                     <div
-                        class="absolute right-[122px] top-9 w-72 rounded-lg border border-edge bg-raised p-1 shadow-2xl shadow-black/60"
+                        class="absolute right-10 top-9 w-72 rounded-lg border border-edge bg-raised p-1 shadow-2xl shadow-black/60"
                         hidden={menu !== "more"}
                     >
                         <button
@@ -228,7 +202,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         </button>
                     </div>
                     <div
-                        class="absolute right-[78px] top-9 w-80 rounded-lg border border-edge bg-raised p-1 shadow-2xl shadow-black/60"
+                        class="absolute right-0 top-9 w-80 rounded-lg border border-edge bg-raised p-1 shadow-2xl shadow-black/60"
                         hidden={menu !== "profile"}
                     >
                         <div class="flex items-center gap-3 px-3 py-3">
