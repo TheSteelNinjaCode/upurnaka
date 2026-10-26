@@ -1,5 +1,4 @@
-//! Teams-style reference catalog. Entries describe the reference application's
-//! shortcuts; listing one does not register an action in this application.
+//! Teams-style shortcut catalog with availability for implemented app actions.
 use crate::components::icon::Icon;
 use crate::rahti::{Html, component, html};
 
@@ -69,7 +68,15 @@ pub fn KeyboardShortcuts() -> Html {
                                     <dl class="shortcuts-column" key={column.id}>
                                         <template pp-for="shortcut in column.items">
                                             <div class="shortcuts-row" key={shortcut[0]}>
-                                                <dt>{shortcut[0]}</dt>
+                                                <dt>
+                                                    {shortcut[0]}
+                                                    <span
+                                                        class="shortcuts-unavailable"
+                                                        hidden={availableActions.has(shortcut[0])}
+                                                    >
+                                                        "Not available yet"
+                                                    </span>
+                                                </dt>
                                                 <dd>
                                                     <kbd>{shortcut[1]}</kbd>
                                                 </dd>
@@ -111,6 +118,16 @@ pub fn KeyboardShortcuts() -> Html {
                 function toggleSection(title) {
                     setCollapsed(previous => previous.includes(title) ? previous.filter(item => item !== title) : [...previous, title]);
                 }
+                const availableActions = new Set([
+                    "Show keyboard shortcuts", "Open Search", "Show commands", "Go to a specific chat or channel",
+                    "Zoom in", "Zoom out", "Reset zoom level", "Toggle app bar",
+                    "Go to compose box", "Go back", "Go forward", "Move focus to app list", "Move focus to message pane",
+                    "Open 1st app on app bar", "Open 2nd app on app bar", "Open 3rd app on app bar", "Open 4th app on app bar",
+                    "Open 5th app on app bar", "Open 6th app on app bar", "Open 7th app on app bar", "Open filter",
+                    "Send (expanded compose box)", "Start new line", "Expand compose box", "Undo", "Redo", "Cut", "Copy", "Paste", "Select all",
+                    "Find in current chat or channel", "Jump to last read or newest message", "Clear all filters",
+                    "See all chat conversations", "See all unread items", "See all unmuted items", "See all meeting items", "Collapse all conversation folders",
+                ]);
                 const catalog = [
                     {
                         title: "General",
@@ -330,6 +347,7 @@ pub fn KeyboardShortcuts() -> Html {
                 .shortcuts-row { display:grid;grid-template-columns:minmax(0,1.3fr) minmax(150px,1fr);align-items:center;gap:16px;min-height:60px; }
                 .shortcuts-row dt { padding:8px 0; }
                 .shortcuts-row dd { margin:0; }
+                .shortcuts-unavailable { display:block;color:#aaa;font-size:11px;line-height:1.3;margin-top:2px; }
                 .shortcuts-row kbd { display:block;padding:10px 8px;border-radius:999px;background:#1f1f1f;text-align:center;white-space:nowrap;font-family:inherit;font-size:inherit; }
                 .shortcuts-note { margin:0 28px 6px;color:#ccc;font-size:14px; }
                 .shortcuts-empty { padding:60px 16px;text-align:center;color:#ccc; }

@@ -69,15 +69,8 @@ pub fn AppShell(active: &str, children: Html) -> Html {
     };
 
     html! {
-        <div
-            class="ambient relative flex h-screen w-full flex-col overflow-hidden text-ink"
-            onkeydown={handleShellKey(event)}
-        >
-            <header
-                class="relative z-40 flex h-12 shrink-0 items-center gap-1 px-2.5"
-                tabindex="-1"
-                pp-ref={shellRoot}
-            >
+        <div class="ambient relative flex h-screen w-full flex-col overflow-hidden text-ink">
+            <header class="relative z-40 flex h-12 shrink-0 items-center gap-1 px-2.5">
                 <a
                     href="/chat"
                     class="ml-2 mr-1 flex h-8 w-8 items-center justify-center rounded-md hover:bg-hover"
@@ -124,9 +117,33 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             class="h-8 w-full rounded-md border border-transparent bg-raised pl-9 pr-3 text-[13px] text-ink placeholder:text-muted focus:border-brand focus:outline-none"
                             placeholder="Press Ctrl+G to go right to a chat or channel"
                             aria-label="Search"
+                            pp-ref={globalSearch}
                             value={query}
                             oninput={setQuery(target.value)}
+                            onkeydown={handleGlobalSearchKey(event)}
                         />
+                        <div
+                            class="absolute left-0 right-0 top-10 rounded-lg border border-edge bg-raised p-1 shadow-xl"
+                            hidden={!query.trim()}
+                            aria-label="Search results"
+                        >
+                            <template pp-for="result in searchResults">
+                                <button
+                                    key={result.href}
+                                    type="button"
+                                    class="flex w-full rounded px-3 py-2 text-left text-sm hover:bg-hover"
+                                    onclick={visitSearchResult(result.href)}
+                                >
+                                    {result.label}
+                                </button>
+                            </template>
+                            <p
+                                class="px-3 py-2 text-sm text-muted"
+                                hidden={searchResults.length > 0}
+                            >
+                                "No matching chats or apps."
+                            </p>
+                        </div>
                     </div>
                 </div>
                 <div class="relative flex items-center gap-1">
@@ -188,10 +205,14 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             type="button"
                             class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
                             aria-label="Keyboard shortcuts"
+                            aria-keyshortcuts="Control+."
                             onclick={openShortcuts()}
                         >
                             <Icon name="format" class="h-4 w-4 text-muted" />
                             "Keyboard shortcuts"
+                            <span class="ml-auto whitespace-nowrap text-muted" aria-hidden="true">
+                                "Ctrl+."
+                            </span>
                         </button>
                         <div class="my-1 h-px bg-line"></div>
                         <button
@@ -285,6 +306,9 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 <nav
                     class="flex w-[68px] shrink-0 flex-col items-center gap-1 pb-3"
                     aria-label="Teams sections"
+                    pp-ref={appRail}
+                    tabindex="-1"
+                    hidden={!appBarOpen}
                 >
                     @{rail}
                     <span class="flex-1"></span>
@@ -292,7 +316,9 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         <Icon name="apps" class="h-[22px] w-[22px]" />
                     </a>
                 </nav>
-                <slot />
+                <shortcutcontext.provider value={pageShortcuts}>
+                    <slot />
+                </shortcutcontext.provider>
             </div>
             <div class="absolute inset-0 z-30" hidden={menu === ""} onclick={closeMenus()}></div>
             <div
@@ -466,13 +492,11 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 <KeyboardShortcuts />
             </dialog>
             <script>r##"
-                const shellRoot = pp.ref(null);
-                pp.effect(() => {
-                    const frame = requestAnimationFrame(() => {
-                        if (document.activeElement === document.body) shellRoot.current?.focus({preventScroll:true});
-                    });
-                    return () => cancelAnimationFrame(frame);
-                }, []);
+                const ShortcutContext = window.UpurnakaShortcutContext ||= pp.createContext(null);
+                const pageShortcuts = pp.ref(null);
+                const globalSearch = pp.ref(null);
+                const appRail = pp.ref(null);
+                const [appBarOpen, setAppBarOpen] = pp.state(true);
                 const shortcutsDialog = pp.ref(null);
                 const moreButton = pp.ref(null);
                 function openShortcuts() {
@@ -480,16 +504,67 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     if (!shortcutsDialog.current.open) shortcutsDialog.current.showModal();
                 }
                 function restoreShortcutsFocus() {
-                    moreButton.current?.focus();
+                    const active = document.activeElement;
+                    if (active === document.body || shortcutsDialog.current?.contains(active)) moreButton.current?.focus();
                 }
-                function handleShellKey(event) {
-                    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === ".") {
+                // Document-level keyboard integration must also receive keys when
+                // the body has focus. Keep ordinary controls in their markup.
+                const handleGlobalKey = pp.event(event => {
+                    if (event.defaultPrevented || event.isComposing) return;
+                    const control = (event.ctrlKey || event.metaKey) && !event.altKey;
+                    const key = event.key.toLowerCase();
+                    if (control && !event.shiftKey && (key === "." || event.code === "Period")) {
                         event.preventDefault();
+                        if (event.repeat) return;
                         if (shortcutsDialog.current.open) shortcutsDialog.current.close();
                         else openShortcuts();
+                        return;
+                    }
+                    if (shortcutsDialog.current.open || survey !== 0) return;
+                    pageShortcuts.current?.handleKey(event);
+                    if (event.defaultPrevented) return;
+                    if (control && !event.shiftKey && ["e", "g", "/"].includes(key)) {
+                        event.preventDefault(); setMenu("");
+                        if (key === "/") setQuery("/");
+                        globalSearch.current?.focus(); globalSearch.current?.select();
+                    } else if (control && !event.shiftKey && key === "l") {
+                        event.preventDefault(); setAppBarOpen(true);
+                        requestAnimationFrame(() => appRail.current?.focus());
+                    } else if (control && !event.shiftKey && (key === "\\" || event.code === "Backslash")) {
+                        event.preventDefault(); setAppBarOpen(open => !open);
+                    } else if (control && !event.shiftKey && /^[1-7]$/.test(key)) {
+                        event.preventDefault();
+                        pp.redirect(["/chat", "/meet", "/people", "/communities", "/calendar", "/activity", "/apps"][Number(key) - 1]);
+                    } else if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && ["ArrowLeft", "ArrowRight"].includes(event.key)) {
+                        event.preventDefault();
+                        if (event.key === "ArrowLeft") goBack(); else goForward();
+                    }
+                });
+                pp.effect(() => {
+                    const previous = document.onkeydown;
+                    const handler = event => {
+                        handleGlobalKey(event);
+                        if (!event.defaultPrevented) previous?.call(document, event);
+                    };
+                    document.onkeydown = handler;
+                    return () => { if (document.onkeydown === handler) document.onkeydown = previous; };
+                }, [handleGlobalKey]);
+                const [query, setQuery] = pp.state("");
+                const searchTerm = query.trim().replace(/^\//, "").toLocaleLowerCase();
+                const searchResults = [
+                    {label:"Jefferson Abraham (You)", href:"/chat"},
+                    {label:"Meet", href:"/meet"}, {label:"People", href:"/people"},
+                    {label:"Communities", href:"/communities"}, {label:"Calendar", href:"/calendar"},
+                    {label:"Activity", href:"/activity"}, {label:"Apps", href:"/apps"}
+                ].filter(result => result.label.toLocaleLowerCase().includes(searchTerm) || result.href.slice(1).includes(searchTerm));
+                function visitSearchResult(href) {setQuery(""); pp.redirect(href);}
+                function handleGlobalSearchKey(event) {
+                    if (event.isComposing) return;
+                    if (event.key === "Escape") {event.preventDefault(); setQuery("");}
+                    else if (event.key === "Enter" && searchResults.length && query.trim()) {
+                        event.preventDefault(); visitSearchResult(searchResults[0].href);
                     }
                 }
-                const [query, setQuery] = pp.state("");
                 const [paneOpen, setPaneOpen] = pp.state(true);
                 const [menu, setMenu] = pp.state("");
                 const [presence, setPresence] = pp.state("online");

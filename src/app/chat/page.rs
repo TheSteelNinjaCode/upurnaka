@@ -154,6 +154,7 @@ pub async fn page() -> Html {
                                 class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
                                 title="Find in conversation"
                                 aria-label="Find in conversation"
+                                onclick={openConversationSearch()}
                             >
                                 <Icon name="search" class="h-[18px] w-[18px]" />
                             </button>
@@ -167,7 +168,31 @@ pub async fn page() -> Html {
                             </button>
                         </div>
                     </header>
-                    <div class="scroll-thin flex min-h-0 flex-1 flex-col overflow-y-auto px-8">
+                    <div
+                        class="chat-conversation-search px-8 py-2"
+                        hidden={!conversationSearchOpen}
+                    >
+                        <input
+                            type="search"
+                            class="w-full rounded border border-edge bg-raised px-3 py-2 text-sm"
+                            aria-label="Find messages in this conversation"
+                            placeholder="Find in this conversation"
+                            pp-ref={conversationSearchInput}
+                            value={conversationQuery}
+                            oninput={setConversationQuery(target.value)}
+                            onkeydown={handleConversationSearchKey(event)}
+                        />
+                        <p class="mt-1 text-xs text-muted" role="status">
+                            {matchingMessages.length}
+                            " matching messages"
+                        </p>
+                    </div>
+                    <div
+                        class="scroll-thin flex min-h-0 flex-1 flex-col overflow-y-auto px-8"
+                        tabindex="-1"
+                        aria-label="Messages"
+                        pp-ref={messagePane}
+                    >
                         <div
                             class="m-auto flex max-w-sm flex-col items-center py-10 text-center"
                             hidden={messages.length > 0}
@@ -181,7 +206,7 @@ pub async fn page() -> Html {
                             </p>
                         </div>
                         <div class="w-full py-5" hidden={messages.length === 0}>
-                            <template pp-for="message in messages">
+                            <template pp-for="message in matchingMessages">
                                 <div key={message.id} class="flex gap-3 py-2">
                                     <span
                                         class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
@@ -211,18 +236,22 @@ pub async fn page() -> Html {
                         <form
                             class="flex items-center gap-2 rounded-lg border border-edge bg-raised px-3 py-1.5 focus-within:border-brand"
                             onsubmit={send(event)}
+                            pp-ref={composerForm}
                             novalidate
                         >
-                            <input
+                            <textarea
                                 name="text"
-                                type="text"
-                                class="h-9 min-w-0 flex-1 bg-transparent text-[13px] text-ink placeholder:text-muted focus:outline-none"
+                                rows={expandedCompose ? 5 : 1}
+                                class={expandedCompose ? "min-h-32 min-w-0 flex-1 resize-none bg-transparent py-2 text-[13px] text-ink placeholder:text-muted focus:outline-none" : "h-9 min-w-0 flex-1 resize-none bg-transparent py-2 text-[13px] text-ink placeholder:text-muted focus:outline-none"}
                                 placeholder="Type a message"
                                 autocomplete="off"
                                 aria-label="Type a message"
+                                pp-ref={composerInput}
+                                onkeydown={handleComposerKey(event)}
                                 value={draft}
                                 oninput={setDraft(target.value)}
-                            />
+                            >
+                            </textarea>
                             <button
                                 type="button"
                                 class="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-hover hover:text-ink"
@@ -252,6 +281,8 @@ pub async fn page() -> Html {
                                 class="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-hover hover:text-ink"
                                 title="Format"
                                 aria-label="Format"
+                                aria-expanded={expandedCompose}
+                                onclick={toggleCompose()}
                             >
                                 <Icon name="format" class="h-[18px] w-[18px]" />
                             </button>
@@ -377,6 +408,14 @@ pub async fn page() -> Html {
                     const ROW_ON = "flex w-full items-center gap-3 rounded-md bg-raised px-3 py-2 text-left";
                     const ROW_OFF = "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-hover";
 
+                    const shortcuts = pp.context(window.UpurnakaShortcutContext);
+                    const composerInput = pp.ref(null);
+                    const composerForm = pp.ref(null);
+                    const messagePane = pp.ref(null);
+                    const conversationSearchInput = pp.ref(null);
+                    const [expandedCompose, setExpandedCompose] = pp.state(false);
+                    const [conversationSearchOpen, setConversationSearchOpen] = pp.state(false);
+                    const [conversationQuery, setConversationQuery] = pp.state("");
                     const [filters, setFilters] = pp.state({ unread: false, meetings: false, unmuted: false });
                     const [favoritesOpen, setFavoritesOpen] = pp.state(true);
                     const [chatsOpen, setChatsOpen] = pp.state(true);
@@ -401,6 +440,56 @@ pub async fn page() -> Html {
                     const hasChatFilter = !!chatFilter.trim() || filters.unread || filters.meetings || filters.unmuted;
                     const selfMatches = "Jefferson Abraham (You)".toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
 
+                    const matchingMessages = messages.filter(message => message.text.toLocaleLowerCase().includes(conversationQuery.trim().toLocaleLowerCase()));
+                    const handleChatShortcut = pp.event(event => {
+                        if (meetingOpen || event.isComposing) return;
+                        const key = event.key.toLowerCase();
+                        const control = (event.ctrlKey || event.metaKey) && !event.altKey;
+                        let action = null;
+                        if (control && !event.shiftKey && key === "r") action = () => composerInput.current?.focus();
+                        else if (control && !event.shiftKey && key === "m") action = () => messagePane.current?.focus();
+                        else if (control && !event.shiftKey && key === "f") action = openConversationSearch;
+                        else if (control && !event.shiftKey && key === "j") action = () => {
+                            messagePane.current?.focus();
+                            if (messagePane.current) messagePane.current.scrollTop = messagePane.current.scrollHeight;
+                        };
+                        else if (control && event.shiftKey && key === "f") action = openChatSearch;
+                        else if (control && event.shiftKey && key === "x") action = toggleCompose;
+                        else if (event.ctrlKey && event.altKey && !event.metaKey && !event.shiftKey) {
+                            if (key === "z") action = () => {setFilters({unread:false, meetings:false, unmuted:false}); setChatFilter("");};
+                            else if (["u", "q", "b"].includes(key)) action = () => {
+                                setFilters({unread:key === "u", meetings:key === "b", unmuted:key === "q"});
+                            };
+                            else if (key === "c") action = () => {setFilters({unread:false, meetings:false, unmuted:false}); setChatFilter(""); setFavoritesOpen(true); setChatsOpen(true);};
+                        } else if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && key === "q") {
+                            action = () => {setFavoritesOpen(false); setChatsOpen(false);};
+                        }
+                        if (action) {event.preventDefault(); if (!event.repeat) action();}
+                    });
+                    pp.imperativeHandle(shortcuts, () => ({handleKey:handleChatShortcut}), [shortcuts, handleChatShortcut]);
+                    pp.effect(() => {
+                        if (conversationSearchOpen) conversationSearchInput.current?.focus();
+                    }, [conversationSearchOpen]);
+                    function openConversationSearch() {
+                        setConversationSearchOpen(true);
+                        conversationSearchInput.current?.focus();
+                    }
+                    function openChatSearch() {setSearchOpen(true); chatSearchInput.current?.focus();}
+                    function handleConversationSearchKey(event) {
+                        if (event.key === "Escape") {
+                            event.preventDefault(); setConversationSearchOpen(false); setConversationQuery(""); composerInput.current?.focus();
+                        }
+                    }
+                    function toggleCompose() {
+                        setExpandedCompose(open => !open);
+                        composerInput.current?.focus();
+                    }
+                    function handleComposerKey(event) {
+                        if (event.isComposing || event.repeat) return;
+                        if (event.key === "Enter" && !event.shiftKey && !event.altKey && ((!expandedCompose && !event.ctrlKey && !event.metaKey) || event.ctrlKey || event.metaKey)) {
+                            event.preventDefault(); composerForm.current?.requestSubmit();
+                        }
+                    }
                     pp.effect(() => {
                         if (searchOpen && chatSearchInput.current) chatSearchInput.current.focus();
                     }, [searchOpen]);

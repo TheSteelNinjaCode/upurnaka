@@ -235,7 +235,7 @@ async fn keyboard_shortcuts_dialog_filters_and_handles_focus() {
         .await
         .unwrap();
     browser
-        .wait_for("document.activeElement.tagName === 'HEADER'")
+        .wait_for("document.querySelector('.shortcuts-row') !== null")
         .await
         .unwrap();
     browser
@@ -272,5 +272,90 @@ async fn keyboard_shortcuts_dialog_filters_and_handles_focus() {
         .unwrap();
     browser.press("Escape").await.unwrap();
     browser.wait_for("!document.querySelector('.shortcuts-dialog').open && document.activeElement.getAttribute('aria-label') === 'Settings and more'").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+/// Shortcuts work from body focus and continue to use current page state.
+#[tokio::test]
+async fn shortcuts_control_chat_from_body_and_composer() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.shortcuts-row') !== null")
+        .await
+        .unwrap();
+    // The bundled browser driver cannot send modifier chords. These exercise
+    // the browser's actual document handlers with different focus targets.
+    let _: bool = browser.eval("document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'.',code:'Period',ctrlKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.shortcuts-dialog').open")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.shortcuts-dialog').open && document.activeElement.getAttribute('aria-label') === 'Settings and more'")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'r',ctrlKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser
+        .wait_for("document.activeElement.getAttribute('aria-label') === 'Type a message'")
+        .await
+        .unwrap();
+    // Input.insertText supplies multiline text; Shift+Enter is also checked
+    // with trusted input in the interactive browser (the driver omits modifiers).
+    browser.type_text("First line\nSecond line").await.unwrap();
+    let _: bool = browser.eval("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'x',ctrlKey:true,shiftKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser.wait_for("document.querySelector('textarea').rows === 5 && document.querySelector('textarea').value === 'First line\\nSecond line'").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser
+        .wait_for("document.querySelector('textarea').value.endsWith('\\n')")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser.wait_for("document.querySelector('textarea').value === '' && document.querySelector('[aria-label=Messages]').textContent.includes('Second line')").await.unwrap();
+    let _: bool = browser.eval("document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser.wait_for("document.activeElement.getAttribute('aria-label') === 'Find messages in this conversation'").await.unwrap();
+    browser.type_text("absent text").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-conversation-search').textContent.includes('0 matching messages')").await.unwrap();
+    browser.press("Escape").await.unwrap();
+    let _: bool = browser.eval("document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,shiftKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser
+        .wait_for(
+            "document.activeElement.getAttribute('aria-label') === 'Filter by person or chat name'",
+        )
+        .await
+        .unwrap();
+    browser.type_text("no match").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.chat-self-entry').hidden")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'z',ctrlKey:true,altKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser.wait_for("!document.querySelector('.chat-self-entry').hidden && document.querySelector('[aria-label=\"Filter by person or chat name\"]').value === ''").await.unwrap();
+    let _: bool = browser.eval("document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'e',ctrlKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser
+        .wait_for("document.activeElement.getAttribute('aria-label') === 'Search'")
+        .await
+        .unwrap();
+    browser.type_text("calendar").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser
+        .wait_for("location.pathname === '/calendar'")
+        .await
+        .unwrap();
+    // SPA navigation must clean up the old chat handler and retain the shell.
+    let _: bool = browser.eval("document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'.',ctrlKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.shortcuts-dialog').open")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
