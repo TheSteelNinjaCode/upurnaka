@@ -34,6 +34,28 @@ the existing meeting/attendee permissions. Provider failures are surfaced;
 the interface never reports success before the provider accepts the action.
 See [AWS attendee capabilities](https://docs.aws.amazon.com/chime-sdk/latest/APIReference/API_meeting-chime_AttendeeCapabilities.html).
 
+### Enabling participant mute in the current AWS deployment
+
+The current `upurnaka-chime` IAM user can create meetings but AWS rejects
+`UpdateAttendeeCapabilities` with `AccessDeniedException`. An AWS administrator
+must attach [chime-moderation-policy.json](chime-moderation-policy.json) to that
+user, in addition to its existing permissions. This policy permits only the
+capability-update operation on meetings in the verified account and control-plane
+region. Deployments in another account or region must change that resource ARN.
+
+Using an administrator's AWS profile, from the project root:
+
+```powershell
+aws iam put-user-policy --user-name upurnaka-chime --policy-name UpurnakaParticipantModeration --policy-document file://docs/chime-moderation-policy.json --profile YOUR_ADMIN_PROFILE
+```
+
+The application credentials cannot inspect or manage IAM policies. Do not grant
+them IAM administration or replace their existing meeting permissions. Once the
+policy propagates, retry Mute participant; no new meeting is required. The muted
+participant can choose to unmute themselves. Permission failures now return a
+safe configuration message, and neither mute nor self-unmute changes local mute
+state when Chime rejects the request.
+
 Screen sharing uses a large content area and a participant strip on desktop,
 with a stacked layout on small screens. A paused content tile stays visible
 with a status placeholder rather than disappearing. A locked phone, protected

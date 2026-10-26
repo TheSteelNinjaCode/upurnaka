@@ -381,6 +381,78 @@ async fn spotlight_and_host_mute_are_scoped_and_unmute_belongs_to_the_participan
 }
 
 #[tokio::test]
+async fn provider_permission_denial_preserves_mute_state_and_explains_the_failure() {
+    let id = meeting().await;
+    let mut host = owner().await;
+    let mut guest = guest().await;
+    let guest_entry = entry(&mut guest, &id, "Guest").await;
+    let ticket = guest_entry["id"].as_str().unwrap();
+    visit::Entity::update_many()
+        .col_expr(visit::Column::State, Expr::value("joined"))
+        .col_expr(
+            visit::Column::ProviderMeetingId,
+            Expr::value("denied-moderation-provider"),
+        )
+        .col_expr(visit::Column::AttendeeId, Expr::value("denied-seat"))
+        .filter(visit::Column::Id.eq(ticket))
+        .exec(crate::db::db())
+        .await
+        .unwrap();
+    let (status, body) = call(
+        &mut host,
+        &id,
+        "mute_participant",
+        json!({"id":id,"attendee":"denied-seat"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("participant-mute permission")
+    );
+    assert!(
+        !visit::Entity::find_by_id(ticket)
+            .one(crate::db::db())
+            .await
+            .unwrap()
+            .unwrap()
+            .muted_by_host
+    );
+
+    // A failed self-unmute must retain the previously confirmed host mute.
+    visit::Entity::update_many()
+        .col_expr(visit::Column::MutedByHost, Expr::value(true))
+        .filter(visit::Column::Id.eq(ticket))
+        .exec(crate::db::db())
+        .await
+        .unwrap();
+    let (status, body) = call(
+        &mut guest,
+        &id,
+        "resume_meeting_audio",
+        json!({"id":id,"ticket":ticket}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("participant-mute permission")
+    );
+    assert!(
+        visit::Entity::find_by_id(ticket)
+            .one(crate::db::db())
+            .await
+            .unwrap()
+            .unwrap()
+            .muted_by_host
+    );
+}
+
+#[tokio::test]
 async fn meeting_control_rpcs_validate_shapes_and_refuse_anonymous_callers() {
     let id = meeting().await;
     let mut host = owner().await;

@@ -242,6 +242,13 @@ pub async fn delete_meeting(meeting_id: &str) -> Result<()> {
 /// A host mute disables sending at the media service. Only that attendee can request unmute.
 pub async fn set_attendee_audio(meeting_id: &str, attendee_id: &str, send: bool) -> Result<()> {
     if cfg!(test) {
+        // Exercise provider rejection through the real RPC without contacting AWS.
+        if meeting_id == "denied-moderation-provider" {
+            return Err(audio_update_failed(
+                Some("AccessDeniedException"),
+                "fixture IAM denial",
+            ));
+        }
         return Ok(());
     }
     use aws_sdk_chimesdkmeetings::types::{AttendeeCapabilities, MediaCapabilities};
@@ -262,8 +269,43 @@ pub async fn set_attendee_audio(meeting_id: &str, attendee_id: &str, send: bool)
         .capabilities(capabilities)
         .send()
         .await
-        .map_err(provider_failed)?;
+        .map_err(|error| {
+            let service = error.as_service_error();
+            audio_update_failed(
+                service.and_then(|error| error.meta().code()),
+                &format!(
+                    "{error}: {}",
+                    service
+                        .and_then(|error| error.meta().message())
+                        .unwrap_or("no service detail")
+                ),
+            )
+        })?;
     Ok(())
+}
+
+/// Keep provider details private while giving the room an actionable failure.
+fn audio_update_failed(code: Option<&str>, diagnostic: &str) -> Error {
+    use axum::http::StatusCode;
+    let (status, message) = match code {
+        Some("AccessDeniedException" | "ForbiddenException" | "UnauthorizedException") => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Meeting moderation is unavailable. Ask the administrator to enable the meeting service's participant-mute permission.",
+        ),
+        Some("NotFoundException") => (
+            StatusCode::CONFLICT,
+            "This participant's meeting connection has ended. Refresh the participant list and try again.",
+        ),
+        _ => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "The meeting service could not change the microphone permission. Try again shortly.",
+        ),
+    };
+    Error::new(
+        status,
+        format!("{message} Chime UpdateAttendeeCapabilities failed ({code:?}): {diagnostic}"),
+    )
+    .with_public_message(message)
 }
 
 /// The client, built once.
