@@ -7,7 +7,6 @@ use crate::rahti::{Json, Metadata, Result, Validator, html, rpc};
 
 /// What the title box is filled in with, the way Teams fills it in with the
 /// organizer's name.
-const ACCOUNT_NAME: &str = "Jefferson Abraham";
 
 pub fn metadata() -> Metadata {
     Metadata::new()
@@ -20,7 +19,8 @@ pub async fn page() -> Result {
     // empty one: the cards below are seeded from this and only added to by
     // the browser afterwards.
     let links = meetings::list().await?;
-    let suggested_title = format!("Meeting with {ACCOUNT_NAME}");
+    let user = crate::auth::current().unwrap_or_default();
+    let suggested_title = format!("Meeting with {}", user.name);
 
     Ok(html! {
         <AppShell active="meet">
@@ -621,7 +621,7 @@ pub async fn page() -> Result {
 }
 
 /// Mint a meeting link and keep it.
-#[rpc]
+#[rpc(auth)]
 pub async fn create_meeting_link(title: String) -> Result<MeetingLink> {
     let title = title.trim().to_string();
 
@@ -635,7 +635,7 @@ pub async fn create_meeting_link(title: String) -> Result<MeetingLink> {
 }
 
 /// Rename a live link; the join code and existing conference stay the same.
-#[rpc]
+#[rpc(auth)]
 pub async fn rename_meeting_link(id: String, title: String) -> Result<MeetingLink> {
     let id = id.trim().to_string();
     let title = title.trim().to_string();
@@ -654,7 +654,7 @@ pub async fn rename_meeting_link(id: String, title: String) -> Result<MeetingLin
 /// Answers the same `true` whether the row was already gone or never existed:
 /// the card is off the page either way, and a browser that asked twice is not
 /// an error worth showing somebody.
-#[rpc]
+#[rpc(auth)]
 pub async fn delete_meeting_link(id: String) -> Result<bool> {
     let id = id.trim().to_string();
 

@@ -16,6 +16,9 @@ pub fn metadata() -> Metadata {
 }
 
 pub async fn page() -> Html {
+    let user = crate::auth::current().unwrap_or_default();
+    let initials = user.initials();
+    let self_label = format!("{} (You)", user.name);
     html! {
         <AppShell active="chat">
             <div class="flex min-h-0 flex-1">
@@ -113,9 +116,9 @@ pub async fn page() -> Html {
                                 onclick={selectThread("self")}
                                 disabled={sending}
                             >
-                                <Avatar initials="JA" size="md" presence="online" />
+                                <Avatar initials=@{initials.as_str()} size="md" presence="online" />
                                 <span class="truncate text-[13px] font-semibold text-ink">
-                                    "Jefferson Abraham (You)"
+                                    @{self_label.as_str()}
                                 </span>
                             </button>
                         </div>
@@ -298,15 +301,15 @@ pub async fn page() -> Html {
                                 type="button"
                                 class="flex w-full cursor-pointer items-center gap-2.5 rounded px-3 py-2.5 text-left text-[13px] hover:bg-hover"
                                 hidden={!suggestSelf}
-                                onclick={addRecipient("Jefferson Abraham (You)")}
+                                onclick={addRecipient(selfLabel)}
                                 disabled={sending}
                             >
                                 <span
                                     class="flex h-8 w-8 items-center justify-center rounded-full bg-avatar text-xs text-avatar-ink"
                                 >
-                                    "JA"
+                                    @{initials.as_str()}
                                 </span>
-                                <span>"Jefferson Abraham (You)"</span>
+                                <span>@{self_label.as_str()}</span>
                             </button>
                             <button
                                 type="button"
@@ -348,7 +351,7 @@ pub async fn page() -> Html {
                             class="m-auto flex max-w-sm flex-col items-center py-10 text-center"
                             hidden={newChat || messages.length > 0}
                         >
-                            <Avatar initials="JA" size="xl" presence="none" />
+                            <Avatar initials=@{initials.as_str()} size="xl" presence="none" />
                             <h3 class="mt-7 text-[17px] font-semibold text-ink">
                                 "This is your space"
                             </h3>
@@ -593,7 +596,10 @@ pub async fn page() -> Html {
                     // Conversations currently live in this page, like the original
                     // self-chat. The message RPC validates text; it does not deliver
                     // messages to external recipients.
-                    const [threads, setThreads] = pp.state([{id:"self", label:"Jefferson Abraham (You)", messages:[], draft:"", recipients:[]}]);
+                    const selfName = @{user.name.as_str()};
+                    const selfLabel = @{self_label.as_str()};
+                    const selfEmail = @{user.email.as_str()};
+                    const [threads, setThreads] = pp.state([{id:"self", label:selfLabel, messages:[], draft:"", recipients:[]}]);
                     const [hasNewChat, setHasNewChat] = pp.state(false);
                     const [newDraft, setNewDraft] = pp.state("");
                     const [recipients, setRecipients] = pp.state([]);
@@ -610,7 +616,7 @@ pub async fn page() -> Html {
                     const currentThread = threads.find(thread => thread.id === selected) || threads[0];
                     const messages = newChat ? [] : currentThread.messages;
                     const draft = newChat ? newDraft : currentThread.draft;
-                    const suggestSelf = !recipients.includes("Jefferson Abraham (You)") && /jefferson|abraham|@gmail/i.test(recipientQuery);
+                    const suggestSelf = !recipients.includes(selfLabel) && recipientQuery.trim().length > 0 && (selfLabel + ' ' + selfEmail).toLocaleLowerCase().includes(recipientQuery.toLocaleLowerCase());
                     const [sending, setSending] = pp.state(false);
                     const [error, setError] = pp.state("");
                     const [searchOpen, setSearchOpen] = pp.state(false);
@@ -618,7 +624,7 @@ pub async fn page() -> Html {
                     const chatSearchInput = pp.ref(null);
                     const chatSearchTrigger = pp.ref(null);
                     const [meetingOpen, setMeetingOpen] = pp.state(false);
-                    const [meetingTitle, setMeetingTitle] = pp.state("Meeting with Jefferson Abraham");
+                    const [meetingTitle, setMeetingTitle] = pp.state("Meeting with " + selfName);
                     const [meetingBusy, setMeetingBusy] = pp.state(false);
                     const [meetingError, setMeetingError] = pp.state("");
                     const [meetingNotice, setMeetingNotice] = pp.state("");
@@ -627,7 +633,7 @@ pub async fn page() -> Html {
                     const meetingNameInput = pp.ref(null);
                     const meetNowTrigger = pp.ref(null);
                     const hasChatFilter = !!chatFilter.trim() || filters.unread || filters.meetings || filters.unmuted;
-                    const selfMatches = "Jefferson Abraham (You)".toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
+                    const selfMatches = selfLabel.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
 
                     const newRowMatches = hasNewChat && "new message".includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
                     const visibleThreads = threads.filter(thread => thread.id !== "self" && thread.label.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings);
@@ -872,7 +878,7 @@ pub struct Message {
 /// browser should not decide: the text is checked here, and the stamped time
 /// comes from the application clock rather than from whatever the device
 /// believes the hour is.
-#[rpc]
+#[rpc(auth)]
 pub async fn send_message(text: String) -> Result<Message> {
     let text = text.trim().to_string();
 
@@ -883,18 +889,20 @@ pub async fn send_message(text: String) -> Result<Message> {
     validator.finish()?;
 
     let now = time::now();
+    let user = crate::auth::current().unwrap_or_default();
+    let initials = user.initials();
 
     Ok(Message {
         id: format!("m{}", now.timestamp_micros()),
-        author: "Jefferson Abraham".to_string(),
-        initials: "JA".to_string(),
+        author: user.name,
+        initials,
         time: now.format("%-I:%M %p").to_string(),
         text,
     })
 }
 
 /// Chat's Meet now action creates the same persistent link listed by Meet.
-#[rpc]
+#[rpc(auth)]
 pub async fn create_chat_meeting(title: String) -> Result<MeetingLink> {
     let title = title.trim().to_string();
     let mut validator = Validator::new();

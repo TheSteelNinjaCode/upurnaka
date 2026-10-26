@@ -16,6 +16,7 @@ async fn the_meeting_link_table_round_trips() {
 
     let saved = crate::models::meeting_link::ActiveModel {
         id: Set("roundtripcode01".to_string()),
+        owner_id: Set(None),
         title: Set("A link written straight to the table".to_string()),
         created_at: Set(created_at),
         revoked_at: Set(None),
@@ -50,6 +51,7 @@ async fn a_conference_can_be_recorded_against_a_link() {
 
     let saved = crate::models::meeting_link::ActiveModel {
         id: Set("conferencecode1".to_string()),
+        owner_id: Set(None),
         title: Set("A link that gets a conference".to_string()),
         created_at: Set(crate::rahti::time::Utc::now()),
         revoked_at: Set(None),

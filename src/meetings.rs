@@ -79,6 +79,7 @@ pub struct JoinInfo {
 /// nobody has opened should cost nothing and expire from nothing — so the
 /// provider is not called until somebody actually arrives.
 pub async fn create(title: String) -> Result<MeetingLink> {
+    let owner = crate::auth::owner_id()?;
     let now = Utc::now();
 
     // The identifier is the server's to hand out. A browser that picked its
@@ -92,6 +93,7 @@ pub async fn create(title: String) -> Result<MeetingLink> {
 
         let saved = meeting_link::ActiveModel {
             id: Set(id),
+            owner_id: Set(Some(owner)),
             title: Set(title),
             created_at: Set(now),
             revoked_at: Set(None),
@@ -106,6 +108,7 @@ pub async fn create(title: String) -> Result<MeetingLink> {
 
     let row = meeting_link::Model {
         id,
+        owner_id: Some(owner),
         title,
         created_at: now,
         revoked_at: None,
@@ -118,10 +121,12 @@ pub async fn create(title: String) -> Result<MeetingLink> {
 
 /// Every link this account still owns, newest first.
 pub async fn list() -> Result<Vec<MeetingLink>> {
+    let owner = crate::auth::owner_id()?;
     if db::is_connected() {
         use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 
         let rows = meeting_link::Entity::find()
+            .filter(meeting_link::Column::OwnerId.eq(&owner))
             .filter(meeting_link::Column::RevokedAt.is_null())
             .order_by_desc(meeting_link::Column::CreatedAt)
             .all(db::db())
@@ -134,7 +139,7 @@ pub async fn list() -> Result<Vec<MeetingLink>> {
         .lock()
         .unwrap()
         .iter()
-        .filter(|row| row.revoked_at.is_none())
+        .filter(|row| row.revoked_at.is_none() && row.owner_id.as_deref() == Some(owner.as_str()))
         .cloned()
         .collect();
     rows.sort_by(|a, b| b.created_at.cmp(&a.created_at));
@@ -158,6 +163,8 @@ pub async fn rename(id: &str, title: String) -> Result<MeetingLink> {
             "That meeting link is no longer available.",
         )
     };
+    let existing = row(id).await?.ok_or_else(unavailable)?;
+    crate::auth::authorize_meeting(existing.owner_id.as_deref())?;
     if db::is_connected() {
         use sea_orm::ActiveValue::Set;
         use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -292,6 +299,7 @@ pub async fn revoke(id: &str) -> Result<bool> {
     let Some(row) = row(id).await? else {
         return Ok(false);
     };
+    crate::auth::authorize_meeting(row.owner_id.as_deref())?;
 
     if let Some(meeting_id) = &row.provider_meeting_id {
         if chime::is_configured() {

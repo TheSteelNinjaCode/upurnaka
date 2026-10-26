@@ -7,6 +7,7 @@
 mod support;
 use support::*;
 
+mod auth;
 mod database;
 mod meetings;
 mod pages;

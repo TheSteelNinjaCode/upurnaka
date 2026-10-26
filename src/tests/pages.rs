@@ -7,6 +7,7 @@ async fn opening_a_header_menu_closes_meet_popovers() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/meet"))
         .await
@@ -60,6 +61,7 @@ async fn shell_dropdowns_stay_above_meet_actions() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/meet"))
         .await
@@ -98,6 +100,7 @@ async fn shell_pages_fill_the_content_area() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     for path in ["/meet", "/chat"] {
         browser
             .goto(&format!("http://{address}{path}"))
@@ -123,6 +126,7 @@ async fn chat_search_and_meet_now_controls_work() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/chat"))
         .await
@@ -228,6 +232,7 @@ async fn chat_mounts_and_updates_under_trusted_types() {
         eprintln!("Skipping chat browser test: Chrome or Edge is not installed.");
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/chat"))
         .await
@@ -346,6 +351,7 @@ async fn keyboard_shortcuts_dialog_filters_and_handles_focus() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/chat"))
         .await
@@ -399,6 +405,7 @@ async fn shortcuts_control_chat_from_body_and_composer() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/chat"))
         .await
@@ -409,11 +416,17 @@ async fn shortcuts_control_chat_from_body_and_composer() {
         .unwrap();
     // The bundled browser driver cannot send modifier chords. These exercise
     // the browser's actual document handlers with different focus targets.
+    let _: bool = browser
+        .eval("document.activeElement?.blur(); document.activeElement === document.body")
+        .await
+        .unwrap();
     let _: bool = browser.eval("document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'.',code:'Period',ctrlKey:true,bubbles:true,cancelable:true})); true").await.unwrap();
     browser
         .wait_for("document.querySelector('.shortcuts-dialog').open")
         .await
         .unwrap();
+    // Let the native modal finish its opening and focus steps before sending Escape.
+    let _: bool = browser.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))").await.unwrap();
     browser.press("Escape").await.unwrap();
     browser
         .wait_for("!document.querySelector('.shortcuts-dialog').open && document.activeElement.getAttribute('aria-label') === 'Settings and more'")
@@ -485,6 +498,7 @@ async fn new_chat_composes_a_group_and_preserves_other_drafts() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/chat"))
         .await

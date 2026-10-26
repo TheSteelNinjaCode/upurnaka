@@ -9,4 +9,3 @@ use axum::response::Redirect;
 pub async fn page() -> Redirect {
     Redirect::temporary("/chat")
 }
-

@@ -26,6 +26,8 @@ use crate::meetings::{self, JoinInfo, chime};
 use crate::rahti::{Error, Html, Json, Metadata, Page, Result, Validator, html, rpc};
 
 pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
+    let user = crate::auth::current().unwrap_or_default();
+    let initials = user.initials();
     // A revoked link and a code nobody ever minted read the same from here,
     // and deliberately: which of the two a stranger found is a fact about
     // this account they have no claim on.
@@ -57,7 +59,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                 <div
                     class="meeting-account relative mx-auto flex w-fit max-w-full items-center gap-4 rounded-b-md bg-raised px-6 py-5 shadow-md shadow-black/20 max-[480px]:gap-2.5 max-[480px]:p-3.5 min-[851px]:shrink-0 min-[851px]:py-[clamp(12px,1.8dvh,20px)]"
                 >
-                    <Avatar initials="JA" size="lg" presence="none" />
+                    <Avatar initials=@{initials.as_str()} size="lg" presence="none" />
                     <div
                         class="flex min-w-40 flex-col gap-0.5 text-[15px] max-[480px]:min-w-0 max-[480px]:text-[13px]"
                     >
@@ -930,7 +932,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const [startingShare, setStartingShare] = pp.state(false);
                     const [chatMessages, setChatMessages] = pp.state([]);
                     const [chatDraft, setChatDraft] = pp.state("");
-                    const [displayName, setDisplayName] = pp.state("Jefferson Abraham");
+                    const [displayName, setDisplayName] = pp.state(@{user.name.as_str()});
                     const [joining, setJoining] = pp.state(false);
                     const [session, setSession] = pp.state(null);
                     const [error, setError] = pp.state("");
@@ -1681,7 +1683,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 /// The join code is checked the same way the page checked it: a revoked or
 /// unknown one is a 404 here too, because an RPC a browser can call is a
 /// second front door and guarding only the page would leave it open.
-#[rpc]
+#[rpc(auth)]
 pub async fn join_meeting(id: String, display_name: String) -> Result<JoinInfo> {
     let id = id.trim().to_string();
     let display_name = display_name.trim().to_string();

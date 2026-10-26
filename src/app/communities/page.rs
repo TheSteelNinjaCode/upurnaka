@@ -351,7 +351,7 @@ const CATEGORIES: [&str; 6] = [
     "Gaming or recreation",
 ];
 
-#[rpc]
+#[rpc(auth)]
 pub async fn create_community(name: String, category: String) -> Result<Community> {
     let name = name.trim().to_string();
     let category = category.trim().to_string();

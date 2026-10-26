@@ -10,6 +10,7 @@ async fn meet_popovers_anchor_dismiss_and_open_the_calendar_form() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/meet"))
         .await
@@ -93,6 +94,7 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/meet/j/{id}"))
         .await
@@ -339,6 +341,7 @@ async fn meeting_name_editor_selects_saves_and_cancels() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/meet"))
         .await
@@ -546,6 +549,7 @@ async fn pre_join_is_standalone_and_audio_choices_update() {
         eprintln!("Skipping pre-join browser test: Chrome or Edge is not installed.");
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/meet/j/{id}"))
         .await
@@ -608,6 +612,7 @@ async fn meeting_background_replacement_processes_video_locally() {
     let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
         return;
     };
+    authenticate_browser(&mut browser, address).await;
     browser
         .goto(&format!("http://{address}/meet/j/{id}"))
         .await

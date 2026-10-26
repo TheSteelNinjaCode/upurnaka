@@ -22,6 +22,12 @@ const RAIL: [(&str, &str, &str); 6] = [
     ("activity", "Activity", "/activity"),
 ];
 
+#[rpc(auth)]
+pub async fn sign_out_account() -> bool {
+    rahti::auth::sign_out();
+    true
+}
+
 /// Which icon each rail destination draws.
 fn rail_icon(key: &str) -> &'static str {
     match key {
@@ -57,6 +63,14 @@ pub fn RailLink(icon: &str, label: &str, href: &str, selected: bool) -> Html {
 /// The window frame. `active` is the rail key of the section being shown.
 #[component]
 pub fn AppShell(active: &str, children: Html) -> Html {
+    let user = crate::auth::current().unwrap_or_default();
+    let initials: String = user
+        .name
+        .split_whitespace()
+        .take(2)
+        .filter_map(|s| s.chars().next())
+        .collect::<String>()
+        .to_uppercase();
     let rail = Html::concat(
         RAIL.iter()
             .map(|(key, label, href)| RailLink(rail_icon(key), label, href, *key == active)),
@@ -165,7 +179,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     <button
                         type="button"
                         class="relative ml-1 flex h-8 w-8 items-center justify-center rounded-full"
-                        title="Jefferson Abraham"
+                        title=@{user.name.as_str()}
                         aria-label="Your profile"
                         aria-expanded={menu === "profile"}
                         onclick={toggleMenu("profile")}
@@ -173,7 +187,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         <span
                             class="flex h-8 w-8 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
                         >
-                            "JA"
+                            @{initials.as_str()}
                         </span>
                         <span
                             class={"absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-chrome " + PRESENCE_COLORS[presence]}
@@ -239,14 +253,14 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             <span
                                 class="flex h-11 w-11 items-center justify-center rounded-full bg-avatar text-sm font-semibold text-avatar-ink"
                             >
-                                "JA"
+                                @{initials.as_str()}
                             </span>
                             <span class="min-w-0">
                                 <span class="block truncate text-[13px] font-semibold text-ink">
-                                    "Jefferson Abraham"
+                                    @{user.name.as_str()}
                                 </span>
                                 <span class="block truncate text-xs text-muted">
-                                    "abrahamjefferson38@gmail.com"
+                                    @{user.email.as_str()}
                                 </span>
                             </span>
                         </div>
@@ -298,6 +312,24 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             <Icon name="person-add" class="h-4 w-4 text-muted" />
                             "Set a status message"
                         </button>
+                        <a href="/account" class="block rounded px-3 py-2 text-sm hover:bg-hover">
+                            "My account"
+                        </a>
+                        <button
+                            type="button"
+                            aria-label="Sign out"
+                            onclick={signOut()}
+                            class="block w-full rounded px-3 py-2 text-left text-sm hover:bg-hover"
+                        >
+                            "Sign out"
+                        </button>
+                        <p
+                            role="alert"
+                            hidden={!signoutError}
+                            class="px-3 py-2 text-xs text-danger-ink"
+                        >
+                            {signoutError}
+                        </p>
                     </div>
                 </div>
             </header>
@@ -499,6 +531,11 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const appRail = pp.ref(null);
                 const [appBarOpen, setAppBarOpen] = pp.state(true);
                 const shortcutsDialog = pp.ref(null);
+                const [signoutError, setSignoutError] = pp.state('');
+                async function signOut() {
+                    try { await pp.rpc('sign_out_account', {}); window.location.replace('/signin'); }
+                    catch (e) { setSignoutError('Could not sign out. Please try again.'); }
+                }
                 const moreButton = pp.ref(null);
                 function openShortcuts() {
                     pageShortcuts.current?.dismissPopovers?.();
@@ -513,6 +550,12 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 // the body has focus. Keep ordinary controls in their markup.
                 const handleGlobalKey = pp.event(event => {
                     if (event.defaultPrevented || event.isComposing) return;
+                    if (event.key === "Escape" && shortcutsDialog.current?.open) {
+                        event.preventDefault();
+                        shortcutsDialog.current.close();
+                        moreButton.current?.focus();
+                        return;
+                    }
                     const control = (event.ctrlKey || event.metaKey) && !event.altKey;
                     const key = event.key.toLowerCase();
                     if (control && !event.shiftKey && (key === "." || event.code === "Period")) {
@@ -554,7 +597,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const [query, setQuery] = pp.state("");
                 const searchTerm = query.trim().replace(/^\//, "").toLocaleLowerCase();
                 const searchResults = [
-                    {label:"Jefferson Abraham (You)", href:"/chat"},
+                    {label: @{user.name.as_str()} + " (You)", href:"/chat"},
                     {label:"Meet", href:"/meet"}, {label:"People", href:"/people"},
                     {label:"Communities", href:"/communities"}, {label:"Calendar", href:"/calendar"},
                     {label:"Activity", href:"/activity"}, {label:"Apps", href:"/apps"}
@@ -658,7 +701,7 @@ pub struct SurveyReceipt {
 /// Nothing is stored yet — the point of the round trip is that the answers are
 /// checked in Rust, so an empty or over-long value is a 422 with the offending
 /// field named rather than something the browser decides for itself.
-#[rpc]
+#[rpc(auth)]
 pub async fn save_usage_survey(primary_use: String, category: String) -> Result<SurveyReceipt> {
     let mut validator = Validator::new();
     validator

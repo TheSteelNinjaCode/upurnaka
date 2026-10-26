@@ -19,6 +19,7 @@ pub struct Model {
     /// The join code, as it appears in `/meet/j/{id}`.
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    pub owner_id: Option<String>,
     /// What the organizer called the meeting.
     pub title: String,
     /// When the link was minted, UTC — the instant, never the wall clock.

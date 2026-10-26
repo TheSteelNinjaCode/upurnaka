@@ -485,7 +485,7 @@ pub struct Meeting {
 /// Every field arrives as the string a form sends, so the parsing is the
 /// check: a date the calendar does not have, a time outside the day, or a
 /// length nobody offered comes back as a 422 naming the field.
-#[rpc]
+#[rpc(auth)]
 pub async fn create_meeting(
     title: String,
     date: String,

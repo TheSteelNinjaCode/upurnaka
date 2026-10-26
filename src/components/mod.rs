@@ -7,6 +7,7 @@
 #![allow(dead_code, unused_imports)]
 
 pub mod app_shell;
+pub mod auth_form;
 pub mod avatar;
 pub mod icon;
 pub mod keyboard_shortcuts;

@@ -14,6 +14,8 @@ pub fn metadata() -> Metadata {
 }
 
 pub async fn page() -> Html {
+    let user = crate::auth::current().unwrap_or_default();
+    let initials = user.initials();
     html! {
         <AppShell active="people">
             <div class="flex min-h-0 flex-1">
@@ -52,10 +54,10 @@ pub async fn page() -> Html {
                         <div
                             class="flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-hover"
                         >
-                            <Avatar initials="JA" size="md" presence="online" />
+                            <Avatar initials=@{initials.as_str()} size="md" presence="online" />
                             <span class="min-w-0 flex-1">
                                 <span class="block truncate text-[13px] font-semibold text-ink">
-                                    "Jefferson Abraham"
+                                    @{user.name.as_str()}
                                 </span>
                                 <span class="block truncate text-xs text-muted">
                                     "Your profile"
@@ -303,7 +305,7 @@ pub struct Invitee {
 ///
 /// The address is checked in Rust, so a malformed one comes back as a 422 with
 /// `email` named and the dialog shows that message under the field.
-#[rpc]
+#[rpc(auth)]
 pub async fn invite_to_teams(email: String) -> Result<Invitee> {
     let email = email.trim().to_string();
 

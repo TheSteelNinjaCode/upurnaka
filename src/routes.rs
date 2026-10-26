@@ -16,6 +16,8 @@ pub const PUBLIC_DIR: &str = "public";
 mod e_meet;
 #[path = "app/layout.rs"]
 mod l_root;
+#[path = "app/account/page.rs"]
+mod p_account;
 #[path = "app/activity/page.rs"]
 mod p_activity;
 #[path = "app/apps/page.rs"]
@@ -32,8 +34,12 @@ mod p_meet;
 mod p_meet_j_id;
 #[path = "app/people/page.rs"]
 mod p_people;
+#[path = "app/register/page.rs"]
+mod p_register;
 #[path = "app/page.rs"]
 mod p_root;
+#[path = "app/signin/page.rs"]
+mod p_signin;
 
 /// The app's own page rpcs, which the registry fallback must not answer:
 /// a page's rpc belongs to that page's URL.
@@ -52,7 +58,11 @@ const PAGE_RPCS: &[&str] = &[
 /// The rpcs written beside a component, reached from whatever page
 /// rendered it.
 ///
+/// - `sign_out_account` — src/components/app_shell.rs
 /// - `save_usage_survey` — src/components/app_shell.rs
+/// - `register_account` — src/components/auth_form.rs
+/// - `start_signin` — src/components/auth_form.rs
+/// - `verify_signin` — src/components/auth_form.rs
 async fn component_rpc(name: &str, req: axum::extract::Request) -> axum::response::Response {
     ::rahti::dispatch_registered(name, PAGE_RPCS, req).await
 }
@@ -145,6 +155,7 @@ async fn rpc_p_people(req: axum::extract::Request) -> axum::response::Response {
 /// Pages the in-process static exporter considers.
 pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
     vec![
+        ::rahti::StaticRoute::fixed("/account"),
         ::rahti::StaticRoute::fixed("/activity"),
         ::rahti::StaticRoute::fixed("/apps"),
         ::rahti::StaticRoute::fixed("/calendar"),
@@ -154,6 +165,8 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
         ::rahti::StaticRoute::fixed("/meet"),
         ::rahti::StaticRoute::fixed("/"),
         ::rahti::StaticRoute::fixed("/people"),
+        ::rahti::StaticRoute::fixed("/register"),
+        ::rahti::StaticRoute::fixed("/signin"),
     ]
 }
 
@@ -164,13 +177,16 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, create_chat_meeting)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link)
 /// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: invite_to_teams)
+/// - `/signin` [GET, POST] — src/app/signin/page.rs (layouts: src/app/layout.rs)
+/// - `/account` [GET, POST] — src/app/account/page.rs (layouts: src/app/layout.rs)
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)
+/// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
 /// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting)
 ///
 /// Every page above also answers the component rpcs, because a
-/// component posts to the page it was rendered on: save_usage_survey.
+/// component posts to the page it was rendered on: sign_out_account, save_usage_survey, register_account, start_signin, verify_signin.
 ///
 /// Anything the routes above do not claim falls through to `public/`.
 pub fn router() -> Router {
@@ -201,6 +217,18 @@ pub fn router() -> Router {
             })),
         )
         .route(
+            "/signin",
+            axum::routing::get(p_signin::page).layer(axum::middleware::map_response(|res| {
+                ::rahti::apply_metadata(p_signin::metadata(), res)
+            })),
+        )
+        .route(
+            "/account",
+            axum::routing::get(p_account::page).layer(axum::middleware::map_response(|res| {
+                ::rahti::apply_metadata(p_account::metadata(), res)
+            })),
+        )
+        .route(
             "/activity",
             axum::routing::get(p_activity::page).layer(axum::middleware::map_response(|res| {
                 ::rahti::apply_metadata(p_activity::metadata(), res)
@@ -210,6 +238,12 @@ pub fn router() -> Router {
             "/calendar",
             axum::routing::get(p_calendar::page).layer(axum::middleware::map_response(|res| {
                 ::rahti::apply_metadata(p_calendar::metadata(), res)
+            })),
+        )
+        .route(
+            "/register",
+            axum::routing::get(p_register::page).layer(axum::middleware::map_response(|res| {
+                ::rahti::apply_metadata(p_register::metadata(), res)
             })),
         )
         .route(
@@ -262,6 +296,7 @@ pub fn router() -> Router {
         .layer(axum::middleware::from_fn(::rahti::auth_guard));
 
     let rpc = Router::new()
+        .route("/account", axum::routing::post(rpc_components))
         .route("/activity", axum::routing::post(rpc_components))
         .route("/apps", axum::routing::post(rpc_components))
         .route("/calendar", axum::routing::post(rpc_p_calendar))
@@ -271,6 +306,8 @@ pub fn router() -> Router {
         .route("/meet", axum::routing::post(rpc_p_meet))
         .route("/", axum::routing::post(rpc_components))
         .route("/people", axum::routing::post(rpc_p_people))
+        .route("/register", axum::routing::post(rpc_components))
+        .route("/signin", axum::routing::post(rpc_components))
         .layer(tower_http::catch_panic::CatchPanicLayer::custom(
             ::rahti::rpc_panic_response,
         ))
