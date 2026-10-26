@@ -9,6 +9,7 @@
 use serde::Serialize;
 
 use crate::components::icon::Icon;
+use crate::components::keyboard_shortcuts::KeyboardShortcuts;
 use crate::rahti::{Html, Result, Validator, component, html, rpc};
 
 /// Every destination on the rail, in the order the client shows them.
@@ -68,8 +69,15 @@ pub fn AppShell(active: &str, children: Html) -> Html {
     };
 
     html! {
-        <div class="ambient relative flex h-screen w-full flex-col overflow-hidden text-ink">
-            <header class="relative z-40 flex h-12 shrink-0 items-center gap-1 px-2.5">
+        <div
+            class="ambient relative flex h-screen w-full flex-col overflow-hidden text-ink"
+            onkeydown={handleShellKey(event)}
+        >
+            <header
+                class="relative z-40 flex h-12 shrink-0 items-center gap-1 px-2.5"
+                tabindex="-1"
+                pp-ref={shellRoot}
+            >
                 <a
                     href="/chat"
                     class="ml-2 mr-1 flex h-8 w-8 items-center justify-center rounded-md hover:bg-hover"
@@ -127,6 +135,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         class="relative flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
                         title="Settings and more"
                         aria-label="Settings and more"
+                        pp-ref={moreButton}
                         aria-expanded={menu === "more"}
                         onclick={toggleMenu("more")}
                     >
@@ -178,7 +187,8 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         <button
                             type="button"
                             class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                            onclick={closeMenus()}
+                            aria-label="Keyboard shortcuts"
+                            onclick={openShortcuts()}
                         >
                             <Icon name="format" class="h-4 w-4 text-muted" />
                             "Keyboard shortcuts"
@@ -447,7 +457,38 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     </div>
                 </div>
             </div>
+            <dialog
+                class="shortcuts-dialog"
+                pp-ref={shortcutsDialog}
+                aria-label="Keyboard shortcuts"
+                onclose={restoreShortcutsFocus()}
+            >
+                <KeyboardShortcuts />
+            </dialog>
             <script>r##"
+                const shellRoot = pp.ref(null);
+                pp.effect(() => {
+                    const frame = requestAnimationFrame(() => {
+                        if (document.activeElement === document.body) shellRoot.current?.focus({preventScroll:true});
+                    });
+                    return () => cancelAnimationFrame(frame);
+                }, []);
+                const shortcutsDialog = pp.ref(null);
+                const moreButton = pp.ref(null);
+                function openShortcuts() {
+                    setMenu("");
+                    if (!shortcutsDialog.current.open) shortcutsDialog.current.showModal();
+                }
+                function restoreShortcutsFocus() {
+                    moreButton.current?.focus();
+                }
+                function handleShellKey(event) {
+                    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === ".") {
+                        event.preventDefault();
+                        if (shortcutsDialog.current.open) shortcutsDialog.current.close();
+                        else openShortcuts();
+                    }
+                }
                 const [query, setQuery] = pp.state("");
                 const [paneOpen, setPaneOpen] = pp.state(true);
                 const [menu, setMenu] = pp.state("");

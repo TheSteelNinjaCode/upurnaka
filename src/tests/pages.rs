@@ -220,3 +220,57 @@ async fn an_unknown_url_is_a_404() {
     let (status, _) = get("/this-page-does-not-exist").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+/// The shell opens a native modal, while filtering and collapsing stay in
+/// the catalog's component so typing cannot disturb the page underneath.
+#[tokio::test]
+async fn keyboard_shortcuts_dialog_filters_and_handles_focus() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.activeElement.tagName === 'HEADER'")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Settings and more']")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Keyboard shortcuts']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.shortcuts-dialog').open && document.querySelector('.shortcuts-dialog').contains(document.activeElement)").await.unwrap();
+    browser
+        .wait_for("document.querySelectorAll('.shortcuts-section').length === 7")
+        .await
+        .unwrap();
+    browser.click(".shortcuts-section-toggle").await.unwrap();
+    browser.wait_for("document.querySelector('.shortcuts-section-toggle').getAttribute('aria-expanded') === 'false'").await.unwrap();
+    browser
+        .click("input[aria-label='Filter shortcuts']")
+        .await
+        .unwrap();
+    browser.type_text("zoom").await.unwrap();
+    browser.wait_for("document.querySelectorAll('.shortcuts-row').length === 6 && Array.from(document.querySelectorAll('.shortcuts-section-toggle')).every(button => button.getAttribute('aria-expanded') === 'true')").await.unwrap();
+    browser.type_text(" no matching shortcut").await.unwrap();
+    browser.wait_for("!document.querySelector('.shortcuts-empty').hidden && document.querySelectorAll('.shortcuts-row').length === 0").await.unwrap();
+    // Closing the native modal restores focus to chrome.
+    browser.click(".shortcuts-title button").await.unwrap();
+    browser.wait_for("!document.querySelector('.shortcuts-dialog').open && document.activeElement.getAttribute('aria-label') === 'Settings and more'").await.unwrap();
+    // This browser helper cannot hold Ctrl; dispatch the modifier chord explicitly.
+    let _: bool = browser.eval("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'.', ctrlKey:true, bubbles:true, cancelable:true})); true").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.shortcuts-dialog').open")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("!document.querySelector('.shortcuts-dialog').open && document.activeElement.getAttribute('aria-label') === 'Settings and more'").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
