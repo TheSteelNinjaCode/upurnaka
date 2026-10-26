@@ -18,11 +18,6 @@ pub async fn page() -> Result<Html> {
                 <div class="mx-auto max-w-6xl">
                     <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
                         <div>
-                            <p
-                                class="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-ink"
-                            >
-                                "ADMINISTRATION"
-                            </p>
                             <h1 class="text-3xl font-semibold">"Users"</h1>
                             <p class="mt-2 text-sm text-muted">
                                 "Manage accounts and access to your workspace."

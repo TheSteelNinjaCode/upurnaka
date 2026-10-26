@@ -70,7 +70,7 @@ async fn only_the_database_admin_can_use_users_page_and_every_crud_rpc() {
     let mut admin = admin().await;
     let (s, _, body) = admin.request("/users", None).await;
     assert_eq!(s, StatusCode::OK);
-    assert!(body.contains("ADMINISTRATION"));
+    assert!(body.contains("Manage accounts and access to your workspace."));
     assert!(!body.contains("password_hash"));
     assert!(!body.contains("otp_secret"));
     assert!(
