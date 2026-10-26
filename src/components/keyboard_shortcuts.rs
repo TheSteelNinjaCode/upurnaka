@@ -303,7 +303,7 @@ pub fn KeyboardShortcuts() -> Html {
                 })).filter(section => section.columns.some(column => column.items.length));
             "##</script>
             <style>r##"
-                .shortcuts-dialog { width:calc(100vw - 32px);max-width:1350px;height:calc(100dvh - 32px);max-height:1400px;margin:auto;padding:0;border:0;border-radius:12px;background:#292929;color:#f5f5f5;box-shadow:0 24px 80px #0008; }
+                .shortcuts-dialog { width:calc(100vw - 32px);max-width:1080px;height:calc(100dvh - 32px);max-height:1400px;margin:auto;padding:0;border:0;border-radius:12px;background:#292929;color:#f5f5f5;box-shadow:0 24px 80px #0008; }
                 .shortcuts-dialog::backdrop { background:#0008; }
                 .shortcuts-content { display:flex;flex-direction:column;height:100%;min-height:0;font-size:16px;line-height:1.45; }
                 .shortcuts-header { flex-shrink:0;padding:32px 34px 12px; }
@@ -338,7 +338,6 @@ pub fn KeyboardShortcuts() -> Html {
                 .shortcuts-footer>span { height:24px;width:1px;background:#1f1f1f; }
                 .shortcuts-dialog :focus-visible { outline:2px solid #ddd;outline-offset:3px; }
                 .shortcuts-dialog [hidden] { display:none; }
-                @media(min-width:1400px) { .shortcuts-content { font-size:20px; }.shortcuts-row { min-height:66px; } }
                 @media(max-width:900px) { .shortcuts-header { padding:24px 22px 12px; }.shortcuts-scroll { padding:0 22px; }.shortcuts-profile { width:60%; }.shortcuts-search { width:40%; }.shortcuts-columns { gap:24px;padding:0 8px; }.shortcuts-row { grid-template-columns:minmax(0,1fr) minmax(115px,1fr);gap:10px;font-size:14px; }.shortcuts-profile-row>button { min-width:76px; }.shortcuts-footer { padding:18px 30px;font-size:14px; } }
                 @media(max-width:650px) { .shortcuts-controls { flex-direction:column;align-items:stretch;gap:14px; }.shortcuts-profile,.shortcuts-search { width:100%; }.shortcuts-columns { grid-template-columns:minmax(0,1fr);gap:0; }.shortcuts-title h2 { font-size:20px; }.shortcuts-footer>span { display:none; }.shortcuts-footer { gap:8px; }.shortcuts-note { margin-left:8px; } }
             "##</style>
