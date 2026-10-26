@@ -29,7 +29,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/attrs.rs",
-          "sha256": "d613c7574bb1f5b6cae5b9bc6886d8b1a21e7dbfc4667f0ef79d611dcc5662b9"
+          "sha256": "44648555e5613b580236fad5328bf0660694b09d1616055ff27f9517897d51ab"
         }
       ],
       "module": "crate::components::rahti_ui::attrs",

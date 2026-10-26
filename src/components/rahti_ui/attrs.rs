@@ -185,6 +185,8 @@ pub(crate) fn compiled_source(html: rahti::Html, name: &str) -> ClientBinding {
     }
 }
 
+// Partial component installations may not use both builder helpers.
+#[allow(unused_macros)]
 macro_rules! ui_expr {
     ($($name:ident)-* = $expression:tt) => {{
         static SOURCE: std::sync::OnceLock<$crate::components::rahti_ui::attrs::ClientBinding> = std::sync::OnceLock::new();
@@ -192,6 +194,7 @@ macro_rules! ui_expr {
             $crate::rahti::html! { <span $($name)-* = $expression></span> }, &stringify!($($name)-*).replace(' ', ""))).clone()
     }};
 }
+#[allow(unused_macros)]
 macro_rules! ui_handler {
     ($expression:tt) => {{
         static SOURCE: std::sync::OnceLock<$crate::components::rahti_ui::attrs::ClientBinding> =
