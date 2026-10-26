@@ -106,6 +106,19 @@ pub fn Icon(name: &str, class: &str) -> Html {
         "compose" => html! {
             <SquarePen class=@{class} stroke_width="1.6" />
         },
+        "edit" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path d="m16 3 5 5-12 12-6 1 1-6L16 3Zm-3 3 5 5" />
+            </svg>
+        },
         "emoji" => html! {
             <FaceSlightlySmiling class=@{class} stroke_width="1.6" />
         },

@@ -150,6 +150,41 @@ pub async fn find(id: &str) -> Result<Option<MeetingLink>> {
     Ok(row(id).await?.map(shown))
 }
 
+/// Rename a live link without changing its URL, creation time, or conference.
+pub async fn rename(id: &str, title: String) -> Result<MeetingLink> {
+    let unavailable = || {
+        Error::public(
+            axum::http::StatusCode::NOT_FOUND,
+            "That meeting link is no longer available.",
+        )
+    };
+    if db::is_connected() {
+        use sea_orm::ActiveValue::Set;
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+        let updated = meeting_link::Entity::update_many()
+            .set(meeting_link::ActiveModel {
+                title: Set(title),
+                ..Default::default()
+            })
+            .filter(meeting_link::Column::Id.eq(id))
+            .filter(meeting_link::Column::RevokedAt.is_null())
+            .exec(db::db())
+            .await?;
+        if updated.rows_affected == 0 {
+            return Err(unavailable());
+        }
+        return find(id).await?.ok_or_else(unavailable);
+    }
+    let mut rows = memory().lock().unwrap();
+    let row = rows
+        .iter_mut()
+        .find(|row| row.id == id && row.revoked_at.is_none())
+        .ok_or_else(unavailable)?;
+    row.title = title;
+    Ok(shown(row.clone()))
+}
+
 /// The stored row behind a live join code.
 async fn row(id: &str) -> Result<Option<meeting_link::Model>> {
     if db::is_connected() {

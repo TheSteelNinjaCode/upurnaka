@@ -211,6 +211,104 @@ fn field(body: &str, name: &str) -> String {
     rest[..rest.find('"').expect("the end of the value")].to_string()
 }
 
+#[tokio::test]
+async fn renaming_a_meeting_link_persists_without_changing_the_link() {
+    let id = mint("Original rename title").await;
+    let before = crate::meetings::find(&id).await.unwrap().unwrap();
+    let payload = format!(r#"{{"id":"{id}","title":"  Updated planning name  "}}"#);
+    let (status, body) = rpc("/meet", "rename_meeting_link", &payload).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let after = crate::meetings::find(&id).await.unwrap().unwrap();
+    assert_eq!(after.title, "Updated planning name");
+    assert_eq!(after.url, before.url);
+    assert_eq!(after.created_at, before.created_at);
+    let (_, listing) = get("/meet").await;
+    assert!(listing.contains("Updated planning name"));
+    let (status, joined) = get(&after.url).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(joined.contains("Updated planning name"));
+}
+
+#[tokio::test]
+async fn renaming_rejects_invalid_payloads_and_unavailable_links() {
+    let id = mint("Rename validation").await;
+    for title in ["   ".to_string(), "x".repeat(121)] {
+        let (status, body) = rpc(
+            "/meet",
+            "rename_meeting_link",
+            &format!(r#"{{"id":"{id}","title":"{title}"}}"#),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+        assert!(body.contains("title"));
+    }
+    let (status, _) = rpc("/meet", "rename_meeting_link", r#"{"title":"Missing id"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = rpc(
+        "/meet",
+        "rename_meeting_link",
+        r#"{"id":"never-created","title":"No link"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    crate::meetings::revoke(&id).await.unwrap();
+    let (status, _) = rpc(
+        "/meet",
+        "rename_meeting_link",
+        &format!(r#"{{"id":"{id}","title":"Revoked"}}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn meeting_name_editor_selects_saves_and_cancels() {
+    let id = mint("Name editor original").await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/meet"))
+        .await
+        .unwrap();
+    let card = format!("[data-meeting-id='{id}']");
+    let edit = format!("{card} button[aria-label='Edit meeting name']");
+    browser.click(&edit).await.unwrap();
+    browser.wait_for("!document.querySelector('.meeting-rename-dialog').hidden && document.activeElement.getAttribute('aria-label') === 'Meeting name' && document.activeElement.selectionStart === 0 && document.activeElement.selectionEnd === document.activeElement.value.length").await.unwrap();
+    browser.type_text("Name editor saved").await.unwrap();
+    browser.click(".meeting-rename-save").await.unwrap();
+    browser.wait_for(&format!("document.querySelector('.meeting-rename-dialog').hidden && document.querySelector(\"{card}\").textContent.includes('Name editor saved')")).await.unwrap();
+    browser
+        .goto(&format!("http://{address}/meet"))
+        .await
+        .unwrap();
+    browser
+        .wait_for(&format!(
+            "document.querySelector(\"{card}\")?.textContent.includes('Name editor saved')"
+        ))
+        .await
+        .unwrap();
+    browser.click(&edit).await.unwrap();
+    browser.type_text("Cancelled edit").await.unwrap();
+    browser.click(".meeting-rename-cancel").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.meeting-rename-dialog').hidden")
+        .await
+        .unwrap();
+    assert_eq!(
+        crate::meetings::find(&id).await.unwrap().unwrap().title,
+        "Name editor saved"
+    );
+    browser.click(&edit).await.unwrap();
+    browser.press("Escape").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.meeting-rename-dialog').hidden")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
 /// Mint a link and hand back its join code.
 async fn mint(title: &str) -> String {
     let payload = format!("{{\"title\":\"{title}\"}}");

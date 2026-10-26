@@ -44,6 +44,7 @@ const PAGE_RPCS: &[&str] = &[
     "delete_meeting_link",
     "invite_to_teams",
     "join_meeting",
+    "rename_meeting_link",
     "send_message",
 ];
 
@@ -121,6 +122,7 @@ async fn rpc_p_meet(req: axum::extract::Request) -> axum::response::Response {
     };
     match name.as_str() {
         "create_meeting_link" => p_meet::__rahti_rpc_create_meeting_link(req).await,
+        "rename_meeting_link" => p_meet::__rahti_rpc_rename_meeting_link(req).await,
         "delete_meeting_link" => p_meet::__rahti_rpc_delete_meeting_link(req).await,
         _ => component_rpc(&name, req).await,
     }
@@ -158,7 +160,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/` [GET, POST] — src/app/page.rs (layouts: src/app/layout.rs)
 /// - `/apps` [GET, POST] — src/app/apps/page.rs (layouts: src/app/layout.rs)
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message)
-/// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, delete_meeting_link)
+/// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link)
 /// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: invite_to_teams)
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)

@@ -34,8 +34,8 @@ use std::sync::OnceLock;
 use aws_config::BehaviorVersion;
 use aws_sdk_chimesdkmeetings::Client;
 use aws_sdk_chimesdkmeetings::config::{Credentials, Region};
-use aws_smithy_http_client::tls::{self, rustls_provider::CryptoMode};
 use aws_sdk_chimesdkmeetings::types::{Attendee, MediaPlacement, Meeting};
+use aws_smithy_http_client::tls::{self, rustls_provider::CryptoMode};
 use serde::Serialize;
 use tokio::sync::OnceCell;
 

@@ -124,7 +124,8 @@ pub async fn page() -> Result {
                         <template pp-for="link in links">
                             <div
                                 key={link.id}
-                                class="relative rounded-lg border border-edge bg-raised px-5 py-4"
+                                data-meeting-id={link.id}
+                                class="meeting-link-card relative rounded-lg border border-edge bg-raised px-5 py-4"
                             >
                                 <div class="flex items-start justify-between">
                                     <span
@@ -141,9 +142,20 @@ pub async fn page() -> Result {
                                         <Icon name="more" class="h-[18px] w-[18px]" />
                                     </button>
                                 </div>
-                                <p class="mt-3 truncate text-[15px] font-semibold text-ink">
-                                    {link.title}
-                                </p>
+                                <div class="meeting-link-title-row">
+                                    <p class="truncate text-[15px] font-semibold text-ink">
+                                        {link.title}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        class={editingId === link.id ? "meeting-rename-button editing" : "meeting-rename-button"}
+                                        aria-label="Edit meeting name"
+                                        title="Edit meeting name"
+                                        onclick={openRename(link, event)}
+                                    >
+                                        <Icon name="edit" class="h-4 w-4" />
+                                    </button>
+                                </div>
                                 <p class="mt-1 text-[13px] text-muted">"Created "{link.created}</p>
                                 <div class="mt-4 flex items-center gap-3">
                                     <a
@@ -214,9 +226,62 @@ pub async fn page() -> Result {
                 </div>
                 <div
                     class="fixed inset-0 z-30"
-                    hidden={menuFor === "" && !compose}
+                    hidden={menuFor === "" && !compose && !editingId}
                     onclick={dismiss()}
                 >
+                </div>
+                <div
+                    class="meeting-rename-dialog"
+                    role="dialog"
+                    aria-labelledby="meeting-rename-title"
+                    style={renamePosition}
+                    hidden={!editingId}
+                    onkeydown={handleRenameKey(event)}
+                >
+                    <header>
+                        <h2 id="meeting-rename-title">"Edit meeting name"</h2>
+                        <button
+                            type="button"
+                            aria-label="Close name editor"
+                            disabled={renaming}
+                            onclick={closeRename()}
+                        >
+                            <Icon name="close" class="h-5 w-5" />
+                        </button>
+                    </header>
+                    <form onsubmit={saveRename(event)} novalidate>
+                        <input
+                            pp-ref={renameInput}
+                            name="title"
+                            aria-label="Meeting name"
+                            type="text"
+                            maxlength="120"
+                            autocomplete="off"
+                            value={renameTitle}
+                            disabled={renaming}
+                            oninput={setRenameTitle(target.value)}
+                        />
+                        <p class="meeting-rename-error" role="alert" hidden={!renameError}>
+                            {renameError}
+                        </p>
+                        <footer>
+                            <button
+                                type="button"
+                                class="meeting-rename-cancel"
+                                disabled={renaming}
+                                onclick={closeRename()}
+                            >
+                                "Cancel"
+                            </button>
+                            <button
+                                type="submit"
+                                class="meeting-rename-save"
+                                disabled={renaming || !renameTitle.trim()}
+                            >
+                                {renaming ? "Saving…" : "Save"}
+                            </button>
+                        </footer>
+                    </form>
                 </div>
                 <div
                     class="fixed bottom-4 left-4 z-50 flex items-center gap-3 rounded-md border border-edge bg-raised px-4 py-3 text-[13px] text-ink shadow-2xl shadow-black/70"
@@ -226,6 +291,28 @@ pub async fn page() -> Result {
                     <Icon name="check-circle" class="h-[18px] w-[18px] text-online" />
                     {toast}
                 </div>
+                <style>r##"
+                    .meeting-link-title-row {display:flex;align-items:center;gap:8px;margin-top:12px;min-width:0;}
+                    .meeting-link-title-row>p {min-width:0;}
+                    .meeting-rename-button {display:grid;place-items:center;width:26px;height:26px;flex-shrink:0;border-radius:4px;color:var(--color-muted);opacity:0;cursor:pointer;transition:opacity .12s,color .12s;}
+                    .meeting-link-card:hover .meeting-rename-button,.meeting-link-card:focus-within .meeting-rename-button {opacity:1;}
+                    .meeting-rename-button.editing {opacity:1;color:var(--color-brand-ink);}
+                    .meeting-rename-button:hover,.meeting-rename-button:focus-visible {color:var(--color-brand-ink);background:var(--color-hover);}
+                    .meeting-rename-dialog {position:fixed;z-index:45;width:min(340px,calc(100vw - 32px));padding:22px;background:#292929;border:1px solid #383838;border-radius:5px;box-shadow:0 12px 32px #0008;}
+                    .meeting-rename-dialog>header {display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;}
+                    .meeting-rename-dialog h2 {font-size:17px;font-weight:600;}
+                    .meeting-rename-dialog>header button {display:grid;place-items:center;color:#ccc;cursor:pointer;}
+                    .meeting-rename-dialog input {width:100%;height:40px;background:#1f1f1f;border:0;border-bottom:2px solid #a398ff;border-radius:4px;padding:8px 12px;font-size:14px;color:white;outline:none;}
+                    .meeting-rename-dialog footer {display:flex;justify-content:flex-end;gap:12px;margin-top:16px;}
+                    .meeting-rename-dialog footer button {height:38px;min-width:112px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;}
+                    .meeting-rename-cancel {border:1px solid #666;background:transparent;}
+                    .meeting-rename-save {background:var(--color-brand);color:white;}
+                    .meeting-rename-save:hover {background:var(--color-brand-hover);}
+                    .meeting-rename-dialog button:disabled {opacity:.5;cursor:not-allowed;}
+                    .meeting-rename-error {font-size:12px;color:#ffb0ba;margin-top:10px;}
+                    .meeting-rename-dialog[hidden] {display:none;}
+                    @media(hover:none) {.meeting-rename-button{opacity:1;}}
+                "##</style>
                 <script>r##"
                     const EMPTY = "rounded-lg border border-edge bg-raised px-8 py-7";
                     const EMPTY_WIDE = EMPTY + " col-span-2";
@@ -240,6 +327,68 @@ pub async fn page() -> Result {
                     const [joinOpen, setJoinOpen] = pp.state(false);
                     const [meetingId, setMeetingId] = pp.state("");
                     const [toast, setToast] = pp.state("");
+                    const [editingId, setEditingId] = pp.state("");
+                    const [renameTitle, setRenameTitle] = pp.state("");
+                    const [renameError, setRenameError] = pp.state("");
+                    const [renaming, setRenaming] = pp.state(false);
+                    const [renamePosition, setRenamePosition] = pp.state("");
+                    const renameInput = pp.ref(null);
+                    const renameTrigger = pp.ref(null);
+
+                    pp.effect(() => {
+                        if (editingId && renameInput.current) {
+                            renameInput.current.focus();
+                            renameInput.current.select();
+                        }
+                    }, [editingId]);
+
+                    function openRename(link, event) {
+                        const anchor = event.currentTarget.getBoundingClientRect();
+                        const width = Math.min(340, innerWidth - 32);
+                        const left = Math.max(16, Math.min(anchor.left - 24, innerWidth - width - 16));
+                        const top = Math.max(16, Math.min(anchor.bottom + 8, innerHeight - 260));
+                        renameTrigger.current = event.currentTarget;
+                        setCompose(false);
+                        setMenuFor("");
+                        setRenameTitle(link.title);
+                        setRenameError("");
+                        setRenamePosition("left:" + left + "px;top:" + top + "px");
+                        setEditingId(link.id);
+                    }
+
+                    function closeRename() {
+                        if (renaming) return;
+                        setEditingId("");
+                        setRenameError("");
+                        if (renameTrigger.current?.isConnected) renameTrigger.current.focus();
+                    }
+
+                    function handleRenameKey(event) {
+                        if (event.key === "Escape") {
+                            event.preventDefault();
+                            closeRename();
+                        }
+                    }
+
+                    async function saveRename(event) {
+                        event.preventDefault();
+                        if (renaming || !editingId) return;
+                        const payload = Object.fromEntries(new FormData(event.currentTarget));
+                        payload.id = editingId;
+                        setRenaming(true);
+                        setRenameError("");
+                        try {
+                            const updated = await pp.rpc("rename_meeting_link", payload);
+                            setLinks(current => current.map(link => link.id === updated.id ? updated : link));
+                            setEditingId("");
+                            if (renameTrigger.current?.isConnected) renameTrigger.current.focus();
+                            setToast("Meeting name updated");
+                        } catch (failure) {
+                            setRenameError(failure.errors?.title?.[0] || failure.message || "The meeting name could not be saved.");
+                        } finally {
+                            setRenaming(false);
+                        }
+                    }
 
                     // One timer, restarted whenever a new notice replaces the
                     // one on screen, and cleared when the page goes away.
@@ -274,6 +423,7 @@ pub async fn page() -> Result {
                     // The backdrop sits under both the popover and a card
                     // menu, so one click closes whichever is open.
                     function dismiss() {
+                        closeRename();
                         setCompose(false);
                         setMenuFor("");
                     }
@@ -355,6 +505,21 @@ pub async fn create_meeting_link(title: String) -> Result<MeetingLink> {
     validator.finish()?;
 
     meetings::create(title).await
+}
+
+/// Rename a live link; the join code and existing conference stay the same.
+#[rpc]
+pub async fn rename_meeting_link(id: String, title: String) -> Result<MeetingLink> {
+    let id = id.trim().to_string();
+    let title = title.trim().to_string();
+    let mut validator = Validator::new();
+    validator
+        .required("id", &id)
+        .max_chars("id", &id, 64)
+        .required("title", &title)
+        .max_chars("title", &title, 120);
+    validator.finish()?;
+    meetings::rename(&id, title).await
 }
 
 /// Revoke a link the organizer no longer wants handed around.
