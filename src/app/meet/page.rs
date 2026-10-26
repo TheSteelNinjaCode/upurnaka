@@ -26,14 +26,15 @@ pub async fn page() -> Result {
         <AppShell active="meet">
             <main
                 class="scroll-thin relative min-h-0 flex-1 overflow-y-auto rounded-tl-xl border-l border-t border-line bg-surface"
+                onkeydown={handlePopoverKey(event)}
             >
                 <div class="mx-auto w-full max-w-[1180px] px-14 py-9">
                     <h1 class="text-[22px] font-semibold tracking-tight text-ink">"Meet"</h1>
-                    <div class="mt-7 grid grid-cols-3 gap-5">
+                    <div class="mt-7 grid grid-cols-1 gap-5 md:grid-cols-3">
                         <div class="relative">
                             <button
                                 type="button"
-                                class="flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover"
+                                class="relative z-40 flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover"
                                 onclick={toggleCompose()}
                             >
                                 <Icon name="link" class="h-[18px] w-[18px]" />
@@ -78,45 +79,129 @@ pub async fn page() -> Result {
                                 </form>
                             </div>
                         </div>
-                        <a
-                            href="/calendar"
-                            class="flex h-12 items-center justify-center gap-3 rounded-md border border-edge bg-raised text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                        >
-                            <Icon name="calendar-day" class="h-[18px] w-[18px]" />
-                            "Schedule a meeting"
-                        </a>
-                        <button
-                            type="button"
-                            class="flex h-12 items-center justify-center gap-3 rounded-md border border-edge bg-raised text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                            onclick={toggleJoin()}
-                        >
-                            <Icon name="hash" class="h-[18px] w-[18px]" />
-                            "Join with a meeting ID"
-                        </button>
-                    </div>
-                    <div
-                        class="mt-4 rounded-md border border-edge bg-raised px-5 py-4"
-                        hidden={!joinOpen}
-                    >
-                        <form class="flex items-center gap-3" onsubmit={join(event)} novalidate>
-                            <input
-                                name="meeting"
-                                type="text"
-                                class="h-9 flex-1 rounded border border-edge bg-surface px-3 text-[13px] text-ink placeholder:text-muted focus:border-brand focus:outline-none"
-                                placeholder="Enter a meeting ID"
-                                aria-label="Meeting ID"
-                                autocomplete="off"
-                                value={meetingId}
-                                oninput={setMeetingId(target.value)}
-                            />
+                        <div class="relative">
                             <button
-                                type="submit"
-                                class="h-9 rounded bg-brand px-5 text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
-                                disabled={meetingId.trim().length === 0}
+                                type="button"
+                                pp-ref={scheduleTrigger}
+                                class={scheduleOpen ? ACTION_OPEN : ACTION}
+                                aria-expanded={scheduleOpen}
+                                aria-controls="meeting-schedule-options"
+                                onclick={toggleSchedule()}
                             >
-                                "Join"
+                                <Icon
+                                    name="calendar-day"
+                                    class="h-[18px] w-[18px] text-[#d58bc4]"
+                                />
+                                "Schedule a meeting"
                             </button>
-                        </form>
+                            <div
+                                id="meeting-schedule-options"
+                                class="absolute left-0 top-full z-40 mt-1 w-full rounded-md border border-edge bg-raised p-1 shadow-2xl shadow-black/50"
+                                hidden={!scheduleOpen}
+                            >
+                                <a
+                                    pp-ref={scheduleFirst}
+                                    href="/calendar?new=1"
+                                    class="flex min-h-10 items-center gap-3 rounded px-3 text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ink"
+                                >
+                                    <Icon name="people" class="h-5 w-5 text-brand-ink" />
+                                    "Schedule in Teams"
+                                </a>
+                                <a
+                                    href="https://calendar.google.com/calendar/r/eventedit"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onclick={closeSchedule()}
+                                    class="flex min-h-10 items-center gap-3 rounded px-3 text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ink"
+                                >
+                                    <span
+                                        aria-hidden="true"
+                                        class="grid h-5 w-5 place-items-center rounded-sm bg-white text-[11px] font-semibold text-[#4285f4]"
+                                    >
+                                        "31"
+                                    </span>
+                                    "Schedule in Google Calendar"
+                                </a>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <button
+                                type="button"
+                                pp-ref={joinTrigger}
+                                class={joinOpen ? ACTION_OPEN : ACTION}
+                                aria-expanded={joinOpen}
+                                aria-controls="meeting-join-dialog"
+                                aria-haspopup="dialog"
+                                onclick={toggleJoin()}
+                            >
+                                <Icon name="hash" class="h-[18px] w-[18px] text-[#80b5df]" />
+                                "Join with a meeting ID"
+                            </button>
+                            <div
+                                id="meeting-join-dialog"
+                                role="dialog"
+                                aria-labelledby="meeting-join-title"
+                                class="absolute right-0 top-full z-40 mt-1 w-[360px] max-w-[calc(100vw-100px)] rounded-md border border-edge bg-raised p-5 shadow-2xl shadow-black/50"
+                                hidden={!joinOpen}
+                            >
+                                <header class="mb-3 flex items-center justify-between gap-3">
+                                    <h2
+                                        id="meeting-join-title"
+                                        class="text-[15px] font-semibold text-ink"
+                                    >
+                                        "Join a meeting with an ID"
+                                    </h2>
+                                    <button
+                                        type="button"
+                                        aria-label="Close meeting ID dialog"
+                                        class="grid h-7 w-7 place-items-center rounded text-muted hover:bg-hover hover:text-ink"
+                                        onclick={closeJoin()}
+                                    >
+                                        <Icon name="close" class="h-5 w-5" />
+                                    </button>
+                                </header>
+                                <form onsubmit={join(event)} novalidate>
+                                    <label
+                                        for="meeting-join-id"
+                                        class="mb-2 block text-[13px] text-ink"
+                                    >
+                                        "Meeting ID"
+                                    </label>
+                                    <input
+                                        id="meeting-join-id"
+                                        pp-ref={joinInput}
+                                        name="meeting"
+                                        type="text"
+                                        class="h-10 w-full rounded-t border-b-2 border-transparent bg-surface px-3 text-[14px] text-ink placeholder:text-muted focus:border-brand-ink focus:outline-none"
+                                        placeholder="Type a meeting ID"
+                                        aria-label="Meeting ID"
+                                        autocomplete="off"
+                                        value={meetingId}
+                                        oninput={setMeetingId(target.value)}
+                                    />
+                                    <label
+                                        for="meeting-join-passcode"
+                                        class="mb-2 mt-4 block text-[13px] text-ink"
+                                    >
+                                        "Meeting passcode"
+                                    </label>
+                                    <input
+                                        id="meeting-join-passcode"
+                                        type="text"
+                                        disabled
+                                        placeholder="Not required for these meeting links"
+                                        class="h-10 w-full rounded bg-surface px-3 text-[13px] text-muted disabled:cursor-not-allowed"
+                                    />
+                                    <button
+                                        type="submit"
+                                        class="mt-5 h-10 w-full rounded bg-brand px-5 text-[14px] font-semibold text-white transition-colors hover:bg-brand-hover disabled:bg-surface disabled:text-subtle disabled:cursor-not-allowed"
+                                        disabled={meetingId.trim().length === 0}
+                                    >
+                                        "Join meeting"
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                     <h2 class="mt-10 text-[15px] font-semibold text-ink">"Meeting links"</h2>
                     <div class="mt-4 grid grid-cols-2 gap-5">
@@ -225,7 +310,7 @@ pub async fn page() -> Result {
                 </div>
                 <div
                     class="fixed inset-0 z-30"
-                    hidden={menuFor === "" && !compose && !editingId}
+                    hidden={menuFor === "" && !compose && !editingId && !scheduleOpen && !joinOpen}
                     onclick={dismiss()}
                 >
                 </div>
@@ -299,6 +384,8 @@ pub async fn page() -> Result {
                     {toast}
                 </div>
                 <script>r##"
+                    const ACTION = "relative z-40 flex h-12 w-full items-center justify-center gap-3 rounded-md border border-edge bg-raised text-[13px] font-semibold text-ink transition-colors hover:bg-hover";
+                    const ACTION_OPEN = twMerge(ACTION + " bg-hover");
                     const EMPTY = "rounded-lg border border-edge bg-raised px-8 py-7";
                     const EMPTY_WIDE = EMPTY + " col-span-2";
                     // The rename pencil shows on card hover or focus; touch screens
@@ -314,6 +401,17 @@ pub async fn page() -> Result {
                     const [listError, setListError] = pp.state("");
                     const [menuFor, setMenuFor] = pp.state("");
                     const [joinOpen, setJoinOpen] = pp.state(false);
+                    const [scheduleOpen, setScheduleOpen] = pp.state(false);
+                    const joinTrigger = pp.ref(null);
+                    const joinInput = pp.ref(null);
+                    const scheduleTrigger = pp.ref(null);
+                    const scheduleFirst = pp.ref(null);
+                    pp.effect(() => {
+                        if (joinOpen) joinInput.current?.focus();
+                    }, [joinOpen]);
+                    pp.effect(() => {
+                        if (scheduleOpen) scheduleFirst.current?.focus();
+                    }, [scheduleOpen]);
                     const [meetingId, setMeetingId] = pp.state("");
                     const [toast, setToast] = pp.state("");
                     const [editingId, setEditingId] = pp.state("");
@@ -332,6 +430,8 @@ pub async fn page() -> Result {
                     }, [editingId]);
 
                     function openRename(link, event) {
+                        setJoinOpen(false);
+                        setScheduleOpen(false);
                         const anchor = event.currentTarget.getBoundingClientRect();
                         const width = Math.min(340, innerWidth - 32);
                         const left = Math.max(16, Math.min(anchor.left - 24, innerWidth - width - 16));
@@ -388,6 +488,8 @@ pub async fn page() -> Result {
                     }, [toast]);
 
                     function toggleCompose() {
+                        setJoinOpen(false);
+                        setScheduleOpen(false);
                         setMenuFor("");
                         setError("");
                         setCompose((open) => !open);
@@ -399,12 +501,38 @@ pub async fn page() -> Result {
                     }
 
                     function toggleJoin() {
+                        setScheduleOpen(false);
                         setCompose(false);
                         setMenuFor("");
                         setJoinOpen((open) => !open);
                     }
 
+                    function toggleSchedule() {
+                        setCompose(false);
+                        setJoinOpen(false);
+                        setMenuFor("");
+                        setScheduleOpen(open => !open);
+                    }
+
+                    function closeSchedule() {
+                        setScheduleOpen(false);
+                        scheduleTrigger.current?.focus();
+                    }
+
+                    function closeJoin() {
+                        setJoinOpen(false);
+                        joinTrigger.current?.focus();
+                    }
+
+                    function handlePopoverKey(event) {
+                        if (event.key !== "Escape") return;
+                        if (joinOpen) { event.preventDefault(); closeJoin(); }
+                        if (scheduleOpen) { event.preventDefault(); closeSchedule(); }
+                    }
+
                     function openMenu(id) {
+                        setJoinOpen(false);
+                        setScheduleOpen(false);
                         setCompose(false);
                         setMenuFor((current) => (current === id ? "" : id));
                     }
@@ -412,6 +540,8 @@ pub async fn page() -> Result {
                     // The backdrop sits under both the popover and a card
                     // menu, so one click closes whichever is open.
                     function dismiss() {
+                        if (joinOpen) closeJoin();
+                        if (scheduleOpen) closeSchedule();
                         closeRename();
                         setCompose(false);
                         setMenuFor("");

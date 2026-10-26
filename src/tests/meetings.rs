@@ -3,6 +3,77 @@
 
 use super::*;
 
+#[tokio::test]
+async fn meet_popovers_anchor_dismiss_and_open_the_calendar_form() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/meet"))
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-controls='meeting-schedule-options']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('#meeting-schedule-options').hidden && document.activeElement.textContent.includes('Schedule in Teams')").await.unwrap();
+    browser
+        .click("button[aria-controls='meeting-join-dialog']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('#meeting-join-dialog').hidden && document.querySelector('#meeting-schedule-options').hidden && document.activeElement.id === 'meeting-join-id'").await.unwrap();
+    let anchored: bool = browser.eval("(() => { const button = document.querySelector('button[aria-controls=\"meeting-join-dialog\"]').getBoundingClientRect(); const panel = document.querySelector('#meeting-join-dialog').getBoundingClientRect(); return Math.abs(panel.top - button.bottom - 4) < 2 && Math.abs(panel.right - button.right) < 2; })()").await.unwrap();
+    assert!(anchored, "join panel must be anchored under its own action");
+    assert!(
+        browser
+            .eval::<bool>(
+                "document.querySelector('#meeting-join-dialog button[type=submit]').disabled"
+            )
+            .await
+            .unwrap()
+    );
+    browser.type_text("test-meeting").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('#meeting-join-dialog button[type=submit]').disabled")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("document.querySelector('#meeting-join-dialog').hidden && document.activeElement.getAttribute('aria-controls') === 'meeting-join-dialog'").await.unwrap();
+    browser
+        .click("button[aria-controls='meeting-join-dialog']")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Close meeting ID dialog']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('#meeting-join-dialog').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-controls='meeting-schedule-options']")
+        .await
+        .unwrap();
+    browser.click("h1").await.unwrap();
+    browser
+        .wait_for("document.querySelector('#meeting-schedule-options').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-controls='meeting-schedule-options']")
+        .await
+        .unwrap();
+    browser
+        .click("#meeting-schedule-options a[href='/calendar?new=1']")
+        .await
+        .unwrap();
+    browser.wait_for("location.pathname === '/calendar' && Array.from(document.querySelectorAll('h2')).some(el => el.textContent === 'New meeting' && el.getBoundingClientRect().height > 0)").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
 /// Exercise the complete join/leave UI with a deterministic SDK transport.
 /// AWS and screen-capture permissions are not needed by this test.
 #[tokio::test]

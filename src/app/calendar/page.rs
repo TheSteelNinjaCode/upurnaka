@@ -6,7 +6,8 @@
 //! new meeting: its times are parsed and checked in Rust before the grid is
 //! allowed to show it.
 
-use serde::Serialize;
+use axum::extract::Query;
+use serde::{Deserialize, Serialize};
 
 use crate::components::app_shell::AppShell;
 use crate::components::icon::Icon;
@@ -19,7 +20,13 @@ pub fn metadata() -> Metadata {
         .description("Your work week, meetings included.")
 }
 
-pub async fn page() -> Html {
+#[derive(Deserialize)]
+pub struct CalendarQuery {
+    new: Option<String>,
+}
+
+pub async fn page(Query(query): Query<CalendarQuery>) -> Html {
+    let start_compose = query.new.as_deref() == Some("1");
     html! {
         <AppShell active="calendar">
             <main
@@ -304,7 +311,7 @@ pub async fn page() -> Html {
                     const [view, setView] = pp.state("Work week");
                     const [viewOpen, setViewOpen] = pp.state(false);
                     const [meetings, setMeetings] = pp.state([]);
-                    const [composeOpen, setComposeOpen] = pp.state(false);
+                    const [composeOpen, setComposeOpen] = pp.state(@{start_compose});
                     const [saving, setSaving] = pp.state(false);
                     const [errors, setErrors] = pp.state({});
                     const [formError, setFormError] = pp.state("");
