@@ -51,14 +51,21 @@ const PAGE_RPCS: &[&str] = &[
     "create_meeting",
     "create_meeting_link",
     "create_user",
+    "decide_meeting_entry",
     "delete_meeting_link",
     "delete_user",
     "invite_to_teams",
     "join_meeting",
+    "leave_meeting_entry",
     "list_users",
+    "meeting_room_state",
+    "mute_participant",
     "rename_meeting_link",
+    "request_meeting_entry",
+    "resume_meeting_audio",
     "send_message",
     "set_user_active",
+    "spotlight_participant",
     "update_user",
 ];
 
@@ -129,6 +136,13 @@ async fn rpc_p_meet_j_id(req: axum::extract::Request) -> axum::response::Respons
     };
     match name.as_str() {
         "join_meeting" => p_meet_j_id::__rahti_rpc_join_meeting(req).await,
+        "request_meeting_entry" => p_meet_j_id::__rahti_rpc_request_meeting_entry(req).await,
+        "meeting_room_state" => p_meet_j_id::__rahti_rpc_meeting_room_state(req).await,
+        "decide_meeting_entry" => p_meet_j_id::__rahti_rpc_decide_meeting_entry(req).await,
+        "leave_meeting_entry" => p_meet_j_id::__rahti_rpc_leave_meeting_entry(req).await,
+        "spotlight_participant" => p_meet_j_id::__rahti_rpc_spotlight_participant(req).await,
+        "mute_participant" => p_meet_j_id::__rahti_rpc_mute_participant(req).await,
+        "resume_meeting_audio" => p_meet_j_id::__rahti_rpc_resume_meeting_audio(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -208,7 +222,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
-/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting)
+/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio)
 ///
 /// Every page above also answers the component rpcs, because a
 /// component posts to the page it was rendered on: sign_out_account, save_usage_survey, register_account, start_signin, verify_signin.

@@ -9,6 +9,7 @@ use support::*;
 
 mod auth;
 mod database;
+mod meeting_controls;
 mod meetings;
 mod pages;
 mod rpc;

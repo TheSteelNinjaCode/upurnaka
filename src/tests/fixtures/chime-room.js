@@ -4,8 +4,9 @@ export class ConsoleLogger {}
 export const MeetingSessionStatusCode = { Left: 0, MeetingEnded: 1 };
 export class MeetingSessionConfiguration { constructor(meeting, attendee) { this.attendee = attendee; } }
 export class DefaultDeviceController {
-  async listVideoInputDevices() { return [{ deviceId: 'test-camera' }]; }
-  async startVideoInput() {
+  async listVideoInputDevices() { return [{ deviceId: 'test-camera' }, { deviceId: 'second-camera' }]; }
+  async startVideoInput(input) {
+    this.lastInput = input;
     const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360;
     const paint = canvas.getContext('2d'); paint.fillStyle = '#385c73'; paint.fillRect(0,0,640,360);
     this.stream = canvas.captureStream(15);

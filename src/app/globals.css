@@ -118,3 +118,71 @@ body {
 .shell-body > pp-context-provider {
   display: contents;
 }
+
+/* Layout changes keep the SDK-bound video elements in place. */
+.room-gallery [data-raised="true"],
+.room-self-tile[data-raised="true"] {
+  box-shadow: inset 0 0 0 2px var(--color-away);
+}
+.room-gallery[data-presentation="true"],
+.room-gallery[data-focus="true"] {
+  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-rows: repeat(var(--room-rows, 1), minmax(0, 1fr));
+}
+.room-gallery[data-presentation="true"] > .room-content-tile,
+.room-gallery[data-focus="true"] > [data-featured="true"] {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+.room-gallery[data-focus="true"] > .room-content-tile:not([data-featured="true"]) {
+  grid-column: 2;
+  grid-row: auto;
+}
+.room-gallery[data-presentation="true"] > :not(.room-content-tile),
+.room-gallery[data-focus="true"] > :not([data-featured="true"]) {
+  grid-column: 2;
+}
+.room-gallery[data-focus="true"] > [data-featured="true"] {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+.room-self-tile[data-featured="true"] {
+  position: absolute;
+  inset: 18px 250px 18px 18px;
+  width: auto;
+  height: auto;
+}
+@media (min-width: 651px) {
+  .room-stage[data-layout="true"] > .room-self-tile:not([data-featured="true"]) {
+    right: 18px;
+    bottom: 18px;
+    width: 220px;
+    height: calc((100% - 36px - (var(--room-rows, 1) - 1) * 12px) / var(--room-rows, 1));
+  }
+}
+.room-gallery[data-presentation="true"] .room-person-off > span:first-child,
+.room-gallery[data-focus="true"] .room-person-off > span:first-child {
+  width: min(70px, 45%);
+  height: auto;
+  aspect-ratio: 1;
+  font-size: 24px;
+}
+@media (max-width: 650px) {
+  .room-gallery[data-presentation="true"],
+  .room-gallery[data-focus="true"] {
+    grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+    grid-template-rows: minmax(0, 2fr) repeat(var(--room-rows, 1), minmax(0, 1fr));
+  }
+  .room-gallery[data-presentation="true"] > .room-content-tile,
+  .room-gallery[data-focus="true"] > [data-featured="true"] {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .room-gallery[data-presentation="true"] > :not(.room-content-tile),
+  .room-gallery[data-focus="true"] > :not([data-featured="true"]) {
+    grid-column: auto;
+  }
+  .room-self-tile[data-featured="true"] {
+    inset: 18px 18px 40% 18px;
+  }
+}

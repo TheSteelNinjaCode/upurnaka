@@ -288,10 +288,27 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     <button
                         type="button"
                         class="meeting-primary inline-flex min-h-10 min-w-[118px] cursor-pointer items-center justify-center rounded bg-brand px-[22px] py-2 text-base font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-45"
-                        disabled={!providerReady || joining || applyingBackground || displayName.trim().length === 0}
+                        disabled={!providerReady || joining || lobbyWaiting || applyingBackground || displayName.trim().length === 0}
                         onclick={joinNow()}
                     >
-                        {joining ? "Joining…" : "Join now"}
+                        {lobbyWaiting ? "Waiting for admission…" : joining ? "Joining…" : "Join now"}
+                    </button>
+                </div>
+                <div
+                    class="meeting-lobby-wait mt-4 rounded-lg border border-edge bg-raised p-4 text-sm"
+                    hidden={!lobbyWaiting}
+                    role="status"
+                >
+                    <strong>"Waiting in the lobby"</strong>
+                    <p class="mt-2 text-muted">
+                        "The organizer will let you in. Your microphone and camera are not being sent to the meeting."
+                    </p>
+                    <button
+                        type="button"
+                        onclick={cancelLobby()}
+                        class="mt-3 text-link hover:underline"
+                    >
+                        "Cancel request"
                     </button>
                 </div>
                 <p
@@ -366,7 +383,13 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             onclick={toggleRoomPanel("people")}
                         >
                             <Icon name="people" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
-                            <span>"People"</span>
+                            <span>"People "{people.length}</span>
+                            <span
+                                hidden={lobbyRequests.length === 0}
+                                class="rounded-full bg-brand px-1.5 text-[10px] text-white"
+                            >
+                                {lobbyRequests.length}
+                            </span>
                         </button>
                         <button
                             type="button"
@@ -520,13 +543,64 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             "Background settings"
                         </button>
                         <button type="button" onclick={copyRoomLink()}>"Copy meeting link"</button>
+                        <button type="button" onclick={setHideSelf(!hideSelf)}>
+                            {hideSelf ? "Show me in gallery" : "Hide me from gallery"}
+                        </button>
                     </div>
                 </header>
                 <div
                     class="flex min-h-0 flex-1 min-[1101px]:data-[backgrounds=true]:mr-[340px]"
                     data-backgrounds={backgroundsOpen}
                 >
-                    <main class="room-stage relative min-h-0 min-w-0 flex-1 overflow-hidden">
+                    <main
+                        class="room-stage relative min-h-0 min-w-0 flex-1 overflow-hidden"
+                        data-layout={hasContent || !!featuredId}
+                        pp-style={"--room-rows: " + railRows}
+                    >
+                        <section
+                            class="room-lobby-notice absolute left-1/2 top-3 z-5 w-[min(380px,90%)] -translate-x-1/2 rounded-lg border border-edge bg-raised p-4 shadow-xl"
+                            hidden={!isOrganizer || lobbyRequests.length === 0 || roomPanel === "people"}
+                            aria-label="Waiting in the lobby"
+                        >
+                            <strong class="text-sm">"Waiting in the lobby"</strong>
+                            <template pp-for="request in lobbyRequests.slice(0, 1)">
+                                <div key={request.id} class="mt-3 text-sm">
+                                    <p>{request.name}</p>
+                                    <div class="mt-3 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onclick={decideEntry(request.id, false)}
+                                            class="flex-1 rounded border border-edge px-4 py-2"
+                                        >
+                                            "Deny"
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onclick={decideEntry(request.id, true)}
+                                            class="flex-1 rounded bg-brand px-4 py-2 text-white"
+                                        >
+                                            "Admit"
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </section>
+                        <div
+                            class="room-hand-notice absolute left-1/2 top-3 z-4 flex max-w-[90%] -translate-x-1/2 items-center gap-3 rounded-lg border border-edge bg-raised px-4 py-3 text-sm shadow-xl"
+                            role="status"
+                            hidden={!handNotice}
+                        >
+                            <Icon name="hand" class="h-5 w-5 shrink-0 text-away" />
+                            <span class="truncate">{handNotice}" raised their hand"</span>
+                            <button
+                                type="button"
+                                aria-label="Dismiss raised hand notification"
+                                onclick={setHandNotice("")}
+                                class="text-muted"
+                            >
+                                "×"
+                            </button>
+                        </div>
                         <div
                             class="absolute left-1/2 top-[18px] z-2 -translate-x-1/2 rounded bg-raised px-4 py-2 text-[13px]"
                             role="status"
@@ -535,7 +609,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             {connectionStatus === "reconnecting" ? "Reconnecting to the meeting…" : "Connecting to the meeting…"}
                         </div>
                         <div
-                            class={focusView ? GALLERY_FOCUS : GALLERY}
+                            class={(focusView ? GALLERY_FOCUS : GALLERY) + " room-gallery"}
+                            data-presentation={hasContent}
+                            data-focus={!!featuredId}
+                            pp-style={"--room-rows: " + railRows}
                             hidden={remoteCount === 0 && remotePeople.length === 0}
                         >
                             <template pp-for="slot in remoteSlots">
@@ -543,15 +620,24 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     key={slot.index}
                                     class={slot.content ? TILE + " room-content-tile col-span-full" : TILE + " room-person-video"}
                                     data-attendee-id={slot.attendeeId}
+                                    data-featured={slot.attendeeId === featuredId}
+                                    data-raised={slot.raised}
                                     hidden={!slot.active}
                                 >
                                     <video
                                         pp-ref={slot.ref}
-                                        class="h-full w-full object-contain"
+                                        class={tileFits[slot.attendeeId] === false ? "h-full w-full object-cover" : "h-full w-full object-contain"}
                                         autoplay
                                         playsinline
                                     >
                                     </video>
+                                    <div
+                                        class="absolute inset-0 grid place-items-center bg-raised text-center text-sm text-muted"
+                                        hidden={!slot.paused || !slot.content}
+                                        role="status"
+                                    >
+                                        "Screen sharing is paused or unavailable"
+                                    </div>
                                     <span
                                         class="room-hand-indicator absolute left-3 top-3 z-1 inline-flex items-center gap-2 rounded-md bg-black/75 px-2.5 py-2 text-xs font-medium text-away"
                                         role="status"
@@ -565,6 +651,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                                     >
                                         {slot.name}
+                                        <button
+                                            type="button"
+                                            class="ml-2 inline-flex items-center text-white"
+                                            aria-label={"Options for " + slot.name}
+                                            hidden={slot.content}
+                                            onclick={openTileMenu(slot.attendeeId, slot.name)}
+                                        >
+                                            <Icon name="more" class="h-4 w-4" />
+                                        </button>
                                     </span>
                                 </div>
                             </template>
@@ -573,6 +668,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     key={person.id}
                                     class={TILE + " room-person-off flex items-center justify-center"}
                                     data-attendee-id={person.id}
+                                    data-featured={person.id === featuredId}
+                                    data-raised={person.raised}
                                     hidden={person.hasVideo}
                                 >
                                     <span class={AVATAR + " h-[120px] w-[120px] text-[42px]"}>
@@ -591,16 +688,27 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                                     >
                                         {person.name}
+                                        <button
+                                            type="button"
+                                            class="ml-2 inline-flex items-center text-white"
+                                            aria-label={"Options for " + person.name}
+                                            onclick={openTileMenu(person.id, person.name)}
+                                        >
+                                            <Icon name="more" class="h-4 w-4" />
+                                        </button>
                                     </span>
                                 </div>
                             </template>
                         </div>
                         <div
-                            class={remoteCount === 0 && remotePeople.length === 0 ? SELF_ALONE : SELF_TILE}
+                            class={(remoteCount === 0 && remotePeople.length === 0 ? SELF_ALONE : SELF_TILE) + " room-self-tile"}
+                            data-featured={featuredId === selfAttendeeId && !!selfAttendeeId}
+                            data-raised={handRaised}
+                            hidden={hideSelf}
                         >
                             <video
                                 pp-ref={roomLocalVideo}
-                                class="room-local-video absolute inset-0 h-full w-full -scale-x-100 object-contain"
+                                class={tileFits[selfAttendeeId] === false ? "room-local-video absolute inset-0 h-full w-full -scale-x-100 object-cover" : "room-local-video absolute inset-0 h-full w-full -scale-x-100 object-contain"}
                                 hidden={!camera}
                                 muted
                                 autoplay
@@ -625,10 +733,17 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             </div>
                             <span
                                 class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
-                                hidden={remoteCount === 0 && remotePeople.length === 0}
                             >
                                 {displayName}
                                 " (You)"
+                                <button
+                                    type="button"
+                                    class="ml-2 inline-flex items-center text-white"
+                                    aria-label="Options for your video"
+                                    onclick={openTileMenu(selfAttendeeId, displayName)}
+                                >
+                                    <Icon name="more" class="h-4 w-4" />
+                                </button>
                             </span>
                             <span
                                 class="room-raised-hand room-hand-indicator absolute left-3 top-3 z-1 inline-flex items-center gap-2 rounded-md bg-black/75 px-2.5 py-2 text-xs font-medium text-away"
@@ -640,6 +755,75 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 "Hand raised"
                             </span>
                         </div>
+                        <section
+                            class="room-tile-menu absolute bottom-16 left-5 z-5 grid w-64 gap-1 rounded-lg border border-edge bg-raised p-2 text-sm shadow-2xl"
+                            pp-ref={tileMenuElement}
+                            hidden={!tileMenu}
+                            aria-label="Participant options"
+                        >
+                            <div class="truncate border-b border-line px-3 py-2 font-semibold">
+                                {tileMenu ? tileMenu.name : ""}
+                            </div>
+                            <button
+                                type="button"
+                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                                hidden={!tileMenu || tileMenu.id !== selfAttendeeId}
+                                data-action="switch-camera"
+                                onclick={switchCamera()}
+                            >
+                                "Switch camera"
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                                data-action="pin"
+                                onclick={pinTile()}
+                            >
+                                {tileMenu && pinnedId === tileMenu.id ? "Unpin for me" : "Pin for me"}
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                                data-action="fit"
+                                onclick={fitTile()}
+                            >
+                                {tileMenu && tileFits[tileMenu.id] === false ? "Fit to frame" : "Fill frame"}
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                                hidden={!tileMenu || tileMenu.id !== selfAttendeeId}
+                                data-action="hide-self"
+                                onclick={hideMyTile()}
+                            >
+                                "Remove me from gallery"
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                                hidden={!isOrganizer}
+                                data-action="spotlight"
+                                onclick={spotlightTile()}
+                            >
+                                {tileMenu && spotlightId === tileMenu.id ? "Stop spotlight for everyone" : "Spotlight for everyone"}
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                                hidden={!isOrganizer || !tileMenu || tileMenu.id === selfAttendeeId}
+                                data-action="mute"
+                                onclick={muteTile()}
+                            >
+                                "Mute participant"
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded px-3 py-2 text-left text-muted hover:bg-hover"
+                                onclick={setTileMenu(null)}
+                            >
+                                "Close"
+                            </button>
+                        </section>
                         <div
                             class="room-reaction-toast absolute bottom-16 left-1/2 z-2 -translate-x-1/2 rounded-3xl bg-raised/70 px-6 py-3 text-[28px]"
                             role="status"
@@ -675,6 +859,37 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             </button>
                         </header>
                         <div class="overflow-auto px-5" hidden={roomPanel !== "people"}>
+                            <section
+                                hidden={!isOrganizer || lobbyRequests.length === 0}
+                                class="room-lobby-list border-b border-line pb-4"
+                            >
+                                <h3 class="my-3 text-sm font-semibold">
+                                    "Waiting in the lobby ("
+                                    {lobbyRequests.length}
+                                    ")"
+                                </h3>
+                                <template pp-for="request in lobbyRequests">
+                                    <div key={request.id} class="my-3 text-sm">
+                                        <p>{request.name}</p>
+                                        <div class="mt-2 flex gap-3">
+                                            <button
+                                                type="button"
+                                                onclick={decideEntry(request.id, true)}
+                                                class="text-link"
+                                            >
+                                                "Admit"
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onclick={decideEntry(request.id, false)}
+                                                class="text-muted"
+                                            >
+                                                "Deny"
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </section>
                             <p class="my-3 text-xs text-subtle">"In this meeting"</p>
                             <template pp-for="person in people">
                                 <div
@@ -693,6 +908,13 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     <span hidden={!person.raised}>
                                         <Icon name="hand" class="h-5 w-5" />
                                     </span>
+                                    <button
+                                        type="button"
+                                        aria-label={"Options for " + person.name}
+                                        onclick={openTileMenu(person.id, person.name)}
+                                    >
+                                        <Icon name="more" class="h-4 w-4" />
+                                    </button>
                                 </div>
                             </template>
                             <button
@@ -958,12 +1180,29 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const [session, setSession] = pp.state(null);
                     const [error, setError] = pp.state("");
                     const [toast, setToast] = pp.state("");
+                    const [admission, setAdmission] = pp.state("");
+                    const [lobbyWaiting, setLobbyWaiting] = pp.state(false);
+                    const [lobbyRequests, setLobbyRequests] = pp.state([]);
+                    const [isOrganizer, setIsOrganizer] = pp.state(false);
+                    const [spotlightId, setSpotlightId] = pp.state("");
+                    const [pinnedId, setPinnedId] = pp.state("");
+                    const [hideSelf, setHideSelf] = pp.state(false);
+                    const [tileFits, setTileFits] = pp.state({});
+                    const [tileMenu, setTileMenu] = pp.state(null);
+                    const [handNotice, setHandNotice] = pp.state("");
+                    const cameraChoice = pp.ref(0);
+                    const connecting = pp.ref(false);
+                    const tileMenuElement = pp.ref(null);
 
                     const remoteCount = remoteTiles.filter(Boolean).length;
+                    const hasContent = tileDetails.some(tile => tile && tile.content);
+                    const featuredId = pinnedId || spotlightId;
+                    const railRows = Math.max(1, people.filter(person => person.id !== (session?.attendee.AttendeeId || '') && person.id !== featuredId).length + (hasContent && featuredId ? 1 : 0) + (!hideSelf && featuredId !== (session?.attendee.AttendeeId || '') ? 1 : 0));
                     const remoteSlots = remoteRefs.map((ref, index) => ({
                         index,
                         ref,
-                        active: remoteTiles[index],
+                        active: remoteTiles[index] || !!tileDetails[index]?.content,
+                        paused: !remoteTiles[index],
                         name: tileDetails[index] ? tileDetails[index].name : "Participant",
                         content: tileDetails[index] ? tileDetails[index].content : false,
                         attendeeId: tileDetails[index] ? tileDetails[index].id : "",
@@ -980,6 +1219,88 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const onClockTick = pp.event(() => {
                         if (startedAt.current) setElapsed(Math.floor((Date.now() - startedAt.current) / 1000));
                     });
+                    pp.effect(() => {
+                        if (!handNotice) return;
+                        const timer = setTimeout(() => setHandNotice(''), 6000);
+                        return () => clearTimeout(timer);
+                    }, [handNotice]);
+
+                    const applyRoomState = pp.event(async (result, ticket) => {
+                        setLobbyRequests(result.waiting);
+                        setSpotlightId(result.spotlight || '');
+                        if (result.muted_by_host && microphone && call.current) {
+                            call.current.av.realtimeMuteLocalAudio(); setMicrophone(false);
+                            setToast('The organizer muted your microphone. You can unmute when ready.');
+                        }
+                        if (result.state === 'admitted' && !session && !connecting.current) await connectAdmitted(ticket);
+                        if (result.state === 'denied' || result.state === 'left') {
+                            setLobbyWaiting(false); setAdmission('');
+                            if (session) { await teardown(); setSession(null); }
+                            setError(result.state === 'denied' ? 'The organizer declined your request to join.' : 'Your meeting entry has ended.');
+                        }
+                    });
+                    pp.effect(() => {
+                        if (!admission) return;
+                        let cancelled = false, busy = false;
+                        async function poll() {
+                            if (busy || cancelled) return; busy = true;
+                            try {
+                                const result = await pp.rpc('meeting_room_state', {id:code, ticket:admission});
+                                if (!cancelled) await applyRoomState(result, admission);
+                            } catch (failure) {
+                                if (!cancelled) setError(failure.body?.error || failure.message || 'Could not update meeting controls.');
+                            } finally { busy = false; }
+                        }
+                        poll();
+                        const timer = setInterval(poll, 5000);
+                        return () => { cancelled = true; clearInterval(timer); };
+                    }, [admission]);
+
+                    async function decideEntry(ticket, admit) {
+                        try {
+                            await pp.rpc('decide_meeting_entry', {id:code, ticket, admit});
+                            setLobbyRequests(current => current.filter(request => request.id !== ticket));
+                        } catch (failure) { setError(failure.body?.error || failure.message); }
+                    }
+                    async function cancelLobby() {
+                        const ticket = admission;
+                        setLobbyWaiting(false); setAdmission('');
+                        if (ticket) {
+                            try { await pp.rpc('leave_meeting_entry', {id:code,ticket}); }
+                            catch (failure) { setError(failure.body?.error || failure.message); }
+                        }
+                    }
+                    function openTileMenu(id, name) { setMoreOpen(false); setReactionsOpen(false); setTileMenu(tileMenu?.id === id ? null : {id,name}); }
+                    function pinTile() { if (tileMenu) setPinnedId(pinnedId === tileMenu.id ? '' : tileMenu.id); setTileMenu(null); }
+                    function fitTile() { if (tileMenu) { const id = tileMenu.id; setTileFits(current => ({...current,[id]:current[id] === false})); } setTileMenu(null); }
+                    function hideMyTile() { setHideSelf(true); if (pinnedId === selfAttendeeId) setPinnedId(''); setTileMenu(null); }
+                    async function spotlightTile() {
+                        if (!tileMenu) return;
+                        const attendee = spotlightId === tileMenu.id ? null : tileMenu.id;
+                        try { await pp.rpc('spotlight_participant', {id:code,attendee}); setSpotlightId(attendee || ''); setPinnedId(''); setTileMenu(null); }
+                        catch(failure) { setError(failure.body?.error || failure.message); }
+                    }
+                    async function muteTile() {
+                        if (!tileMenu) return;
+                        try { await pp.rpc('mute_participant', {id:code,attendee:tileMenu.id}); setTileMenu(null); setToast('Participant muted.'); }
+                        catch(failure) { setError(failure.body?.error || failure.message); }
+                    }
+                    async function switchCamera() {
+                        setTileMenu(null);
+                        if (applyingBackground) return;
+                        setApplyingBackground(true);
+                        try {
+                            const kit = await ensureDevices();
+                            const cameras = await kit.controller.listVideoInputDevices();
+                            if (cameras.length < 2) { setToast('No other camera is available.'); return; }
+                            cameraChoice.current = (cameraChoice.current + 1) % cameras.length;
+                            if (camera) {
+                                await closeCamera(); await openCamera();
+                                if (call.current) call.current.av.startLocalVideoTile(); else startPreview();
+                            }
+                        } catch(failure) { setError(failure.message); }
+                        finally { setApplyingBackground(false); }
+                    }
                     const onConnectionStarting = pp.event(reconnecting => setConnectionStatus(reconnecting ? "reconnecting" : "connecting"));
                     const onConnectionStarted = pp.event(() => {
                         setConnectionStatus("connected");
@@ -1028,6 +1349,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         if (id.includes("#content")) return;
                         if (!present) {
                             setPeople(current => current.filter(person => person.id !== id));
+                            if (pinnedId === id) setPinnedId('');
+                            if (tileMenu?.id === id) setTileMenu(null);
                             return;
                         }
                         const name = id === call.current?.attendeeId ? displayName : attendeeNameFrom(externalId);
@@ -1054,6 +1377,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             if (payload.kind === "chat" && typeof payload.text === "string" && payload.text.trim() && typeof payload.id === "string") {
                                 appendChat({ id: sender + ":" + payload.id.slice(0, 64), name, text: payload.text.slice(0, 500) });
                             } else if (payload.kind === "hand" && typeof payload.raised === "boolean") {
+                                if (payload.raised && !people.find(person => person.id === sender)?.raised) setHandNotice(name);
                                 setPeople(current => current.map(person => person.id === sender ? { ...person, raised: payload.raised } : person));
                             } else if (payload.kind === "reaction" && ["👍", "❤️", "👏", "😄"].includes(payload.emoji)) {
                                 setReactionNotice(payload.emoji + " " + name);
@@ -1159,6 +1483,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
                     function handleBackgroundKey(event) {
                         if (event.key !== "Escape") return;
+                        if (tileMenu) { setTileMenu(null); event.preventDefault(); }
                         const trigger = reactionsOpen ? reactionTrigger.current : moreOpen ? moreTrigger.current : null;
                         dismissRoomMenus();
                         setBackgroundsOpen(false);
@@ -1180,6 +1505,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     }
 
                     function dismissRoomMenusOutside(event) {
+                        if (tileMenuElement.current?.contains(event.target)) return;
+                        if (tileMenu) setTileMenu(null);
                         if ([reactionTrigger, moreTrigger, reactionMenu, moreMenu].some(ref => ref.current?.contains(event.target))) return;
                         dismissRoomMenus();
                     }
@@ -1399,6 +1726,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     // would leave the rest unreleased.
                     const teardown = pp.event(async () => {
                         const live = call.current;
+                        const ticket = admission;
+                        setAdmission(''); setLobbyWaiting(false);
+                        if (ticket) pp.rpc('leave_meeting_entry', {id:code,ticket}).catch(() => {});
                         call.current = null;
                         tileSlots.current = new Map();
                         setRemoteTiles([false, false, false, false]);
@@ -1409,6 +1739,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setMoreOpen(false);
                         setReactionsOpen(false);
                         setHandRaised(false);
+                        setHandNotice(''); setPinnedId(''); setSpotlightId(''); setHideSelf(false); setTileMenu(null);
+                        setLobbyRequests([]);
                         setReactionNotice("");
                         setSharingScreen(false);
                         setChatMessages([]);
@@ -1470,7 +1802,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         const cameras = await kit.controller.listVideoInputDevices();
                         if (cameras.length === 0) throw new Error("No camera was found.");
 
-                        const input = await filteredCamera(kit, cameras[0].deviceId, effect);
+                        const input = await filteredCamera(kit, cameras[cameraChoice.current % cameras.length].deviceId, effect);
                         if (disposed.current || lifetime !== cameraLifetime.current) {
                             if (kit.transform) await kit.transform.stop();
                             kit.transform = null;
@@ -1606,18 +1938,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     // is a credential for this browser and this attendee —
                     // it stays in this state and goes nowhere else.
                     async function joinNow() {
-                        if (joining || applyingBackground) return;
+                        if (joining || lobbyWaiting || connecting.current || applyingBackground) return;
                         setJoining(true);
                         setError("");
                         setConnectionStatus("connecting");
                         try {
-                            const info = await pp.rpc("join_meeting", {
-                                id: code,
-                                display_name: displayName,
-                            });
-                            await connect(info);
-                            setBackgroundsOpen(false);
-                            setSession(info);
+                            const entry = await pp.rpc('request_meeting_entry', {id:code,name:displayName});
+                            setIsOrganizer(entry.host); setAdmission(entry.id);
+                            if (entry.state === 'waiting') setLobbyWaiting(true);
+                            else await connectAdmitted(entry.id);
                         } catch (failure) {
                             await teardown();
                             setError(failure.message || "The meeting could not be joined.");
@@ -1625,17 +1954,30 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             setJoining(false);
                         }
                     }
+                    async function connectAdmitted(ticket) {
+                        if (connecting.current) return;
+                        connecting.current = true; setJoining(true); setLobbyWaiting(false);
+                        try {
+                            const info = await pp.rpc('join_meeting', {id:code,display_name:displayName,admission:ticket});
+                            if (disposed.current) return;
+                            await connect(info); setBackgroundsOpen(false); setSession(info);
+                        } catch(failure) {
+                            setAdmission(''); await teardown(); setError(failure.body?.error || failure.message || 'Could not join this meeting.');
+                        } finally { connecting.current = false; setJoining(false); }
+                    }
 
                     async function toggleMicrophone() {
                         const next = !microphone;
-                        setMicrophone(next);
                         const live = call.current;
-                        if (!live) return;
+                        if (!live) {setMicrophone(next); return;}
                         if (next) {
+                            try { if (admission) await pp.rpc('resume_meeting_audio', {id:code,ticket:admission}); }
+                            catch(failure) { setError(failure.body?.error || failure.message); return; }
                             live.av.realtimeUnmuteLocalAudio();
                         } else {
                             live.av.realtimeMuteLocalAudio();
                         }
+                        setMicrophone(next);
                     }
 
                     async function toggleCamera() {
@@ -1674,6 +2016,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     }
 
                     async function leave() {
+                        await cancelLobby();
                         await teardown();
                         setSession(null);
                     }
@@ -1707,7 +2050,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 /// unknown one is a 404 here too, because an RPC a browser can call is a
 /// second front door and guarding only the page would leave it open.
 #[rpc(auth)]
-pub async fn join_meeting(id: String, display_name: String) -> Result<JoinInfo> {
+pub async fn join_meeting(
+    id: String,
+    display_name: String,
+    admission: Option<String>,
+) -> Result<JoinInfo> {
     let id = id.trim().to_string();
     let display_name = display_name.trim().to_string();
 
@@ -1719,5 +2066,56 @@ pub async fn join_meeting(id: String, display_name: String) -> Result<JoinInfo> 
         .max_chars("display_name", &display_name, 64);
     validator.finish()?;
 
-    meetings::join(&id, &display_name).await
+    let ticket = if let Some(ticket) = admission {
+        ticket
+    } else {
+        meetings::lobby::request(id.clone(), display_name.clone())
+            .await?
+            .id
+    };
+    let visitor = meetings::lobby::claim(&id, &ticket).await?;
+    match meetings::join(&id, &visitor.name).await {
+        Ok(info) => {
+            meetings::lobby::record(
+                &ticket,
+                &info.meeting.meeting_id,
+                &info.attendee.attendee_id,
+            )
+            .await?;
+            Ok(info)
+        }
+        Err(error) => {
+            meetings::lobby::release(&ticket).await;
+            Err(error)
+        }
+    }
+}
+
+#[rpc(auth)]
+pub async fn request_meeting_entry(id: String, name: String) -> Result<meetings::lobby::Admission> {
+    meetings::lobby::request(id, name).await
+}
+#[rpc(auth)]
+pub async fn meeting_room_state(id: String, ticket: String) -> Result<meetings::lobby::RoomState> {
+    meetings::lobby::snapshot(id, ticket).await
+}
+#[rpc(auth)]
+pub async fn decide_meeting_entry(id: String, ticket: String, admit: bool) -> Result<bool> {
+    meetings::lobby::decide(id, ticket, admit).await
+}
+#[rpc(auth)]
+pub async fn leave_meeting_entry(id: String, ticket: String) -> Result<bool> {
+    meetings::lobby::finish(id, ticket).await
+}
+#[rpc(auth)]
+pub async fn spotlight_participant(id: String, attendee: Option<String>) -> Result<bool> {
+    meetings::lobby::spotlight(id, attendee).await
+}
+#[rpc(auth)]
+pub async fn mute_participant(id: String, attendee: String) -> Result<bool> {
+    meetings::lobby::mute(id, attendee).await
+}
+#[rpc(auth)]
+pub async fn resume_meeting_audio(id: String, ticket: String) -> Result<bool> {
+    meetings::lobby::resume_audio(id, ticket).await
 }

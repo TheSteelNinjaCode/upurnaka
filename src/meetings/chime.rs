@@ -239,6 +239,33 @@ pub async fn delete_meeting(meeting_id: &str) -> Result<()> {
     }
 }
 
+/// A host mute disables sending at the media service. Only that attendee can request unmute.
+pub async fn set_attendee_audio(meeting_id: &str, attendee_id: &str, send: bool) -> Result<()> {
+    if cfg!(test) {
+        return Ok(());
+    }
+    use aws_sdk_chimesdkmeetings::types::{AttendeeCapabilities, MediaCapabilities};
+    let capabilities = AttendeeCapabilities::builder()
+        .audio(if send {
+            MediaCapabilities::SendReceive
+        } else {
+            MediaCapabilities::Receive
+        })
+        .video(MediaCapabilities::SendReceive)
+        .content(MediaCapabilities::SendReceive)
+        .build()?;
+    client()
+        .await?
+        .update_attendee_capabilities()
+        .meeting_id(meeting_id)
+        .attendee_id(attendee_id)
+        .capabilities(capabilities)
+        .send()
+        .await
+        .map_err(provider_failed)?;
+    Ok(())
+}
+
 /// The client, built once.
 ///
 /// Credentials resolve per request inside the SDK, so this is cheap to hold

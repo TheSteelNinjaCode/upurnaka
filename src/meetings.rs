@@ -33,6 +33,7 @@
 //! same calls write rows.
 
 pub mod chime;
+pub mod lobby;
 
 use std::sync::{Mutex, OnceLock};
 
