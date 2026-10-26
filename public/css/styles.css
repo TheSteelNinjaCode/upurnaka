@@ -1399,9 +1399,6 @@
   .bg-repeat-y {
     background-repeat: repeat-y;
   }
-  .object-cover {
-    object-fit: cover;
-  }
   .p-1 {
     padding: var(--spacing);
   }

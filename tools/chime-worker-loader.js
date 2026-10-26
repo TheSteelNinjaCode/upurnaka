@@ -2,7 +2,7 @@ let workerPolicy;
 
 function checkedWorkerURL(value) {
   const url = new URL(value, location.origin);
-  if (url.origin !== location.origin || !['/js/vendor/background/worker.js', '/js/vendor/background/timer.js'].includes(url.pathname)) {
+  if (url.origin !== location.origin || !['/js/vendor/background/worker.js', '/js/vendor/background/timer.js', '/js/vendor/background/encoded-transform.js'].includes(url.pathname)) {
     throw new TypeError('Only the bundled background worker can be loaded.');
   }
   return url.href;

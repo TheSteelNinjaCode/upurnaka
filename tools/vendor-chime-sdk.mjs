@@ -47,6 +47,14 @@
 // off it is the form that works.
 import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
+import { readFile, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+// The SDK normally turns this bundled code into a blob Worker. Serve the
+// exact same code as a local file so Trusted Types can validate its URL.
+const encodedWorker = require('amazon-chime-sdk-js/build/encodedtransformworkercode/EncodedTransformWorkerCode.js').default;
+await writeFile(new URL('../public/js/vendor/background/encoded-transform.js', import.meta.url), encodedWorker);
 
 /// What src/app/meet/j/[id]/page.rs imports. Add a name here when the page
 /// starts using it.
@@ -70,6 +78,17 @@ const entry = [
 const dropMessaging = {
   name: 'drop-chime-messaging',
   setup(pluginBuild) {
+    pluginBuild.onLoad({ filter: /encodedtransformmanager[\\/]DefaultEncodedTransformWorkerManager\.js$/ }, async ({ path }) => {
+      const original = await readFile(path, 'utf8');
+      const blob = 'URL.createObjectURL(new Blob([EncodedTransformWorkerCode_1.default], { type: \'application/javascript\' }))';
+      if (!original.includes(blob) || !original.includes('new Worker(this.workerURL)')) {
+        throw new Error('Chime media worker source changed: review the Trusted Types adapter.');
+      }
+      const contents = original
+        .replace(blob, 'new URL("/js/vendor/background/encoded-transform.js", location.origin).href')
+        .replace('new Worker(this.workerURL)', 'createMeetingWorker(this.workerURL, "MeetingMedia")');
+      return { contents: `const { createMeetingWorker } = require(${JSON.stringify(fileURLToPath(new URL('./chime-worker-loader.js', import.meta.url)))});\n` + contents, loader: 'js' };
+    });
     // All background assets are self-hosted. This loader grants Trusted
     // Script URLs only for the one bundled segmentation worker.
     pluginBuild.onResolve({ filter: /voicefocus[\\/]loader$/ }, () => ({

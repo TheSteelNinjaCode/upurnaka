@@ -163,6 +163,83 @@ pub fn Icon(name: &str, class: &str) -> Html {
         "sparkle" => html! {
             <Sparkles class=@{class} stroke_width="1.6" />
         },
+        "shield" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linejoin="round"
+            >
+                <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" />
+            </svg>
+        },
+        "hand" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path
+                    d="M8 12V5a1.5 1.5 0 0 1 3 0v6-8a1.5 1.5 0 0 1 3 0v8-6a1.5 1.5 0 0 1 3 0v7-3a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-13 4l-4-6a1.5 1.5 0 0 1 2-2l3 3"
+                />
+            </svg>
+        },
+        "share-screen" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path d="M8 16H4V4h16v12h-4M12 20V8m-4 4 4-4 4 4" />
+            </svg>
+        },
+        "leave" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path d="M3 15v-4c5-5 13-5 18 0v4h-5v-4M8 11v4H3" />
+            </svg>
+        },
+        "grid" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+            >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M12 3v18M3 12h18" />
+            </svg>
+        },
+        "record" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+            >
+                <circle cx="12" cy="12" r="9" />
+                <circle cx="12" cy="12" r="5" />
+            </svg>
+        },
         _ => Html::empty(),
     }
 }

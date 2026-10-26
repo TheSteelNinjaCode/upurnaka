@@ -3,6 +3,149 @@
 
 use super::*;
 
+/// Exercise the complete join/leave UI with a deterministic SDK transport.
+/// AWS and screen-capture permissions are not needed by this test.
+#[tokio::test]
+async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
+    let id = mint("Room transition").await;
+    let router = crate::routes::router()
+        .route("/js/vendor/amazon-chime-sdk.js", axum::routing::get(|| async {
+            ([("content-type", "text/javascript")], include_str!("fixtures/chime-room.js"))
+        }))
+        .layer(axum::middleware::from_fn(|request: axum::extract::Request, next: axum::middleware::Next| async move {
+            if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("join_meeting") {
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"meeting":{"MeetingId":"fixture"},"attendee":{"AttendeeId":"self","ExternalUserId":"Jefferson Abraham#fixture"}}"#)).unwrap();
+            }
+            next.run(request).await
+        }));
+    let address = rahti::browser::serve(router).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/meet/j/{id}"))
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.meeting-primary')?.textContent.includes('Join now')")
+        .await
+        .unwrap();
+    // Unit-test startup intentionally has no provider. Supply its successful
+    // boundary response above and enable the button for this UI test only.
+    let _: bool = browser
+        .eval("document.querySelector('.meeting-primary').disabled=false; true")
+        .await
+        .unwrap();
+    browser.click(".meeting-primary").await.unwrap();
+    browser.wait_for("!document.querySelector('.meeting-room').hidden && document.querySelector('.room-waiting').textContent.includes('Waiting for others to join')").await.unwrap();
+    let setup_hidden: bool = browser
+        .eval("document.querySelector('.meeting-body').hidden")
+        .await
+        .unwrap();
+    assert!(setup_hidden, "joining must replace the setup screen");
+    browser
+        .click("button[aria-label='Participants']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.room-side-panel h2').textContent === 'People (1)'")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.roomFixture.presence('guest',true,'Ada Lovelace#fixture'); true")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-side-panel h2').textContent === 'People (2)' && document.querySelector('.room-person-off').textContent.includes('Ada Lovelace')").await.unwrap();
+    browser
+        .click("button[aria-label='Raise hand']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-raised-hand').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Meeting chat']")
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Message everyone']")
+        .await
+        .unwrap();
+    browser.type_text("Hello from the meeting").await.unwrap();
+    browser
+        .click("button[aria-label='Send meeting message']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-chat-messages').textContent.includes('Hello from the meeting')").await.unwrap();
+    browser
+        .click("button[aria-label='Send a reaction']")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Send thumbs up']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-reaction-toast').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Toggle meeting microphone']")
+        .await
+        .unwrap();
+    let muted: bool = browser.eval("window.roomFixture.muted").await.unwrap();
+    assert!(muted);
+    browser
+        .click("button[aria-label='Toggle meeting camera']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.room-local-video').hidden && document.querySelector('.room-local-video').srcObject !== null").await.unwrap();
+    browser
+        .click("button[aria-label='Toggle meeting camera']")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval(
+            r##"
+        (() => {
+            navigator.mediaDevices.getDisplayMedia=async () => {
+                const canvas=document.createElement('canvas'); canvas.width=640; canvas.height=360;
+                return canvas.captureStream(15);
+            };
+            return true;
+        })()
+    "##,
+        )
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Share screen']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('button[aria-label=\"Share screen\"]').getAttribute('aria-pressed') === 'true'").await.unwrap();
+    browser
+        .click("button[aria-label='Share screen']")
+        .await
+        .unwrap();
+    let share_stopped: bool = browser
+        .eval("window.roomFixture.shared.getTracks().every(track => track.readyState === 'ended')")
+        .await
+        .unwrap();
+    assert!(
+        share_stopped,
+        "stopping a screen share must release its tracks"
+    );
+    browser
+        .click("button[aria-label='Leave meeting']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.meeting-room').hidden && !document.querySelector('.meeting-body').hidden").await.unwrap();
+    let stopped: bool = browser.eval("window.roomFixture.stopped && window.roomFixture.controller.stream.getTracks().every(track => track.readyState === 'ended')").await.unwrap();
+    assert!(stopped, "leaving must stop the transport and camera");
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
 /// Pull a string field out of an RPC's JSON body.
 ///
 /// Small on purpose — the suite asserts on two or three fields of one shape,

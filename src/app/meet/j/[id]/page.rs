@@ -46,7 +46,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
     let content = html! {
         <main class="meeting-join" onkeydown={handleBackgroundKey(event)}>
-            <div class={backgroundsOpen ? "meeting-body with-backgrounds" : "meeting-body"}>
+            <div
+                class={backgroundsOpen ? "meeting-body with-backgrounds" : "meeting-body"}
+                hidden={session !== null}
+            >
                 <div class="meeting-account">
                     <Avatar initials="JA" size="lg" presence="none" />
                     <div class="meeting-account-name">
@@ -225,14 +228,6 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         </label>
                     </section>
                 </div>
-                <div class="meeting-remote-grid" hidden={remoteCount === 0}>
-                    <template pp-for="slot in remoteSlots">
-                        <div key={slot.index} class="meeting-remote-tile" hidden={!slot.active}>
-                            <video pp-ref={slot.ref} class="h-full w-full object-cover" playsinline>
-                            </video>
-                        </div>
-                    </template>
-                </div>
                 <audio pp-ref={meetingAudio} class="hidden"></audio>
                 <div class="meeting-actions" hidden={session !== null}>
                     <a href="/meet" class="meeting-cancel">"Cancel"</a>
@@ -245,10 +240,6 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         {joining ? "Joining…" : "Join now"}
                     </button>
                 </div>
-                <div class="meeting-connected" hidden={session === null}>
-                    <span>"You're in the meeting"</span>
-                    <button type="button" class="meeting-cancel" onclick={leave()}>"Leave"</button>
-                </div>
                 <p class="meeting-error" role="alert" hidden={!error}>{error}</p>
                 <p class="meeting-provider-note" hidden={providerReady}>
                     "This meeting is unavailable right now. Please contact the organizer."
@@ -260,6 +251,310 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     <span>"Meeting ID: "@{&code}</span>
                 </footer>
             </div>
+            <section class="meeting-room" aria-label="Meeting room" hidden={session === null}>
+                <header class="room-toolbar">
+                    <div class="room-time">
+                        <Icon name="shield" class="h-5 w-5" />
+                        <span>{elapsedLabel}</span>
+                    </div>
+                    <div class="room-tools">
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="Record"
+                            disabled
+                            title="Recording is not available in this workspace"
+                        >
+                            <Icon name="record" class="h-6 w-6" />
+                            <span>"Record"</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="Meeting chat"
+                            aria-pressed={roomPanel === "chat"}
+                            onclick={toggleRoomPanel("chat")}
+                        >
+                            <Icon name="chat" class="h-6 w-6" />
+                            <span>"Chat"</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="Participants"
+                            aria-pressed={roomPanel === "people"}
+                            onclick={toggleRoomPanel("people")}
+                        >
+                            <Icon name="people" class="h-6 w-6" />
+                            <span>"People"</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="Raise hand"
+                            aria-pressed={handRaised}
+                            disabled={connectionStatus !== "connected"}
+                            onclick={raiseHand()}
+                        >
+                            <Icon name="hand" class="h-6 w-6" />
+                            <span>{handRaised ? "Lower" : "Raise"}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="Send a reaction"
+                            aria-expanded={reactionsOpen}
+                            disabled={connectionStatus !== "connected"}
+                            onclick={setReactionsOpen(!reactionsOpen)}
+                        >
+                            <Icon name="emoji" class="h-6 w-6" />
+                            <span>"React"</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="Change meeting view"
+                            aria-pressed={focusView}
+                            onclick={setFocusView(!focusView)}
+                        >
+                            <Icon name="grid" class="h-6 w-6" />
+                            <span>"View"</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="More meeting options"
+                            aria-expanded={moreOpen}
+                            onclick={setMoreOpen(!moreOpen)}
+                        >
+                            <Icon name="more" class="h-6 w-6" />
+                            <span>"More"</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="Toggle meeting camera"
+                            aria-pressed={camera}
+                            disabled={applyingBackground || joining}
+                            onclick={toggleCamera()}
+                        >
+                            <span hidden={!camera}>
+                                <Icon name="video" class="h-6 w-6" />
+                            </span>
+                            <span hidden={camera}>
+                                <Icon name="video-off" class="h-6 w-6" />
+                            </span>
+                            <span>"Camera"</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="Toggle meeting microphone"
+                            aria-pressed={microphone}
+                            disabled={audioMode === "none"}
+                            onclick={toggleMicrophone()}
+                        >
+                            <span hidden={!microphone}>
+                                <Icon name="mic" class="h-6 w-6" />
+                            </span>
+                            <span hidden={microphone}>
+                                <Icon name="mic-off" class="h-6 w-6" />
+                            </span>
+                            <span>"Mic"</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool "
+                            aria-label="Share screen"
+                            aria-pressed={sharingScreen}
+                            disabled={connectionStatus !== "connected" || startingShare}
+                            onclick={toggleScreenShare()}
+                        >
+                            <Icon name="share-screen" class="h-6 w-6" />
+                            <span>{sharingScreen ? "Stop share" : "Share"}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="room-tool room-leave"
+                            aria-label="Leave meeting"
+                            onclick={leave()}
+                        >
+                            <Icon name="leave" class="h-6 w-6" />
+                            <span>"Leave"</span>
+                        </button>
+                    </div>
+                    <div class="room-reactions" hidden={!reactionsOpen}>
+                        <button
+                            type="button"
+                            aria-label="Send thumbs up"
+                            onclick={sendReaction("👍")}
+                        >
+                            "👍"
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="Send heart"
+                            onclick={sendReaction("❤️")}
+                        >
+                            "❤️"
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="Send applause"
+                            onclick={sendReaction("👏")}
+                        >
+                            "👏"
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="Send laugh"
+                            onclick={sendReaction("😄")}
+                        >
+                            "😄"
+                        </button>
+                    </div>
+                    <div class="room-more-menu" hidden={!moreOpen}>
+                        <button type="button" onclick={openRoomBackgrounds()}>
+                            "Background settings"
+                        </button>
+                        <button type="button" onclick={share()}>"Copy meeting link"</button>
+                    </div>
+                </header>
+                <div class={backgroundsOpen ? "room-content with-backgrounds" : "room-content"}>
+                    <main class={focusView ? "room-stage focus-view" : "room-stage"}>
+                        <div
+                            class="room-connection"
+                            role="status"
+                            hidden={connectionStatus === "connected"}
+                        >
+                            {connectionStatus === "reconnecting" ? "Reconnecting to the meeting…" : "Connecting to the meeting…"}
+                        </div>
+                        <div
+                            class="room-remote-gallery"
+                            hidden={remoteCount === 0 && remotePeople.length === 0}
+                        >
+                            <template pp-for="slot in remoteSlots">
+                                <div
+                                    key={slot.index}
+                                    class={slot.content ? "room-person-tile room-content-tile" : "room-person-tile"}
+                                    hidden={!slot.active}
+                                >
+                                    <video pp-ref={slot.ref} autoplay playsinline></video>
+                                    <span class="room-person-name">{slot.name}</span>
+                                </div>
+                            </template>
+                            <template pp-for="person in remotePeople">
+                                <div
+                                    key={person.id}
+                                    class="room-person-tile room-person-off"
+                                    hidden={person.hasVideo}
+                                >
+                                    <span class="room-avatar">{person.initials}</span>
+                                    <span class="room-person-name">
+                                        {person.name}
+                                        {person.raised ? " · Hand raised" : ""}
+                                    </span>
+                                </div>
+                            </template>
+                        </div>
+                        <div
+                            class={remoteCount === 0 && remotePeople.length === 0 ? "room-self alone" : "room-self"}
+                        >
+                            <video
+                                pp-ref={roomLocalVideo}
+                                class="room-local-video"
+                                hidden={!camera}
+                                muted
+                                autoplay
+                                playsinline
+                            >
+                            </video>
+                            <div class="room-waiting" hidden={camera}>
+                                <span class="room-avatar">{myInitials}</span>
+                                <h1 hidden={remoteCount > 0 || remotePeople.length > 0}>
+                                    {connectionStatus === "connected" ? "Waiting for others to join…" : "Joining your meeting…"}
+                                </h1>
+                            </div>
+                            <span
+                                class="room-self-name"
+                                hidden={remoteCount === 0 && remotePeople.length === 0}
+                            >
+                                {displayName}
+                                " (You)"
+                            </span>
+                        </div>
+                        <div class="room-raised-hand" hidden={!handRaised}>
+                            <Icon name="hand" class="h-5 w-5" />
+                            "Your hand is raised"
+                        </div>
+                        <div class="room-reaction-toast" role="status" hidden={!reactionNotice}>
+                            {reactionNotice}
+                        </div>
+                        <p class="room-error" role="alert" hidden={!error}>{error}</p>
+                    </main>
+                    <aside class="room-side-panel" hidden={!roomPanel}>
+                        <header>
+                            <h2>
+                                {roomPanel === "people" ? "People (" + people.length + ")" : "Meeting chat"}
+                            </h2>
+                            <button
+                                type="button"
+                                aria-label="Close meeting panel"
+                                onclick={setRoomPanel("")}
+                            >
+                                <Icon name="close" class="h-5 w-5" />
+                            </button>
+                        </header>
+                        <div class="room-people-list" hidden={roomPanel !== "people"}>
+                            <p>"In this meeting"</p>
+                            <template pp-for="person in people">
+                                <div key={person.id} class="room-person-row">
+                                    <span>{person.initials}</span>
+                                    <strong>
+                                        {person.name}
+                                        {person.id === selfAttendeeId ? " (You)" : ""}
+                                    </strong>
+                                    <span hidden={!person.raised}>
+                                        <Icon name="hand" class="h-5 w-5" />
+                                    </span>
+                                </div>
+                            </template>
+                            <button type="button" class="meeting-text-button" onclick={share()}>
+                                "Copy invite link"
+                            </button>
+                        </div>
+                        <div class="room-chat-panel" hidden={roomPanel !== "chat"}>
+                            <div class="room-chat-messages" aria-live="polite">
+                                <p class="room-chat-empty" hidden={chatMessages.length > 0}>
+                                    "Chat with everyone in this meeting. Messages are available during the call."
+                                </p>
+                                <template pp-for="message in chatMessages">
+                                    <article key={message.id}>
+                                        <strong>{message.name}</strong>
+                                        <p>{message.text}</p>
+                                    </article>
+                                </template>
+                            </div>
+                            <form onsubmit={sendChat(event)}>
+                                <input
+                                    aria-label="Message everyone"
+                                    placeholder="Type a message"
+                                    maxlength="500"
+                                    value={chatDraft}
+                                    oninput={setChatDraft(target.value)}
+                                />
+                                <button
+                                    type="submit"
+                                    aria-label="Send meeting message"
+                                    disabled={!chatDraft.trim() || connectionStatus !== "connected"}
+                                >
+                                    <Icon name="send" class="h-5 w-5" />
+                                </button>
+                            </form>
+                        </div>
+                    </aside>
+                </div>
+            </section>
             <aside
                 class="meeting-background-panel"
                 aria-label="Background settings"
@@ -410,6 +705,63 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                 .meeting-background-error {font-size:13px;line-height:1.5;color:#ffacb5;margin-top:14px;}
                 @media(min-width:1101px) {.meeting-body.with-backgrounds {width:calc(100% - 340px);margin-left:0;padding-left:24px;padding-right:24px;}.meeting-body.with-backgrounds .meeting-setup {gap:16px;}.meeting-body.with-backgrounds .meeting-camera-toolbar{gap:10px;padding-left:12px;padding-right:12px;}.meeting-body.with-backgrounds .meeting-audio-choice,.meeting-body.with-backgrounds .meeting-audio-devices{padding-left:16px;padding-right:16px;}.meeting-body.with-backgrounds .meeting-device-row{gap:8px;}.meeting-body.with-backgrounds .meeting-device-row select{font-size:14px;}}
                 @media(max-width:1100px) {.meeting-background-panel{width:min(340px,92vw);box-shadow:-12px 0 30px #0006;}}
+                .meeting-room {position:absolute;inset:0;display:flex;flex-direction:column;background:#1f1f1f;overflow:hidden;}
+                .room-toolbar {position:relative;display:flex;align-items:center;justify-content:space-between;gap:24px;height:72px;flex-shrink:0;border-bottom:1px solid #3c3c3c;background:#292929;padding:4px 20px;z-index:3;}
+                .room-time {display:flex;align-items:center;gap:12px;font-size:14px;color:#ccc;font-variant-numeric:tabular-nums;flex-shrink:0;}
+                .room-tools {display:flex;align-items:center;gap:6px;}
+                .room-tool {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:56px;height:60px;padding:6px 10px;border-radius:5px;color:#ddd;font-size:12px;cursor:pointer;}
+                .room-tool:hover,.room-tool[aria-pressed="true"] {background:#3b3b3b;color:white;}
+                .room-tool:disabled {opacity:.4;cursor:not-allowed;}
+                .room-tool[aria-pressed="true"] {box-shadow:inset 0 -2px #aaa0ff;}
+                .room-leave {margin-left:14px;color:#e88991;}
+                .room-leave:hover {background:#713640;}
+                .room-content {display:flex;flex:1;min-height:0;}
+                .room-stage {position:relative;flex:1;min-width:0;min-height:0;overflow:hidden;}
+                .room-self {position:absolute;bottom:20px;right:20px;width:200px;height:130px;border:1px solid #444;border-radius:8px;overflow:hidden;background:#292929;z-index:1;}
+                .room-self.alone {inset:0;width:100%;height:100%;border:0;border-radius:0;background:transparent;}
+                .room-local-video {position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform:scaleX(-1);}
+                .room-waiting {position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:48px;}
+                .room-avatar {display:grid;place-items:center;width:clamp(140px,15vw,220px);height:clamp(140px,15vw,220px);border-radius:50%;background:#d2dbea;color:#253b60;font-size:clamp(50px,6vw,86px);font-weight:600;flex-shrink:0;}
+                .room-waiting h1 {font-size:clamp(18px,2vw,26px);font-weight:600;text-align:center;padding:0 16px;}
+                .room-self:not(.alone) .room-avatar {width:64px;height:64px;font-size:25px;}
+                .room-self-name,.room-person-name {position:absolute;left:12px;bottom:10px;max-width:calc(100% - 24px);font-size:12px;padding:4px 7px;border-radius:4px;background:#0009;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+                .room-connection {position:absolute;top:18px;left:50%;transform:translateX(-50%);z-index:2;background:#333;padding:8px 16px;border-radius:4px;font-size:13px;}
+                .room-remote-gallery {height:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));grid-auto-rows:minmax(0,1fr);gap:12px;padding:18px;}
+                .room-person-tile {position:relative;min-height:0;min-width:0;overflow:hidden;border-radius:8px;background:#292929;}
+                .room-person-tile video {height:100%;width:100%;object-fit:contain;}
+                .room-person-off {display:flex;align-items:center;justify-content:center;}
+                .room-person-off .room-avatar {width:120px;height:120px;font-size:42px;}
+                .room-stage.focus-view .room-remote-gallery {grid-template-columns:1fr;}
+                .room-content-tile {grid-column:1/-1;}
+                .room-side-panel {width:320px;flex-shrink:0;border-left:1px solid #3c3c3c;background:#242424;display:flex;flex-direction:column;min-height:0;}
+                .room-side-panel>header {display:flex;align-items:center;justify-content:space-between;padding:22px 20px;font-size:17px;font-weight:600;}
+                .room-side-panel button {cursor:pointer;}
+                .room-people-list {padding:0 20px;overflow:auto;}
+                .room-people-list>p {font-size:12px;color:#aaa;margin:12px 0;}
+                .room-person-row {display:flex;align-items:center;gap:12px;margin:18px 0;font-size:13px;}
+                .room-person-row>span:first-child {display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#cbd4e5;color:#253b60;flex-shrink:0;}
+                .room-person-row strong {flex:1;font-weight:500;overflow-wrap:anywhere;}
+                .room-chat-panel {display:flex;flex-direction:column;min-height:0;flex:1;}
+                .room-chat-messages {flex:1;min-height:0;overflow:auto;padding:0 18px;display:flex;flex-direction:column;gap:14px;}
+                .room-chat-empty {font-size:13px;color:#bbb;line-height:1.6;}
+                .room-chat-messages article {background:#333;padding:12px;border-radius:5px;font-size:13px;overflow-wrap:anywhere;}
+                .room-chat-messages article strong {font-size:12px;color:#c5bfff;}
+                .room-chat-messages article p {margin-top:5px;white-space:pre-wrap;}
+                .room-chat-panel form {display:flex;margin:16px;border:1px solid #666;border-radius:5px;padding:8px;gap:8px;}
+                .room-chat-panel input {flex:1;min-width:0;background:transparent;font-size:13px;outline:none;}
+                .room-chat-panel button:disabled {opacity:.4;}
+                .room-reactions,.room-more-menu {position:absolute;top:68px;right:240px;background:#333;border:1px solid #555;box-shadow:0 5px 18px #0006;border-radius:5px;padding:8px;z-index:5;}
+                .room-reactions {display:flex;gap:8px;}
+                .room-reactions button {font-size:26px;padding:8px;cursor:pointer;}
+                .room-more-menu {display:grid;gap:4px;right:200px;}
+                .room-more-menu button {padding:10px 16px;text-align:left;font-size:13px;cursor:pointer;border-radius:3px;}
+                .room-more-menu button:hover {background:#444;}
+                .room-raised-hand {position:absolute;top:20px;left:20px;display:flex;gap:10px;padding:10px 14px;color:#e7c67b;background:#333;border-radius:5px;font-size:13px;z-index:2;}
+                .room-reaction-toast {position:absolute;bottom:64px;left:50%;transform:translateX(-50%);font-size:28px;z-index:2;background:#333b;border-radius:24px;padding:12px 24px;}
+                .room-error {position:absolute;bottom:20px;left:20px;right:20px;font-size:13px;color:#ffb6c1;background:#38252a;padding:10px;border-radius:4px;z-index:2;}
+                @media(min-width:1101px) {.room-content.with-backgrounds {margin-right:340px;}}
+                @media(max-width:1000px) {.room-toolbar{padding:4px 10px;gap:8px;}.room-tools{gap:0;}.room-tool{padding:6px;min-width:45px;font-size:11px;}.room-time{gap:6px;font-size:12px;}.room-leave{margin-left:4px;}.room-side-panel{width:280px;}}
+                @media(max-width:650px) {.room-toolbar{height:auto;min-height:64px;align-items:flex-start;}.room-time{padding-top:18px;}.room-tools{flex-wrap:wrap;justify-content:flex-end;}.room-tool{min-width:40px;height:52px;}.room-tool svg{width:20px;height:20px;}.room-side-panel{position:absolute;right:0;top:116px;bottom:0;width:min(320px,90vw);z-index:2;}.room-self:not(.alone){width:130px;height:90px;}.room-reactions,.room-more-menu{right:16px;top:112px;}.room-waiting{gap:30px;}}
                 @media(min-width:851px) {
                     .meeting-body {height:100%;display:flex;flex-direction:column;gap:clamp(10px,1.8dvh,20px);padding:0 clamp(24px,4vw,64px) 16px;}
                     .meeting-account {flex-shrink:0;padding:clamp(12px,1.8dvh,20px) 24px;}
@@ -446,6 +798,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const SDK_URL = "/js/vendor/amazon-chime-sdk.js";
 
                     const localVideo = pp.ref(null);
+                    const roomLocalVideo = pp.ref(null);
+                    const startedAt = pp.ref(0);
+                    const shareStream = pp.ref(null);
                     const meetingAudio = pp.ref(null);
                     const remote0 = pp.ref(null);
                     const remote1 = pp.ref(null);
@@ -495,6 +850,20 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const [camera, setCamera] = pp.state(false);
                     const [cameraLive, setCameraLive] = pp.state(false);
                     const [remoteTiles, setRemoteTiles] = pp.state([false, false, false, false]);
+                    const [tileDetails, setTileDetails] = pp.state([null, null, null, null]);
+                    const [people, setPeople] = pp.state([]);
+                    const [connectionStatus, setConnectionStatus] = pp.state("connecting");
+                    const [elapsed, setElapsed] = pp.state(0);
+                    const [roomPanel, setRoomPanel] = pp.state("");
+                    const [handRaised, setHandRaised] = pp.state(false);
+                    const [reactionsOpen, setReactionsOpen] = pp.state(false);
+                    const [reactionNotice, setReactionNotice] = pp.state("");
+                    const [moreOpen, setMoreOpen] = pp.state(false);
+                    const [focusView, setFocusView] = pp.state(false);
+                    const [sharingScreen, setSharingScreen] = pp.state(false);
+                    const [startingShare, setStartingShare] = pp.state(false);
+                    const [chatMessages, setChatMessages] = pp.state([]);
+                    const [chatDraft, setChatDraft] = pp.state("");
                     const [displayName, setDisplayName] = pp.state("Jefferson Abraham");
                     const [joining, setJoining] = pp.state(false);
                     const [session, setSession] = pp.state(null);
@@ -506,7 +875,154 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         index,
                         ref,
                         active: remoteTiles[index],
+                        name: tileDetails[index] ? tileDetails[index].name : "Participant",
+                        content: tileDetails[index] ? tileDetails[index].content : false,
                     }));
+                    const selfAttendeeId = session ? session.attendee.AttendeeId : "";
+                    const remotePeople = people.filter(person => person.id !== selfAttendeeId).map(person => ({
+                        ...person,
+                        hasVideo: tileDetails.some((tile, index) => remoteTiles[index] && tile && tile.id === person.id),
+                    }));
+                    const myInitials = initials(displayName);
+                    const elapsedLabel = Math.floor(elapsed / 60).toString().padStart(2, "0") + ":" + (elapsed % 60).toString().padStart(2, "0");
+
+                    const onClockTick = pp.event(() => {
+                        if (startedAt.current) setElapsed(Math.floor((Date.now() - startedAt.current) / 1000));
+                    });
+                    const onConnectionStarting = pp.event(reconnecting => setConnectionStatus(reconnecting ? "reconnecting" : "connecting"));
+                    const onConnectionStarted = pp.event(() => {
+                        setConnectionStatus("connected");
+                        if (!startedAt.current) startedAt.current = Date.now();
+                    });
+                    const onShareStopped = pp.event(() => {
+                        setSharingScreen(false);
+                        if (shareStream.current) shareStream.current.getTracks().forEach(track => track.stop());
+                        shareStream.current = null;
+                    });
+
+                    pp.effect(() => {
+                        if (!session) return;
+                        const timer = setInterval(onClockTick, 1000);
+                        return () => clearInterval(timer);
+                    }, [session !== null]);
+
+                    pp.effect(() => {
+                        if (!reactionNotice) return;
+                        const timer = setTimeout(() => setReactionNotice(""), 4000);
+                        return () => clearTimeout(timer);
+                    }, [reactionNotice]);
+
+                    function initials(name) {
+                        return name.trim().split(/\s+/).slice(0, 2).map(word => word[0] || "").join("").toUpperCase() || "G";
+                    }
+
+                    function attendeeNameFrom(externalId) {
+                        return String(externalId || "Guest").split("#")[0].slice(0, 64) || "Guest";
+                    }
+
+                    function toggleRoomPanel(panel) {
+                        setRoomPanel(roomPanel === panel ? "" : panel);
+                        setBackgroundsOpen(false);
+                    }
+
+                    function openRoomBackgrounds() {
+                        setRoomPanel("");
+                        setMoreOpen(false);
+                        setBackgroundsOpen(true);
+                    }
+
+                    const onPresence = pp.event((id, present, externalId) => {
+                        if (id.includes("#content")) return;
+                        if (!present) {
+                            setPeople(current => current.filter(person => person.id !== id));
+                            return;
+                        }
+                        const name = id === call.current?.attendeeId ? displayName : attendeeNameFrom(externalId);
+                        setPeople(current => current.some(person => person.id === id) ? current : [...current, { id, name, initials: initials(name), raised: false }]);
+                    });
+
+                    function sendMeetingEvent(payload) {
+                        const live = call.current;
+                        if (!live || connectionStatus !== "connected") throw new Error("Wait for the meeting to connect.");
+                        live.av.realtimeSendDataMessage("upurnaka-room", JSON.stringify(payload), 0);
+                    }
+
+                    function appendChat(message) {
+                        setChatMessages(current => current.some(item => item.id === message.id) ? current : [...current.slice(-199), message]);
+                    }
+
+                    const onRoomMessage = pp.event(message => {
+                        if (message.throttled || message.data.length > 4096) return;
+                        try {
+                            const payload = message.json();
+                            const sender = message.senderAttendeeId;
+                            if (!sender || sender.includes("#content")) return;
+                            const name = attendeeNameFrom(message.senderExternalUserId);
+                            if (payload.kind === "chat" && typeof payload.text === "string" && payload.text.trim() && typeof payload.id === "string") {
+                                appendChat({ id: sender + ":" + payload.id.slice(0, 64), name, text: payload.text.slice(0, 500) });
+                            } else if (payload.kind === "hand" && typeof payload.raised === "boolean") {
+                                setPeople(current => current.map(person => person.id === sender ? { ...person, raised: payload.raised } : person));
+                            } else if (payload.kind === "reaction" && ["👍", "❤️", "👏", "😄"].includes(payload.emoji)) {
+                                setReactionNotice(payload.emoji + " " + name);
+                            }
+                        } catch (failure) {
+                            // Ignore messages from clients that use a different protocol.
+                        }
+                    });
+
+                    function sendChat(event) {
+                        event.preventDefault();
+                        const text = chatDraft.trim().slice(0, 500);
+                        if (!text) return;
+                        try {
+                            const id = crypto.randomUUID();
+                            sendMeetingEvent({ kind: "chat", id, text });
+                            appendChat({ id: selfAttendeeId + ":" + id, name: displayName, text });
+                            setChatDraft("");
+                        } catch (failure) { setError(failure.message); }
+                    }
+
+                    function raiseHand() {
+                        try {
+                            const raised = !handRaised;
+                            sendMeetingEvent({ kind: "hand", raised });
+                            setHandRaised(raised);
+                            setPeople(current => current.map(person => person.id === selfAttendeeId ? { ...person, raised } : person));
+                        } catch (failure) { setError(failure.message); }
+                    }
+
+                    function sendReaction(emoji) {
+                        try {
+                            sendMeetingEvent({ kind: "reaction", emoji });
+                            setReactionNotice(emoji + " You");
+                            setReactionsOpen(false);
+                        } catch (failure) { setError(failure.message); }
+                    }
+
+                    async function toggleScreenShare() {
+                        const live = call.current;
+                        if (!live || startingShare) return;
+                        if (sharingScreen) {
+                            live.av.stopContentShare();
+                            if (shareStream.current) shareStream.current.getTracks().forEach(track => track.stop());
+                            shareStream.current = null;
+                            setSharingScreen(false);
+                            return;
+                        }
+                        setStartingShare(true);
+                        setError("");
+                        try {
+                            const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+                            if (disposed.current || call.current !== live) { stream.getTracks().forEach(track => track.stop()); return; }
+                            shareStream.current = stream;
+                            await live.av.startContentShare(stream);
+                            setSharingScreen(true);
+                        } catch (failure) {
+                            if (shareStream.current) shareStream.current.getTracks().forEach(track => track.stop());
+                            shareStream.current = null;
+                            if (failure.name !== "NotAllowedError") setError(failure.message || "Screen sharing could not start.");
+                        } finally { setStartingShare(false); }
+                    }
 
                     // Read off the session for the panel, because a binding
                     // renders text and `session.Meeting.MeetingId` on a null
@@ -691,8 +1207,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         if (!live || !tile.boundAttendeeId) return;
 
                         if (tile.localTile) {
-                            if (localVideo.current) {
-                                live.av.bindVideoElement(tile.tileId, localVideo.current);
+                            if (roomLocalVideo.current) {
+                                live.av.bindVideoElement(tile.tileId, roomLocalVideo.current);
                             }
                             return;
                         }
@@ -712,7 +1228,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
                         const element = remoteRefs[slot].current;
                         if (element) live.av.bindVideoElement(tile.tileId, element);
-                        setRemoteTiles((current) => withSlot(current, slot, true));
+                        setTileDetails(current => withSlot(current, slot, { id: tile.boundAttendeeId, content: !!tile.isContent, name: tile.isContent ? "Shared screen" : attendeeNameFrom(tile.boundExternalUserId) }));
+                        setRemoteTiles((current) => withSlot(current, slot, !tile.paused));
                     });
 
                     const onTileRemoved = pp.event((tileId) => {
@@ -720,6 +1237,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         if (slot === undefined) return;
                         tileSlots.current.delete(tileId);
                         setRemoteTiles((current) => withSlot(current, slot, false));
+                        setTileDetails(current => withSlot(current, slot, null));
                     });
 
                     // Chime ended the call from its side — the meeting was
@@ -763,6 +1281,21 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         call.current = null;
                         tileSlots.current = new Map();
                         setRemoteTiles([false, false, false, false]);
+                        setTileDetails([null, null, null, null]);
+                        setPeople([]);
+                        setRoomPanel("");
+                        setBackgroundsOpen(false);
+                        setMoreOpen(false);
+                        setReactionsOpen(false);
+                        setHandRaised(false);
+                        setReactionNotice("");
+                        setSharingScreen(false);
+                        setChatMessages([]);
+                        setChatDraft("");
+                        setElapsed(0);
+                        startedAt.current = 0;
+                        if (shareStream.current) shareStream.current.getTracks().forEach(track => track.stop());
+                        shareStream.current = null;
 
                         // The camera goes off with the call rather than staying on
                         // over a pre-join screen nobody is looking at — and the
@@ -774,6 +1307,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             if (live) live.av.stopLocalVideoTile();
                             await closeCamera();
                             if (live) {
+                                live.av.stopContentShare();
+                                live.av.realtimeUnsubscribeToAttendeeIdPresence(onPresence);
+                                live.av.realtimeUnsubscribeFromReceiveDataMessage("upurnaka-room");
                                 await live.av.stopAudioInput();
                                 live.av.stop();
                             }
@@ -908,7 +1444,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             videoTileDidUpdate: onTileUpdate,
                             videoTileWasRemoved: onTileRemoved,
                             audioVideoDidStop: onAudioVideoStop,
+                            audioVideoDidStartConnecting: onConnectionStarting,
+                            audioVideoDidStart: onConnectionStarted,
                         });
+                        av.addContentShareObserver({
+                            contentShareDidStop: onShareStopped,
+                        });
+                        av.realtimeSubscribeToAttendeeIdPresence(onPresence);
+                        av.realtimeSubscribeToReceiveDataMessage("upurnaka-room", onRoomMessage);
 
                         if (audioMode === "computer") {
                             const microphones = await av.listAudioInputDevices();
@@ -921,9 +1464,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             }
                         }
 
-                        call.current = { session: meetingSession, av };
+                        call.current = { session: meetingSession, av, attendeeId: info.attendee.AttendeeId };
+                        setPeople([{ id: info.attendee.AttendeeId, name: displayName, initials: initials(displayName), raised: false }]);
                         av.start();
 
+                        if (audioMode === "none") setMicrophone(false);
                         if (!microphone || audioMode === "none") av.realtimeMuteLocalAudio();
 
                         if (camera) {
@@ -943,12 +1488,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         if (joining || applyingBackground) return;
                         setJoining(true);
                         setError("");
+                        setConnectionStatus("connecting");
                         try {
                             const info = await pp.rpc("join_meeting", {
                                 id: code,
                                 display_name: displayName,
                             });
                             await connect(info);
+                            setBackgroundsOpen(false);
                             setSession(info);
                         } catch (failure) {
                             await teardown();
