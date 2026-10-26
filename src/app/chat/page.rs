@@ -551,7 +551,7 @@ pub async fn page() -> Html {
                     .new-chat-bubble::after {content:"";position:absolute;bottom:-4px;left:22px;width:30px;height:38px;transform:skewY(-30deg);border-radius:0 0 5px 10px;background:linear-gradient(120deg,#35353c,#222228);z-index:-1;}
                     .new-chat-pencil {position:absolute;left:114px;top:4px;width:40px;height:126px;transform:rotate(40deg);border-radius:20px 20px 2px 2px;background:linear-gradient(90deg,#ffb342,#ffdd7a 45%,#ed883b);box-shadow:inset -5px 0 6px #a74d3a40,4px 5px 10px #0006;}
                     .new-chat-pencil::before {content:"";position:absolute;top:0;left:0;right:0;height:30px;border-radius:20px 20px 0 0;background:linear-gradient(90deg,#777,#bbb,#888);}
-                    .new-chat-pencil::after {content:"";position:absolute;top:100%;border-left:20px solid transparent;border-right:20px solid transparent;border-top:30px solid #ffe495;}
+                    .new-chat-pencil::after {content:"";position:absolute;top:calc(100% - 1px);left:0;width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-top:30px solid #ffe495;}
                     .new-chat-dot {position:absolute;top:108px;width:21px;height:21px;border-radius:50%;box-shadow:inset -3px -3px 5px #0005,1px 2px 3px #0005;}
                     .new-chat-dot.purple {left:5px;background:radial-gradient(at 30% 20%,#dbbaff,#9460ed 65%);}
                     .new-chat-dot.green {left:31px;background:radial-gradient(at 30% 20%,#f3ffbd,#a3ce53 65%);}
