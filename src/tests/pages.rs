@@ -1,5 +1,41 @@
 use super::*;
 
+#[tokio::test]
+async fn shell_dropdowns_stay_above_meet_actions() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/meet"))
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Settings and more']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('button[aria-label=\"Settings and more\"]').getAttribute('aria-expanded') === 'true'").await.unwrap();
+    let unobscured: bool = browser.eval("(() => { const action = document.querySelector('button[aria-controls=\"meeting-join-dialog\"]').getBoundingClientRect(); const menu = Array.from(document.querySelectorAll('header button')).find(el => el.textContent.includes('Tell us how you use Teams')); const rect = menu.getBoundingClientRect(); const x = Math.max(rect.left, action.left) + 5; const y = Math.max(rect.top, action.top) + 5; return x < Math.min(rect.right, action.right) && y < Math.min(rect.bottom, action.bottom) && menu.contains(document.elementFromPoint(x, y)); })()").await.unwrap();
+    assert!(
+        unobscured,
+        "header dropdown must cover the overlapping Meet action"
+    );
+    browser
+        .click("button[aria-controls='meeting-join-dialog']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('button[aria-label=\"Settings and more\"]').getAttribute('aria-expanded') === 'false'").await.unwrap();
+    assert!(
+        browser
+            .eval::<bool>("document.querySelector('#meeting-join-dialog').hidden")
+            .await
+            .unwrap(),
+        "the dismissal click must not reach the page action"
+    );
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
 /// A context provider must not shrink-wrap the page or remove it from the
 /// shell's flex layout. Check the hydrated geometry, not just the markup.
 #[tokio::test]

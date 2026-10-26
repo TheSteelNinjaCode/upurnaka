@@ -302,7 +302,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 </div>
             </header>
             <div
-                class={paneOpen ? "shell-body flex min-h-0 flex-1" : "shell-body flex min-h-0 flex-1 panes-collapsed"}
+                class={paneOpen ? "shell-body isolate flex min-h-0 flex-1" : "shell-body isolate flex min-h-0 flex-1 panes-collapsed"}
             >
                 <nav
                     class="flex w-[68px] shrink-0 flex-col items-center gap-1 pb-3"
