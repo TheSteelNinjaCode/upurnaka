@@ -29,6 +29,7 @@ pub(super) async fn setup() {
 
     READY
         .get_or_init(|| async {
+            crate::browser_policy::configure();
             // A real database for the whole test binary: SQLite in a
             // file, with this application's own migrations run against it.
             // A file rather than `:memory:`, deleted on the way in —
@@ -63,11 +64,7 @@ pub(super) async fn get(url: &str) -> (StatusCode, String) {
 /// Call an `#[rpc]` the way the browser does: load its page, keep the CSRF
 /// cookie the response hands out, then POST back to the same URL with the
 /// function's name in `x-pp-function` and the token sent both ways.
-pub(super) async fn rpc(
-    url: &str,
-    name: &str,
-    payload: &str,
-) -> (StatusCode, String) {
+pub(super) async fn rpc(url: &str, name: &str, payload: &str) -> (StatusCode, String) {
     setup().await;
 
     let router = crate::routes::router();
@@ -115,4 +112,3 @@ pub(super) async fn rpc(
     let bytes = res.into_body().collect().await.expect("a body").to_bytes();
     (status, String::from_utf8_lossy(&bytes).into_owned())
 }
-

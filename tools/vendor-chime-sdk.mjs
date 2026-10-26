@@ -16,9 +16,10 @@
 // service is slow, rate-limiting, or has changed how it resolves a transitive
 // dependency, and self-hosting also keeps the Content-Security-Policy at
 // `script-src 'self'`: nothing can inject a script from another origin. The
-// framework's default CSP already allows everything a self-hosted Chime
-// needs — `worker-src blob:`, `connect-src wss:`, `media-src blob:` — so
-// there is no policy to widen either.
+// Background segmentation also uses the local WASM/model assets fetched by
+// vendor-background-assets.mjs. src/browser_policy.rs permits WASM and the
+// narrowly scoped meeting-worker Trusted Types policy; script sources stay
+// same-origin. The two worker adapters below avoid blob-generated code.
 //
 // ## Why the package index is the entry point
 //
@@ -45,6 +46,7 @@
 // runtime from the real exports object, and naming what the application uses
 // off it is the form that works.
 import { build } from 'esbuild';
+import { fileURLToPath } from 'node:url';
 
 /// What src/app/meet/j/[id]/page.rs imports. Add a name here when the page
 /// starts using it.
@@ -55,6 +57,9 @@ const EXPORTS = [
   'DefaultMeetingSession',
   'MeetingSessionConfiguration',
   'MeetingSessionStatusCode',
+  'DefaultVideoTransformDevice',
+  'BackgroundBlurVideoFrameProcessor',
+  'BackgroundReplacementVideoFrameProcessor',
 ];
 
 const entry = [
@@ -65,6 +70,14 @@ const entry = [
 const dropMessaging = {
   name: 'drop-chime-messaging',
   setup(pluginBuild) {
+    // All background assets are self-hosted. This loader grants Trusted
+    // Script URLs only for the one bundled segmentation worker.
+    pluginBuild.onResolve({ filter: /voicefocus[\\/]loader$/ }, () => ({
+      path: fileURLToPath(new URL('./chime-worker-loader.js', import.meta.url)),
+    }));
+    pluginBuild.onResolve({ filter: /DefaultVideoFrameProcessorTimer$/ }, () => ({
+      path: fileURLToPath(new URL('./chime-frame-timer.js', import.meta.url)),
+    }));
     pluginBuild.onResolve(
       { filter: /(messagingsession[\\/]DefaultMessagingSession|sigv4[\\/]DefaultSigV4)$/ },
       () => ({ path: 'chime-messaging-stub', namespace: 'chime-stub' }),

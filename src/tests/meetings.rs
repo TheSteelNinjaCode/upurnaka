@@ -215,6 +215,143 @@ async fn pre_join_is_standalone_and_audio_choices_update() {
         .wait_for("document.querySelector('.meeting-name-editor').hidden")
         .await
         .unwrap();
+    browser.click(".meeting-background-button").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.meeting-background-panel').hidden")
+        .await
+        .unwrap();
+    browser.wait_for("innerWidth <= 1100 || document.querySelector('.meeting-body').getBoundingClientRect().right <= document.querySelector('.meeting-background-panel').getBoundingClientRect().left + 1").await.unwrap();
+    browser
+        .click("button[aria-label='Light studio']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('button[aria-label=\"Light studio\"]').getAttribute('aria-pressed') === 'true'").await.unwrap();
+    browser
+        .click("button[aria-label='Close background settings']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.meeting-background-panel').hidden")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+/// Exercise real person segmentation on a generated video stream. This
+/// checks worker, WASM, model and outgoing video without using a webcam.
+#[tokio::test]
+async fn meeting_background_replacement_processes_video_locally() {
+    let id = mint("Background processing").await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/meet/j/{id}"))
+        .await
+        .unwrap();
+    let replaced: bool = browser.eval(r##"
+        (async () => {
+            const sdk = await import('/js/vendor/amazon-chime-sdk.js');
+            const base = location.origin + '/js/vendor/background/';
+            const spec = {
+                paths: { worker: base + 'worker.js', wasm: base + '_cwt-wasm.wasm', simd: base + '_cwt-wasm-simd.wasm' },
+                model: { path: base + 'selfie_segmentation_landscape.tflite', input: { width:256, height:144, channels:3, range:[0,1] }, output: { width:256, height:144, channels:1, range:[0,1] } }
+            };
+            const source = document.createElement('canvas'); source.width=640; source.height=360;
+            const context = source.getContext('2d');
+            context.fillStyle='#00bb00'; context.fillRect(0,0,640,360);
+            const replacement = document.createElement('canvas'); replacement.width=640; replacement.height=360;
+            const paint = replacement.getContext('2d'); paint.fillStyle='#ee2222'; paint.fillRect(0,0,640,360);
+            const imageBlob = await new Promise(resolve => replacement.toBlob(resolve));
+            const logger = new sdk.ConsoleLogger('background-test', sdk.LogLevel.ERROR);
+            const processor = await sdk.BackgroundReplacementVideoFrameProcessor.create(spec, { imageBlob, logger });
+            const stream = source.captureStream(15);
+            const transform = new sdk.DefaultVideoTransformDevice(logger, stream, [processor]);
+            const tick = setInterval(() => {context.fillRect(0,0,640,360);}, 60);
+            const video = document.createElement('video'); video.muted=true;
+            let result=false;
+            try {
+                video.srcObject=await transform.transformStream(stream);
+                await video.play();
+                const output = document.createElement('canvas'); output.width=640; output.height=360;
+                const pixels=output.getContext('2d');
+                for (let index=0; index<30; index++) {
+                    await new Promise(resolve => video.requestVideoFrameCallback(resolve));
+                    pixels.drawImage(video,0,0,640,360);
+                    const color=pixels.getImageData(320,180,1,1).data;
+                    if(color[0]>150 && color[1]<100) { result=true; break; }
+                }
+            } finally {
+                clearInterval(tick); video.pause(); video.srcObject=null;
+                await transform.stop(); stream.getTracks().forEach(track => track.stop());
+            }
+            return result;
+        })()
+    "##).await.unwrap();
+    assert!(
+        replaced,
+        "the outgoing video must contain the replacement background"
+    );
+    // Feed that generated source through the application's actual camera
+    // controls too, so switching effects exercises its device lifecycle.
+    let _: bool = browser.eval(r##"
+        (() => {
+            const canvas=document.createElement('canvas'); canvas.width=640; canvas.height=360;
+            const context=canvas.getContext('2d'); context.fillStyle='#00bb00';
+            const tick=setInterval(() => context.fillRect(0,0,640,360),60);
+            navigator.mediaDevices.enumerateDevices=async () => [{kind:'videoinput',deviceId:'test-camera',groupId:'test',label:'Generated camera'}];
+            navigator.mediaDevices.getUserMedia=async () => canvas.captureStream(15);
+            window.stopGeneratedCamera=() => clearInterval(tick);
+            return true;
+        })()
+    "##).await.unwrap();
+    browser.click(".meeting-background-button").await.unwrap();
+    browser
+        .click("button[aria-label='Light studio']")
+        .await
+        .unwrap();
+    browser.click("button[aria-label='Camera']").await.unwrap();
+    browser.wait_for("document.querySelector('button[aria-label=\"Camera\"]').getAttribute('aria-checked') === 'true' && !document.querySelector('button[aria-label=\"Camera\"]').disabled && document.querySelector('.meeting-camera-off').hidden").await.unwrap();
+    browser
+        .click(".meeting-background-option:nth-child(2)")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.meeting-background-option:nth-child(2)').getAttribute('aria-pressed') === 'true' && !document.querySelector('button[aria-label=\"Camera\"]').disabled").await.unwrap();
+    browser
+        .click(".meeting-background-option:first-child")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.meeting-background-option:first-child').getAttribute('aria-pressed') === 'true'").await.unwrap();
+    browser.click("button[aria-label='Camera']").await.unwrap();
+    browser.wait_for("document.querySelector('button[aria-label=\"Camera\"]').getAttribute('aria-checked') === 'false'").await.unwrap();
+    let _: bool = browser.eval(r##"
+        (async () => {
+            const canvas=document.createElement('canvas'); canvas.width=32; canvas.height=32;
+            const blob=await new Promise(resolve => canvas.toBlob(resolve));
+            const transfer=new DataTransfer(); transfer.items.add(new File([blob],'My background.png',{type:'image/png'}));
+            const input=document.querySelector('input[type=file]'); input.files=transfer.files;
+            input.dispatchEvent(new Event('change',{bubbles:true}));
+            return true;
+        })()
+    "##).await.unwrap();
+    browser.wait_for("document.querySelector('button[aria-label=\"My background.png\"]')?.getAttribute('aria-pressed') === 'true'").await.unwrap();
+    let _: bool = browser.eval(r##"
+        (() => {
+            const transfer=new DataTransfer(); transfer.items.add(new File(['not an image'],'bad.png',{type:'image/png'}));
+            const input=document.querySelector('input[type=file]'); input.files=transfer.files;
+            input.dispatchEvent(new Event('change',{bubbles:true}));
+            return true;
+        })()
+    "##).await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.meeting-background-error').hidden")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.stopGeneratedCamera(); true")
+        .await
+        .unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
 

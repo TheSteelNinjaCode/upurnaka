@@ -45,8 +45,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
     let provider_ready = chime::is_configured();
 
     let content = html! {
-        <main class="meeting-join">
-            <div class="meeting-body">
+        <main class="meeting-join" onkeydown={handleBackgroundKey(event)}>
+            <div class={backgroundsOpen ? "meeting-body with-backgrounds" : "meeting-body"}>
                 <div class="meeting-account">
                     <Avatar initials="JA" size="lg" presence="none" />
                     <div class="meeting-account-name">
@@ -104,6 +104,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 role="switch"
                                 aria-label="Camera"
                                 aria-checked={camera}
+                                disabled={applyingBackground || joining}
                                 class={camera ? "meeting-toggle is-on" : "meeting-toggle"}
                                 onclick={toggleCamera()}
                             >
@@ -112,9 +113,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <span class="meeting-toolbar-divider"></span>
                             <button
                                 type="button"
-                                class="meeting-unavailable"
-                                disabled
-                                title="Background effects are not available yet"
+                                class="meeting-background-button"
+                                aria-expanded={backgroundsOpen}
+                                onclick={setBackgroundsOpen(!backgroundsOpen)}
                             >
                                 <Icon name="image" class="h-5 w-5" />
                                 "Background filters"
@@ -238,7 +239,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     <button
                         type="button"
                         class="meeting-primary"
-                        disabled={!providerReady || joining || displayName.trim().length === 0}
+                        disabled={!providerReady || joining || applyingBackground || displayName.trim().length === 0}
                         onclick={joinNow()}
                     >
                         {joining ? "Joining…" : "Join now"}
@@ -259,6 +260,80 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     <span>"Meeting ID: "@{&code}</span>
                 </footer>
             </div>
+            <aside
+                class="meeting-background-panel"
+                aria-label="Background settings"
+                hidden={!backgroundsOpen}
+            >
+                <header class="meeting-background-header">
+                    <h2>"Background settings"</h2>
+                    <button
+                        type="button"
+                        aria-label="Close background settings"
+                        onclick={setBackgroundsOpen(false)}
+                    >
+                        <Icon name="close" class="h-5 w-5" />
+                    </button>
+                </header>
+                <div class="meeting-background-content">
+                    <div class="meeting-background-grid">
+                        <button
+                            type="button"
+                            class={backgroundId === "none" ? "meeting-background-option chosen" : "meeting-background-option"}
+                            aria-pressed={backgroundId === "none"}
+                            disabled={applyingBackground || joining}
+                            onclick={selectBackground("none")}
+                        >
+                            <span class="meeting-background-symbol">"⊘"</span>
+                            <span>"None"</span>
+                        </button>
+                        <button
+                            type="button"
+                            class={backgroundId === "blur" ? "meeting-background-option chosen" : "meeting-background-option"}
+                            aria-pressed={backgroundId === "blur"}
+                            disabled={applyingBackground || joining}
+                            onclick={selectBackground("blur")}
+                        >
+                            <span class="meeting-background-symbol">"≋"</span>
+                            <span>"Standard blur"</span>
+                        </button>
+                        <label class="meeting-background-option meeting-background-upload">
+                            <Icon name="plus" class="h-6 w-6" />
+                            <span>"Add new"</span>
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                aria-label="Upload background image"
+                                disabled={applyingBackground || joining}
+                                onchange={uploadBackground(event)}
+                            />
+                        </label>
+                        <template pp-for="background in backgrounds">
+                            <button
+                                key={background.id}
+                                type="button"
+                                class={backgroundId === background.id ? "meeting-background-option meeting-background-image chosen" : "meeting-background-option meeting-background-image"}
+                                aria-label={background.name}
+                                aria-pressed={backgroundId === background.id}
+                                disabled={applyingBackground || joining}
+                                onclick={selectBackground(background.id)}
+                            >
+                                <img src={background.url} alt="" />
+                                <span>{background.name}</span>
+                            </button>
+                        </template>
+                    </div>
+                    <p class="meeting-background-hint" role="status">
+                        {applyingBackground ? "Applying background…" : camera ? "Your selected background is applied to your camera and meeting video." : "Turn on your camera to preview your background."}
+                    </p>
+                    <p class="meeting-background-error" role="alert" hidden={!backgroundError}>
+                        {backgroundError}
+                    </p>
+                    <p class="meeting-background-hint">
+                        "Custom images stay in this tab. Camera processing happens on your device."
+                    </p>
+                </div>
+            </aside>
             <div class="meeting-toast" role="status" hidden={!toast}>{toast}</div>
             <style>r##"
                 .meeting-join {height:100dvh;overflow:auto;background:#1f1f1f;color:#f5f5f5;font-family:var(--font-ui);}
@@ -312,6 +387,29 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                 .meeting-toast {position:fixed;bottom:24px;left:24px;padding:14px 20px;background:#333;border:1px solid #666;border-radius:5px;font-size:14px;}
                 .meeting-join :focus-visible {outline:2px solid #b7b1ff;outline-offset:4px;}
                 .meeting-join [hidden] {display:none!important;}
+                .meeting-background-button {display:flex;align-items:center;gap:10px;font-size:14px;color:#ddd;cursor:pointer;text-align:left;}
+                .meeting-background-button:hover {color:white;}
+                .meeting-background-button[aria-expanded="true"] {color:#b7b1ff;}
+                .meeting-background-panel {position:fixed;right:0;top:0;bottom:0;width:340px;background:#202020;border-left:1px solid #383838;display:flex;flex-direction:column;z-index:5;}
+                .meeting-background-header {display:flex;align-items:center;justify-content:space-between;padding:24px 20px;gap:12px;}
+                .meeting-background-header h2 {font-size:18px;font-weight:600;}
+                .meeting-background-header button {padding:6px;cursor:pointer;color:#bbb;}
+                .meeting-background-content {min-height:0;overflow-y:auto;padding:8px 20px 24px;}
+                .meeting-background-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+                .meeting-background-option {position:relative;min-width:0;height:70px;background:#333;border:2px solid transparent;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;overflow:hidden;font-size:11px;color:#eee;}
+                .meeting-background-option:hover {border-color:#aaa;}
+                .meeting-background-option.chosen {border-color:#a39bff;box-shadow:0 0 0 1px #a39bff;}
+                .meeting-background-option.chosen:after {content:"✓";position:absolute;right:3px;top:1px;line-height:18px;width:18px;text-align:center;background:#514a9f;border-radius:50%;color:white;}
+                .meeting-background-option:disabled {cursor:wait;opacity:.6;}
+                .meeting-background-symbol {font-size:25px;line-height:28px;}
+                .meeting-background-image img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+                .meeting-background-image>span {position:absolute;bottom:0;left:0;right:0;background:#0009;padding:3px 2px;text-align:center;}
+                .meeting-background-upload input {position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+                .meeting-background-upload:focus-within {outline:2px solid #b7b1ff;outline-offset:3px;}
+                .meeting-background-hint {font-size:12px;line-height:1.6;color:#aaa;margin-top:18px;}
+                .meeting-background-error {font-size:13px;line-height:1.5;color:#ffacb5;margin-top:14px;}
+                @media(min-width:1101px) {.meeting-body.with-backgrounds {width:calc(100% - 340px);margin-left:0;padding-left:24px;padding-right:24px;}.meeting-body.with-backgrounds .meeting-setup {gap:16px;}.meeting-body.with-backgrounds .meeting-camera-toolbar{gap:10px;padding-left:12px;padding-right:12px;}.meeting-body.with-backgrounds .meeting-audio-choice,.meeting-body.with-backgrounds .meeting-audio-devices{padding-left:16px;padding-right:16px;}.meeting-body.with-backgrounds .meeting-device-row{gap:8px;}.meeting-body.with-backgrounds .meeting-device-row select{font-size:14px;}}
+                @media(max-width:1100px) {.meeting-background-panel{width:min(340px,92vw);box-shadow:-12px 0 30px #0006;}}
                 @media(min-width:851px) {
                     .meeting-body {height:100%;display:flex;flex-direction:column;gap:clamp(10px,1.8dvh,20px);padding:0 clamp(24px,4vw,64px) 16px;}
                     .meeting-account {flex-shrink:0;padding:clamp(12px,1.8dvh,20px) 24px;}
@@ -366,11 +464,28 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     // down and started again.
                     const devices = pp.ref(null);
                     const speakerTest = pp.ref(null);
+                    const backgroundUploads = pp.ref([]);
+                    const cameraLifetime = pp.ref(0);
+                    const disposed = pp.ref(false);
                     // Filled in when the SDK loads, so the stop handler can
                     // read the enum without importing the module again.
                     const statusCodes = pp.ref(null);
 
                     const [microphone, setMicrophone] = pp.state(true);
+                    const [backgroundsOpen, setBackgroundsOpen] = pp.state(false);
+                    const [backgroundId, setBackgroundId] = pp.state("none");
+                    const [applyingBackground, setApplyingBackground] = pp.state(false);
+                    const [backgroundError, setBackgroundError] = pp.state("");
+                    const [backgrounds, setBackgrounds] = pp.state([
+                        { id: "studio", name: "Light studio", url: "/images/backgrounds/studio.svg" },
+                        { id: "loft", name: "Modern loft", url: "/images/backgrounds/loft.svg" },
+                        { id: "library", name: "Reading room", url: "/images/backgrounds/library.svg" },
+                        { id: "lavender", name: "Lavender room", url: "/images/backgrounds/lavender.svg" },
+                        { id: "coast", name: "Coastal calm", url: "/images/backgrounds/coast.svg" },
+                        { id: "mountains", name: "Mountains", url: "/images/backgrounds/mountains.svg" },
+                        { id: "garden", name: "Green hills", url: "/images/backgrounds/garden.svg" },
+                        { id: "sunset", name: "Sunset", url: "/images/backgrounds/sunset.svg" },
+                    ]);
                     const [editingName, setEditingName] = pp.state(false);
                     const [audioMode, setAudioMode] = pp.state("computer");
                     const [microphoneDevice, setMicrophoneDevice] = pp.state("");
@@ -423,6 +538,117 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             setAudioOutputs(available.filter(device => device.kind === "audiooutput" && device.deviceId));
                         } catch (failure) {
                             setError("Audio devices could not be listed. Check your browser permissions.");
+                        }
+                    }
+
+                    function backgroundEffect(id) {
+                        if (id === "none" || id === "blur") return { id };
+                        const found = backgrounds.find(item => item.id === id);
+                        if (!found) throw new Error("Choose a background from the list.");
+                        return found;
+                    }
+
+                    function handleBackgroundKey(event) {
+                        if (event.key === "Escape") setBackgroundsOpen(false);
+                    }
+
+                    async function selectBackground(id, custom) {
+                        if (applyingBackground || joining) return;
+                        setBackgroundError("");
+                        const effect = custom || backgroundEffect(id);
+                        const previous = backgroundEffect(backgroundId);
+                        if (!camera) {
+                            setBackgroundId(id);
+                            return;
+                        }
+                        setApplyingBackground(true);
+                        try {
+                            await closeCamera();
+                            await openCamera(effect);
+                            if (disposed.current) return;
+                            if (call.current) call.current.av.startLocalVideoTile();
+                            else startPreview();
+                            setBackgroundId(id);
+                        } catch (failure) {
+                            setBackgroundError(failure.message || "This background could not be applied.");
+                            try {
+                                if (!disposed.current) {
+                                    await closeCamera();
+                                    await openCamera(previous);
+                                    if (call.current) call.current.av.startLocalVideoTile();
+                                    else startPreview();
+                                }
+                            } catch (recoveryFailure) {
+                                setCamera(false);
+                            }
+                        } finally {
+                            setApplyingBackground(false);
+                        }
+                    }
+
+                    async function uploadBackground(event) {
+                        const input = event.currentTarget;
+                        const file = input.files && input.files[0];
+                        input.value = "";
+                        if (!file) return;
+                        setBackgroundError("");
+                        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 8 * 1024 * 1024) {
+                            setBackgroundError("Choose a JPG, PNG, or WebP image smaller than 8 MB.");
+                            return;
+                        }
+                        let bitmap;
+                        try {
+                            bitmap = await createImageBitmap(file);
+                            if (bitmap.width > 8192 || bitmap.height > 8192) throw new Error("Choose an image smaller than 8192 pixels on each side.");
+                            if (disposed.current) return;
+                            const url = URL.createObjectURL(file);
+                            backgroundUploads.current.push(url);
+                            const custom = { id: "custom-" + backgroundUploads.current.length, name: file.name, url };
+                            setBackgrounds(items => [...items, custom]);
+                            await selectBackground(custom.id, custom);
+                        } catch (failure) {
+                            setBackgroundError(failure.message || "This image could not be read.");
+                        } finally {
+                            if (bitmap) bitmap.close();
+                        }
+                    }
+
+                    function backgroundSpec() {
+                        const base = location.origin + "/js/vendor/background/";
+                        return {
+                            paths: { worker: base + "worker.js", wasm: base + "_cwt-wasm.wasm", simd: base + "_cwt-wasm-simd.wasm" },
+                            model: {
+                                path: base + "selfie_segmentation_landscape.tflite",
+                                input: { width: 256, height: 144, channels: 3, range: [0, 1] },
+                                output: { width: 256, height: 144, channels: 1, range: [0, 1] },
+                            },
+                        };
+                    }
+
+                    async function filteredCamera(kit, cameraId, effect) {
+                        if (effect.id === "none") return cameraId;
+                        const processorType = effect.id === "blur" ? kit.sdk.BackgroundBlurVideoFrameProcessor : kit.sdk.BackgroundReplacementVideoFrameProcessor;
+                        const options = { logger: kit.logger, filterCPUUtilization: 50 };
+                        if (!await processorType.isSupported(backgroundSpec(), options)) {
+                            throw new Error("Background effects are not supported by this browser. Choose None to use your camera.");
+                        }
+                        if (effect.id !== "blur") {
+                            const response = await fetch(effect.url);
+                            if (!response.ok) throw new Error("The background image could not be loaded.");
+                            options.imageBlob = await response.blob();
+                        }
+                        const processor = await processorType.create(backgroundSpec(), options);
+                        if (disposed.current) {
+                            await processor.destroy();
+                            throw new Error("Meeting setup was closed.");
+                        }
+                        try {
+                            const transform = new kit.sdk.DefaultVideoTransformDevice(kit.logger, cameraId, [processor]);
+                            kit.transform = transform;
+                            return transform;
+                        } catch (failure) {
+                            await processor.destroy();
+                            throw failure;
                         }
                     }
 
@@ -578,14 +804,35 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     }
 
                     // Open the camera. Safe to call when it is already open.
-                    async function openCamera() {
+                    async function openCamera(effect = backgroundEffect(backgroundId)) {
+                        const lifetime = cameraLifetime.current;
                         const kit = await ensureDevices();
+                        if (disposed.current) return kit;
                         if (kit.videoInput) return kit;
 
                         const cameras = await kit.controller.listVideoInputDevices();
                         if (cameras.length === 0) throw new Error("No camera was found.");
 
-                        const stream = await kit.controller.startVideoInput(cameras[0].deviceId);
+                        const input = await filteredCamera(kit, cameras[0].deviceId, effect);
+                        if (disposed.current || lifetime !== cameraLifetime.current) {
+                            if (kit.transform) await kit.transform.stop();
+                            kit.transform = null;
+                            return kit;
+                        }
+                        let stream;
+                        try {
+                            stream = await kit.controller.startVideoInput(input);
+                        } catch (failure) {
+                            if (kit.transform) await kit.transform.stop();
+                            kit.transform = null;
+                            throw failure;
+                        }
+                        if (disposed.current || lifetime !== cameraLifetime.current) {
+                            await kit.controller.stopVideoInput();
+                            if (kit.transform) await kit.transform.stop();
+                            kit.transform = null;
+                            return kit;
+                        }
 
                         // A camera that enumerates and then hands back no live track is one
                         // the browser refused or another application is holding. Chime
@@ -608,12 +855,18 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     }
 
                     async function closeCamera() {
+                        cameraLifetime.current += 1;
                         const kit = devices.current;
                         stopPreview();
                         setCameraLive(false);
-                        if (!kit || !kit.videoInput) return;
-                        await kit.controller.stopVideoInput();
-                        kit.videoInput = false;
+                        if (!kit) return;
+                        try {
+                            if (kit.videoInput) await kit.controller.stopVideoInput();
+                        } finally {
+                            kit.videoInput = false;
+                            if (kit.transform) await kit.transform.stop();
+                            kit.transform = null;
+                        }
                     }
 
                     // The picture before the meeting: Teams shows you yourself
@@ -687,7 +940,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     // is a credential for this browser and this attendee —
                     // it stays in this state and goes nowhere else.
                     async function joinNow() {
-                        if (joining) return;
+                        if (joining || applyingBackground) return;
                         setJoining(true);
                         setError("");
                         try {
@@ -718,6 +971,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     }
 
                     async function toggleCamera() {
+                        if (applyingBackground || joining) return;
+                        setApplyingBackground(true);
                         const next = !camera;
                         setCamera(next);
                         setError("");
@@ -741,9 +996,12 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             // A refused permission or a camera another application
                             // already holds. Put the button back rather than leaving
                             // it on over a picture that is never going to arrive.
+                            await closeCamera();
                             setCamera(false);
                             setCameraLive(false);
                             setError(failure.message || "The camera could not be started.");
+                        } finally {
+                            setApplyingBackground(false);
                         }
                     }
 
@@ -757,8 +1015,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     // recording.
                     pp.effect(() => {
                         return () => {
+                            disposed.current = true;
                             teardown();
                             if (speakerTest.current) speakerTest.current.close();
+                            backgroundUploads.current.forEach(url => URL.revokeObjectURL(url));
                         };
                     }, []);
                 "##</script>
