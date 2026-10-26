@@ -168,8 +168,54 @@ async fn the_join_page_says_when_no_provider_is_configured() {
     let (status, body) = get(&format!("/meet/j/{id}")).await;
 
     assert_eq!(status, StatusCode::OK);
-    assert!(body.contains("No meeting provider is configured"), "{body}");
-    assert!(body.contains("CHIME_MEDIA_REGION"), "{body}");
+    assert!(
+        body.contains("This meeting is unavailable right now"),
+        "{body}"
+    );
+}
+
+/// The meeting opens on its own screen, and its setup controls work before
+/// asking for camera or microphone access.
+#[tokio::test]
+async fn pre_join_is_standalone_and_audio_choices_update() {
+    let id = mint("Standalone pre-join").await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        eprintln!("Skipping pre-join browser test: Chrome or Edge is not installed.");
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/meet/j/{id}"))
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.meeting-camera-off')?.textContent.includes('Your camera is turned off')").await.unwrap();
+    let dashboard_present: bool = browser.eval("document.querySelector('nav') !== null || document.querySelector('[aria-label=\"Search\"]') !== null").await.unwrap();
+    assert!(
+        !dashboard_present,
+        "pre-join must not render the dashboard shell"
+    );
+    browser.wait_for("!document.querySelector('.meeting-titlebar') && document.querySelector('.meeting-join').scrollHeight <= document.querySelector('.meeting-join').clientHeight + 1 && document.querySelector('.meeting-footer').getBoundingClientRect().bottom <= innerHeight").await.unwrap();
+    browser.click("input[value='none']").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.meeting-audio-devices').hidden")
+        .await
+        .unwrap();
+    browser.click("input[value='computer']").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.meeting-audio-devices').hidden")
+        .await
+        .unwrap();
+    browser.click(".meeting-account button").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.meeting-name-editor').hidden")
+        .await
+        .unwrap();
+    browser.click(".meeting-account button").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.meeting-name-editor').hidden")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
 
 /// The join RPC is a second front door onto a meeting, so it checks the code

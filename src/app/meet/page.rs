@@ -148,6 +148,8 @@ pub async fn page() -> Result {
                                 <div class="mt-4 flex items-center gap-3">
                                     <a
                                         href={link.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         class="flex h-9 flex-1 items-center justify-center rounded bg-hover text-[13px] font-semibold text-ink transition-colors hover:bg-edge"
                                     >
                                         "Join"
@@ -333,7 +335,7 @@ pub async fn page() -> Result {
                         event.preventDefault();
                         const id = meetingId.trim();
                         if (!id) return;
-                        pp.redirect("/meet/j/" + encodeURIComponent(id));
+                        window.open("/meet/j/" + encodeURIComponent(id), "_blank", "noopener,noreferrer");
                     }
                 "##</script>
             </main>
