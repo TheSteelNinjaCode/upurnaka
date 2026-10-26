@@ -12,11 +12,10 @@ use crate::components::icon::Icon;
 use crate::rahti::{Html, Result, Validator, component, html, rpc};
 
 /// Every destination on the rail, in the order the client shows them.
-const RAIL: [(&str, &str, &str); 7] = [
+const RAIL: [(&str, &str, &str); 6] = [
     ("chat", "Chat", "/chat"),
     ("meet", "Meet", "/meet"),
     ("people", "People", "/people"),
-    ("copilot", "Copilot", "/copilot"),
     ("communities", "Communities", "/communities"),
     ("calendar", "Calendar", "/calendar"),
     ("activity", "Activity", "/activity"),
@@ -29,7 +28,6 @@ fn rail_icon(key: &str) -> &'static str {
         "people" => "contacts",
         "activity" => "bell",
         "communities" => "communities",
-        "copilot" => "copilot",
         "calendar" => "calendar",
         _ => "chat",
     }

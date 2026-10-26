@@ -26,8 +26,6 @@ mod p_calendar;
 mod p_chat;
 #[path = "app/communities/page.rs"]
 mod p_communities;
-#[path = "app/copilot/page.rs"]
-mod p_copilot;
 #[path = "app/meet/page.rs"]
 mod p_meet;
 #[path = "app/meet/j/[id]/page.rs"]
@@ -148,7 +146,6 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
         ::rahti::StaticRoute::fixed("/calendar"),
         ::rahti::StaticRoute::fixed("/chat"),
         ::rahti::StaticRoute::fixed("/communities"),
-        ::rahti::StaticRoute::fixed("/copilot"),
         ::rahti::StaticRoute::undeclared(&["/meet/j/{id}"]),
         ::rahti::StaticRoute::fixed("/meet"),
         ::rahti::StaticRoute::fixed("/"),
@@ -163,7 +160,6 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, delete_meeting_link)
 /// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: invite_to_teams)
-/// - `/copilot` [GET, POST] — src/app/copilot/page.rs (layouts: src/app/layout.rs)
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
@@ -198,12 +194,6 @@ pub fn router() -> Router {
             "/people",
             axum::routing::get(p_people::page).layer(axum::middleware::map_response(|res| {
                 ::rahti::apply_metadata(p_people::metadata(), res)
-            })),
-        )
-        .route(
-            "/copilot",
-            axum::routing::get(p_copilot::page).layer(axum::middleware::map_response(|res| {
-                ::rahti::apply_metadata(p_copilot::metadata(), res)
             })),
         )
         .route(
@@ -273,7 +263,6 @@ pub fn router() -> Router {
         .route("/calendar", axum::routing::post(rpc_p_calendar))
         .route("/chat", axum::routing::post(rpc_p_chat))
         .route("/communities", axum::routing::post(rpc_p_communities))
-        .route("/copilot", axum::routing::post(rpc_components))
         .route("/meet/j/{id}", axum::routing::post(rpc_p_meet_j_id))
         .route("/meet", axum::routing::post(rpc_p_meet))
         .route("/", axum::routing::post(rpc_components))

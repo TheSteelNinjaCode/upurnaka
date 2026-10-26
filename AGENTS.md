@@ -11,6 +11,16 @@ This file is the scaffold's until you edit it: `cargo rahti upgrade`
 refreshes an unedited copy as the framework evolves, and leaves an
 edited one alone.
 
+## RPC work for agents
+
+Run `cargo check` after changing RPC declarations. Read `rpcContracts`
+in `.rahti/manifest.json`, or optional MCP `list_rpcs`, before writing
+the caller. Match scope, file and URLs; inspect parameters, response
+types and checking limits. `schemaStatus: "unresolved"` requires
+reading the Rust/Serde type. Use `pp.rpc` beside its `#[rpc]`; run
+compiler and router/browser checks. Dynamic values and response-field
+accesses are not proved by compilation. See `docs/conventions/rpc-and-uploads.md`.
+
 ## Required Reading
 
 | Work area | Document |
@@ -42,7 +52,7 @@ edited one alone.
 | Error privacy, page boundaries, Problem Details, RPC failures | `docs/conventions/error-handling.md` |
 | SeaORM entities, migrations, the connection, database tests | `docs/conventions/database.md` |
 | Escaping, CSRF, redirects, upload trust | `docs/conventions/security.md` |
-| `rahti.config.json`, CSS, static files, the CLI | `docs/conventions/configuration-and-tooling.md` |
+| `rahti.config.json`, CSS engines, frontend `twMerge`, static files, the CLI | `docs/conventions/configuration-and-tooling.md` |
 | Where tests live, driving the router, RPC/auth/database tests | `docs/conventions/testing.md` |
 | Optional Windows/Android packaging, packaged paths, the loopback server | `docs/conventions/native-packaging.md` |
 
@@ -76,11 +86,11 @@ edited one alone.
 5. Runtime values are
     escaped, braces included (`&#123;`), so no value can open a PulsePoint
     expression; use `Html::from_raw` only for explicitly trusted markup,
-    whose braces stay live. A component forwards its tag's `{…}` props
-    through a `bindings: Bindings` parameter. Client code a component
-    composes in Rust is written with `Attrs::bind`, never `Attrs::set`,
-    whose values are data; `Attrs::merge` and `Attrs::only` compose sets
-    and keep bindings live.
+    whose braces are not escaped. Client code is written in `html!` and
+    nowhere else — it is compiled there into the client registry, and the
+    runtime runs nothing else. A component forwards its tag's `{…}` props
+    through a `bindings: Bindings` parameter; an `Attrs` value is always
+    data, and `Attrs::merge` and `Attrs::only` compose sets.
 6. Components are PascalCase functions marked `#[component]`, return
     `Html`, and take props as normal Rust arguments. In markup they are
     called as tags — `<Card title="…">…</Card>` — and children are an
@@ -123,9 +133,12 @@ edited one alone.
     inside production observability.
     Existing response headers win. Customize the baseline only through
     `rahti::security::configure` during startup. `script-src` is
-    `'self' 'unsafe-eval'`: keep `'unsafe-eval'`, name a vendor SDK's exact
-    host, and never add `https:` or `'unsafe-inline'`. Never enable HSTS
-    `includeSubDomains` unless every subdomain is HTTPS.
+    `'self'`, with `require-trusted-types-for 'script'; trusted-types
+    pulsepoint`: PulsePoint runs only the client registry `html!`
+    compiled. Name a vendor SDK's exact host, add `'wasm-unsafe-eval'`
+    only for WebAssembly, and never add `https:`, `'unsafe-inline'` or
+    `'unsafe-eval'`. Never enable HSTS `includeSubDomains` unless every
+    subdomain is HTTPS.
 15. The generated router applies the process-local `rahti::rate_limit`
     outside application/auth/CSRF work and inside security headers. The
     default is 200 dynamic requests per client IP per minute; real public
@@ -199,8 +212,8 @@ edited one alone.
     binding), naming the form to write. A script reads a server value as
     data: `const id = @{Json(&id)};`.
 24. Do not write PulsePoint's runtime-managed DOM attributes by hand. In
-    particular, do not invent `data-pp-*`, `pp-owner`, or
-    `pp-ref-owner`, and write no root-layout marker — `html!` injects
+    particular, do not invent `data-pp-*`, `pp-owner`, `pp-ref-owner`,
+    `pp-script`, `pp-data`, `pp-on*` or `pp-loop-scope`, and write no root-layout marker — `html!` injects
     them.
 25. `public/js/pp-reactive-v2.min.js` is a shipped framework asset.
     Never hand-edit it; `cargo rahti upgrade` replaces it.
@@ -267,6 +280,17 @@ edited one alone.
     the way in, with `db::migrate()` run against it. An in-memory
     database vanishes between `#[tokio::test]` runtimes, and the
     symptom is tests that pass alone and fail together.
+36. Tailwind class conflicts use the scaffold's browser `twMerge`, not
+    a Rust dependency or `pp.twMerge`. Check `css.engine`, the helper
+    asset, and `public/js/main.js`: Tailwind scaffolds publish it before
+    `pp.mount()`; plain CSS scaffolds do not. Rust helpers join class
+    data; `Attrs::merge` merges attributes, not Tailwind utilities.
+    Static class attributes are not automatically merged. Call `twMerge`
+    explicitly in compiled bindings or scripts when utilities conflict;
+    pass server strings through script `@{...}`, never formatted code.
+    Do not add `tw_merge`, npm tooling, or another merger for this
+    behavior. `twMerge` does not generate CSS. Read the Tailwind class
+    merging agent contract in `docs/conventions/configuration-and-tooling.md`.
 
 ## Commands
 

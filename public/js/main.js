@@ -1,4 +1,7 @@
 import "/js/pp-reactive-v2.min.js";
+// The application's client code, compiled ahead of time. PulsePoint runs
+// nothing else, so it is registered before the first mount.
+import "/_rahti/client.js";
 import { twMerge } from "/js/tailwind-merge.mjs";
 
 const pp = (globalThis).pp;

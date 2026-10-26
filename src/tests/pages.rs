@@ -1,5 +1,36 @@
 use super::*;
 
+/// Mount the real runtime under the framework's Trusted Types CSP. Server
+/// rendering alone cannot catch a script sink that prevents hydration.
+#[tokio::test]
+async fn chat_mounts_and_updates_under_trusted_types() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        eprintln!("Skipping chat browser test: Chrome or Edge is not installed.");
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+
+    let favorites = "Array.from(document.querySelectorAll('button')).find(button => button.textContent.trim() === 'Favorites')";
+    browser
+        .wait_for(&format!(
+            "{favorites}?.getAttribute('aria-expanded') === 'true'"
+        ))
+        .await
+        .unwrap();
+    let selector = "aside button[aria-expanded='true']";
+    browser.click(selector).await.unwrap();
+    browser
+        .wait_for(&format!("{favorites}?.getAttribute('aria-expanded') === 'false' && {favorites}?.nextElementSibling.hidden"))
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
 /// The root is where the desktop client opens: Chat.
 #[tokio::test]
 async fn the_root_redirects_to_chat() {
@@ -37,7 +68,6 @@ async fn every_rail_destination_answers() {
         ("/chat", "Chat"),
         ("/meet", "Meet"),
         ("/people", "People"),
-        ("/copilot", "Copilot"),
         ("/communities", "Communities"),
         ("/calendar", "Calendar"),
         ("/activity", "Activity"),

@@ -715,7 +715,7 @@ dependencies = [
  "sha1 0.10.7",
  "sync_wrapper",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.29.0",
  "tower",
  "tower-layer",
  "tower-service",
@@ -2867,9 +2867,9 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rahti"
-version = "0.0.57"
+version = "0.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb9d9165ec3f24d2aaeee13f57f29a56fb963ac53c2479aa31d114104b55265e"
+checksum = "b32893023f128d44237544d1ae72336aae7176d1f45c4e962ffb0b26cfae7a37"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2890,6 +2890,7 @@ dependencies = [
  "sha2 0.11.1",
  "tokio",
  "tokio-stream",
+ "tokio-tungstenite 0.28.0",
  "tokio-util",
  "tower",
  "unic-langid",
@@ -2897,9 +2898,9 @@ dependencies = [
 
 [[package]]
 name = "rahti-build"
-version = "0.0.57"
+version = "0.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1124d6c85f47f9d561c65cee763114c745bc9c7350a651aa6f89d727c4886420"
+checksum = "2ad1438c9d0e0a3b6d661f4fd9f447d3948698f8d50dd4571b8f547249e8f438"
 dependencies = [
  "fluent-syntax",
  "proc-macro2",
@@ -2911,18 +2912,18 @@ dependencies = [
 
 [[package]]
 name = "rahti-icons"
-version = "0.0.24"
+version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e88d988a12d3843ec8b163aadc3289c2f4491ab9e2f79ed1388d3b34d8248fd"
+checksum = "08a6776c85ea24d04dbd30e1e80570735c5947f6817aa60ec281cbbb3746e9ee"
 dependencies = [
  "rahti",
 ]
 
 [[package]]
 name = "rahti-js"
-version = "0.0.57"
+version = "0.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e41310d6052d3613f5987a688858cb7bcb1df38d19b1a66d213f7810b44a501"
+checksum = "6aa40cd618b24ee9b57465770e7ac4d3dc8e1e779004659c99fcab193e05d464"
 dependencies = [
  "oxc_allocator",
  "oxc_ast",
@@ -2934,9 +2935,9 @@ dependencies = [
 
 [[package]]
 name = "rahti-macros"
-version = "0.0.57"
+version = "0.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3971ffcf5434f3869877abefa151ed4de48025e1cfc8835ea2f9b80590acdf86"
+checksum = "12e5d6bef4326aef17794ab5a7b5113759634b75479eeda2d43b4b475e47a680"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2945,9 +2946,9 @@ dependencies = [
 
 [[package]]
 name = "rahti-mcp"
-version = "0.0.57"
+version = "0.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc64f840477be6918ce30b973d64a2727e9556c4f0dd874b9ca914163da7cde7"
+checksum = "d84cad41f819d4fb1c24e4f69903f716ef87e3e093cfd348fe0021e03e8b4b97"
 dependencies = [
  "axum",
  "rmcp",
@@ -4136,6 +4137,18 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d25a406cddcc431a75d3d9afc6a7c0f7428d4891dd973e4d54c56b46127bf857"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite 0.28.0",
+]
+
+[[package]]
+name = "tokio-tungstenite"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f72a05e828585856dacd553fba484c242c46e391fb0e58917c942ee9202915c"
@@ -4143,7 +4156,7 @@ dependencies = [
  "futures-util",
  "log",
  "tokio",
- "tungstenite",
+ "tungstenite 0.29.0",
 ]
 
 [[package]]
@@ -4299,6 +4312,23 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "tungstenite"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8628dcc84e5a09eb3d8423d6cb682965dea9133204e8fb3efee74c2a0c259442"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.9.5",
+ "sha1 0.10.7",
+ "thiserror",
+ "utf-8",
+]
+
+[[package]]
+name = "tungstenite"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c01152af293afb9c7c2a57e4b559c5620b421f6d133261c60dd2d0cdb38e6b8"
@@ -4446,6 +4476,12 @@ name = "urlencoding"
 version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
+
+[[package]]
+name = "utf-8"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "utf8_iter"

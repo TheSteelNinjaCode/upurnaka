@@ -52,9 +52,6 @@ pub fn Icon(name: &str, class: &str) -> Html {
         "contacts" => html! {
             <Contact class=@{class} stroke_width="1.6" />
         },
-        "copilot" => html! {
-            <Sparkles class=@{class} stroke_width="1.6" />
-        },
         "communities" => html! {
             <Users class=@{class} stroke_width="1.6" />
         },
