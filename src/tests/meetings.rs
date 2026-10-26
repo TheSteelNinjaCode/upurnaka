@@ -163,6 +163,18 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         visible_above_video,
         "the hand icon must be visible above the playing video"
     );
+    // A playing camera must not cover the raised-hand frame at the tile edges.
+    assert!(browser.eval::<bool>(r##"(() => {
+        const tile = document.querySelector('.room-person-video[data-attendee-id=guest]');
+        const frame = getComputedStyle(tile, '::after');
+        const camera = tile.querySelector('video').getBoundingClientRect();
+        const card = tile.getBoundingClientRect();
+        return frame.content === '\"\"' && frame.position === 'absolute' &&
+            Number(frame.zIndex) > 0 && frame.boxShadow.includes('inset') &&
+            frame.pointerEvents === 'none' && frame.borderRadius === getComputedStyle(tile).borderRadius &&
+            getComputedStyle(tile).overflow === 'hidden' &&
+            camera.left >= card.left && camera.right <= card.right + 1;
+    })()"##).await.unwrap(), "the rounded hand frame must paint over the camera without blocking controls");
     let _: bool = browser
         .eval("window.raiseGuestHand(false); true")
         .await
@@ -332,6 +344,7 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     browser.wait_for("!document.querySelector('.room-local-video').hidden && document.querySelector('.room-local-video').srcObject !== null").await.unwrap();
+    assert!(browser.eval::<bool>("getComputedStyle(document.querySelector('.room-self-tile'), '::after').boxShadow.includes('inset') && getComputedStyle(document.querySelector('.room-self-tile'), '::after').zIndex === '2'").await.unwrap(), "your camera must also retain its raised-hand outline");
     assert!(browser.eval::<bool>("!document.querySelector('.room-raised-hand').hidden && document.querySelector('.room-raised-hand').parentElement === document.querySelector('.room-local-video').parentElement").await.unwrap(), "your hand badge must stay with your camera tile");
     browser
         .click("button[aria-label='Toggle meeting camera']")
