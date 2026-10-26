@@ -1,0 +1,89 @@
+{
+  "catalog": {
+    "getOne": {
+      "example": "https://rahtiui.tsnc.tech/cli?component=button",
+      "method": "GET",
+      "purpose": "One component, before installing it.",
+      "returns": "{ name, files: [{ name, content }] }",
+      "urlTemplate": "https://rahtiui.tsnc.tech/cli?component=<component-name>"
+    },
+    "listAll": {
+      "method": "GET",
+      "purpose": "Every component that can be installed.",
+      "returns": "string[]",
+      "url": "https://rahtiui.tsnc.tech/cli?component=all"
+    }
+  },
+  "commands": {
+    "addAll": "cargo rahti-ui add --all",
+    "addMany": "cargo rahti-ui add <component-a> <component-b>",
+    "addOne": "cargo rahti-ui add <component>",
+    "list": "cargo rahti-ui list",
+    "remove": "cargo rahti-ui remove <component>",
+    "theme": "cargo rahti-ui theme",
+    "update": "cargo rahti-ui update"
+  },
+  "components": [
+    {
+      "components": [],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/attrs.rs",
+          "sha256": "d613c7574bb1f5b6cae5b9bc6886d8b1a21e7dbfc4667f0ef79d611dcc5662b9"
+        }
+      ],
+      "module": "crate::components::rahti_ui::attrs",
+      "name": "attrs"
+    },
+    {
+      "components": [
+        "Avatar",
+        "AvatarBadge",
+        "AvatarFallback",
+        "AvatarGroup",
+        "AvatarGroupCount",
+        "AvatarImage"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/avatar.rs",
+          "sha256": "8c2784178dea06eb7483a8557365d12da3e4b63bd47783e49f2ccfc9956bd359"
+        }
+      ],
+      "module": "crate::components::rahti_ui::avatar",
+      "name": "avatar"
+    },
+    {
+      "components": [],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/utils.rs",
+          "sha256": "768b594e9ea2f062850a892f0a21bf6d06a7b7fec40d2d11d91ca31fca682de2"
+        }
+      ],
+      "module": "crate::components::rahti_ui::utils",
+      "name": "utils"
+    }
+  ],
+  "generatedWith": "0.0.3",
+  "project": {
+    "componentsDirectory": "src/components/rahti_ui",
+    "config": "rahti.config.json",
+    "iconInstaller": "cargo-rahti-icons",
+    "iconsDirectory": "src/components/rahti_icons",
+    "modulePath": "crate::components::rahti_ui",
+    "stylesheet": "src/app/globals.css"
+  },
+  "schema": 1,
+  "usage": {
+    "import": "use crate::components::rahti_ui::<module>::<Component>;",
+    "notes": [
+      "Prop values are Rust expressions, so a number is written as a string.",
+      "Every prop is optional: `html!` closes a props literal with ..Default::default().",
+      "An `onclick={…}` crosses the component boundary; a `{…}` attribute binding does not.",
+      "`attrs=@{Attrs::new().set(…)}` is what {...props} spreads in shadcn.",
+      "These files are yours to edit. `update` keeps an edited one unless --force."
+    ],
+    "tag": "<Button variant=\"outline\" size=\"sm\">\"Cancel\"</Button>"
+  }
+}

@@ -16,6 +16,18 @@ async fn the_chat_page_renders_inside_the_shell() {
     assert!(body.contains("<!DOCTYPE html>"), "{body}");
     assert!(body.contains("This is your space"), "{body}");
     assert!(body.contains("Type a message"), "{body}");
+    assert!(
+        body.contains("lucide-message-circle"),
+        "shell icons use rahti-icons"
+    );
+    assert!(
+        body.contains("data-slot=\"avatar\""),
+        "avatars use Rahti UI"
+    );
+    assert!(
+        body.contains("data-slot=\"avatar-fallback\""),
+        "initials remain available"
+    );
 }
 
 /// Every rail destination answers, and names itself in its title.

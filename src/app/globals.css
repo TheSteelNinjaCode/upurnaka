@@ -1,9 +1,30 @@
 @import "tailwindcss" source(none);
+@import "./_vendor/tw-animate-css.css";
 @source "../";
+
+@custom-variant dark (&:is(.dark *));
 
 /* The Teams-style dark palette. Every surface in the shell names one of these
    tokens rather than a hex value, so a theme change is one block. */
 @theme {
+  /* Rahti UI semantic tokens, mapped to the application palette. */
+  --color-background: #0b0b0d;
+  --color-foreground: #f3f3f5;
+  --color-card: #161619;
+  --color-card-foreground: #f3f3f5;
+  --color-popover: #1d1d22;
+  --color-popover-foreground: #f3f3f5;
+  --color-primary: #5b5fc7;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #1d1d22;
+  --color-secondary-foreground: #f3f3f5;
+  --color-muted-foreground: #b2b2bb;
+  --color-accent: #26262d;
+  --color-accent-foreground: #f3f3f5;
+  --color-destructive: #c4314b;
+  --color-border: #26262c;
+  --color-input: #37373f;
+  --color-ring: #8b8ff0;
   --color-chrome: #0b0b0d;
   --color-pane: #0f0f12;
   --color-surface: #161619;

@@ -1,0 +1,282 @@
+{
+  "catalog": {
+    "getOne": {
+      "example": "https://ppicons.tsnc.tech/icons?icon=search",
+      "method": "GET",
+      "purpose": "One icon, before installing it.",
+      "urlTemplate": "https://ppicons.tsnc.tech/icons?icon=<icon-name>"
+    },
+    "listAll": {
+      "method": "GET",
+      "purpose": "Every icon that can be installed.",
+      "url": "https://ppicons.tsnc.tech/icons?icon=all"
+    }
+  },
+  "commands": {
+    "addAll": "cargo rahti-icons add --all",
+    "addMany": "cargo rahti-icons add <icon-a> <icon-b>",
+    "addOne": "cargo rahti-icons add <icon>",
+    "list": "cargo rahti-icons list",
+    "remove": "cargo rahti-icons remove <icon>",
+    "update": "cargo rahti-icons update"
+  },
+  "generatedWith": "0.0.27",
+  "icons": [
+    {
+      "component": "Bell",
+      "file": "src/components/rahti_icons/bell.rs",
+      "module": "crate::components::rahti_icons::bell",
+      "name": "bell"
+    },
+    {
+      "component": "Calendar",
+      "file": "src/components/rahti_icons/calendar.rs",
+      "module": "crate::components::rahti_icons::calendar",
+      "name": "calendar"
+    },
+    {
+      "component": "CalendarDays",
+      "file": "src/components/rahti_icons/calendar_days.rs",
+      "module": "crate::components::rahti_icons::calendar_days",
+      "name": "calendar-days"
+    },
+    {
+      "component": "Check",
+      "file": "src/components/rahti_icons/check.rs",
+      "module": "crate::components::rahti_icons::check",
+      "name": "check"
+    },
+    {
+      "component": "ChevronDown",
+      "file": "src/components/rahti_icons/chevron_down.rs",
+      "module": "crate::components::rahti_icons::chevron_down",
+      "name": "chevron-down"
+    },
+    {
+      "component": "ChevronLeft",
+      "file": "src/components/rahti_icons/chevron_left.rs",
+      "module": "crate::components::rahti_icons::chevron_left",
+      "name": "chevron-left"
+    },
+    {
+      "component": "ChevronRight",
+      "file": "src/components/rahti_icons/chevron_right.rs",
+      "module": "crate::components::rahti_icons::chevron_right",
+      "name": "chevron-right"
+    },
+    {
+      "component": "ChevronUp",
+      "file": "src/components/rahti_icons/chevron_up.rs",
+      "module": "crate::components::rahti_icons::chevron_up",
+      "name": "chevron-up"
+    },
+    {
+      "component": "CircleCheck",
+      "file": "src/components/rahti_icons/circle_check.rs",
+      "module": "crate::components::rahti_icons::circle_check",
+      "name": "circle-check"
+    },
+    {
+      "component": "Contact",
+      "file": "src/components/rahti_icons/contact.rs",
+      "module": "crate::components::rahti_icons::contact",
+      "name": "contact"
+    },
+    {
+      "component": "Copy",
+      "file": "src/components/rahti_icons/copy.rs",
+      "module": "crate::components::rahti_icons::copy",
+      "name": "copy"
+    },
+    {
+      "component": "Ellipsis",
+      "file": "src/components/rahti_icons/ellipsis.rs",
+      "module": "crate::components::rahti_icons::ellipsis",
+      "name": "ellipsis"
+    },
+    {
+      "component": "FaceSlightlySmiling",
+      "file": "src/components/rahti_icons/face_slightly_smiling.rs",
+      "module": "crate::components::rahti_icons::face_slightly_smiling",
+      "name": "face-slightly-smiling"
+    },
+    {
+      "component": "Gem",
+      "file": "src/components/rahti_icons/gem.rs",
+      "module": "crate::components::rahti_icons::gem",
+      "name": "gem"
+    },
+    {
+      "component": "Hash",
+      "file": "src/components/rahti_icons/hash.rs",
+      "module": "crate::components::rahti_icons::hash",
+      "name": "hash"
+    },
+    {
+      "component": "Image",
+      "file": "src/components/rahti_icons/image.rs",
+      "module": "crate::components::rahti_icons::image",
+      "name": "image"
+    },
+    {
+      "component": "Link",
+      "file": "src/components/rahti_icons/link.rs",
+      "module": "crate::components::rahti_icons::link",
+      "name": "link"
+    },
+    {
+      "component": "ListFilter",
+      "file": "src/components/rahti_icons/list_filter.rs",
+      "module": "crate::components::rahti_icons::list_filter",
+      "name": "list-filter"
+    },
+    {
+      "component": "MessageCircle",
+      "file": "src/components/rahti_icons/message_circle.rs",
+      "module": "crate::components::rahti_icons::message_circle",
+      "name": "message-circle"
+    },
+    {
+      "component": "Mic",
+      "file": "src/components/rahti_icons/mic.rs",
+      "module": "crate::components::rahti_icons::mic",
+      "name": "mic"
+    },
+    {
+      "component": "MicOff",
+      "file": "src/components/rahti_icons/mic_off.rs",
+      "module": "crate::components::rahti_icons::mic_off",
+      "name": "mic-off"
+    },
+    {
+      "component": "Minus",
+      "file": "src/components/rahti_icons/minus.rs",
+      "module": "crate::components::rahti_icons::minus",
+      "name": "minus"
+    },
+    {
+      "component": "PanelsLeftBottom",
+      "file": "src/components/rahti_icons/panels_left_bottom.rs",
+      "module": "crate::components::rahti_icons::panels_left_bottom",
+      "name": "panels-left-bottom"
+    },
+    {
+      "component": "Paperclip",
+      "file": "src/components/rahti_icons/paperclip.rs",
+      "module": "crate::components::rahti_icons::paperclip",
+      "name": "paperclip"
+    },
+    {
+      "component": "Plus",
+      "file": "src/components/rahti_icons/plus.rs",
+      "module": "crate::components::rahti_icons::plus",
+      "name": "plus"
+    },
+    {
+      "component": "Search",
+      "file": "src/components/rahti_icons/search.rs",
+      "module": "crate::components::rahti_icons::search",
+      "name": "search"
+    },
+    {
+      "component": "Send",
+      "file": "src/components/rahti_icons/send.rs",
+      "module": "crate::components::rahti_icons::send",
+      "name": "send"
+    },
+    {
+      "component": "Settings",
+      "file": "src/components/rahti_icons/settings.rs",
+      "module": "crate::components::rahti_icons::settings",
+      "name": "settings"
+    },
+    {
+      "component": "Sparkles",
+      "file": "src/components/rahti_icons/sparkles.rs",
+      "module": "crate::components::rahti_icons::sparkles",
+      "name": "sparkles"
+    },
+    {
+      "component": "Square",
+      "file": "src/components/rahti_icons/square.rs",
+      "module": "crate::components::rahti_icons::square",
+      "name": "square"
+    },
+    {
+      "component": "SquarePen",
+      "file": "src/components/rahti_icons/square_pen.rs",
+      "module": "crate::components::rahti_icons::square_pen",
+      "name": "square-pen"
+    },
+    {
+      "component": "Trash2",
+      "file": "src/components/rahti_icons/trash_2.rs",
+      "module": "crate::components::rahti_icons::trash_2",
+      "name": "trash-2"
+    },
+    {
+      "component": "Type",
+      "file": "src/components/rahti_icons/type_icon.rs",
+      "module": "crate::components::rahti_icons::type_icon",
+      "name": "type"
+    },
+    {
+      "component": "UserPlus",
+      "file": "src/components/rahti_icons/user_plus.rs",
+      "module": "crate::components::rahti_icons::user_plus",
+      "name": "user-plus"
+    },
+    {
+      "component": "Users",
+      "file": "src/components/rahti_icons/users.rs",
+      "module": "crate::components::rahti_icons::users",
+      "name": "users"
+    },
+    {
+      "component": "Video",
+      "file": "src/components/rahti_icons/video.rs",
+      "module": "crate::components::rahti_icons::video",
+      "name": "video"
+    },
+    {
+      "component": "VideoOff",
+      "file": "src/components/rahti_icons/video_off.rs",
+      "module": "crate::components::rahti_icons::video_off",
+      "name": "video-off"
+    },
+    {
+      "component": "X",
+      "file": "src/components/rahti_icons/x.rs",
+      "module": "crate::components::rahti_icons::x",
+      "name": "x"
+    }
+  ],
+  "project": {
+    "config": "rahti.config.json",
+    "iconsDirectory": "src/components/rahti_icons",
+    "modulePath": "crate::components::rahti_icons",
+    "runtimeCrate": "rahti-icons"
+  },
+  "schema": 1,
+  "usage": {
+    "bindings": "Client `{…}` expressions written on the tag land on the <svg>.",
+    "import": "use crate::components::rahti_icons::<module>::<Component>;",
+    "notes": [
+      "Prop values are Rust expressions: size=\"20\", not size=20.",
+      "class is added to the icon's own classes; attrs.set(\"class\", …) replaces them.",
+      "An icon with no label renders aria-hidden=\"true\"."
+    ],
+    "props": [
+      "class",
+      "size",
+      "width",
+      "height",
+      "stroke_width",
+      "color",
+      "fill",
+      "label",
+      "attrs"
+    ],
+    "tag": "<Component class=\"size-4\" />"
+  }
+}

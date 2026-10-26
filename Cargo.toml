@@ -26,7 +26,7 @@ exclude = ["native"]
 
 [dependencies]
 axum = "0.8.9"
-rahti = { version = "0.0.56", features = ["mcp", "ws"] }
+rahti = { version = "0.0.57", features = ["mcp", "ws"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.7", features = ["catch-panic", "fs"] }
@@ -61,6 +61,7 @@ aws-sdk-chimesdkmeetings = { version = "1.119.0", default-features = false, feat
 aws-smithy-http-client = { version = "1.5.1", default-features = false, features = [
     "rustls-ring",
 ] }
+rahti-icons = "=0.0.24"
 
 # What `src/tests/support.rs` needs to drive the generated router in-process:
 # a request in, a response out, no port bound. See docs/conventions/testing.md.
@@ -75,4 +76,4 @@ tower = { version = "0.5", features = ["util"] }
 sea-orm = { version = "2", default-features = false, features = ["sqlx-sqlite"] }
 
 [build-dependencies]
-rahti-build = "0.0.56"
+rahti-build = "0.0.57"

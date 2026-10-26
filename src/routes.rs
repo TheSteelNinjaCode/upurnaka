@@ -295,6 +295,7 @@ pub fn router() -> Router {
         // Optional authenticated Streamable HTTP MCP endpoint.
         .merge(::rahti::mcp::http_routes())
         .merge(::rahti::observability::routes(observability.clone()))
+        .merge(::rahti::client::routes())
         .merge(::rahti::dev_routes(::rahti::public_dir(PUBLIC_DIR)))
         .fallback_service(tower_http::services::ServeDir::new(::rahti::public_dir(
             PUBLIC_DIR,

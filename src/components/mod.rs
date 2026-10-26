@@ -9,3 +9,5 @@
 pub mod app_shell;
 pub mod avatar;
 pub mod icon;
+pub mod rahti_icons;
+pub mod rahti_ui;
