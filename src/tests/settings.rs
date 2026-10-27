@@ -69,7 +69,25 @@ async fn settings_preferences_persist_apply_and_reset_in_the_browser() {
         .await
         .unwrap();
     browser
-        .click("input[name='storage'][value='dilnaka']")
+        .wait_for("document.querySelector('input[name=storage][value=dilnaka]').checked")
+        .await
+        .unwrap();
+    browser
+        .click(".storage-choice:first-child strong")
+        .await
+        .unwrap();
+    browser.wait_for("JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')).storage === 'computer'").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    browser.click(".settings-nav:last-child").await.unwrap();
+    browser
+        .wait_for("document.querySelector('input[name=storage][value=computer]').checked")
+        .await
+        .unwrap();
+    browser
+        .click(".storage-choice:last-child strong")
         .await
         .unwrap();
     browser.wait_for("JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')).storage === 'dilnaka'").await.unwrap();
@@ -127,6 +145,11 @@ async fn settings_preferences_persist_apply_and_reset_in_the_browser() {
     browser.click(".settings-intro button").await.unwrap();
     browser.click(".settings-primary").await.unwrap();
     browser.wait_for("document.documentElement.dataset.appearance === 'dark' && localStorage.getItem('upurnaka.settings.v1.legacy-test-user') === null").await.unwrap();
+    browser.click(".settings-nav:last-child").await.unwrap();
+    browser
+        .wait_for("document.querySelector('input[name=storage][value=dilnaka]').checked")
+        .await
+        .unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
 
@@ -138,7 +161,8 @@ async fn settings_recovers_invalid_values_and_reports_failed_saves() {
         return;
     };
     authenticate_browser(&mut browser, address).await;
-    let _: bool = browser.eval("localStorage.setItem('upurnaka.settings.v1.legacy-test-user', JSON.stringify({theme:'invalid', textSize:'huge', storage:'unknown', spellcheck:'false'})); true").await.unwrap();
+    // Older settings saved Computer implicitly alongside unrelated changes.
+    let _: bool = browser.eval("localStorage.setItem('upurnaka.settings.v1.legacy-test-user', JSON.stringify({theme:'invalid', textSize:'huge', storage:'computer', spellcheck:'false'})); true").await.unwrap();
     browser
         .goto(&format!("http://{address}/settings"))
         .await
@@ -146,14 +170,14 @@ async fn settings_recovers_invalid_values_and_reports_failed_saves() {
     browser.wait_for("document.documentElement.dataset.appearance === 'dark' && document.documentElement.dataset.textSize === 'standard'").await.unwrap();
     browser.click(".settings-nav:last-child").await.unwrap();
     browser
-        .wait_for("document.querySelector('input[name=storage][value=computer]').checked")
+        .wait_for("document.querySelector('input[name=storage][value=dilnaka]').checked")
         .await
         .unwrap();
     let _: bool = browser.eval("Storage.prototype.setItem = function() { throw new DOMException('Storage unavailable', 'QuotaExceededError'); }; true").await.unwrap();
     browser
-        .click("input[name='storage'][value='dilnaka']")
+        .click("input[name='storage'][value='computer']")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('[role=status]').textContent.includes('Could not save') && document.querySelector('input[name=storage][value=computer]').checked").await.unwrap();
+    browser.wait_for("document.querySelector('[role=status]').textContent.includes('Could not save') && document.querySelector('input[name=storage][value=dilnaka]').checked").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }

@@ -5757,6 +5757,9 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   font-size: 21px;
   line-height: 1;
   text-align: center;
+  color: var(--color-ink);
+}
+.settings-nav[aria-current="page"] .settings-category-icon {
   color: var(--color-brand-ink);
 }
 .settings-note, .settings-detail {

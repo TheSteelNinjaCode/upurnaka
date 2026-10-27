@@ -305,7 +305,8 @@ html[data-reduced-motion="true"] *::after {
 .settings-switch:checked::after { transform: translateX(18px); background: var(--color-surface); }
 .settings-layout input:focus-visible, .settings-layout select:focus-visible, .settings-layout button:focus-visible, .settings-layout a:focus-visible { outline: 2px solid var(--color-brand-ink); outline-offset: 3px; }
 .settings-layout input[type="radio"] { width: 16px; height: 16px; accent-color: var(--color-brand-ink); }
-.settings-category-icon { width: 21px; font-size: 21px; line-height: 1; text-align: center; color: var(--color-brand-ink); }
+.settings-category-icon { width: 21px; font-size: 21px; line-height: 1; text-align: center; color: var(--color-ink); }
+.settings-nav[aria-current="page"] .settings-category-icon { color: var(--color-brand-ink); }
 .settings-note, .settings-detail { margin: 14px 0 0 38px; }
 .settings-choices { display: flex; flex-wrap: wrap; gap: 12px; margin-left: 38px; }
 .settings-choice { display: flex; flex-direction: column; gap: 12px; width: 174px; border: 1px solid var(--color-edge); border-radius: 6px; padding: 12px; cursor: pointer; background: var(--color-surface); }
