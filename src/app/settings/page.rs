@@ -1,5 +1,5 @@
 use crate::{
-    components::{app_shell::AppShell, icon::Icon},
+    components::{app_shell::AppShell, device_settings::DeviceSettings, icon::Icon},
     rahti::{Html, Metadata, html},
 };
 
@@ -53,10 +53,13 @@ pub async fn page() -> Html {
                                         <Icon name="chat" class="size-5" />
                                     </span>
                                     <span hidden={item.key !== "accessibility"}>
-                                        <Icon name="format" class="size-5" />
+                                        <Icon name="accessibility" class="size-5" />
                                     </span>
                                     <span hidden={item.key !== "files"}>
                                         <Icon name="attach" class="size-5" />
+                                    </span>
+                                    <span hidden={item.key !== "devices"}>
+                                        <Icon name="speaker" class="size-5" />
                                     </span>
                                 </span>
                                 {item.label}
@@ -288,6 +291,81 @@ pub async fn page() -> Html {
                                 />
                             </label>
                         </section>
+                        <section
+                            class="settings-card accessibility-setting"
+                            hidden={!show("sign-language")}
+                        >
+                            <Icon name="hand" class="size-5" />
+                            <div class="min-w-0 flex-1">
+                                <h3>"Sign language mode"</h3>
+                                <p>
+                                    "Keep an interpreter's video prominent in your own meeting view."
+                                </p>
+                            </div>
+                            <label class="accessibility-control">
+                                <span aria-hidden="true">
+                                    {prefs.signLanguageMode ? "On" : "Off"}
+                                </span>
+                                <input
+                                    class="settings-switch"
+                                    type="checkbox"
+                                    role="switch"
+                                    aria-label="Sign language mode"
+                                    checked={prefs.signLanguageMode}
+                                    onchange={settings.update("signLanguageMode", target.checked)}
+                                />
+                            </label>
+                        </section>
+                        <section
+                            class="settings-card accessibility-setting"
+                            hidden={!show("muted-notification")}
+                        >
+                            <Icon name="mic-off" class="size-5" />
+                            <div class="min-w-0 flex-1">
+                                <h3>"Muted notification"</h3>
+                                <p>
+                                    "Show the You're muted notification when audio is detected while your microphone is off."
+                                </p>
+                            </div>
+                            <label class="accessibility-control">
+                                <span aria-hidden="true">
+                                    {prefs.mutedNotification ? "On" : "Off"}
+                                </span>
+                                <input
+                                    class="settings-switch"
+                                    type="checkbox"
+                                    role="switch"
+                                    aria-label="Muted notification"
+                                    checked={prefs.mutedNotification}
+                                    onchange={settings.update("mutedNotification", target.checked)}
+                                />
+                            </label>
+                        </section>
+                        <section
+                            class="settings-card accessibility-setting"
+                            hidden={!show("single-pointer")}
+                        >
+                            <Icon name="hand" class="size-5" />
+                            <div class="min-w-0 flex-1">
+                                <h3>"Turn on single pointer controls"</h3>
+                                <p>
+                                    "Show Move up and Move down buttons to reorder chats without dragging."
+                                </p>
+                            </div>
+                            <label class="accessibility-control">
+                                <span aria-hidden="true">
+                                    {prefs.singlePointerControls ? "On" : "Off"}
+                                </span>
+                                <input
+                                    class="settings-switch"
+                                    type="checkbox"
+                                    role="switch"
+                                    aria-label="Turn on single pointer controls"
+                                    checked={prefs.singlePointerControls}
+                                    onchange={settings.update("singlePointerControls", target.checked)}
+                                />
+                            </label>
+                        </section>
                         <section class="settings-card" hidden={!show("motion")}>
                             <div class="settings-card-heading">
                                 <Icon name="video" class="size-5" />
@@ -405,6 +483,9 @@ pub async fn page() -> Html {
                                 @{if cloud_ready { "Meeting recordings can be uploaded to Dilnaka. Storage usage and quota are not available here yet." } else { "Contact your workspace administrator to connect Dilnaka storage. You can still download files to your computer." }}
                             </p>
                         </section>
+                        <section hidden={!show("devices")}>
+                            <DeviceSettings active={show("devices")} />
+                        </section>
                         <div class="settings-card" hidden={!confirmReset}>
                             <h3 class="font-semibold">"Restore default settings?"</h3>
                             <p class="mt-2 text-sm text-muted-foreground">
@@ -434,6 +515,7 @@ pub async fn page() -> Html {
                         {key:'appearance', label:'Appearance'},
                         {key:'chats', label:'Chats'},
                         {key:'accessibility', label:'Accessibility'},
+                        {key:'devices', label:'Devices'},
                         {key:'files', label:'Files and links'}
                     ];
                     const cards = [
@@ -442,10 +524,14 @@ pub async fn page() -> Html {
                         {id:'theme', category:'appearance', text:'theme dark light system appearance'},
                         {id:'text', category:'appearance', text:'text size standard large accessibility'},
                         {id:'composer', category:'chats', text:'message composer enter send spelling spellcheck typing keyboard'},
-                        {id:'motion', category:'accessibility', text:'reduce motion animations transitions'},
+                        {id:'motion', category:'appearance', text:'reduce motion animations transitions'},
+                        {id:'sign-language', category:'accessibility', text:'sign language mode interpreter video accessibility'},
+                        {id:'muted-notification', category:'accessibility', text:'muted notification microphone audio speech accessibility'},
+                        {id:'single-pointer', category:'accessibility', text:'single pointer controls reordering move chats drag drop accessibility'},
                         {id:'storage', category:'files', text:'file storage computer local device cloud dilnaka'},
                         {id:'downloads', category:'files', text:'downloads folder location save browser files'},
-                        {id:'cloud', category:'files', text:'dilnaka cloud storage quota connection'}
+                        {id:'cloud', category:'files', text:'dilnaka cloud storage quota connection'},
+                        {id:'devices', category:'devices', text:'audio video speaker microphone camera noise suppression sensitivity mirror brightness soft focus headset devices'}
                     ];
                     const themes = [{key:'light',label:'Light'}, {key:'dark',label:'Dark'}, {key:'system',label:'Follow system'}];
                     const [active, setActive] = pp.state('general');

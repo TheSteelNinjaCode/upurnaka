@@ -625,6 +625,9 @@
   .my-5 {
     margin-block: calc(var(--spacing) * 5);
   }
+  .my-6 {
+    margin-block: calc(var(--spacing) * 6);
+  }
   .my-8 {
     margin-block: calc(var(--spacing) * 8);
   }
@@ -1327,6 +1330,9 @@
   .max-w-6xl {
     max-width: var(--container-6xl);
   }
+  .max-w-\[80\%\] {
+    max-width: 80%;
+  }
   .max-w-\[90\%\] {
     max-width: 90%;
   }
@@ -1488,10 +1494,6 @@
   .translate-y-\[calc\(-50\%-2px\)\] {
     --tw-translate-y: calc(-50% - 2px);
     translate: var(--tw-translate-x) var(--tw-translate-y);
-  }
-  .-scale-x-100 {
-    --tw-scale-x: calc(100% * -1);
-    scale: var(--tw-scale-x) var(--tw-scale-y);
   }
   .-rotate-90 {
     rotate: calc(90deg * -1);
@@ -2227,6 +2229,12 @@
     background-color: color-mix(in srgb, #1d1d22 70%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-raised) 70%, transparent);
+    }
+  }
+  .bg-raised\/90 {
+    background-color: color-mix(in srgb, #1d1d22 90%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-raised) 90%, transparent);
     }
   }
   .bg-red-50 {
@@ -3981,6 +3989,9 @@
   }
   .disabled\:bg-transparent:disabled {
     background-color: transparent;
+  }
+  .disabled\:opacity-30:disabled {
+    opacity: 30%;
   }
   .disabled\:opacity-40:disabled {
     opacity: 40%;
@@ -5946,6 +5957,71 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
     flex-grow: 1;
   }
 }
+.device-camera-preview {
+  height: 220px;
+  max-width: 480px;
+  margin: 18px 0 12px 38px;
+  overflow: hidden;
+  border: 1px solid var(--color-edge);
+  border-radius: 6px;
+  background: var(--color-sunken);
+}
+.device-level {
+  width: 270px;
+  height: 14px;
+  accent-color: var(--color-brand-ink);
+}
+@media (max-width: 700px) {
+  .device-camera-preview {
+    margin-left: 0;
+    height: 180px;
+  }
+  .device-level {
+    width: 170px;
+  }
+}
+.accessibility-setting {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 78px;
+  padding: 18px 22px;
+}
+.accessibility-setting > svg {
+  flex-shrink: 0;
+}
+.accessibility-setting h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.accessibility-setting p {
+  margin-top: 3px;
+  color: var(--color-muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.accessibility-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-left: 20px;
+  cursor: pointer;
+}
+@media (max-width: 700px) {
+  .accessibility-setting {
+    padding: 16px 12px;
+    gap: 10px;
+  }
+  .accessibility-control {
+    margin-left: 0;
+    gap: 6px;
+  }
+}
+.chat-thread-row > [data-slot="button"] {
+  min-width: 0;
+  flex: 1;
+}
 @property --tw-translate-x {
   syntax: "*";
   inherits: false;
@@ -5960,21 +6036,6 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   syntax: "*";
   inherits: false;
   initial-value: 0;
-}
-@property --tw-scale-x {
-  syntax: "*";
-  inherits: false;
-  initial-value: 1;
-}
-@property --tw-scale-y {
-  syntax: "*";
-  inherits: false;
-  initial-value: 1;
-}
-@property --tw-scale-z {
-  syntax: "*";
-  inherits: false;
-  initial-value: 1;
 }
 @property --tw-rotate-x {
   syntax: "*";
@@ -6260,9 +6321,6 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
       --tw-translate-x: 0;
       --tw-translate-y: 0;
       --tw-translate-z: 0;
-      --tw-scale-x: 1;
-      --tw-scale-y: 1;
-      --tw-scale-z: 1;
       --tw-rotate-x: initial;
       --tw-rotate-y: initial;
       --tw-rotate-z: initial;

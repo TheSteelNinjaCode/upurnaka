@@ -159,7 +159,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         >
                             <video
                                 pp-ref={localVideo}
-                                class="absolute inset-0 h-full w-full -scale-x-100 object-cover"
+                                class="absolute inset-0 h-full w-full object-cover"
+                                pp-style={selfVideoStyle}
                                 onloadedmetadata={setCameraLive(true)}
                                 onemptied={setCameraLive(false)}
                                 muted
@@ -800,7 +801,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         >
                             <video
                                 pp-ref={roomLocalVideo}
-                                class={tileFits[selfAttendeeId] === false ? "room-local-video absolute inset-0 h-full w-full -scale-x-100 object-cover" : "room-local-video absolute inset-0 h-full w-full -scale-x-100 object-contain"}
+                                class={tileFits[selfAttendeeId] === false ? "room-local-video absolute inset-0 h-full w-full object-cover" : "room-local-video absolute inset-0 h-full w-full object-contain"}
+                                pp-style={selfVideoStyle}
                                 hidden={!camera}
                                 muted
                                 autoplay
@@ -877,6 +879,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <Button
                                 variant="ghost"
                                 class=@{MENU_ROW}
+                                hidden={!devicePreferences.signLanguageMode || !tileMenu || tileMenu.id === selfAttendeeId}
+                                attrs=@{Attrs::new().set("data-action", "sign-language")}
+                                onclick={pinTile()}
+                            >
+                                {tileMenu && pinnedId === tileMenu.id ? "Remove from sign language view" : "Keep in sign language view"}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                class=@{MENU_ROW}
                                 attrs=@{Attrs::new().set("data-action", "fit")}
                                 onclick={fitTile()}
                             >
@@ -913,6 +924,35 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 "Close"
                             </Button>
                         </section>
+                        <p
+                            class="room-sign-language-notice absolute left-5 top-3 z-1 max-w-[80%] rounded bg-raised/90 px-3 py-2 text-xs text-ink"
+                            hidden={!devicePreferences.signLanguageMode}
+                        >
+                            "Sign language mode is on. Choose Keep in sign language view from a participant's menu to keep their video prominent."
+                        </p>
+                        <div
+                            class="room-muted-notice absolute bottom-5 left-5 z-2 flex max-w-[90%] items-center gap-3 rounded-md border border-edge bg-raised px-4 py-3 text-sm"
+                            role="status"
+                            hidden={!mutedNotice}
+                        >
+                            <Icon name="mic-off" class="size-5" />
+                            <span>"You're muted. Turn on your microphone to speak."</span>
+                            <button
+                                type="button"
+                                class="rounded border border-edge px-2 py-1 text-xs"
+                                onclick={toggleMicrophone()}
+                            >
+                                "Unmute"
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded p-1"
+                                aria-label="Dismiss muted notification"
+                                onclick={setMutedNotice(false)}
+                            >
+                                <Icon name="close" class="size-4" />
+                            </button>
+                        </div>
                         <div
                             class="room-reaction-toast absolute bottom-16 left-1/2 z-2 -translate-x-1/2 rounded-3xl bg-raised/70 px-6 py-3 text-[28px]"
                             role="status"
@@ -1198,6 +1238,24 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             </div>
             <script>r##"
 
+                    const devicePreferences = pp.memo(() => {
+                        let saved = {};
+                        try { saved = JSON.parse(localStorage.getItem('upurnaka.settings.v1.' + @{user.id.as_str()}) || '{}') || {}; } catch (_) {}
+                        return {
+                            microphoneId:typeof saved.microphoneId === 'string' ? saved.microphoneId : '',
+                            speakerId:typeof saved.speakerId === 'string' ? saved.speakerId : '',
+                            cameraId:typeof saved.cameraId === 'string' ? saved.cameraId : '',
+                            autoGainControl:saved.autoGainControl !== false,
+                            noiseSuppression:saved.noiseSuppression !== false,
+                            mirrorVideo:saved.mirrorVideo !== false,
+                            videoBrightness:saved.videoBrightness === true,
+                            softFocus:saved.softFocus === true,
+                            signLanguageMode:saved.signLanguageMode === true,
+                            mutedNotification:saved.mutedNotification !== false
+                        };
+                    }, []);
+                    const selfVideoStyle = 'transform:scaleX(' + (devicePreferences.mirrorVideo ? '-1' : '1') + ');filter:brightness(' + (devicePreferences.videoBrightness ? '1.2' : '1') + ') blur(' + (devicePreferences.softFocus ? '0.6px' : '0px') + ')';
+
                     // Repeated class lists. The pre-join body carries
                     // `data-backgrounds`, so its children tighten up through
                     // `group-data-[backgrounds=true]/body` when the background
@@ -1244,6 +1302,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const startedAt = pp.ref(0);
                     const shareStream = pp.ref(null);
                     const meetingAudio = pp.ref(null);
+                    const meetingMicrophone = pp.ref(null);
+                    const meetingOutgoingMicrophone = pp.ref(null);
+                    const mutedReminderAt = pp.ref(0);
+                    const [mutedNotice, setMutedNotice] = pp.state(false);
                     const remote0 = pp.ref(null);
                     const remote1 = pp.ref(null);
                     const remote2 = pp.ref(null);
@@ -1285,8 +1347,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     ]);
                     const [editingName, setEditingName] = pp.state(false);
                     const [audioMode, setAudioMode] = pp.state("computer");
-                    const [microphoneDevice, setMicrophoneDevice] = pp.state("");
-                    const [speakerDevice, setSpeakerDevice] = pp.state("");
+                    const [microphoneDevice, setMicrophoneDevice] = pp.state(devicePreferences.microphoneId);
+                    const [speakerDevice, setSpeakerDevice] = pp.state(devicePreferences.speakerId);
                     const [audioInputs, setAudioInputs] = pp.state([]);
                     const [audioOutputs, setAudioOutputs] = pp.state([]);
                     const [camera, setCamera] = pp.state(false);
@@ -1323,7 +1385,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const [isOrganizer, setIsOrganizer] = pp.state(false);
                     const [spotlightId, setSpotlightId] = pp.state("");
                     const [pinnedId, setPinnedId] = pp.state("");
-                    const [hideSelf, setHideSelf] = pp.state(false);
+                    const [hideSelf, setHideSelf] = pp.state(devicePreferences.signLanguageMode);
                     const [tileFits, setTileFits] = pp.state({});
                     const [tileMenu, setTileMenu] = pp.state(null);
                     const [handNotice, setHandNotice] = pp.state("");
@@ -1395,9 +1457,32 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         }
                     });
 
+                    const notifyMutedSpeech = pp.event(volume => {
+                        if (!devicePreferences.mutedNotification || microphone || audioMode !== 'computer' || connectionStatus !== 'connected' || !Number.isFinite(volume) || volume < 0.1) return;
+                        if (Date.now() - mutedReminderAt.current < 8000) return;
+                        mutedReminderAt.current = Date.now(); setMutedNotice(true);
+                    });
+                    pp.effect(() => {
+                        if (microphone || !session) setMutedNotice(false);
+                    }, [microphone, session !== null]);
+                    pp.effect(() => {
+                        if (!session || !devicePreferences.mutedNotification || !meetingMicrophone.current || typeof AudioContext !== 'function') return;
+                        const context = new AudioContext();
+                        const analyser = context.createAnalyser(); analyser.fftSize = 256;
+                        context.createMediaStreamSource(meetingMicrophone.current).connect(analyser);
+                        context.resume().catch(() => {});
+                        const samples = new Uint8Array(analyser.fftSize);
+                        const timer = setInterval(() => {
+                            analyser.getByteTimeDomainData(samples); let sum = 0;
+                            for (const sample of samples) sum += ((sample - 128) / 128) ** 2;
+                            notifyMutedSpeech(Math.sqrt(sum / samples.length));
+                        }, 250);
+                        return () => { clearInterval(timer); context.close().catch(() => {}); };
+                    }, [session !== null, notifyMutedSpeech]);
                     const onLocalHandVolume = pp.event((attendeeId, volume, muted) => {
                         const live = call.current;
                         if (!live || attendeeId !== live.attendeeId) return;
+                        if (typeof volume === 'number') notifyMutedSpeech(volume);
                         const activity = handSpeech.current;
                         if (volume !== null) activity.volume = volume;
                         if (muted !== null) activity.muted = muted;
@@ -1481,6 +1566,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             const kit = await ensureDevices();
                             const cameras = await kit.controller.listVideoInputDevices();
                             if (cameras.length < 2) { setToast('No other camera is available.'); return; }
+                            kit.cameraSelected = true;
                             cameraChoice.current = (cameraChoice.current + 1) % cameras.length;
                             if (camera) {
                                 await closeCamera(); await openCamera();
@@ -2182,6 +2268,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setAdmission(''); setLobbyWaiting(false);
                         if (ticket) pp.rpc('leave_meeting_entry', {id:code,ticket}).catch(() => {});
                         call.current = null;
+                        meetingMicrophone.current?.getTracks().forEach(track => track.stop());
+                        meetingMicrophone.current = null;
+                        meetingOutgoingMicrophone.current?.getTracks().forEach(track => track.stop());
+                        meetingOutgoingMicrophone.current = null;
+                        setMutedNotice(false);
                         tileSlots.current = new Map();
                         setRemoteTiles([false, false, false, false]);
                         setTileDetails([null, null, null, null]);
@@ -2194,7 +2285,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setHandLowerAt(0); setHandLowerSeconds(0);
                         handAutoKept.current = false;
                         handSpeech.current = { volume: 0, muted: true, since: 0 };
-                        setHandNotice(''); setPinnedId(''); setSpotlightId(''); setHideSelf(false); setTileMenu(null);
+                        setHandNotice(''); setPinnedId(''); setSpotlightId(''); setHideSelf(devicePreferences.signLanguageMode); setTileMenu(null);
                         setLobbyRequests([]);
                         setRoomRecording(false); setRecordings([]);
                         setReactionNotice("");
@@ -2258,6 +2349,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
                         const cameras = await kit.controller.listVideoInputDevices();
                         if (cameras.length === 0) throw new Error("No camera was found.");
+
+                        if (!kit.cameraSelected) {
+                            cameraChoice.current = Math.max(0, cameras.findIndex(device => device.deviceId === devicePreferences.cameraId));
+                            kit.cameraSelected = true;
+                        }
 
                         const input = await filteredCamera(kit, cameras[cameraChoice.current % cameras.length].deviceId, effect);
                         if (disposed.current || lifetime !== cameraLifetime.current) {
@@ -2366,9 +2462,19 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         if (audioMode === "computer") {
                             const microphones = await av.listAudioInputDevices();
                             if (microphones.length > 0) {
-                                await av.startAudioInput(microphoneDevice || microphones[0].deviceId);
+                                const selected = microphones.find(device => device.deviceId === microphoneDevice) || microphones[0];
+                                const input = await navigator.mediaDevices.getUserMedia({video:false, audio:{deviceId:{exact:selected.deviceId}, autoGainControl:devicePreferences.autoGainControl, noiseSuppression:devicePreferences.noiseSuppression, echoCancellation:true}});
+                                if (disposed.current) { input.getTracks().forEach(track => track.stop()); return; }
+                                meetingMicrophone.current = input;
+                                const outgoing = devicePreferences.mutedNotification ? input.clone() : input;
+                                meetingOutgoingMicrophone.current = outgoing;
+                                try { await av.startAudioInput(outgoing); }
+                                catch (failure) { input.getTracks().forEach(track => track.stop()); outgoing.getTracks().forEach(track => track.stop()); throw failure; }
                             }
-                            if (speakerDevice) await av.chooseAudioOutput(speakerDevice);
+                            if (speakerDevice) {
+                                try { await av.chooseAudioOutput(speakerDevice); }
+                                catch (_) { await av.chooseAudioOutput(null); setToast('Selected speaker unavailable. Using system default.'); }
+                            }
                             if (meetingAudio.current) {
                                 await av.bindAudioElement(meetingAudio.current);
                             }

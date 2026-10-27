@@ -352,3 +352,13 @@ html[data-reduced-motion="true"] *::after {
   .settings-choices, .settings-note, .settings-detail, .settings-storage-summary { margin-left: 0; }
   .settings-choice { width: 140px; flex-grow: 1; }
 }
+.device-camera-preview { height: 220px; max-width: 480px; margin: 18px 0 12px 38px; overflow: hidden; border: 1px solid var(--color-edge); border-radius: 6px; background: var(--color-sunken); }
+.device-level { width: 270px; height: 14px; accent-color: var(--color-brand-ink); }
+@media (max-width: 700px) { .device-camera-preview { margin-left: 0; height: 180px; } .device-level { width: 170px; } }
+.accessibility-setting { display: flex; align-items: center; gap: 18px; min-height: 78px; padding: 18px 22px; }
+.accessibility-setting > svg { flex-shrink: 0; }
+.accessibility-setting h3 { font-size: 13px; font-weight: 600; }
+.accessibility-setting p { margin-top: 3px; color: var(--color-muted-foreground); font-size: 12px; line-height: 1.5; }
+.accessibility-control { display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-left: 20px; cursor: pointer; }
+@media (max-width: 700px) { .accessibility-setting { padding: 16px 12px; gap: 10px; } .accessibility-control { margin-left: 0; gap: 6px; } }
+.chat-thread-row > [data-slot="button"] { min-width: 0; flex: 1; }

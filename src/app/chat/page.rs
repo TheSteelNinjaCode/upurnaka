@@ -539,7 +539,7 @@ pub async fn page() -> Html {
                                 <template pp-for="thread in visibleThreads">
                                     <div
                                         key={thread.id}
-                                        class={selected === thread.id ? "rounded-md bg-raised" : "rounded-md"}
+                                        class={selected === thread.id ? "chat-thread-row flex items-center rounded-md bg-raised" : "chat-thread-row flex items-center rounded-md"}
                                     >
                                         <Button
                                             variant="ghost"
@@ -559,6 +559,29 @@ pub async fn page() -> Html {
                                                 {thread.label}
                                             </span>
                                         </Button>
+                                        <div
+                                            class="flex shrink-0 gap-0.5 pr-1"
+                                            hidden={!settings.preferences.singlePointerControls}
+                                        >
+                                            <button
+                                                type="button"
+                                                class="rounded p-1 text-muted-foreground hover:bg-hover hover:text-ink disabled:opacity-30"
+                                                aria-label={"Move " + thread.label + " up"}
+                                                disabled={sending || visibleThreads[0].id === thread.id}
+                                                onclick={moveThread(thread.id, -1)}
+                                            >
+                                                <Icon name="chevron-up" class="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="rounded p-1 text-muted-foreground hover:bg-hover hover:text-ink disabled:opacity-30"
+                                                aria-label={"Move " + thread.label + " down"}
+                                                disabled={sending || visibleThreads[visibleThreads.length - 1].id === thread.id}
+                                                onclick={moveThread(thread.id, 1)}
+                                            >
+                                                <Icon name="chevron-down" class="size-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </template>
                                 <p
@@ -1271,6 +1294,18 @@ pub async fn page() -> Html {
 
                     const newRowMatches = hasNewChat && "new message".includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
                     const visibleThreads = threads.filter(thread => thread.id !== "self" && thread.label.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings);
+                    function moveThread(id, direction) {
+                        const index = visibleThreads.findIndex(thread => thread.id === id);
+                        const neighbor = visibleThreads[index + direction];
+                        if (!neighbor) return;
+                        setThreads(previous => {
+                            const next = previous.slice();
+                            const from = next.findIndex(thread => thread.id === id);
+                            const to = next.findIndex(thread => thread.id === neighbor.id);
+                            [next[from], next[to]] = [next[to], next[from]];
+                            return next;
+                        });
+                    }
                     function initials(label) {return label.trim().split(/\s+/).slice(0,2).map(word => word[0] || "").join("").toUpperCase();}
                     function setDraft(value) {
                         if (newChat) setNewDraft(value);

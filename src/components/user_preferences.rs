@@ -16,7 +16,7 @@ pub fn UserPreferences(user_id: &str, children: Html) -> Html {
             <script>r##"
                 const SettingsContext = window.UpurnakaSettingsContext ||= pp.createContext(null);
                 const storageKey = 'upurnaka.settings.v1.' + @{user_id};
-                const defaults = {theme:'dark', textSize:'standard', reducedMotion:false, spellcheck:true, enterToSend:true, followLocale:true, locale:'en-US', hour12:true, storage:@{default_storage}, storageExplicit:false};
+                const defaults = {theme:'dark', textSize:'standard', reducedMotion:false, spellcheck:true, enterToSend:true, followLocale:true, locale:'en-US', hour12:true, storage:@{default_storage}, storageExplicit:false, speakerId:'', microphoneId:'', cameraId:'', autoGainControl:true, noiseSuppression:true, mirrorVideo:true, videoBrightness:false, softFocus:false, signLanguageMode:false, mutedNotification:true, singlePointerControls:false};
                 const choices = {theme:['dark','light','system'], textSize:['standard','large'], locale:['en-US','en-GB','es-NI'], storage:['computer','dilnaka']};
                 const initial = pp.memo(() => {
                     let saved = {};

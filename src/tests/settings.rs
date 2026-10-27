@@ -10,6 +10,8 @@ async fn settings_renders_storage_options_and_download_guidance() {
         "Computer",
         "Dilnaka storage",
         "browser's download folder",
+        "Audio settings",
+        "Video settings",
     ] {
         assert!(body.contains(text), "missing {text}");
     }
@@ -179,5 +181,294 @@ async fn settings_recovers_invalid_values_and_reports_failed_saves() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('[role=status]').textContent.includes('Could not save') && document.querySelector('input[name=storage][value=dilnaka]').checked").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
+async fn devices_save_choices_test_privately_and_release_media() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    let _: bool = browser.eval(r##"
+        window.deviceRequests = []; window.deviceTracks = []; window.deviceDenied = false;
+        navigator.mediaDevices.enumerateDevices = async () => [
+            {kind:'audioinput',deviceId:'mic-test',label:'Test microphone'},
+            {kind:'audiooutput',deviceId:'speaker-test',label:'Test speaker'},
+            {kind:'videoinput',deviceId:'camera-test',label:'Test camera'}
+        ];
+        window.deviceAudio = new AudioContext();
+        navigator.mediaDevices.getUserMedia = async constraints => {
+            window.deviceRequests.push(constraints);
+            if (window.deviceDenied) throw new DOMException('Denied','NotAllowedError');
+            let stream;
+            if (constraints.video) {
+                const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 180;
+                canvas.getContext('2d').fillRect(0,0,320,180);
+                stream = canvas.captureStream(15);
+            } else { stream = window.deviceAudio.createMediaStreamDestination().stream; }
+            window.deviceTracks.push(...stream.getTracks());
+            return stream;
+        }; true
+    "##).await.unwrap();
+    browser.click(".settings-nav:nth-child(5)").await.unwrap();
+    browser.wait_for("document.querySelector('.settings-main h2').textContent === 'Devices' && document.querySelector('select[aria-label=\"Camera device\"]').options.length === 2").await.unwrap();
+    let requests: usize = browser.eval("window.deviceRequests.length").await.unwrap();
+    assert_eq!(
+        requests, 0,
+        "opening Devices must not activate a camera or microphone"
+    );
+    let _: bool = browser.eval("const picker=document.querySelector('select[aria-label=\"Camera device\"]'); picker.value='camera-test'; picker.dispatchEvent(new Event('change',{bubbles:true})); true").await.unwrap();
+    browser
+        .click("input[aria-label='Mirror my video']")
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Adjust brightness']")
+        .await
+        .unwrap();
+    browser
+        .click(".device-settings section:nth-of-type(2) button")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.device-camera-preview video').srcObject?.getVideoTracks()[0]?.readyState === 'live' && window.deviceRequests.some(request => request.video?.deviceId?.exact === 'camera-test')").await.unwrap();
+    browser.wait_for("getComputedStyle(document.querySelector('.device-camera-preview video')).filter.includes('1.2')").await.unwrap();
+    browser
+        .click("button[aria-label='Test microphone']")
+        .await
+        .unwrap();
+    browser.wait_for("window.deviceRequests.some(request => request.audio?.autoGainControl === true && request.audio?.noiseSuppression === true)").await.unwrap();
+    browser.click(".settings-nav:first-child").await.unwrap();
+    browser.wait_for("window.deviceTracks.length >= 2 && window.deviceTracks.every(track => track.readyState === 'ended')").await.unwrap();
+    browser.click(".settings-nav:nth-child(5)").await.unwrap();
+    let _: bool = browser
+        .eval("window.deviceDenied = true; true")
+        .await
+        .unwrap();
+    browser
+        .click(".device-settings section:nth-of-type(2) button")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.device-settings [role=alert]').textContent.includes('Access was denied')").await.unwrap();
+    let _: bool = browser
+        .eval("window.deviceAudio.close(); true")
+        .await
+        .unwrap();
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    browser.click(".settings-nav:nth-child(5)").await.unwrap();
+    browser.wait_for("!document.querySelector('input[aria-label=\"Mirror my video\"]').checked && document.querySelector('input[aria-label=\"Adjust brightness\"]').checked").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
+async fn saved_devices_and_audio_processing_apply_to_new_meetings() {
+    let (status, body) = rpc(
+        "/meet",
+        "create_meeting_link",
+        r#"{"title":"Saved devices"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let id = rahti::serde_json::from_str::<rahti::serde_json::Value>(&body).unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let router = crate::routes::router()
+        .route("/js/vendor/amazon-chime-sdk.js", axum::routing::get(|| async {
+            ([("content-type", "text/javascript")], include_str!("fixtures/chime-room.js"))
+        }))
+        .layer(axum::middleware::from_fn(|request: axum::extract::Request, next: axum::middleware::Next| async move {
+            if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("join_meeting") {
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"meeting":{"MeetingId":"fixture"},"attendee":{"AttendeeId":"self","ExternalUserId":"Jefferson Abraham#fixture"}}"#)).unwrap();
+            }
+            next.run(request).await
+        }));
+    let address = rahti::browser::serve(router).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    let _: bool = browser.eval("localStorage.setItem('upurnaka.settings.v1.legacy-test-user', JSON.stringify({cameraId:'second-camera',microphoneId:'mic-test',speakerId:'speaker-test',mirrorVideo:false,videoBrightness:true,softFocus:true,autoGainControl:false,noiseSuppression:false,signLanguageMode:true,mutedNotification:true})); true").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/meet/j/{id}"))
+        .await
+        .unwrap();
+    let _: bool = browser.eval(r##"
+        window.fixtureMicrophones = [{deviceId:'mic-test'}];
+        window.meetingTestAudio = new AudioContext();
+        navigator.mediaDevices.getUserMedia = async constraints => {
+            window.meetingAudioConstraints = constraints;
+            window.meetingTestStream = window.meetingTestAudio.createMediaStreamDestination().stream;
+            return window.meetingTestStream;
+        }; true
+    "##).await.unwrap();
+    browser.click("input[aria-label='Camera']").await.unwrap();
+    browser
+        .wait_for("window.testDeviceController?.lastInput === 'second-camera'")
+        .await
+        .unwrap();
+    browser.wait_for("getComputedStyle(document.querySelector('[aria-label=\"Camera preview\"] video')).filter.includes('1.2')").await.unwrap();
+    let _: bool = browser
+        .eval("document.querySelector('.meeting-primary').disabled=false; true")
+        .await
+        .unwrap();
+    browser.click(".meeting-primary").await.unwrap();
+    browser
+        .wait_for(
+            "!!window.roomFixture?.audioInput && window.roomFixture.audioOutput === 'speaker-test'",
+        )
+        .await
+        .unwrap();
+    let correct_audio: bool = browser.eval("window.meetingAudioConstraints.audio.deviceId.exact === 'mic-test' && window.meetingAudioConstraints.audio.autoGainControl === false && window.meetingAudioConstraints.audio.noiseSuppression === false").await.unwrap();
+    assert!(
+        correct_audio,
+        "new meetings must use the saved audio constraints"
+    );
+    browser
+        .wait_for("!document.querySelector('.room-sign-language-notice').hidden")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("window.roomFixture.presence('signer',true,'Interpreter#fixture'); window.roomFixture.observer.videoTileDidUpdate({tileId:10,boundAttendeeId:'signer',boundExternalUserId:'Interpreter#fixture',paused:false}); true").await.unwrap();
+    browser
+        .click(".room-person-video[data-attendee-id=signer] button")
+        .await
+        .unwrap();
+    browser
+        .click("button[data-action='sign-language']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.room-person-video[data-attendee-id=signer]').getAttribute('data-featured') === 'true'").await.unwrap();
+    browser
+        .click("button[aria-label='Toggle meeting microphone']")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.roomFixture.volume(0.7, true); true")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-muted-notice').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Dismiss muted notification']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.room-muted-notice').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Leave meeting']")
+        .await
+        .unwrap();
+    browser
+        .wait_for(
+            "window.meetingTestStream.getTracks().every(track => track.readyState === 'ended')",
+        )
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.meetingTestAudio.close(); true")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
+async fn accessibility_matches_teams_and_saves_switches() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    browser.click(".settings-nav:nth-child(4)").await.unwrap();
+    browser.wait_for("document.querySelector('.settings-main h2').textContent === 'Accessibility' && Array.from(document.querySelectorAll('.accessibility-setting')).filter(card => !card.hidden).length === 3").await.unwrap();
+    let defaults: bool = browser.eval("!document.querySelector('input[aria-label=\"Sign language mode\"]').checked && document.querySelector('input[aria-label=\"Muted notification\"]').checked && !document.querySelector('input[aria-label=\"Turn on single pointer controls\"]').checked").await.unwrap();
+    assert!(defaults);
+    for label in [
+        "Sign language mode",
+        "Muted notification",
+        "Turn on single pointer controls",
+    ] {
+        browser
+            .click(&format!("input[aria-label='{label}']"))
+            .await
+            .unwrap();
+    }
+    browser.wait_for("JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')).signLanguageMode === true && JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')).mutedNotification === false && JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')).singlePointerControls === true").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    browser.click(".settings-nav:nth-child(4)").await.unwrap();
+    browser.wait_for("document.querySelector('input[aria-label=\"Sign language mode\"]').checked && !document.querySelector('input[aria-label=\"Muted notification\"]').checked && document.querySelector('input[aria-label=\"Turn on single pointer controls\"]').checked").await.unwrap();
+    browser.click(".settings-intro button").await.unwrap();
+    browser.click(".settings-primary").await.unwrap();
+    browser.wait_for("!document.querySelector('input[aria-label=\"Sign language mode\"]').checked && document.querySelector('input[aria-label=\"Muted notification\"]').checked && !document.querySelector('input[aria-label=\"Turn on single pointer controls\"]').checked").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
+async fn single_pointer_controls_reorder_chats_without_dragging() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    let _: bool = browser.eval("localStorage.setItem('upurnaka.settings.v1.legacy-test-user', JSON.stringify({singlePointerControls:true})); true").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    for (index, name) in ["Alex", "Blair"].into_iter().enumerate() {
+        browser
+            .click("button[aria-label='New chat']")
+            .await
+            .unwrap();
+        browser.type_text(name).await.unwrap();
+        browser.press("Enter").await.unwrap();
+        browser
+            .click("textarea[aria-label='Type a message']")
+            .await
+            .unwrap();
+        browser.type_text("Test thread").await.unwrap();
+        browser.click("button[aria-label='Send']").await.unwrap();
+        browser
+            .wait_for(&format!(
+                "document.querySelectorAll('.chat-thread-row').length === {}",
+                index + 1
+            ))
+            .await
+            .unwrap();
+    }
+    browser
+        .click("button[aria-label='Move Blair up']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.chat-thread-row').textContent.includes('Blair') && document.querySelector('button[aria-label=\"Move Blair up\"]').disabled").await.unwrap();
+    browser
+        .click("button[aria-label='Move Blair down']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.chat-thread-row').textContent.includes('Alex')")
+        .await
+        .unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }

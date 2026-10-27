@@ -11,6 +11,7 @@ pub mod aria;
 pub mod auth_form;
 pub mod avatar;
 pub mod calendar_meet_now;
+pub mod device_settings;
 pub mod icon;
 pub mod join_meeting_by_id;
 pub mod keyboard_shortcuts;

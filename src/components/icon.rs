@@ -61,6 +61,21 @@ use crate::rahti::{Html, component, html};
 pub fn Icon(name: &str, class: &str) -> Html {
     let leave_class = format!("{class} rotate-[135deg]");
     match name {
+        "accessibility" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+            >
+                <circle cx="12" cy="4" r="2" />
+                <path d="m4 8 8 2 8-2M12 10v5m0 0-5 7m5-7 5 7" />
+            </svg>
+        },
         "chat" => html! {
             <MessageCircle class=@{class} stroke_width="1.6" />
         },

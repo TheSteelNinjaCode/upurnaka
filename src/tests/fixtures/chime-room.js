@@ -4,6 +4,7 @@ export class ConsoleLogger {}
 export const MeetingSessionStatusCode = { Left: 0, MeetingEnded: 1 };
 export class MeetingSessionConfiguration { constructor(meeting, attendee) { this.attendee = attendee; } }
 export class DefaultDeviceController {
+  constructor() { globalThis.testDeviceController = this; }
   async listVideoInputDevices() { return [{ deviceId: 'test-camera' }, { deviceId: 'second-camera' }]; }
   async startVideoInput(input) {
     this.lastInput = input;
@@ -31,9 +32,10 @@ export class DefaultMeetingSession {
       realtimeUnsubscribeFromVolumeIndicator() { fixture.volume = null; },
       realtimeIsLocalAudioMuted() { return fixture.muted; },
       realtimeSendDataMessage(topic, data) { fixture.sent.push(JSON.parse(data)); },
-      async listAudioInputDevices() { return []; },
+      async listAudioInputDevices() { return globalThis.fixtureMicrophones || []; },
+      async startAudioInput(input) { fixture.audioInput = input; },
       async bindAudioElement() {},
-      async chooseAudioOutput() {},
+      async chooseAudioOutput(output) { fixture.audioOutput = output; },
       async stopAudioInput() {},
       start() { setTimeout(() => fixture.observer.audioVideoDidStart(), 10); },
       stop() { fixture.stopped = true; fixture.remoteStreams.forEach(stream => stream.getTracks().forEach(track => track.stop())); fixture.observer.audioVideoDidStop({ statusCode: () => 0 }); },
