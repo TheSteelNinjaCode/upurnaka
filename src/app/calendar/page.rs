@@ -10,6 +10,7 @@ use axum::extract::Query;
 use serde::{Deserialize, Serialize};
 
 use crate::components::app_shell::AppShell;
+use crate::components::calendar_meet_now::CalendarMeetNow;
 use crate::components::icon::Icon;
 use crate::components::join_meeting_by_id::JoinMeetingById;
 use crate::rahti::time::NaiveDate;
@@ -46,13 +47,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Html {
                     </div>
                     <div class="flex items-center gap-2">
                         <JoinMeetingById />
-                        <a
-                            href="/meet"
-                            class="flex h-9 items-center gap-2 rounded-md border border-edge bg-raised px-4 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                        >
-                            <Icon name="video" class="h-4 w-4" />
-                            "Meet now"
-                        </a>
+                        <CalendarMeetNow />
                         <button
                             type="button"
                             class="flex h-9 items-center gap-2 rounded-md bg-brand px-4 text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover"

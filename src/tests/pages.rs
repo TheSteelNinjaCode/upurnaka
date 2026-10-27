@@ -600,6 +600,75 @@ async fn new_chat_composes_a_group_and_preserves_other_drafts() {
 }
 
 #[tokio::test]
+async fn calendar_meet_now_shares_and_starts_the_same_meeting() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/calendar"))
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Join with an ID']")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Meet now']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.calendar-meet-now').matches(':popover-open') && !document.querySelector('.calendar-join-dialog').matches(':popover-open') && document.activeElement.name === 'title' && document.activeElement.selectionEnd === document.activeElement.value.length").await.unwrap();
+    browser.type_text("Shared Calendar meeting").await.unwrap();
+    let _: bool = browser.eval("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text => {window.calendarCopiedLink=text;}}}); true").await.unwrap();
+    browser.click(".calendar-meet-share-button").await.unwrap();
+    browser.wait_for("!document.querySelector('.calendar-meet-share').hidden && document.querySelector('.calendar-meet-share [role=status]').textContent.includes('copied') && !document.querySelector('.calendar-meet-start').disabled").await.unwrap();
+    let link: String = browser.eval("window.calendarCopiedLink").await.unwrap();
+    let id = link.rsplit('/').next().unwrap();
+    assert_eq!(
+        crate::meetings::find(id).await.unwrap().unwrap().title,
+        "Shared Calendar meeting"
+    );
+    let _: bool = browser.eval("window.calendarOriginalOpen = window.open.bind(window); window.open = (...args) => {window.calendarMeetWindow = window.calendarOriginalOpen(...args); return window.calendarMeetWindow;}; true").await.unwrap();
+    browser.click(".calendar-meet-start").await.unwrap();
+    browser.wait_for(&format!("window.calendarMeetWindow?.location.pathname === '/meet/j/{id}' && window.calendarMeetWindow.document.body.textContent.includes('Shared Calendar meeting')")).await.unwrap();
+    let detached: bool = browser.eval("window.calendarMeetWindow.opener === null && location.pathname === '/calendar' && !document.querySelector('.calendar-meet-now').matches(':popover-open')").await.unwrap();
+    assert!(
+        detached,
+        "Start reuses the shared meeting and leaves Calendar open"
+    );
+    browser
+        .wait_for(
+            "Array.from(window.calendarMeetWindow.document.images).every(image => image.complete)",
+        )
+        .await
+        .unwrap();
+    let _: bool = browser.eval("window.calendarMeetWindow.close(); window.open = () => null; navigator.clipboard.writeText = async () => {throw new Error('Clipboard unavailable');}; true").await.unwrap();
+    browser
+        .click("button[aria-label='Meet now']")
+        .await
+        .unwrap();
+    browser.type_text("Blocked Calendar meeting").await.unwrap();
+    browser.click(".calendar-meet-share-button").await.unwrap();
+    browser.wait_for("document.querySelector('.calendar-meet-share [role=status]').textContent.includes('Select the link') && !document.querySelector('.calendar-meet-start').disabled").await.unwrap();
+    browser.click(".calendar-meet-start").await.unwrap();
+    browser.wait_for("document.querySelector('.calendar-meet-share [role=status]').textContent.includes('Use Open meeting') && !document.querySelector('.calendar-meet-start').disabled").await.unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("!document.querySelector('.calendar-meet-now').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'Meet now'").await.unwrap();
+    browser
+        .click("button[aria-label='Meet now']")
+        .await
+        .unwrap();
+    browser.click("main h1").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.calendar-meet-now').matches(':popover-open')")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn calendar_joins_a_meeting_by_id_and_handles_dismissal_and_blocked_windows() {
     setup().await;
     let meeting = crate::meetings::create("Calendar join test".into())

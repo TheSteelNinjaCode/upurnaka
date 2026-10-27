@@ -9,6 +9,7 @@
 pub mod app_shell;
 pub mod auth_form;
 pub mod avatar;
+pub mod calendar_meet_now;
 pub mod icon;
 pub mod join_meeting_by_id;
 pub mod keyboard_shortcuts;

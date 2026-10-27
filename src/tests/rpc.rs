@@ -1,6 +1,55 @@
 use super::*;
 
 #[tokio::test]
+async fn calendar_meet_now_creates_validated_links_and_requires_a_session() {
+    let (status, body) = rpc(
+        "/calendar",
+        "create_calendar_meeting_link",
+        r#"{"title":" Calendar immediate meeting "}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let value: rahti::serde_json::Value = rahti::serde_json::from_str(&body).unwrap();
+    assert_eq!(value["title"], "Calendar immediate meeting");
+    let row = crate::meetings::find(value["id"].as_str().unwrap())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.title, "Calendar immediate meeting");
+    for data in [
+        r#"{"title":" "}"#.to_string(),
+        rahti::serde_json::json!({"title":"x".repeat(121)}).to_string(),
+    ] {
+        assert_eq!(
+            rpc("/calendar", "create_calendar_meeting_link", &data)
+                .await
+                .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    assert_eq!(
+        rpc("/calendar", "create_calendar_meeting_link", "{}")
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    let mut anonymous = super::auth::Client::new().await;
+    assert_eq!(
+        anonymous
+            .request(
+                "/calendar",
+                Some((
+                    "create_calendar_meeting_link",
+                    rahti::serde_json::json!({"title":"Anonymous"})
+                ))
+            )
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+#[tokio::test]
 async fn chat_meet_now_creates_a_persistent_validated_link() {
     let (status, body) = rpc(
         "/chat",

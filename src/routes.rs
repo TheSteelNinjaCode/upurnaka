@@ -88,6 +88,7 @@ const PAGE_RPCS: &[&str] = &[
 /// - `register_account` — src/components/auth_form.rs
 /// - `start_signin` — src/components/auth_form.rs
 /// - `verify_signin` — src/components/auth_form.rs
+/// - `create_calendar_meeting_link` — src/components/calendar_meet_now.rs
 async fn component_rpc(name: &str, req: axum::extract::Request) -> axum::response::Response {
     ::rahti::dispatch_registered(name, PAGE_RPCS, req).await
 }
@@ -246,7 +247,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
 ///
 /// Every page above also answers the component rpcs, because a
-/// component posts to the page it was rendered on: sign_out_account, save_usage_survey, register_account, start_signin, verify_signin.
+/// component posts to the page it was rendered on: sign_out_account, save_usage_survey, register_account, start_signin, verify_signin, create_calendar_meeting_link.
 ///
 /// Anything the routes above do not claim falls through to `public/`.
 pub fn router() -> Router {
