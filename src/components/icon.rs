@@ -37,6 +37,7 @@ use crate::components::rahti_icons::user_plus::UserPlus;
 use crate::components::rahti_icons::users::Users;
 use crate::components::rahti_icons::video::Video;
 use crate::components::rahti_icons::video_off::VideoOff;
+use crate::components::rahti_icons::volume_2::Volume2;
 use crate::components::rahti_icons::x::X;
 use crate::rahti::{Html, component, html};
 
@@ -163,6 +164,9 @@ pub fn Icon(name: &str, class: &str) -> Html {
         },
         "trash" => html! {
             <Trash2 class=@{class} stroke_width="1.6" />
+        },
+        "speaker" => html! {
+            <Volume2 class=@{class} stroke_width="1.6" />
         },
         "mic" => html! {
             <Mic class=@{class} stroke_width="1.6" />

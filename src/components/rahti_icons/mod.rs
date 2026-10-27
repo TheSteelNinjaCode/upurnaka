@@ -43,4 +43,5 @@ pub mod user_plus;
 pub mod users;
 pub mod video;
 pub mod video_off;
+pub mod volume_2;
 pub mod x;

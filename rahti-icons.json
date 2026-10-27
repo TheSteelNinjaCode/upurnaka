@@ -245,6 +245,12 @@
       "name": "video-off"
     },
     {
+      "component": "Volume2",
+      "file": "src/components/rahti_icons/volume_2.rs",
+      "module": "crate::components::rahti_icons::volume_2",
+      "name": "volume-2"
+    },
+    {
       "component": "X",
       "file": "src/components/rahti_icons/x.rs",
       "module": "crate::components::rahti_icons::x",

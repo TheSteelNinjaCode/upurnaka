@@ -209,21 +209,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     </button>
                                 </div>
                                 <div class={DEVICE_ROW}>
-                                    <svg
-                                        aria-hidden="true"
-                                        class="h-6 w-6 shrink-0"
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.7"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path d="M11 5 6 9H3v6l5 4V5Z" />
-                                        <path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14" />
-                                    </svg>
+                                    <Icon name="speaker" class="h-6 w-6 shrink-0" />
                                     <select
                                         class={DEVICE_SELECT}
                                         aria-label="Speakers"
