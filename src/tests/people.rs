@@ -160,6 +160,7 @@ async fn profile_updates_validate_persist_and_affect_only_the_signed_in_person()
     for (name, data) in [
         ("update_profile_name", json!({"name":"Anonymous"})),
         ("update_profile_picture", json!({})),
+        ("remove_profile_picture", json!({})),
     ] {
         assert_eq!(
             anonymous.request("/people", Some((name, data))).await.0,
@@ -229,15 +230,50 @@ async fn people_profile_menu_edits_name_and_picture_and_restores_focus() {
         .click(".people-profile-menu button:last-child")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('.people-profile-dialog').open && document.activeElement.name === 'picture'").await.unwrap();
+    browser.wait_for("document.querySelector('.people-profile-dialog').open && document.activeElement.textContent.includes('Upload') && document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
     use base64::Engine;
     let encoded = base64::engine::general_purpose::STANDARD.encode(png());
-    let _: bool = browser.eval(&format!("const transfer = new DataTransfer(); transfer.items.add(new File([Uint8Array.from(atob({}), c => c.charCodeAt(0))], 'portrait.png', {{type:'image/png'}})); document.querySelector('input[name=picture]').files = transfer.files; true",json!(encoded))).await.unwrap();
+    let _: bool = browser.eval(&format!("const transfer = new DataTransfer(); transfer.items.add(new File([Uint8Array.from(atob({}), c => c.charCodeAt(0))], 'portrait.png', {{type:'image/png'}})); const input = document.querySelector('input[name=picture]'); input.files = transfer.files; input.dispatchEvent(new Event('change', {{bubbles:true}})); true",json!(encoded))).await.unwrap();
+    browser.wait_for("document.querySelector('.picture-editor-preview img')?.src.startsWith('data:image/png') && !document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
     browser
         .click(".people-profile-dialog button[type=submit]")
         .await
         .unwrap();
     browser.wait_for("!document.querySelector('.people-profile-dialog').open && Array.from(document.querySelectorAll('img[src=\"/profile-picture\"]')).length >= 3 && Array.from(document.querySelectorAll('img[src=\"/profile-picture\"]')).every(img => img.complete && img.naturalWidth === 256)").await.unwrap();
+    browser
+        .click("aside button[aria-label='More options']")
+        .await
+        .unwrap();
+    browser
+        .click(".people-profile-menu button:last-child")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.picture-editor').open && document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
+    browser
+        .click(".picture-editor-actions button:nth-child(2)")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.picture-editor-preview span').hidden && !document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
+    // Closing discards the pending removal.
+    browser.press("Escape").await.unwrap();
+    browser
+        .click("aside button[aria-label='More options']")
+        .await
+        .unwrap();
+    browser
+        .click(".people-profile-menu button:last-child")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.picture-editor-preview img').hidden && document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
+    browser
+        .click(".picture-editor-actions button:nth-child(2)")
+        .await
+        .unwrap();
+    browser
+        .click(".people-profile-dialog button[type=submit]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.people-profile-dialog').open && document.querySelectorAll('img[src=\"/profile-picture\"]').length === 0").await.unwrap();
     browser
         .click("aside button[aria-label='More options']")
         .await

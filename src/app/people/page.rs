@@ -41,6 +41,18 @@ pub async fn update_profile_name(name: String) -> Result<bool> {
 }
 
 #[rpc(auth)]
+pub async fn remove_profile_picture() -> Result<bool> {
+    let owner = profile_owner()?;
+    use crate::models::account::{Column, Entity};
+    Entity::update_many()
+        .col_expr(Column::Picture, Expr::value(Option::<Vec<u8>>::None))
+        .filter(Column::Id.eq(owner))
+        .exec(crate::db::db())
+        .await?;
+    Ok(true)
+}
+
+#[rpc(auth)]
 pub async fn update_profile_picture(picture: RpcFile) -> Result<bool> {
     let owner = profile_owner()?;
     let mut validator = Validator::new();
@@ -367,12 +379,12 @@ pub async fn page() -> Html {
                 </div>
                 <dialog
                     pp-ref={profileDialog}
-                    class="people-profile-dialog m-auto w-full max-w-[460px] rounded-lg border border-edge bg-raised p-7 text-ink shadow-2xl"
+                    class={profileMode === "picture" ? "people-profile-dialog picture-editor m-auto rounded-lg text-ink shadow-2xl" : "people-profile-dialog m-auto w-full max-w-[460px] rounded-lg border border-edge bg-raised p-7 text-ink shadow-2xl"}
                     aria-labelledby={profileTitleId}
                     oncancel={cancelProfile(event)}
                 >
                     <h2 id={profileTitleId} class="text-lg font-semibold">
-                        {profileMode === "name" ? "Edit name" : "Change profile picture"}
+                        {profileMode === "name" ? "Edit name" : "Profile picture"}
                     </h2>
                     <form class="mt-5 space-y-4" onsubmit={saveProfile(event)}>
                         <label class="block text-sm" hidden={profileMode !== "name"}>
@@ -388,39 +400,75 @@ pub async fn page() -> Html {
                                 class="mt-2 h-10 w-full rounded border border-edge bg-surface px-3 outline-none focus:border-brand-ink"
                             />
                         </label>
-                        <div hidden={profileMode !== "picture"}>
-                            <ProfileAvatar size="xl" presence="none" />
-                            <label class="mt-4 block text-sm">
-                                "Choose a picture"
+                        <div class="picture-editor-body" hidden={profileMode !== "picture"}>
+                            <div
+                                class="picture-editor-preview"
+                                aria-label="Profile picture preview"
+                            >
+                                <span hidden={!!pictureSource}>@{user.initials()}</span>
+                                <template pp-for="source in pictureSource ? [pictureSource] : []">
+                                    <img key={source} src={source} alt="Profile picture preview" />
+                                </template>
+                            </div>
+                            <div class="picture-editor-actions">
+                                <button
+                                    type="button"
+                                    class="picture-editor-action"
+                                    pp-ref={profileUploadButton}
+                                    onclick={profilePictureInput.current?.click()}
+                                    disabled={profileBusy}
+                                >
+                                    <svg
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="1.4"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="M4 3h16M12 22V6m-7 7 7-7 7 7" />
+                                    </svg>
+                                    "Upload"
+                                </button>
+                                <button
+                                    type="button"
+                                    class="picture-editor-action"
+                                    onclick={removePicture()}
+                                    disabled={profileBusy || !pictureSource}
+                                >
+                                    <Icon name="trash" class="h-6 w-6" />
+                                    "Remove"
+                                </button>
                                 <input
                                     pp-ref={profilePictureInput}
                                     name="picture"
                                     type="file"
                                     accept="image/png,image/jpeg"
                                     disabled={profileMode !== "picture" || profileBusy}
-                                    required
-                                    class="mt-2 block w-full text-sm"
+                                    onchange={choosePicture(event)}
+                                    hidden
                                 />
-                            </label>
-                            <p class="mt-2 text-xs text-muted">
-                                "PNG or JPEG, up to 2 MB. Your picture will be cropped to a square."
-                            </p>
+                            </div>
                         </div>
                         <p role="alert" hidden={!profileError} class="text-sm text-danger-ink">
                             {profileError}
                         </p>
-                        <div class="flex justify-end gap-3">
+                        <div class="picture-editor-footer flex justify-end gap-3">
+                            <p hidden={profileMode !== "picture"}>
+                                "Changes will be reflected in your upurnaka account."
+                            </p>
                             <button
                                 type="button"
                                 onclick={closeProfile()}
                                 disabled={profileBusy}
                                 class="h-9 rounded border border-edge px-4 hover:bg-hover"
                             >
-                                "Cancel"
+                                {profileMode === "picture" ? "Close" : "Cancel"}
                             </button>
                             <button
                                 type="submit"
-                                disabled={profileBusy}
+                                disabled={profileBusy || (profileMode === "picture" && !pictureChanged)}
                                 class="h-9 rounded bg-brand px-4 font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
                             >
                                 {profileBusy ? "Saving…" : "Save"}
@@ -431,6 +479,34 @@ pub async fn page() -> Html {
                 <style>r##"
                     .people-profile-menu {position:fixed;inset:auto;margin:0;width:260px;max-width:calc(100vw - 16px);}
                     .people-profile-dialog::backdrop {background:#0009;}
+                    .picture-editor {box-sizing:border-box;width:min(960px,calc(100vw - 32px));height:min(756px,calc(100dvh - 32px));max-width:none;max-height:none;padding:42px 48px 60px;background:#292929;border:0;border-radius:12px;color:#f5f5f5;}
+                    .picture-editor h2 {font-size:28px;line-height:36px;font-weight:700;}
+                    .picture-editor form {display:flex;flex-direction:column;height:calc(100% - 36px);margin:0;}
+                    .picture-editor form > * {margin-block:0;}
+                    .picture-editor-body {flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;min-height:0;}
+                    .picture-editor-preview {position:relative;display:flex;align-items:center;justify-content:center;width:294px;height:294px;max-width:48vh;max-height:48vh;aspect-ratio:1;flex-shrink:0;overflow:hidden;border-radius:50%;background:#d2dceb;color:#19345b;font-size:112px;font-weight:600;line-height:1;}
+                    .picture-editor-preview img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+                    .picture-editor-actions {display:flex;align-items:center;gap:34px;}
+                    .picture-editor-action {display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:4px;color:#ccc;font-size:20px;font-weight:600;}
+                    .picture-editor-action:hover:not(:disabled) {background:#ffffff0d;color:white;}
+                    .picture-editor-action:focus-visible {outline:2px solid white;outline-offset:1px;}
+                    .picture-editor-action:disabled {opacity:.35;cursor:default;}
+                    .picture-editor-footer {align-items:center;gap:26px;}
+                    .picture-editor-footer p {margin-right:auto;font-size:18px;line-height:26px;}
+                    .picture-editor-footer button {flex-shrink:0;min-width:144px;height:48px;border-radius:6px;font-size:20px;font-weight:600;}
+                    .picture-editor-footer button[type=button] {background:transparent;border:1px solid #666;}
+                    .picture-editor-footer button[type=submit] {background:#5852b4;}
+                    .picture-editor-footer button[type=submit]:disabled {background:#202020;color:#656565;opacity:1;}
+                    .picture-editor [role=alert]:not([hidden]) {margin-bottom:16px;font-size:14px;}
+                    @media(max-width:720px), (max-height:620px) {
+                        .picture-editor {padding:24px;height:min(680px,calc(100dvh - 24px));}
+                        .picture-editor h2 {font-size:24px;}
+                        .picture-editor-preview {width: min(240px,38dvh);height:min(240px,38dvh);font-size:80px;}
+                        .picture-editor-body {gap:16px;}
+                        .picture-editor-footer {flex-wrap:wrap;gap:12px;}
+                        .picture-editor-footer p {flex-basis:100%;font-size:14px;}
+                        .picture-editor-footer button {min-width:100px;height:40px;font-size:16px;}
+                    }
                 "##</style>
                 <script>r##"
                     const NAV_ON = "mt-1 flex h-9 w-full items-center gap-3 rounded-md bg-raised px-3 text-left text-[13px] font-semibold text-ink";
@@ -450,6 +526,7 @@ pub async fn page() -> Html {
                     const profileDialog = pp.ref(null);
                     const profileNameInput = pp.ref(null);
                     const profilePictureInput = pp.ref(null);
+                    const profileUploadButton = pp.ref(null);
                     const profileMenuId = pp.id();
                     const profileTitleId = pp.id();
                     const [profileMenuOpen, setProfileMenuOpen] = pp.state(false);
@@ -458,6 +535,11 @@ pub async fn page() -> Html {
                     const [profileName, setProfileName] = pp.state(@{user.name.as_str()});
                     const [profileBusy, setProfileBusy] = pp.state(false);
                     const [profileError, setProfileError] = pp.state('');
+                    const savedPicture = @{user.has_picture} ? '/profile-picture' : '';
+                    const [picturePreview, setPicturePreview] = pp.state('');
+                    const [pictureRemoved, setPictureRemoved] = pp.state(false);
+                    const pictureSource = picturePreview || (pictureRemoved ? '' : savedPicture);
+                    const pictureChanged = !!picturePreview || (pictureRemoved && !!savedPicture);
                     function openProfileMenu() {
                         if (profileMenu.current.matches(':popover-open')) {profileMenu.current.hidePopover(); return;}
                         const anchor = profileTrigger.current.getBoundingClientRect();
@@ -477,24 +559,50 @@ pub async fn page() -> Html {
                     function editProfile(mode) {
                         profileMenu.current.hidePopover(); setProfileMode(mode); setProfileError('');
                         setProfileName(@{user.name.as_str()});
+                        setPicturePreview(''); setPictureRemoved(false);
                         if (profilePictureInput.current) profilePictureInput.current.value = '';
                         profileDialog.current.showModal();
                     }
                     pp.effect(() => {
                         if (!profileDialog.current?.open) return;
-                        (profileMode === 'name' ? profileNameInput : profilePictureInput).current?.focus();
+                        (profileMode === 'name' ? profileNameInput : profileUploadButton).current?.focus();
                     }, [profileMode]);
                     function closeProfile() {
                         if (profileBusy) return;
                         profileDialog.current.close(); profileTrigger.current?.focus();
+                        if (profilePictureInput.current) profilePictureInput.current.value = '';
+                        setPicturePreview(''); setPictureRemoved(false);
                     }
                     function cancelProfile(event) {event.preventDefault(); closeProfile();}
+                    async function choosePicture(event) {
+                        const file = event.currentTarget.files[0];
+                        if (!file) return;
+                        setProfileError('');
+                        if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+                            profilePictureInput.current.value = '';
+                            setPicturePreview(''); setPictureRemoved(false);
+                            setProfileError('Choose a PNG or JPEG picture up to 2 MB.'); return;
+                        }
+                        try {
+                            const source = await new Promise((resolve, reject) => {
+                                const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file);
+                            });
+                            if (profilePictureInput.current?.files[0] !== file) return;
+                            setPicturePreview(source); setPictureRemoved(false);
+                        } catch (failure) {setProfileError('This picture could not be read. Choose another file.');}
+                    }
+                    function removePicture() {
+                        if (profileBusy) return;
+                        profilePictureInput.current.value = '';
+                        setPicturePreview(''); setPictureRemoved(true); setProfileError('');
+                    }
                     async function saveProfile(event) {
-                        event.preventDefault(); if (profileBusy) return;
+                        event.preventDefault(); if (profileBusy || (profileMode === 'picture' && !pictureChanged)) return;
                         const data = Object.fromEntries(new FormData(event.currentTarget));
                         setProfileBusy(true); setProfileError('');
                         try {
                             if (profileMode === 'name') await pp.rpc('update_profile_name', data);
+                            else if (pictureRemoved) await pp.rpc('remove_profile_picture');
                             else await pp.rpc('update_profile_picture', data);
                             location.reload();
                         } catch (failure) {

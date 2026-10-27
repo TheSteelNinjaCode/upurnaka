@@ -66,6 +66,7 @@ const PAGE_RPCS: &[&str] = &[
     "meeting_recordings",
     "meeting_room_state",
     "mute_participant",
+    "remove_profile_picture",
     "rename_meeting_link",
     "request_meeting_entry",
     "resume_meeting_audio",
@@ -185,6 +186,7 @@ async fn rpc_p_people(req: axum::extract::Request) -> axum::response::Response {
     };
     match name.as_str() {
         "update_profile_name" => p_people::__rahti_rpc_update_profile_name(req).await,
+        "remove_profile_picture" => p_people::__rahti_rpc_remove_profile_picture(req).await,
         "update_profile_picture" => p_people::__rahti_rpc_update_profile_picture(req).await,
         "invite_to_teams" => p_people::__rahti_rpc_invite_to_teams(req).await,
         _ => component_rpc(&name, req).await,
@@ -233,7 +235,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, create_chat_meeting)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link)
 /// - `/users` [GET, POST] — src/app/users/page.rs (layouts: src/app/layout.rs; rpc: list_users, create_user, update_user, set_user_active, delete_user)
-/// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: update_profile_name, update_profile_picture, invite_to_teams)
+/// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: update_profile_name, remove_profile_picture, update_profile_picture, invite_to_teams)
 /// - `/signin` [GET, POST] — src/app/signin/page.rs (layouts: src/app/layout.rs)
 /// - `/account` [GET, POST] — src/app/account/page.rs (layouts: src/app/layout.rs)
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
