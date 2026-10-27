@@ -27,7 +27,7 @@ pub fn error(error: ErrorInfo) -> Html {
                     <h1 class="mt-6 text-[22px] font-semibold tracking-tight text-ink">
                         @{error.reason()}
                     </h1>
-                    <p class="mt-3 text-[13px] text-muted">@{error.message()}</p>
+                    <p class="mt-3 text-[13px] text-muted-foreground">@{error.message()}</p>
                     <p class="mt-8">
                         <a
                             href="/meet"

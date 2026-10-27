@@ -3,17 +3,88 @@
 use serde::Serialize;
 
 use crate::components::app_shell::AppShell;
+use crate::components::aria::{bound, hidden, labelled, named, plain, submit};
 use crate::components::avatar::Avatar;
 use crate::components::icon::Icon;
+use crate::components::rahti_ui::attrs::{Attrs, ui_expr};
+use crate::components::rahti_ui::avatar::{Avatar as UiAvatar, AvatarFallback};
+use crate::components::rahti_ui::badge::Badge;
+use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::dropdown_menu::{
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+};
+use crate::components::rahti_ui::input::{Input, input_variants};
+use crate::components::rahti_ui::input_group::{
+    InputGroup, InputGroupAddon, input_group_input_variants, input_group_textarea_variants,
+};
+use crate::components::rahti_ui::label::Label;
+use crate::components::rahti_ui::popover::{
+    Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger,
+};
+use crate::components::rahti_ui::toggle::Toggle;
+use crate::components::rahti_ui::toggle_group::{ToggleGroup, ToggleGroupItem};
 use crate::meetings::{self, MeetingLink};
 use crate::rahti::time;
 use crate::rahti::{Html, Metadata, Result, Validator, html, rpc};
+
+/// Initials on a disc, for a conversation or a message author.
+const INITIALS: &str = "bg-avatar! text-xs font-semibold text-avatar-ink!";
+
+/// The emoji and GIF picker: a column of tabs, search, choices and attribution.
+const PICKER: &str = "chat-emoji-picker h-[480px] max-h-[calc(100dvh-16px)] w-[360px]!                       max-w-[calc(100vw-16px)] flex-col overflow-hidden p-0! open:flex";
+
+/// The heading over a run of emoji or GIFs, with its "See all" beside it.
+const HEADING: &str = "mb-2.5 mt-3 flex items-center justify-between text-sm";
+
+/// A picker's empty, loading or failure line.
+const EMPTY: &str = "chat-emoji-empty py-4 text-[13px] leading-normal text-muted-foreground";
+
+// The new-conversation illustration: layered gradients and pseudo-element
+// shapes, drawn with arbitrary utilities.
+const BUBBLE: &str = "absolute inset-[14px_16px_10px_28px] rounded-full                       bg-[radial-gradient(circle_at_32%_28%,#48484d,#29292f_58%,#1f1f24_80%)]                       shadow-[inset_3px_2px_7px_#ffffff20,4px_5px_8px_#0005]                       after:absolute after:-bottom-1 after:left-[22px] after:-z-10                       after:h-[38px] after:w-[30px] after:-skew-y-30 after:rounded-[0_0_5px_10px]                       after:bg-[linear-gradient(120deg,#35353c,#222228)] after:content-['']";
+const PENCIL: &str = "absolute left-[114px] top-1 h-[126px] w-10 rotate-40                       rounded-[20px_20px_2px_2px]                       bg-[linear-gradient(90deg,#ffb342,#ffdd7a_45%,#ed883b)]                       shadow-[inset_-5px_0_6px_#a74d3a40,4px_5px_10px_#0006]                       before:absolute before:inset-x-0 before:top-0 before:h-[30px]                       before:rounded-[20px_20px_0_0] before:bg-[linear-gradient(90deg,#777,#bbb,#888)]                       before:content-[''] after:absolute after:left-0 after:top-[calc(100%-1px)]                       after:size-0 after:border-x-[20px] after:border-t-[30px]                       after:border-x-transparent after:border-t-[#ffe495] after:content-['']";
+const DOT_PURPLE: &str = "absolute left-[5px] top-[108px] size-[21px] rounded-full                           bg-[radial-gradient(at_30%_20%,#dbbaff,#9460ed_65%)]                           shadow-[inset_-3px_-3px_5px_#0005,1px_2px_3px_#0005]";
+const DOT_GREEN: &str = "absolute left-[31px] top-[108px] size-[21px] rounded-full                          bg-[radial-gradient(at_30%_20%,#f3ffbd,#a3ce53_65%)]                          shadow-[inset_-3px_-3px_5px_#0005,1px_2px_3px_#0005]";
+const DOT_YELLOW: &str = "absolute left-[57px] top-[108px] size-[21px] rounded-full                           bg-[radial-gradient(at_30%_20%,#fffccb,#edd445_65%)]                           shadow-[inset_-3px_-3px_5px_#0005,1px_2px_3px_#0005]";
+
+/// A button that hides the popover `name`: its id is `popover-{name}`, named
+/// by `popovertarget`, so no script is involved.
+fn close_popover(name: &str, label: &str) -> Attrs {
+    Attrs::new()
+        .set("popovertarget", format!("popover-{name}"))
+        .set("popovertargetaction", "hide")
+        .merge(&labelled(label))
+}
 
 pub fn metadata() -> Metadata {
     Metadata::new()
         .title("Chat")
         .description("Your Teams conversations.")
 }
+
+/// A row in the conversation list, highlighted while it is the open one.
+const ROW: &str = "rounded-md transition-colors";
+
+/// A list row's button: the whole width, its content from the left.
+const ROW_BUTTON: &str = "h-auto! w-full justify-start! gap-3 px-3! py-2 text-left font-normal \
+                          hover:bg-hover";
+
+/// A section heading in the conversation list.
+const SECTION: &str = "h-auto! w-full justify-start! gap-1.5 rounded px-2! py-1.5 text-xs \
+                       font-semibold text-muted-foreground hover:bg-hover hover:text-ink";
+
+/// A filter pill above the list.
+const PILL: &str = "h-7! min-w-0 shrink-0 rounded-full! px-3! text-xs text-muted-foreground \
+                    has-[:checked]:border-brand has-[:checked]:bg-brand-soft! \
+                    has-[:checked]:font-semibold has-[:checked]:text-ink!";
+
+/// A tab across the top of the emoji and GIF picker.
+const MEDIA_TAB: &str = "relative h-14! flex-1 rounded-none! text-[15px] text-muted-foreground \
+                         hover:bg-transparent! has-[:checked]:font-semibold \
+                         has-[:checked]:text-ink! has-[:checked]:bg-transparent! \
+                         after:absolute after:bottom-0 after:left-[calc(50%-10px)] after:h-[3px] \
+                         after:w-5 after:rounded-[3px] after:bg-brand-ink after:opacity-0 \
+                         after:content-[''] has-[:checked]:after:opacity-100";
 
 pub async fn page() -> Html {
     let user = crate::auth::current().unwrap_or_default();
@@ -23,6 +94,26 @@ pub async fn page() -> Html {
     let giphy_key = crate::app_tests::giphy::key_for(&user.id).unwrap_or(giphy_key);
     let initials = user.initials();
     let self_label = format!("{} (You)", user.name);
+    let icon_button = button_variants(
+        ButtonVariant::Ghost,
+        ButtonSize::IconSm,
+        "text-muted-foreground",
+    );
+    // The fields below are elements rather than `<Input>` tags because each one
+    // is focused from a script — opening a search, starting a new chat — and a
+    // ref is a binding a component tag cannot carry. They wear the same class
+    // lists the components would.
+    let list_search = input_variants("h-9! text-[13px]");
+    let inline_field = input_group_input_variants("text-sm");
+    let conversation_search = input_variants("text-sm");
+    let meeting_name = input_variants("h-10! text-sm");
+    let emoji_search = input_group_input_variants("text-sm");
+    let composer_field = input_group_textarea_variants("min-h-9 py-2 text-[13px]");
+    let share_button = button_variants(
+        ButtonVariant::Outline,
+        ButtonSize::Default,
+        "chat-meeting-share-button h-10! w-full font-semibold",
+    );
     html! {
         <AppShell active="chat">
             <div class="flex min-h-0 flex-1">
@@ -30,46 +121,135 @@ pub async fn page() -> Html {
                     <div class="flex items-center justify-between pl-5 pr-3 pt-1.5">
                         <h1 class="text-[20px] font-semibold tracking-tight text-ink">"Chat"</h1>
                         <div class="flex items-center gap-0.5">
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink aria-pressed:text-brand-ink"
-                                title="Search chats"
-                                aria-label="Search chats"
-                                aria-expanded={searchOpen}
-                                aria-pressed={searchOpen}
-                                pp-ref={chatSearchTrigger}
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                class="text-muted-foreground"
+                                attrs=@{labelled("Search chats")}
                                 onclick={toggleChatSearch()}
                             >
-                                <Icon name="search" class="h-[18px] w-[18px]" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink aria-expanded:text-brand-ink"
-                                title="Meet now"
-                                aria-label="Meet now"
-                                aria-expanded={meetingOpen}
-                                pp-ref={meetNowTrigger}
-                                onclick={openMeetNow(event)}
-                            >
-                                <Icon name="video" class="h-[18px] w-[18px]" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="New chat"
-                                aria-label="New chat"
-                                aria-keyshortcuts="Control+n"
+                                <span
+                                    class={searchOpen ? "contents text-brand-ink" : "contents"}
+                                    pp-ref={chatSearchTrigger}
+                                >
+                                    <Icon name="search" class="size-[18px]" />
+                                </span>
+                            </Button>
+                            <Popover>
+                                <PopoverTrigger
+                                    name="chat-meet-now"
+                                    class=@{icon_button.as_str()}
+                                    attrs=@{labelled("Meet now")}
+                                >
+                                    <Icon name="video" class="size-[18px]" />
+                                </PopoverTrigger>
+                                <PopoverContent
+                                    name="chat-meet-now"
+                                    class="chat-meet-now w-[min(380px,calc(100vw-32px))]! p-[22px]!"
+                                    ontoggle={meetNowToggled(event.newState)}
+                                >
+                                    <PopoverHeader class="mb-[18px] pr-8">
+                                        <PopoverTitle class="text-[17px] font-semibold">
+                                            "Start a meeting now"
+                                        </PopoverTitle>
+                                    </PopoverHeader>
+                                    <form onsubmit={startChatMeeting(event)} novalidate>
+                                        <div class="flex flex-col gap-2">
+                                            <Label r#for="chat-meeting-name">"Meeting name"</Label>
+                                            <input
+                                                id="chat-meeting-name"
+                                                data-slot="input"
+                                                aria-label="Meeting name"
+                                                class=@{meeting_name.as_str()}
+                                                pp-ref={meetingNameInput}
+                                                onfocus={selectAfterFocus(event.currentTarget)}
+                                                name="title"
+                                                type="text"
+                                                maxlength="120"
+                                                autocomplete="off"
+                                                value={meetingTitle}
+                                                oninput={changeMeetingTitle(target.value)}
+                                                disabled={meetingBusy}
+                                            />
+                                        </div>
+                                        <p
+                                            class="mt-2.5 text-xs text-danger-ink"
+                                            role="alert"
+                                            hidden={!meetingError}
+                                        >
+                                            {meetingError}
+                                        </p>
+                                        <div
+                                            class="chat-meeting-share mt-3.5"
+                                            hidden={!sharedMeeting}
+                                        >
+                                            <Input
+                                                class="h-10! text-xs"
+                                                attrs=@{named("Meeting link").set("readonly", "")}
+                                                value={sharedMeeting ? meetingAbsolute(sharedMeeting.url) : ""}
+                                            />
+                                            <p
+                                                class="mt-2 text-xs text-muted-foreground"
+                                                role="status"
+                                            >
+                                                {meetingNotice}
+                                            </p>
+                                            <a
+                                                class="mt-1.5 inline-block text-xs text-link hover:underline"
+                                                href={sharedMeeting ? sharedMeeting.url : "/meet"}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                "Open meeting in a new tab"
+                                            </a>
+                                        </div>
+                                        <div class="mt-[22px] flex flex-col gap-2.5">
+                                            <Button
+                                                attrs=@{plain()}
+                                                variant="outline"
+                                                class=@{share_button.as_str()}
+                                                disabled={meetingBusy || !meetingTitle.trim()}
+                                                onclick={getChatMeetingLink()}
+                                            >
+                                                {meetingBusy ? "Creating…" : "Get a link to share"}
+                                            </Button>
+                                            <Button
+                                                class="chat-meeting-start h-10! w-full font-semibold"
+                                                attrs=@{submit()}
+                                                disabled={meetingBusy || !meetingTitle.trim()}
+                                            >
+                                                {meetingBusy ? "Please wait…" : "Start meeting"}
+                                            </Button>
+                                        </div>
+                                    </form>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        class="absolute right-3 top-3 text-muted-foreground"
+                                        attrs=@{close_popover("chat-meet-now", "Close meeting popup")}
+                                        disabled={meetingBusy}
+                                    >
+                                        <Icon name="close" class="size-5" />
+                                    </Button>
+                                </PopoverContent>
+                            </Popover>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                class="text-muted-foreground"
+                                attrs=@{labelled("New chat").set("aria-keyshortcuts", "Control+n")}
                                 onclick={openNewChat()}
                                 disabled={sending}
                             >
-                                <Icon name="compose" class="h-[18px] w-[18px]" />
-                            </button>
+                                <Icon name="compose" class="size-[18px]" />
+                            </Button>
                         </div>
                     </div>
                     <div class="chat-list-search px-5 pt-3" hidden={!searchOpen}>
                         <input
                             pp-ref={chatSearchInput}
-                            class="h-9 w-full rounded border-b-2 border-brand-ink bg-raised px-3 py-2 text-[13px] text-ink outline-none placeholder:text-subtle"
+                            data-slot="input"
+                            class=@{list_search.as_str()}
                             type="search"
                             aria-label="Filter by person or chat name"
                             placeholder="Filter by person or chat name"
@@ -79,123 +259,164 @@ pub async fn page() -> Html {
                         />
                     </div>
                     <div class="flex items-center gap-2 px-5 py-3">
-                        <button
-                            type="button"
-                            class={filters.unread ? PILL_ON : PILL_OFF}
-                            onclick={toggleFilter("unread")}
+                        <Toggle
+                            variant="outline"
+                            size="sm"
+                            class=@{PILL}
+                            checked={filters.unread}
+                            onchange={setFilter("unread", target.checked)}
                         >
                             "Unread"
-                        </button>
-                        <button
-                            type="button"
-                            class={filters.meetings ? PILL_ON : PILL_OFF}
-                            onclick={toggleFilter("meetings")}
+                        </Toggle>
+                        <Toggle
+                            variant="outline"
+                            size="sm"
+                            class=@{PILL}
+                            checked={filters.meetings}
+                            onchange={setFilter("meetings", target.checked)}
                         >
                             "Meeting chats"
-                        </button>
-                        <button
-                            type="button"
-                            class={filters.unmuted ? PILL_ON : PILL_OFF}
-                            onclick={toggleFilter("unmuted")}
+                        </Toggle>
+                        <Toggle
+                            variant="outline"
+                            size="sm"
+                            class=@{PILL}
+                            checked={filters.unmuted}
+                            onchange={setFilter("unmuted", target.checked)}
                         >
                             "Unmuted"
-                        </button>
+                        </Toggle>
                     </div>
                     <div class="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-hover hover:text-ink"
-                            aria-expanded={favoritesOpen}
-                            onclick={setFavoritesOpen(open => !open)}
-                        >
-                            <span class={favoritesOpen ? "flex" : "flex -rotate-90"}>
-                                <Icon name="chevron-down" class="h-3.5 w-3.5" />
-                            </span>
-                            "Favorites"
-                        </button>
-                        <div class="chat-self-entry mt-0.5" hidden={!favoritesOpen || !selfMatches}>
-                            <button
-                                type="button"
-                                class={selected === "self" ? ROW_ON : ROW_OFF}
-                                onclick={selectThread("self")}
-                                disabled={sending}
+                        <div>
+                            <Button
+                                variant="ghost"
+                                class=@{SECTION}
+                                attrs=@{bound("aria-expanded", ui_expr!(aria-expanded={favoritesOpen}))}
+                                onclick={setFavoritesOpen(open => !open)}
                             >
-                                <Avatar initials=@{initials.as_str()} size="md" presence="online" />
-                                <span class="truncate text-[13px] font-semibold text-ink">
-                                    @{self_label.as_str()}
+                                <span class={favoritesOpen ? "flex" : "flex -rotate-90"}>
+                                    <Icon name="chevron-down" class="size-3.5" />
                                 </span>
-                            </button>
-                        </div>
-                        <button
-                            type="button"
-                            class="mt-3 flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-hover hover:text-ink"
-                            aria-expanded={chatsOpen}
-                            onclick={setChatsOpen(open => !open)}
-                        >
-                            <span class={chatsOpen ? "flex" : "flex -rotate-90"}>
-                                <Icon name="chevron-down" class="h-3.5 w-3.5" />
-                            </span>
-                            "Chats"
-                        </button>
-                        <div
-                            class={selected === "new" ? ROW_ON : ROW_OFF}
-                            hidden={!chatsOpen || !newRowMatches}
-                        >
-                            <button
-                                type="button"
-                                class="flex min-w-0 flex-1 items-center gap-3 text-left"
-                                onclick={openNewChat()}
-                                disabled={sending}
-                                aria-label="New message"
-                            >
-                                <span
-                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-hover text-muted"
+                                "Favorites"
+                            </Button>
+                            <div hidden={!favoritesOpen}>
+                                <div
+                                    class={selected === "self" ? "chat-self-entry mt-0.5 rounded-md bg-raised" : "chat-self-entry mt-0.5 rounded-md"}
+                                    hidden={!selfMatches}
                                 >
-                                    <Icon name="chat" class="h-4 w-4" />
-                                </span>
-                                <span class="truncate text-[13px] font-semibold">
-                                    "New message"
-                                </span>
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted hover:bg-hover hover:text-ink"
-                                aria-label="New message options"
-                                aria-haspopup="menu"
-                                aria-expanded={draftMenuOpen}
-                                aria-controls={draftMenuId}
-                                pp-ref={draftMenuTrigger}
-                                onclick={openDraftMenu()}
-                                disabled={sending}
-                            >
-                                <Icon name="more" class="h-5 w-5" />
-                            </button>
+                                    <Button
+                                        variant="ghost"
+                                        class=@{ROW_BUTTON}
+                                        onclick={selectThread("self")}
+                                        disabled={sending}
+                                    >
+                                        <Avatar
+                                            initials=@{initials.as_str()}
+                                            size="md"
+                                            presence="online"
+                                        />
+                                        <span class="truncate text-[13px] font-semibold text-ink">
+                                            @{self_label.as_str()}
+                                        </span>
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
-                        <template pp-for="thread in visibleThreads">
-                            <button
-                                key={thread.id}
-                                type="button"
-                                class={selected === thread.id ? ROW_ON : ROW_OFF}
-                                hidden={!chatsOpen}
-                                onclick={selectThread(thread.id)}
-                                disabled={sending}
+                        <div class="mt-3">
+                            <Button
+                                variant="ghost"
+                                class=@{SECTION}
+                                attrs=@{bound("aria-expanded", ui_expr!(aria-expanded={chatsOpen}))}
+                                onclick={setChatsOpen(open => !open)}
                             >
-                                <span
-                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
+                                <span class={chatsOpen ? "flex" : "flex -rotate-90"}>
+                                    <Icon name="chevron-down" class="size-3.5" />
+                                </span>
+                                "Chats"
+                            </Button>
+                            <div hidden={!chatsOpen}>
+                                <div
+                                    class={selected === "new" ? "flex items-center rounded-md bg-raised pr-1" : "flex items-center rounded-md pr-1 hover:bg-hover"}
+                                    hidden={!newRowMatches}
                                 >
-                                    {initials(thread.label)}
-                                </span>
-                                <span class="min-w-0 truncate text-[13px] font-semibold">
-                                    {thread.label}
-                                </span>
-                            </button>
-                        </template>
-                        <p
-                            class="px-3 py-2 text-xs leading-relaxed text-subtle"
-                            hidden={!chatsOpen || hasChatFilter || hasNewChat || threads.length > 1}
-                        >
-                            "Nobody has written to you yet. Start a chat and it will show up here."
-                        </p>
+                                    <Button
+                                        variant="ghost"
+                                        class="h-auto! min-w-0 flex-1 justify-start! gap-3 px-3! py-2 text-left font-normal hover:bg-transparent!"
+                                        attrs=@{named("New message")}
+                                        onclick={openNewChat()}
+                                        disabled={sending}
+                                    >
+                                        <span
+                                            class="flex size-8 shrink-0 items-center justify-center rounded-full bg-hover text-muted-foreground"
+                                        >
+                                            <Icon name="chat" class="size-4" />
+                                        </span>
+                                        <span class="truncate text-[13px] font-semibold">
+                                            "New message"
+                                        </span>
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger
+                                            menu="chat-draft"
+                                            class=@{icon_button.as_str()}
+                                            attrs=@{labelled("New message options")}
+                                        >
+                                            <Icon name="more" class="size-5" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            menu="chat-draft"
+                                            align="start"
+                                            class="new-chat-menu w-60"
+                                            attrs=@{named("New message options")}
+                                        >
+                                            <DropdownMenuItem onclick={openDraftWindow()}>
+                                                <Icon name="maximize" class="size-4" />
+                                                "Open in new window"
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                variant="destructive"
+                                                onclick={discardNewChat()}
+                                            >
+                                                <Icon name="trash" class="size-4" />
+                                                "Discard"
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                                <template pp-for="thread in visibleThreads">
+                                    <div
+                                        key={thread.id}
+                                        class={selected === thread.id ? "rounded-md bg-raised" : "rounded-md"}
+                                    >
+                                        <Button
+                                            variant="ghost"
+                                            class=@{ROW_BUTTON}
+                                            value={thread.id}
+                                            onclick={selectThread(event.currentTarget.value)}
+                                            disabled={sending}
+                                        >
+                                            <UiAvatar>
+                                                <AvatarFallback class=@{INITIALS}>
+                                                    {initials(thread.label)}
+                                                </AvatarFallback>
+                                            </UiAvatar>
+                                            <span
+                                                class="min-w-0 truncate text-[13px] font-semibold"
+                                            >
+                                                {thread.label}
+                                            </span>
+                                        </Button>
+                                    </div>
+                                </template>
+                                <p
+                                    class="px-3 py-2 text-xs leading-relaxed text-subtle"
+                                    hidden={hasChatFilter || hasNewChat || threads.length > 1}
+                                >
+                                    "Nobody has written to you yet. Start a chat and it will show up here."
+                                </p>
+                            </div>
+                        </div>
                         <p
                             class="px-3 py-2 text-xs leading-relaxed text-subtle"
                             role="status"
@@ -209,32 +430,32 @@ pub async fn page() -> Html {
                     class="flex min-h-0 min-w-0 flex-1 flex-col rounded-tl-xl border-l border-t border-line bg-surface"
                 >
                     <header class="flex h-14 shrink-0 items-center gap-3 px-5" hidden={newChat}>
-                        <span
-                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
-                        >
-                            {initials(currentThread.label)}
-                        </span>
+                        <UiAvatar>
+                            <AvatarFallback class=@{INITIALS}>
+                                {initials(currentThread.label)}
+                            </AvatarFallback>
+                        </UiAvatar>
                         <h2 class="truncate text-[15px] font-semibold text-ink">
                             {currentThread.label}
                         </h2>
                         <div class="ml-auto flex items-center gap-0.5">
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="Find in conversation"
-                                aria-label="Find in conversation"
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                class="text-muted-foreground"
+                                attrs=@{labelled("Find in conversation")}
                                 onclick={openConversationSearch()}
                             >
-                                <Icon name="search" class="h-[18px] w-[18px]" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="More options"
-                                aria-label="More options"
+                                <Icon name="search" class="size-[18px]" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                class="text-muted-foreground"
+                                attrs=@{labelled("More options")}
                             >
-                                <Icon name="more" class="h-[18px] w-[18px]" />
-                            </button>
+                                <Icon name="more" class="size-[18px]" />
+                            </Button>
                         </div>
                     </header>
                     <section
@@ -243,13 +464,16 @@ pub async fn page() -> Html {
                         aria-label="New conversation recipients"
                     >
                         <div
-                            class="new-chat-group flex min-h-16 items-center gap-3.5 px-7 py-3 text-sm focus-within:shadow-[inset_0_-2px_var(--color-brand-ink)] border-b border-edge"
+                            class="new-chat-group flex min-h-16 items-center gap-3.5 border-b border-edge px-7 py-3 text-sm focus-within:shadow-[inset_0_-2px_var(--color-brand-ink)]"
                             hidden={!groupNameOpen}
                         >
-                            <label for={groupNameId} class="shrink-0 text-ink">"Group name:"</label>
+                            <Label r#for="chat-group-name" class="shrink-0 font-normal">
+                                "Group name:"
+                            </Label>
                             <input
-                                id={groupNameId}
-                                class="min-w-[140px] flex-1 bg-transparent text-ink outline-none placeholder:text-muted"
+                                id="chat-group-name"
+                                data-slot="input-group-control"
+                                class=@{inline_field.as_str()}
                                 pp-ref={groupNameInput}
                                 aria-label="Group name"
                                 maxlength="80"
@@ -261,30 +485,37 @@ pub async fn page() -> Html {
                         <div
                             class="flex min-h-16 items-center gap-3.5 px-7 py-3 text-sm focus-within:shadow-[inset_0_-2px_var(--color-brand-ink)]"
                         >
-                            <label for={recipientId} class="shrink-0 text-ink">"To:"</label>
+                            <Label r#for="chat-recipients" class="shrink-0 font-normal">
+                                "To:"
+                            </Label>
                             <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                                 <template pp-for="recipient in recipients">
-                                    <span
-                                        class="new-chat-chip inline-flex max-w-full items-center gap-1.5 rounded-[5px] bg-brand-soft px-2 py-1 text-[13px]"
+                                    <Badge
                                         key={recipient}
+                                        variant="secondary"
+                                        class="new-chat-chip max-w-full gap-1.5 rounded-[5px] bg-brand-soft py-1 pr-1 text-[13px] font-normal"
                                     >
                                         <span class="truncate">{recipient}</span>
-                                        <button
-                                            type="button"
-                                            class="grid shrink-0 cursor-pointer place-items-center rounded text-muted"
-                                            aria-label={"Remove " + recipient}
-                                            onclick={removeRecipient(recipient)}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-xs"
+                                            class="size-5! text-muted-foreground"
+                                            attrs=@{bound("aria-label", ui_expr!(aria-label={"Remove " + recipient}))}
+                                            value={recipient}
+                                            onclick={removeRecipient(event.currentTarget.value)}
                                             disabled={sending}
                                         >
-                                            <Icon name="close" class="h-3.5 w-3.5" />
-                                        </button>
-                                    </span>
+                                            <Icon name="close" class="size-3.5" />
+                                        </Button>
+                                    </Badge>
                                 </template>
                                 <input
-                                    id={recipientId}
+                                    id="chat-recipients"
+                                    data-slot="input-group-control"
                                     pp-ref={recipientInput}
-                                    class="min-w-[140px] flex-1 bg-transparent text-ink outline-none placeholder:text-muted"
+                                    class=@{inline_field.as_str()}
                                     aria-label="Recipients"
+                                    aria-describedby="chat-recipient-error"
                                     placeholder="Enter name, email or phone number"
                                     autocomplete="off"
                                     value={recipientQuery}
@@ -292,57 +523,53 @@ pub async fn page() -> Html {
                                     onkeydown={handleRecipientKey(event)}
                                     disabled={sending}
                                     aria-invalid={!!recipientError}
-                                    aria-describedby={recipientErrorId}
                                 />
                             </div>
-                            <button
-                                type="button"
-                                class="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded text-muted hover:bg-hover"
-                                aria-label={groupNameOpen ? "Hide group name" : "Show group name"}
-                                aria-expanded={groupNameOpen}
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                class="text-muted-foreground"
+                                attrs=@{bound("aria-label", ui_expr!(aria-label={groupNameOpen ? "Hide group name" : "Show group name"}))
+                                    .merge(&bound("aria-expanded", ui_expr!(aria-expanded={groupNameOpen})))}
                                 onclick={toggleGroupName()}
                                 disabled={sending}
                             >
                                 <span class={groupNameOpen ? "flex rotate-180" : "flex"}>
-                                    <Icon name="chevron-down" class="h-5 w-5" />
+                                    <Icon name="chevron-down" class="size-5" />
                                 </span>
-                            </button>
+                            </Button>
                         </div>
                         <p
                             class="new-chat-recipient-error px-7 pb-2 text-xs text-danger-ink"
-                            id={recipientErrorId}
+                            id="chat-recipient-error"
                             role="alert"
                             hidden={!recipientError}
                         >
                             {recipientError}
                         </p>
                         <div
-                            class="absolute inset-x-7 top-full z-20 rounded-md border border-edge bg-raised p-1 shadow-xl shadow-black/40"
+                            class="absolute inset-x-7 top-full z-20 rounded-md border bg-popover p-1 shadow-xl shadow-black/40"
                             hidden={!recipientQuery.trim()}
                         >
-                            <button
-                                type="button"
-                                class="flex w-full cursor-pointer items-center gap-2.5 rounded px-3 py-2.5 text-left text-[13px] hover:bg-hover"
+                            <Button
+                                variant="ghost"
+                                class="h-auto! w-full justify-start! gap-2.5 px-3! py-2.5 text-[13px] font-normal"
                                 hidden={!suggestSelf}
                                 onclick={addRecipient(selfLabel)}
                                 disabled={sending}
                             >
-                                <span
-                                    class="flex h-8 w-8 items-center justify-center rounded-full bg-avatar text-xs text-avatar-ink"
-                                >
-                                    @{initials.as_str()}
-                                </span>
+                                <Avatar initials=@{initials.as_str()} size="md" presence="none" />
                                 <span>@{self_label.as_str()}</span>
-                            </button>
-                            <button
-                                type="button"
-                                class="flex w-full cursor-pointer items-center gap-2.5 rounded px-3 py-2.5 text-left text-[13px] hover:bg-hover"
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                class="h-auto! w-full justify-start! gap-1 px-3! py-2.5 text-[13px] font-normal"
                                 onclick={addRecipient(recipientQuery)}
                                 disabled={sending}
                             >
                                 "Add "
                                 <strong>{recipientQuery}</strong>
-                            </button>
+                            </Button>
                         </div>
                     </section>
                     <div
@@ -351,7 +578,8 @@ pub async fn page() -> Html {
                     >
                         <input
                             type="search"
-                            class="w-full rounded border border-edge bg-raised px-3 py-2 text-sm"
+                            data-slot="input"
+                            class=@{conversation_search.as_str()}
                             aria-label="Find messages in this conversation"
                             placeholder="Find in this conversation"
                             pp-ref={conversationSearchInput}
@@ -359,7 +587,7 @@ pub async fn page() -> Html {
                             oninput={setConversationQuery(target.value)}
                             onkeydown={handleConversationSearchKey(event)}
                         />
-                        <p class="mt-1 text-xs text-muted" role="status">
+                        <p class="mt-1 text-xs text-muted-foreground" role="status">
                             {matchingMessages.length}
                             " matching messages"
                         </p>
@@ -378,7 +606,7 @@ pub async fn page() -> Html {
                             <h3 class="mt-7 text-[17px] font-semibold text-ink">
                                 "This is your space"
                             </h3>
-                            <p class="mt-2.5 text-[13px] leading-relaxed text-muted">
+                            <p class="mt-2.5 text-[13px] leading-relaxed text-muted-foreground">
                                 "This chat is just for you…with you. Use it for drafts, send files to yourself, or get to know chat features a little better."
                             </p>
                         </div>
@@ -387,25 +615,27 @@ pub async fn page() -> Html {
                             hidden={!newChat}
                         >
                             <div class="relative isolate h-[185px] w-[200px]" aria-hidden="true">
-                                <span class="new-chat-bubble"></span>
-                                <span class="new-chat-pencil"></span>
-                                <span class="new-chat-dot purple"></span>
-                                <span class="new-chat-dot green"></span>
-                                <span class="new-chat-dot yellow"></span>
+                                <span class=@{BUBBLE}></span>
+                                <span class=@{PENCIL}></span>
+                                <span class=@{DOT_PURPLE}></span>
+                                <span class=@{DOT_GREEN}></span>
+                                <span class=@{DOT_YELLOW}></span>
                             </div>
                             <h2 class="mt-3.5 text-[17px] font-semibold">
                                 "You're starting a new conversation"
                             </h2>
-                            <p class="text-sm text-muted">"Type your first message below."</p>
+                            <p class="text-sm text-muted-foreground">
+                                "Type your first message below."
+                            </p>
                         </div>
                         <div class="w-full py-5" hidden={messages.length === 0}>
                             <template pp-for="message in matchingMessages">
                                 <div key={message.id} class="flex gap-3 py-2">
-                                    <span
-                                        class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
-                                    >
-                                        {message.initials}
-                                    </span>
+                                    <UiAvatar class="mt-0.5">
+                                        <AvatarFallback class=@{INITIALS}>
+                                            {message.initials}
+                                        </AvatarFallback>
+                                    </UiAvatar>
                                     <div class="min-w-0">
                                         <p class="flex items-baseline gap-2">
                                             <span class="text-[13px] font-semibold text-ink">
@@ -416,7 +646,7 @@ pub async fn page() -> Html {
                                             </span>
                                         </p>
                                         <p
-                                            class="mt-0.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-muted"
+                                            class="mt-0.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-muted-foreground"
                                         >
                                             {message.text}
                                         </p>
@@ -427,7 +657,7 @@ pub async fn page() -> Html {
                                                 key={url}
                                                 src={url}
                                                 alt="GIF from GIPHY"
-                                                class="chat-message-gif"
+                                                class="chat-message-gif mt-1.5 block max-h-[280px] max-w-[min(320px,100%)] rounded-lg"
                                                 loading="lazy"
                                             />
                                         </template>
@@ -437,99 +667,362 @@ pub async fn page() -> Html {
                         </div>
                     </div>
                     <div class="shrink-0 px-8 pb-6 pt-2">
-                        <div class="chat-draft-gif" hidden={!draftGif}>
+                        <div
+                            class="chat-draft-gif relative mb-2 inline-flex rounded-lg border border-edge p-2"
+                            hidden={!draftGif}
+                        >
                             <template pp-for="gif in draftGif ? [draftGif] : []">
                                 <img
                                     key={gif.id}
                                     src={gif.url}
                                     alt={gif.title || "Selected GIF from GIPHY"}
+                                    class="max-h-[120px] max-w-[180px] rounded"
                                 />
                             </template>
-                            <button
-                                type="button"
-                                aria-label="Remove selected GIF"
+                            <Button
+                                variant="secondary"
+                                size="icon-xs"
+                                class="absolute right-1 top-1 rounded-full!"
+                                attrs=@{named("Remove selected GIF")}
                                 onclick={setDraftGif(null)}
                                 disabled={sending}
                             >
-                                <Icon name="close" class="h-4 w-4" />
-                            </button>
+                                <Icon name="close" class="size-4" />
+                            </Button>
                         </div>
-                        <form
-                            class="flex items-center gap-2 rounded-lg border border-edge bg-raised px-3 py-1.5 focus-within:border-brand"
-                            onsubmit={send(event)}
-                            pp-ref={composerForm}
-                            novalidate
-                        >
-                            <textarea
-                                name="text"
-                                rows={expandedCompose ? 5 : 1}
-                                class={expandedCompose ? "min-h-32 min-w-0 flex-1 resize-none bg-transparent py-2 text-[13px] text-ink placeholder:text-muted focus:outline-none" : "h-9 min-w-0 flex-1 resize-none bg-transparent py-2 text-[13px] text-ink placeholder:text-muted focus:outline-none"}
-                                placeholder="Type a message"
-                                autocomplete="off"
-                                aria-label="Type a message"
-                                pp-ref={composerInput}
-                                onkeydown={handleComposerKey(event)}
-                                value={draft}
-                                oninput={setDraft(target.value)}
-                            >
-                            </textarea>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="Emoji"
-                                aria-label="Emoji"
-                                aria-haspopup="dialog"
-                                aria-expanded={emojiOpen}
-                                aria-controls={emojiPickerId}
-                                pp-ref={emojiTrigger}
-                                onclick={toggleEmojiPicker()}
-                                disabled={sending}
-                            >
-                                <Icon name="emoji" class="h-[18px] w-[18px]" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="Attach a file"
-                                aria-label="Attach a file"
-                            >
-                                <Icon name="attach" class="h-[18px] w-[18px]" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="Send an image"
-                                aria-label="Send an image"
-                            >
-                                <Icon name="image" class="h-[18px] w-[18px]" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="Format"
-                                aria-label="Format"
-                                aria-expanded={expandedCompose}
-                                onclick={toggleCompose()}
-                            >
-                                <Icon name="format" class="h-[18px] w-[18px]" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="More actions"
-                                aria-label="More actions"
-                            >
-                                <Icon name="plus" class="h-[18px] w-[18px]" />
-                            </button>
-                            <button
-                                type="submit"
-                                class="flex h-8 w-8 items-center justify-center rounded text-brand-ink transition-colors hover:bg-hover disabled:text-subtle"
-                                title="Send"
-                                aria-label="Send"
-                                disabled={(!draft.trim() && !draftGif) || sending || (newChat && recipients.length === 0)}
-                            >
-                                <Icon name="send" class="h-[18px] w-[18px]" />
-                            </button>
+                        <form onsubmit={send(event)} pp-ref={composerForm} novalidate>
+                            <InputGroup class="h-auto! bg-raised px-1 dark:bg-raised">
+                                <textarea
+                                    name="text"
+                                    data-slot="input-group-control"
+                                    rows={expandedCompose ? 5 : 1}
+                                    class=@{composer_field.as_str()}
+                                    placeholder="Type a message"
+                                    autocomplete="off"
+                                    aria-label="Type a message"
+                                    pp-ref={composerInput}
+                                    onkeydown={handleComposerKey(event)}
+                                    value={draft}
+                                    oninput={setDraft(target.value)}
+                                >
+                                </textarea>
+                                <InputGroupAddon align="inline-end" class="gap-0.5 self-end py-1">
+                                    <Popover>
+                                        <PopoverTrigger
+                                            name="chat-emoji"
+                                            class=@{icon_button.as_str()}
+                                            attrs=@{labelled("Emoji")}
+                                            onclick={rememberSelection()}
+                                        >
+                                            <Icon name="emoji" class="size-[18px]" />
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                            name="chat-emoji"
+                                            side="top"
+                                            align="end"
+                                            class=@{PICKER}
+                                            attrs=@{named("Emoji and GIF picker")}
+                                            ontoggle={emojiToggled(event.newState)}
+                                        >
+                                            <ToggleGroup
+                                                r#type="single"
+                                                name="chat-media"
+                                                class="chat-emoji-tabs w-full shrink-0 rounded-none! bg-sunken px-3"
+                                                attrs=@{named("Media type")}
+                                            >
+                                                <ToggleGroupItem
+                                                    r#type="single"
+                                                    name="chat-media"
+                                                    value="all"
+                                                    pressed
+                                                    class=@{MEDIA_TAB}
+                                                    checked={emojiTab === "all"}
+                                                    onchange={chooseMediaTab(event.target)}
+                                                >
+                                                    "All"
+                                                </ToggleGroupItem>
+                                                <ToggleGroupItem
+                                                    r#type="single"
+                                                    name="chat-media"
+                                                    value="emoji"
+                                                    class=@{MEDIA_TAB}
+                                                    checked={emojiTab === "emoji"}
+                                                    onchange={chooseMediaTab(event.target)}
+                                                >
+                                                    "Emoji"
+                                                </ToggleGroupItem>
+                                                <ToggleGroupItem
+                                                    r#type="single"
+                                                    name="chat-media"
+                                                    value="gifs"
+                                                    class=@{MEDIA_TAB}
+                                                    checked={emojiTab === "gifs"}
+                                                    onchange={chooseMediaTab(event.target)}
+                                                >
+                                                    "GIFs"
+                                                </ToggleGroupItem>
+                                            </ToggleGroup>
+                                            <InputGroup class="chat-emoji-search mx-4 mb-2 mt-4 w-auto! shrink-0">
+                                                <input
+                                                    type="search"
+                                                    data-slot="input-group-control"
+                                                    class=@{emoji_search.as_str()}
+                                                    pp-ref={emojiSearchInput}
+                                                    aria-label="Find something fun"
+                                                    placeholder="Find something fun"
+                                                    value={emojiQuery}
+                                                    oninput={searchMedia(target.value)}
+                                                />
+                                                <InputGroupAddon align="inline-end">
+                                                    <Icon name="search" class="size-[18px]" />
+                                                </InputGroupAddon>
+                                            </InputGroup>
+                                            <div
+                                                class="chat-emoji-content scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-2"
+                                                role="region"
+                                                aria-label={emojiTab === "gifs" ? "GIFs" : "Emoji"}
+                                            >
+                                                <div hidden={emojiTab === "gifs"}>
+                                                    <div class=@{HEADING}>
+                                                        <h3 class="font-semibold">"Emoji"</h3>
+                                                        <Button
+                                                            attrs=@{plain()}
+                                                            variant="ghost"
+                                                            size="xs"
+                                                            class="text-muted-foreground"
+                                                            hidden={emojiTab !== "all"}
+                                                            onclick={setEmojiTab("emoji")}
+                                                        >
+                                                            "See all"
+                                                            <Icon
+                                                                name="chevron-right"
+                                                                class="size-4"
+                                                            />
+                                                        </Button>
+                                                    </div>
+                                                    <div
+                                                        class="chat-emoji-categories mb-3 flex flex-wrap gap-[3px]"
+                                                        hidden={emojiTab !== "emoji"}
+                                                        aria-label="Emoji categories"
+                                                    >
+                                                        <template
+                                                            pp-for="category in emojiCategories"
+                                                        >
+                                                            <div
+                                                                key={category.id}
+                                                                class={emojiCategory === category.id ? "rounded bg-brand-soft" : "rounded"}
+                                                            >
+                                                                <Button
+                                                                    attrs=@{plain()}
+                                                                    variant="ghost"
+                                                                    size="icon-sm"
+                                                                    class="text-[19px]"
+                                                                    title={category.name}
+                                                                    value={category.id}
+                                                                    onclick={setEmojiCategory(event.currentTarget.value)}
+                                                                >
+                                                                    {category.icon}
+                                                                    <span class="sr-only">
+                                                                        {category.name}
+                                                                    </span>
+                                                                </Button>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                    <div
+                                                        class="chat-emoji-grid grid grid-cols-6 gap-1"
+                                                        aria-label="Emoji choices"
+                                                    >
+                                                        <template pp-for="item in shownEmojis">
+                                                            <Button
+                                                                attrs=@{plain()}
+                                                                key={item.symbol}
+                                                                variant="ghost"
+                                                                class="h-11! px-0! text-[29px] leading-none"
+                                                                value={item.symbol}
+                                                                onclick={insertEmoji(event.currentTarget.value)}
+                                                            >
+                                                                {item.symbol}
+                                                                <span class="sr-only">
+                                                                    {item.name}
+                                                                </span>
+                                                            </Button>
+                                                        </template>
+                                                    </div>
+                                                    <p
+                                                        class=@{EMPTY}
+                                                        role="status"
+                                                        hidden={shownEmojis.length > 0}
+                                                    >
+                                                        "No emoji found. Try another search."
+                                                    </p>
+                                                </div>
+                                                <div hidden={emojiTab === "emoji"}>
+                                                    <div class=@{HEADING}>
+                                                        <h3 class="font-semibold">"GIFs"</h3>
+                                                        <Button
+                                                            attrs=@{plain()}
+                                                            variant="ghost"
+                                                            size="xs"
+                                                            class="text-muted-foreground"
+                                                            hidden={emojiTab !== "all"}
+                                                            onclick={setEmojiTab("gifs")}
+                                                        >
+                                                            "See all"
+                                                            <Icon
+                                                                name="chevron-right"
+                                                                class="size-4"
+                                                            />
+                                                        </Button>
+                                                    </div>
+                                                    <p
+                                                        class=@{EMPTY}
+                                                        role="status"
+                                                        hidden={!gifLoading}
+                                                    >
+                                                        "Loading GIFs…"
+                                                    </p>
+                                                    <p
+                                                        class=@{EMPTY}
+                                                        role="status"
+                                                        hidden={!gifError}
+                                                    >
+                                                        {gifError}
+                                                    </p>
+                                                    <Button
+                                                        attrs=@{plain()}
+                                                        variant="link"
+                                                        size="sm"
+                                                        class="chat-gif-retry text-link"
+                                                        hidden={!gifError || !giphyKey}
+                                                        onclick={setGifRetry(value => value + 1)}
+                                                    >
+                                                        "Try again"
+                                                    </Button>
+                                                    <div
+                                                        class="chat-gif-grid grid grid-cols-3 gap-1.5"
+                                                        aria-label="GIF choices"
+                                                        aria-busy={gifLoading}
+                                                    >
+                                                        <template pp-for="gif in visibleGifs">
+                                                            <Button
+                                                                attrs=@{plain()}
+                                                                key={gif.id}
+                                                                variant="ghost"
+                                                                class="h-[92px]! overflow-hidden bg-sunken p-0!"
+                                                                value={gif.id}
+                                                                onclick={chooseGif(event.currentTarget.value)}
+                                                            >
+                                                                <img
+                                                                    src={gif.preview}
+                                                                    alt={gif.title || "GIF from GIPHY"}
+                                                                    loading="lazy"
+                                                                    class="size-full object-cover"
+                                                                />
+                                                            </Button>
+                                                        </template>
+                                                    </div>
+                                                    <p
+                                                        class=@{EMPTY}
+                                                        role="status"
+                                                        hidden={gifLoading || !!gifError || gifs.length > 0}
+                                                    >
+                                                        "No GIFs found. Try another search."
+                                                    </p>
+                                                    <Button
+                                                        attrs=@{plain()}
+                                                        variant="link"
+                                                        size="sm"
+                                                        class="chat-gif-more mx-auto mt-2.5 flex text-link"
+                                                        hidden={emojiTab !== "gifs" || !gifMore || !!gifError}
+                                                        disabled={gifLoading}
+                                                        onclick={setGifOffset(gifs.length)}
+                                                    >
+                                                        "Load more"
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <footer
+                                                class="chat-giphy-attribution flex shrink-0 items-center justify-center gap-2.5 border-t bg-sunken px-3 py-2.5 text-xs"
+                                                hidden={emojiTab === "emoji"}
+                                            >
+                                                <a
+                                                    href="https://giphy.com/"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    aria-label="GIFs powered by GIPHY"
+                                                >
+                                                    <img
+                                                        src="/images/powered-by-giphy.png"
+                                                        alt="GIFs powered by GIPHY"
+                                                        class="h-auto w-[125px]"
+                                                    />
+                                                </a>
+                                                <a
+                                                    href="https://support.giphy.com/hc/en-us/articles/360020027752-GIPHY-API-Terms-of-Service"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="text-link"
+                                                >
+                                                    "View Terms"
+                                                </a>
+                                            </footer>
+                                            <Button
+                                                variant="ghost"
+                                                attrs=@{(hidden().merge(&close_popover("chat-emoji", "Close emoji picker"))).merge(&plain())}
+                                            >
+                                                <span pp-ref={emojiCloser}></span>
+                                            </Button>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        class="text-muted-foreground"
+                                        attrs=@{(labelled("Attach a file")).merge(&plain())}
+                                    >
+                                        <Icon name="attach" class="size-[18px]" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        class="text-muted-foreground"
+                                        attrs=@{(labelled("Send an image")).merge(&plain())}
+                                    >
+                                        <Icon name="image" class="size-[18px]" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        class="text-muted-foreground"
+                                        attrs=@{(labelled("Format")).merge(&plain())}
+                                        onclick={toggleCompose()}
+                                    >
+                                        <span
+                                            class={expandedCompose ? "contents text-brand-ink" : "contents"}
+                                        >
+                                            <Icon name="format" class="size-[18px]" />
+                                        </span>
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        class="text-muted-foreground"
+                                        attrs=@{(labelled("More actions")).merge(&plain())}
+                                    >
+                                        <Icon name="plus" class="size-[18px]" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        class="text-brand-ink"
+                                        attrs=@{labelled("Send").merge(&submit())}
+                                        disabled={(!draft.trim() && !draftGif) || sending || (newChat && recipients.length === 0)}
+                                    >
+                                        <Icon name="send" class="size-[18px]" />
+                                    </Button>
+                                </InputGroupAddon>
+                            </InputGroup>
                         </form>
                         <p class="mt-2 text-xs text-subtle" hidden={selected === "self"}>
                             "New conversations are previews. Messages aren't delivered to recipients yet."
@@ -537,390 +1030,14 @@ pub async fn page() -> Html {
                         <p class="mt-2 text-xs text-busy" hidden={!error}>{error}</p>
                     </div>
                 </main>
-                <div class="fixed inset-0 z-45" hidden={!meetingOpen} onclick={closeMeetNow()}>
-                </div>
-                <section
-                    class="chat-meet-now fixed z-46 w-[min(380px,calc(100vw-32px))] rounded-md border border-line bg-raised p-[22px] shadow-2xl shadow-black/70"
-                    role="dialog"
-                    aria-labelledby="chat-meet-now-title"
-                    style={meetingPosition}
-                    hidden={!meetingOpen}
-                    onkeydown={handleMeetingKey(event)}
-                >
-                    <header class="mb-[22px] flex items-center justify-between gap-[18px]">
-                        <h2 id="chat-meet-now-title" class="text-[17px] font-semibold">
-                            "Start a meeting now"
-                        </h2>
-                        <button
-                            type="button"
-                            class="cursor-pointer text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-                            aria-label="Close meeting popup"
-                            disabled={meetingBusy}
-                            onclick={closeMeetNow()}
-                        >
-                            <Icon name="close" class="h-5 w-5" />
-                        </button>
-                    </header>
-                    <form onsubmit={startChatMeeting(event)} novalidate>
-                        <label for="chat-meeting-name" class="mb-1.5 block text-sm">
-                            "Meeting name"
-                        </label>
-                        <input
-                            id="chat-meeting-name"
-                            class="h-10 w-full rounded border border-edge border-b-2 border-b-brand-ink bg-surface px-3 py-2 text-ink outline-none text-sm"
-                            pp-ref={meetingNameInput}
-                            name="title"
-                            aria-label="Meeting name"
-                            type="text"
-                            maxlength="120"
-                            autocomplete="off"
-                            value={meetingTitle}
-                            oninput={changeMeetingTitle(target.value)}
-                            disabled={meetingBusy}
-                        />
-                        <p
-                            class="mt-2.5 text-xs text-danger-ink"
-                            role="alert"
-                            hidden={!meetingError}
-                        >
-                            {meetingError}
-                        </p>
-                        <div class="chat-meeting-share mt-3.5" hidden={!sharedMeeting}>
-                            <input
-                                class="h-10 w-full rounded border border-edge border-b-2 border-b-brand-ink bg-surface px-3 py-2 text-ink outline-none text-xs"
-                                aria-label="Meeting link"
-                                readonly
-                                value={sharedMeeting ? meetingAbsolute(sharedMeeting.url) : ""}
-                            />
-                            <p class="mt-2 text-xs text-muted" role="status">{meetingNotice}</p>
-                            <a
-                                class="mt-1.5 inline-block text-xs text-link hover:underline"
-                                href={sharedMeeting ? sharedMeeting.url : "/meet"}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                "Open meeting in a new tab"
-                            </a>
-                        </div>
-                        <button
-                            type="button"
-                            class="chat-meeting-share-button mt-[22px] block h-10 w-full cursor-pointer rounded text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 border border-edge bg-transparent hover:bg-hover"
-                            disabled={meetingBusy || !meetingTitle.trim()}
-                            onclick={getChatMeetingLink()}
-                        >
-                            {meetingBusy ? "Creating…" : "Get a link to share"}
-                        </button>
-                        <button
-                            type="submit"
-                            class="chat-meeting-start mt-2.5 block h-10 w-full cursor-pointer rounded text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 bg-brand text-white hover:bg-brand-hover"
-                            disabled={meetingBusy || !meetingTitle.trim()}
-                        >
-                            {meetingBusy ? "Please wait…" : "Start meeting"}
-                        </button>
-                    </form>
-                </section>
-                <div
-                    id={draftMenuId}
-                    pp-ref={draftMenu}
-                    popover="auto"
-                    role="menu"
-                    aria-label="New message options"
-                    class="new-chat-menu rounded-md border border-edge bg-raised p-1 text-sm text-ink shadow-xl"
-                    pp-style={draftMenuPosition}
-                    ontoggle={setDraftMenuOpen(event.newState === "open")}
-                    onkeydown={handleDraftMenuKey(event)}
-                >
-                    <button
-                        type="button"
-                        role="menuitem"
-                        pp-ref={draftWindowAction}
-                        class="flex w-full items-center gap-3 rounded px-3 py-2 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-ink"
-                        onclick={openDraftWindow()}
-                        disabled={sending}
-                    >
-                        <Icon name="maximize" class="h-4 w-4" />
-                        "Open in new window"
-                    </button>
-                    <button
-                        type="button"
-                        role="menuitem"
-                        pp-ref={draftDiscardAction}
-                        class="flex w-full items-center gap-3 rounded px-3 py-2 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-ink"
-                        onclick={discardNewChat()}
-                        disabled={sending}
-                    >
-                        <Icon name="trash" class="h-4 w-4" />
-                        "Discard"
-                    </button>
-                </div>
-                <section
-                    id={emojiPickerId}
-                    pp-ref={emojiPicker}
-                    popover="auto"
-                    role="dialog"
-                    aria-label="Emoji and GIF picker"
-                    class="chat-emoji-picker"
-                    pp-style={emojiPosition}
-                    ontoggle={setEmojiOpen(event.newState === "open")}
-                    onkeydown={handleEmojiKey(event)}
-                >
-                    <div
-                        class="chat-emoji-tabs"
-                        role="tablist"
-                        aria-label="Media type"
-                        onkeydown={handleEmojiTabKey(event)}
-                    >
-                        <button
-                            type="button"
-                            role="tab"
-                            pp-ref={emojiAllTab}
-                            aria-selected={emojiTab === "all"}
-                            tabindex={emojiTab === "all" ? 0 : -1}
-                            aria-controls={emojiPanelId}
-                            onclick={setEmojiTab("all")}
-                        >
-                            "All"
-                        </button>
-                        <button
-                            type="button"
-                            role="tab"
-                            pp-ref={emojiOnlyTab}
-                            aria-selected={emojiTab === "emoji"}
-                            tabindex={emojiTab === "emoji" ? 0 : -1}
-                            aria-controls={emojiPanelId}
-                            onclick={setEmojiTab("emoji")}
-                        >
-                            "Emoji"
-                        </button>
-                        <button
-                            type="button"
-                            role="tab"
-                            pp-ref={emojiGifTab}
-                            aria-selected={emojiTab === "gifs"}
-                            tabindex={emojiTab === "gifs" ? 0 : -1}
-                            aria-controls={emojiPanelId}
-                            onclick={setEmojiTab("gifs")}
-                        >
-                            "GIFs"
-                        </button>
-                    </div>
-                    <div class="chat-emoji-search">
-                        <input
-                            type="search"
-                            pp-ref={emojiSearchInput}
-                            aria-label="Find something fun"
-                            placeholder="Find something fun"
-                            value={emojiQuery}
-                            oninput={searchMedia(target.value)}
-                        />
-                        <Icon name="search" class="h-[18px] w-[18px]" />
-                    </div>
-                    <div
-                        class="chat-emoji-content scroll-thin"
-                        id={emojiPanelId}
-                        role="tabpanel"
-                        aria-label={emojiTab === "gifs" ? "GIFs" : "Emoji"}
-                    >
-                        <div hidden={emojiTab === "gifs"}>
-                            <div class="chat-emoji-heading">
-                                <h3>"Emoji"</h3>
-                                <button
-                                    type="button"
-                                    hidden={emojiTab !== "all"}
-                                    onclick={setEmojiTab("emoji")}
-                                >
-                                    "See all "
-                                    <Icon name="chevron-right" class="h-4 w-4" />
-                                </button>
-                            </div>
-                            <div
-                                class="chat-emoji-categories"
-                                hidden={emojiTab !== "emoji"}
-                                aria-label="Emoji categories"
-                            >
-                                <template pp-for="category in emojiCategories">
-                                    <button
-                                        key={category.id}
-                                        type="button"
-                                        aria-label={category.name}
-                                        title={category.name}
-                                        aria-pressed={emojiCategory === category.id}
-                                        onclick={setEmojiCategory(category.id)}
-                                    >
-                                        {category.icon}
-                                    </button>
-                                </template>
-                            </div>
-                            <div class="chat-emoji-grid" aria-label="Emoji choices">
-                                <template pp-for="item in shownEmojis">
-                                    <button
-                                        key={item.symbol}
-                                        type="button"
-                                        aria-label={item.name}
-                                        title={item.name}
-                                        onclick={insertEmoji(item.symbol)}
-                                    >
-                                        {item.symbol}
-                                    </button>
-                                </template>
-                            </div>
-                            <p
-                                class="chat-emoji-empty"
-                                role="status"
-                                hidden={shownEmojis.length > 0}
-                            >
-                                "No emoji found. Try another search."
-                            </p>
-                        </div>
-                        <div hidden={emojiTab === "emoji"}>
-                            <div class="chat-emoji-heading">
-                                <h3>"GIFs"</h3>
-                                <button
-                                    type="button"
-                                    hidden={emojiTab !== "all"}
-                                    onclick={setEmojiTab("gifs")}
-                                >
-                                    "See all "
-                                    <Icon name="chevron-right" class="h-4 w-4" />
-                                </button>
-                            </div>
-                            <p class="chat-emoji-empty" role="status" hidden={!gifLoading}>
-                                "Loading GIFs…"
-                            </p>
-                            <p class="chat-emoji-empty" role="status" hidden={!gifError}>
-                                {gifError}
-                            </p>
-                            <button
-                                type="button"
-                                class="chat-gif-retry"
-                                hidden={!gifError || !giphyKey}
-                                onclick={setGifRetry(value => value + 1)}
-                            >
-                                "Try again"
-                            </button>
-                            <div
-                                class="chat-gif-grid"
-                                aria-label="GIF choices"
-                                aria-busy={gifLoading}
-                            >
-                                <template pp-for="gif in visibleGifs">
-                                    <button
-                                        key={gif.id}
-                                        type="button"
-                                        aria-label={gif.title || "Choose GIF"}
-                                        onclick={chooseGif(gif)}
-                                    >
-                                        <img
-                                            src={gif.preview}
-                                            alt={gif.title || "GIF from GIPHY"}
-                                            loading="lazy"
-                                        />
-                                    </button>
-                                </template>
-                            </div>
-                            <p
-                                class="chat-emoji-empty"
-                                role="status"
-                                hidden={gifLoading || !!gifError || gifs.length > 0}
-                            >
-                                "No GIFs found. Try another search."
-                            </p>
-                            <button
-                                type="button"
-                                class="chat-gif-more"
-                                hidden={emojiTab !== "gifs" || !gifMore || !!gifError}
-                                disabled={gifLoading}
-                                onclick={setGifOffset(gifs.length)}
-                            >
-                                "Load more"
-                            </button>
-                        </div>
-                    </div>
-                    <footer class="chat-giphy-attribution" hidden={emojiTab === "emoji"}>
-                        <a
-                            href="https://giphy.com/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="GIFs powered by GIPHY"
-                        >
-                            <img src="/images/powered-by-giphy.png" alt="GIFs powered by GIPHY" />
-                        </a>
-                        <a
-                            href="https://support.giphy.com/hc/en-us/articles/360020027752-GIPHY-API-Terms-of-Service"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            "View Terms"
-                        </a>
-                    </footer>
-                </section>
-                <style>r##"
-                    .chat-emoji-picker {position:fixed;inset:auto;margin:0;width:360px;max-width:calc(100vw - 16px);height:480px;padding:0;border:1px solid #393939;border-radius:8px;background:#292929;color:#f5f5f5;box-shadow:0 12px 32px #0006;overflow:hidden;}
-                    .chat-emoji-picker:popover-open {display:flex;flex-direction:column;}
-                    .chat-emoji-tabs {display:flex;flex-shrink:0;background:#242424;padding:0 12px;}
-                    .chat-emoji-tabs button {position:relative;flex:1;height:56px;font-size:15px;color:#ccc;}
-                    .chat-emoji-tabs button[aria-selected=true] {color:white;font-weight:600;}
-                    .chat-emoji-tabs button[aria-selected=true]::after {content:'';position:absolute;bottom:0;left:calc(50% - 10px);width:20px;height:3px;border-radius:3px;background:#9287ff;}
-                    .chat-emoji-search {position:relative;margin:16px 16px 8px;flex-shrink:0;}
-                    .chat-emoji-search input {width:100%;height:38px;padding:0 38px 0 12px;border:0;border-radius:5px;background:#202020;color:white;font-size:14px;outline-offset:2px;}
-                    .chat-emoji-search > svg {position:absolute;right:12px;top:10px;color:#aaa;pointer-events:none;}
-                    .chat-emoji-content {overflow-y:auto;min-height:0;flex:1;padding:8px 16px 16px;}
-                    .chat-emoji-heading {display:flex;align-items:center;justify-content:space-between;margin:12px 0 10px;font-size:14px;}
-                    .chat-emoji-heading h3 {font-weight:600;}
-                    .chat-emoji-heading button {display:flex;align-items:center;gap:4px;color:#ccc;}
-                    .chat-emoji-grid {display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;}
-                    .chat-emoji-grid button {height:44px;font-size:29px;line-height:1;border-radius:5px;}
-                    .chat-emoji-picker button:hover {background:#ffffff0d;}
-                    .chat-emoji-picker button:focus-visible {outline:2px solid #b6acff;outline-offset:-2px;}
-                    .chat-emoji-categories {display:flex;flex-wrap:wrap;gap:3px;margin-bottom:12px;}
-                    .chat-emoji-categories button {width:34px;height:32px;border-radius:4px;font-size:19px;}
-                    .chat-emoji-categories button[aria-pressed=true] {background:#514b79;}
-                    .chat-emoji-empty {padding:16px 0;font-size:13px;color:#b6b6bd;line-height:1.5;}
-                    .chat-gif-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
-                    .chat-gif-grid button {height:92px;border-radius:5px;overflow:hidden;background:#202020;}
-                    .chat-gif-grid img {width:100%;height:100%;object-fit:cover;}
-                    .chat-giphy-attribution {flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 12px;border-top:1px solid #393939;background:#242424;font-size:12px;}
-                    .chat-giphy-attribution img {width:125px;height:auto;}
-                    .chat-giphy-attribution > a:last-child {color:#a89aff;}
-                    .chat-gif-more,.chat-gif-retry {padding:8px 12px;border-radius:4px;color:#c4baff;font-size:13px;}
-                    .chat-gif-more {display:block;margin:10px auto 0;}
-                    .chat-message-gif {display:block;max-width:min(320px,100%);max-height:280px;border-radius:8px;margin-top:6px;}
-                    .chat-draft-gif {position:relative;display:inline-flex;margin-bottom:8px;padding:8px;border:1px solid #393939;border-radius:8px;}
-                    .chat-draft-gif img {max-width:180px;max-height:120px;border-radius:4px;}
-                    .chat-draft-gif button {position:absolute;right:4px;top:4px;padding:5px;border-radius:50%;background:#202020;color:white;}
-                    .new-chat-menu {position:fixed;inset:auto;margin:0;width:240px;max-width:calc(100vw - 16px);}
-                    /* The new-conversation illustration: layered gradients and pseudo-element
-                       shapes that utilities cannot express readably. */
-                    .new-chat-bubble {position:absolute;inset:14px 16px 10px 28px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#48484d,#29292f 58%,#1f1f24 80%);box-shadow:inset 3px 2px 7px #ffffff20,4px 5px 8px #0005;}
-                    .new-chat-bubble::after {content:"";position:absolute;bottom:-4px;left:22px;width:30px;height:38px;transform:skewY(-30deg);border-radius:0 0 5px 10px;background:linear-gradient(120deg,#35353c,#222228);z-index:-1;}
-                    .new-chat-pencil {position:absolute;left:114px;top:4px;width:40px;height:126px;transform:rotate(40deg);border-radius:20px 20px 2px 2px;background:linear-gradient(90deg,#ffb342,#ffdd7a 45%,#ed883b);box-shadow:inset -5px 0 6px #a74d3a40,4px 5px 10px #0006;}
-                    .new-chat-pencil::before {content:"";position:absolute;top:0;left:0;right:0;height:30px;border-radius:20px 20px 0 0;background:linear-gradient(90deg,#777,#bbb,#888);}
-                    .new-chat-pencil::after {content:"";position:absolute;top:calc(100% - 1px);left:0;width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-top:30px solid #ffe495;}
-                    .new-chat-dot {position:absolute;top:108px;width:21px;height:21px;border-radius:50%;box-shadow:inset -3px -3px 5px #0005,1px 2px 3px #0005;}
-                    .new-chat-dot.purple {left:5px;background:radial-gradient(at 30% 20%,#dbbaff,#9460ed 65%);}
-                    .new-chat-dot.green {left:31px;background:radial-gradient(at 30% 20%,#f3ffbd,#a3ce53 65%);}
-                    .new-chat-dot.yellow {left:57px;background:radial-gradient(at 30% 20%,#fffccb,#edd445 65%);}
-                "##</style>
                 <script>r##"
-                    const PILL_ON = "h-7 shrink-0 rounded-full border border-brand bg-brand-soft px-3 text-xs font-semibold text-ink";
-                    const PILL_OFF = "h-7 shrink-0 rounded-full border border-edge px-3 text-xs text-muted transition-colors hover:bg-hover hover:text-ink";
-                    const ROW_ON = "flex w-full items-center gap-3 rounded-md bg-raised px-3 py-2 text-left";
-                    const ROW_OFF = "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-hover";
-
                     const shortcuts = pp.context(window.UpurnakaShortcutContext);
                     const composerInput = pp.ref(null);
-                    const emojiTrigger = pp.ref(null);
-                    const emojiPicker = pp.ref(null);
+                    const emojiCloser = pp.ref(null);
                     const emojiSearchInput = pp.ref(null);
-                    const emojiAllTab = pp.ref(null);
-                    const emojiOnlyTab = pp.ref(null);
-                    const emojiGifTab = pp.ref(null);
-                    const emojiPickerId = pp.id();
-                    const emojiPanelId = pp.id();
                     const emojiSelection = pp.ref({start:0, end:0});
                     const emojiCaret = pp.ref(null);
                     const [emojiOpen, setEmojiOpen] = pp.state(false);
-                    const [emojiPosition, setEmojiPosition] = pp.state('');
                     const [emojiTab, setEmojiTab] = pp.state('all');
                     const [emojiQuery, setEmojiQuery] = pp.state('');
                     const [emojiCategory, setEmojiCategory] = pp.state('faces');
@@ -968,18 +1085,8 @@ pub async fn page() -> Html {
                     const [recipientError, setRecipientError] = pp.state("");
                     const [groupName, setGroupName] = pp.state("");
                     const [groupNameOpen, setGroupNameOpen] = pp.state(false);
-                    const draftMenu = pp.ref(null);
-                    const draftMenuTrigger = pp.ref(null);
-                    const draftWindowAction = pp.ref(null);
-                    const draftDiscardAction = pp.ref(null);
-                    const draftMenuId = pp.id();
-                    const [draftMenuOpen, setDraftMenuOpen] = pp.state(false);
-                    const [draftMenuPosition, setDraftMenuPosition] = pp.state("");
                     const recipientInput = pp.ref(null);
                     const groupNameInput = pp.ref(null);
-                    const recipientId = pp.id();
-                    const groupNameId = pp.id();
-                    const recipientErrorId = pp.id();
                     const newChat = selected === "new";
                     const currentThread = threads.find(thread => thread.id === selected) || threads[0];
                     const messages = newChat ? [] : currentThread.messages;
@@ -998,9 +1105,7 @@ pub async fn page() -> Html {
                     const [meetingError, setMeetingError] = pp.state("");
                     const [meetingNotice, setMeetingNotice] = pp.state("");
                     const [sharedMeeting, setSharedMeeting] = pp.state(null);
-                    const [meetingPosition, setMeetingPosition] = pp.state("");
                     const meetingNameInput = pp.ref(null);
-                    const meetNowTrigger = pp.ref(null);
                     const hasChatFilter = !!chatFilter.trim() || filters.unread || filters.meetings || filters.unmuted;
                     const selfMatches = selfLabel.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
 
@@ -1020,11 +1125,16 @@ pub async fn page() -> Html {
                         try {const url = new URL(value); return url.protocol === 'https:' && /^(media[0-4]?|i)\.giphy\.com$/.test(url.hostname) && !url.username && !url.password && !url.port ? url.href : '';}
                         catch (failure) {return '';}
                     }
-                    function chooseGif(gif) {
-                        if (sending) return;
+                    function chooseGif(id) {
+                        const gif = gifs.find(item => item.id === id);
+                        if (sending || !gif) return;
                         setDraftGif({id:gif.id, url:gif.url, title:gif.title});
-                        emojiPicker.current.hidePopover(); composerInput.current?.focus();
+                        closeEmoji(); returnToComposer();
                     }
+                    // The picker is rahti-ui's Popover, which hands focus back to
+                    // its trigger as it closes; the composer takes it after that.
+                    function closeEmoji() {if (emojiOpen) emojiCloser.current?.click();}
+                    function returnToComposer() {setTimeout(() => composerInput.current?.focus(), 0);}
                     pp.effect(() => {
                         if (!emojiOpen || emojiTab === 'emoji') return;
                         if (!giphyKey) {setGifError('GIPHY is not configured yet.'); setGifLoading(false); return;}
@@ -1055,83 +1165,50 @@ pub async fn page() -> Html {
                         }, emojiQuery.trim() ? 350 : 0);
                         return () => {active = false; clearTimeout(timer); controller.abort();};
                     }, [emojiOpen, emojiTab, emojiQuery, gifOffset, gifRetry]);
-                    function toggleEmojiPicker() {
-                        if (emojiPicker.current.matches(':popover-open')) {emojiPicker.current.hidePopover(); return;}
+                    // The caret is read as the trigger is pressed, before the picker
+                    // takes focus away from the composer.
+                    function rememberSelection() {
                         const input = composerInput.current;
+                        if (!input || emojiOpen) return;
                         emojiSelection.current = {start:input.selectionStart ?? draft.length, end:input.selectionEnd ?? draft.length};
-                        const anchor = emojiTrigger.current.getBoundingClientRect();
-                        const width = Math.min(360, innerWidth - 16);
-                        const left = Math.max(8, Math.min(anchor.right - width, innerWidth - width - 8));
-                        setEmojiPosition('left:' + left + 'px;bottom:' + (innerHeight - anchor.top + 8) + 'px;max-height:' + Math.max(100, anchor.top - 16) + 'px');
-                        emojiPicker.current.showPopover(); emojiSearchInput.current?.focus();
+                    }
+                    // A tab chosen with the pointer takes focus too, so the arrow
+                    // keys carry on from it rather than from wherever focus was.
+                    function chooseMediaTab(tab) {
+                        setEmojiTab(tab.value);
+                        tab.focus();
+                    }
+                    function emojiToggled(state) {
+                        setEmojiOpen(state === 'open');
+                        if (state === 'open') requestAnimationFrame(() => emojiSearchInput.current?.focus());
                     }
                     function insertEmoji(symbol) {
                         if (sending) return;
                         const {start,end} = emojiSelection.current;
                         emojiCaret.current = start + symbol.length;
                         setDraft(draft.slice(0,start) + symbol + draft.slice(end));
-                        emojiPicker.current.hidePopover(); composerInput.current?.focus();
+                        closeEmoji(); returnToComposer();
                     }
                     pp.layoutEffect(() => {
                         if (emojiCaret.current === null) return;
                         composerInput.current?.setSelectionRange(emojiCaret.current, emojiCaret.current);
                         emojiCaret.current = null;
                     }, [draft]);
-                    function handleEmojiKey(event) {
-                        if (event.key === 'Escape') {
-                            event.preventDefault(); event.stopPropagation();
-                            emojiPicker.current.hidePopover(); emojiTrigger.current?.focus();
-                        }
-                    }
-                    function handleEmojiTabKey(event) {
-                        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
-                        event.preventDefault();
-                        const names = ['all','emoji','gifs'];
-                        const refs = [emojiAllTab,emojiOnlyTab,emojiGifTab];
-                        let index = names.indexOf(emojiTab);
-                        if (event.key === 'Home') index = 0;
-                        else if (event.key === 'End') index = 2;
-                        else index = (index + (event.key === 'ArrowRight' ? 1 : 2)) % 3;
-                        setEmojiTab(names[index]); refs[index].current?.focus();
-                    }
                     function selectThread(id) {
                         if (sending) return;
-                        emojiPicker.current?.hidePopover();
+                        closeEmoji();
                         setSelected(id); setConversationQuery(""); setConversationSearchOpen(false); setError("");
                     }
                     function openNewChat() {
                         if (sending) return;
-                        emojiPicker.current?.hidePopover();
+                        closeEmoji();
                         setHasNewChat(true); setSelected("new"); setChatsOpen(true);
                         setChatFilter(""); setFilters({unread:false, meetings:false, unmuted:false});
                         setConversationQuery(""); setConversationSearchOpen(false); setError("");
                         recipientInput.current?.focus();
                     }
-                    function openDraftMenu() {
-                        if (sending) return;
-                        if (draftMenu.current?.matches(':popover-open')) {draftMenu.current.hidePopover(); return;}
-                        const anchor = draftMenuTrigger.current.getBoundingClientRect();
-                        const width = Math.min(240, innerWidth - 16);
-                        const left = Math.max(8, Math.min(anchor.left, innerWidth - width - 8));
-                        const top = Math.max(8, Math.min(anchor.bottom + 4, innerHeight - 100));
-                        setDraftMenuPosition('left:' + left + 'px;top:' + top + 'px');
-                        draftMenu.current?.showPopover();
-                        draftWindowAction.current?.focus();
-                    }
-                    function handleDraftMenuKey(event) {
-                        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
-                            event.preventDefault();
-                            const first = event.key === 'Home' || (event.key !== 'End' && document.activeElement !== draftWindowAction.current);
-                            (first ? draftWindowAction : draftDiscardAction).current?.focus();
-                        } else if (event.key === 'Escape') {
-                            event.preventDefault(); draftMenu.current?.hidePopover(); draftMenuTrigger.current?.focus();
-                        } else if (event.key === 'Tab') {
-                            draftMenu.current?.hidePopover(); draftMenuTrigger.current?.focus();
-                        }
-                    }
                     function discardNewChat() {
                         if (sending) return;
-                        draftMenu.current?.hidePopover();
                         setHasNewChat(false); setNewDraft(''); setNewGif(null); setRecipients([]); setRecipientQuery('');
                         setRecipientError(''); setGroupName(''); setGroupNameOpen(false);
                         if (newChat) selectThread('self');
@@ -1139,7 +1216,6 @@ pub async fn page() -> Html {
                     }
                     function openDraftWindow() {
                         if (sending) return;
-                        draftMenu.current?.hidePopover();
                         const popup = window.open('about:blank', '_blank', 'popup,width=1000,height=760');
                         if (!popup) {setError('Allow pop-ups to open this draft in a new window.'); return;}
                         try {
@@ -1250,12 +1326,6 @@ pub async fn page() -> Html {
                     pp.effect(() => {
                         if (searchOpen && chatSearchInput.current) chatSearchInput.current.focus();
                     }, [searchOpen]);
-                    pp.effect(() => {
-                        if (meetingOpen && !meetingBusy && meetingNameInput.current) {
-                            meetingNameInput.current.focus();
-                            meetingNameInput.current.select();
-                        }
-                    }, [meetingOpen, meetingBusy]);
 
                     function toggleChatSearch() {
                         setSearchOpen(!searchOpen);
@@ -1264,25 +1334,28 @@ pub async fn page() -> Html {
                     function handleSearchKey(event) {
                         if (event.key === "Escape") {
                             setChatFilter(""); setSearchOpen(false);
-                            if (chatSearchTrigger.current) chatSearchTrigger.current.focus();
+                            chatSearchTrigger.current?.closest("button")?.focus();
                         }
                     }
-                    function openMeetNow(event) {
-                        const anchor = event.currentTarget.getBoundingClientRect();
-                        const width = Math.min(380, innerWidth - 32);
-                        const left = Math.max(16, Math.min(anchor.left - width / 2, innerWidth - width - 16));
-                        const top = Math.max(16, Math.min(anchor.bottom + 10, innerHeight - 430));
-                        setMeetingPosition("left:" + left + "px;top:" + top + "px");
-                        setMeetingError("");
-                        setMeetingOpen(true);
+                    // When a create finishes with the popover still open, the name
+                    // field takes focus back, ready for another try.
+                    const meetingWasBusy = pp.ref(false);
+                    pp.effect(() => {
+                        if (meetingWasBusy.current && !meetingBusy && meetingOpen) {
+                            meetingNameInput.current?.focus();
+                            meetingNameInput.current?.select();
+                        }
+                        meetingWasBusy.current = meetingBusy;
+                    }, [meetingBusy]);
+                    function meetNowToggled(state) {
+                        setMeetingOpen(state === "open");
+                        if (state === "open") setMeetingError("");
                     }
-                    function closeMeetNow() {
-                        if (meetingBusy) return;
-                        setMeetingOpen(false);
-                        if (meetNowTrigger.current) meetNowTrigger.current.focus();
-                    }
-                    function handleMeetingKey(event) {
-                        if (event.key === "Escape") { event.preventDefault(); closeMeetNow(); }
+                    // The popover puts the caret after the suggested name as it
+                    // focuses the field; selecting once that has run lets typing
+                    // replace the whole name instead.
+                    function selectAfterFocus(field) {
+                        queueMicrotask(() => field.select());
                     }
                     function changeMeetingTitle(value) {
                         setMeetingTitle(value);
@@ -1302,7 +1375,7 @@ pub async fn page() -> Html {
                         setMeetingBusy(true);
                         setMeetingError("");
                         try {
-                            const created = await ensureChatMeeting(meetingNameInput.current.value);
+                            const created = await ensureChatMeeting(meetingTitle);
                             try {
                                 await navigator.clipboard.writeText(meetingAbsolute(created.url));
                                 setMeetingNotice("Meeting link copied to clipboard.");
@@ -1341,8 +1414,8 @@ pub async fn page() -> Html {
                         } finally { setMeetingBusy(false); }
                     }
 
-                    function toggleFilter(name) {
-                        setFilters((current) => ({ ...current, [name]: !current[name] }));
+                    function setFilter(name, on) {
+                        setFilters((current) => ({ ...current, [name]: on }));
                     }
 
                     async function send(event) {

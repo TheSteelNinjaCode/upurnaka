@@ -1,7 +1,21 @@
 //! Calendar's immediate-meeting action, backed by the shared meeting store.
+use crate::components::aria::{labelled, named, plain, submit};
 use crate::components::icon::Icon;
+use crate::components::rahti_ui::attrs::Attrs;
+use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::field::{
+    Field, FieldError, FieldGroup, FieldLabel,
+};
+use crate::components::rahti_ui::input::{Input, input_variants};
+use crate::components::rahti_ui::popover::{
+    Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger,
+};
 use crate::meetings::{self, MeetingLink};
 use crate::rahti::{Html, Result, Validator, component, html, rpc};
+
+/// The popover's name: its id is `popover-meet-now`, and the close button
+/// names that id to hide it with no script.
+const NAME: &str = "meet-now";
 
 #[rpc(auth)]
 pub async fn create_calendar_meeting_link(title: String) -> Result<MeetingLink> {
@@ -18,142 +32,130 @@ pub async fn create_calendar_meeting_link(title: String) -> Result<MeetingLink> 
 pub fn CalendarMeetNow() -> Html {
     let user = crate::auth::current().unwrap_or_default();
     let default_title = format!("Meeting with {}", user.name);
+    let trigger = button_variants(
+        ButtonVariant::Outline,
+        ButtonSize::Default,
+        "text-[13px] font-semibold",
+    );
+    // An element rather than an `<Input>`, so its own focus handler runs as
+    // the popover focuses it; it wears the Input's class list.
+    let title_input = input_variants("h-10!");
+    let close = Attrs::new()
+        .set("popovertarget", format!("popover-{NAME}"))
+        .set("popovertargetaction", "hide")
+        .merge(&labelled("Close meet now dialog"));
     html! {
         <div>
-            <button
-                type="button"
-                class="flex h-9 items-center gap-2 rounded-md border border-edge bg-raised px-4 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                aria-label="Meet now"
-                aria-haspopup="dialog"
-                aria-expanded={open}
-                aria-controls={dialogId}
-                pp-ref={trigger}
-                onclick={toggleMeetNow()}
-            >
-                <Icon name="video" class="h-4 w-4" />
-                "Meet now"
-            </button>
-            <section
-                id={dialogId}
-                pp-ref={dialog}
-                popover="auto"
-                role="dialog"
-                aria-labelledby={titleId}
-                class="calendar-meet-now rounded-md border border-edge bg-raised p-5 text-ink shadow-2xl"
-                pp-style={position}
-                ontoggle={setOpen(event.newState === "open")}
-                onkeydown={handleKey(event)}
-            >
-                <header class="mb-5 flex items-center justify-between gap-3">
-                    <h2 id={titleId} class="text-[15px] font-semibold">"Start a meeting now"</h2>
-                    <button
-                        type="button"
-                        aria-label="Close meet now dialog"
-                        class="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-hover hover:text-ink"
-                        onclick={closeMeetNow()}
+            <Popover>
+                <PopoverTrigger name=@{NAME} class=@{trigger.as_str()} attrs=@{named("Meet now")}>
+                    <Icon name="video" class="size-4" />
+                    "Meet now"
+                </PopoverTrigger>
+                <PopoverContent
+                    name=@{NAME}
+                    align="end"
+                    class="calendar-meet-now w-[360px]! max-w-[calc(100vw-16px)] p-5!"
+                    ontoggle={prepare(event.newState)}
+                >
+                    <PopoverHeader class="mb-4 pr-8">
+                        <PopoverTitle class="text-[15px] font-semibold">
+                            "Start a meeting now"
+                        </PopoverTitle>
+                    </PopoverHeader>
+                    <form onsubmit={startMeeting(event)} novalidate>
+                        <FieldGroup class="gap-4">
+                            <Field>
+                                <FieldLabel r#for="meet-now-title" class="text-[13px]">
+                                    "Meeting name"
+                                </FieldLabel>
+                                <input
+                                    id="meet-now-title"
+                                    data-slot="input"
+                                    name="title"
+                                    type="text"
+                                    required
+                                    maxlength="120"
+                                    autocomplete="off"
+                                    class=@{title_input.as_str()}
+                                    value={name}
+                                    onfocus={selectAfterFocus(event.currentTarget)}
+                                    oninput={changeName(target.value)}
+                                    disabled={busy}
+                                />
+                                <FieldError hidden={!error}>{error}</FieldError>
+                            </Field>
+                            <Field class="calendar-meet-share" hidden={!shared}>
+                                <FieldLabel
+                                    r#for="meet-now-link"
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    "Meeting link"
+                                </FieldLabel>
+                                <Input
+                                    id="meet-now-link"
+                                    class="text-xs"
+                                    attrs=@{Attrs::new().set("readonly", "")}
+                                    value={shared ? absolute(shared.url) : ""}
+                                    onfocus={event.currentTarget.select()}
+                                />
+                                <p role="status" class="text-xs text-muted-foreground" hidden={!notice}>{notice}</p>
+                                <a
+                                    href={shared ? shared.url : "/meet"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="text-xs text-link hover:underline"
+                                >
+                                    "Open meeting"
+                                </a>
+                            </Field>
+                            <div class="flex flex-col gap-2.5">
+                                <Button
+                                    attrs=@{plain()}
+                                    variant="outline"
+                                    class="calendar-meet-share-button h-10! w-full font-semibold"
+                                    disabled={busy || !name.trim()}
+                                    onclick={getShareLink()}
+                                >
+                                    {busy ? "Please wait…" : "Get a link to share"}
+                                </Button>
+                                <Button
+                                    class="calendar-meet-start h-10! w-full font-semibold"
+                                    attrs=@{submit()}
+                                    disabled={busy || !name.trim()}
+                                >
+                                    {busy ? "Please wait…" : "Start meeting"}
+                                </Button>
+                            </div>
+                        </FieldGroup>
+                    </form>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="absolute right-3 top-3 text-muted-foreground"
+                        attrs=@{close}
                     >
-                        <Icon name="close" class="h-5 w-5" />
-                    </button>
-                </header>
-                <form onsubmit={startMeeting(event)} novalidate>
-                    <label for={nameId} class="mb-2 block text-[13px]">"Meeting name"</label>
-                    <input
-                        id={nameId}
-                        pp-ref={nameInput}
-                        name="title"
-                        type="text"
-                        maxlength="120"
-                        autocomplete="off"
-                        required
-                        value={name}
-                        oninput={changeName(target.value)}
-                        disabled={busy}
-                        aria-describedby={error ? errorId : null}
-                        aria-invalid={!!error}
-                        class="h-10 w-full rounded-t border-b-2 border-edge bg-surface px-3 text-[14px] text-ink outline-none focus:border-brand-ink"
-                    />
-                    <p
-                        id={errorId}
-                        role="alert"
-                        class="mt-3 text-xs text-danger-ink"
-                        hidden={!error}
-                    >
-                        {error}
-                    </p>
-                    <div class="calendar-meet-share mt-4" hidden={!shared}>
-                        <label for={linkId} class="mb-2 block text-xs text-muted">
-                            "Meeting link"
-                        </label>
-                        <input
-                            id={linkId}
-                            pp-ref={linkInput}
-                            readonly
-                            aria-label="Meeting link"
-                            value={shared ? absolute(shared.url) : ""}
-                            class="h-9 w-full rounded border border-edge bg-surface px-2 text-xs"
-                            onfocus={event.currentTarget.select()}
-                        />
-                        <p role="status" class="mt-2 text-xs text-muted" hidden={!notice}>
-                            {notice}
-                        </p>
-                        <a
-                            href={shared ? shared.url : "/meet"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="mt-2 inline-block text-xs text-link hover:underline"
-                        >
-                            "Open meeting"
-                        </a>
-                    </div>
-                    <button
-                        type="button"
-                        class="calendar-meet-share-button mt-5 h-10 w-full rounded border border-edge text-sm font-semibold hover:bg-hover disabled:opacity-50"
-                        disabled={busy || !name.trim()}
-                        onclick={getShareLink()}
-                    >
-                        {busy ? "Please wait…" : "Get a link to share"}
-                    </button>
-                    <button
-                        type="submit"
-                        class="calendar-meet-start mt-2.5 h-10 w-full rounded bg-brand text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
-                        disabled={busy || !name.trim()}
-                    >
-                        {busy ? "Please wait…" : "Start meeting"}
-                    </button>
-                </form>
-            </section>
-            <style>r##"
-                .calendar-meet-now {position:fixed;inset:auto;margin:0;width:360px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow-y:auto;}
-            "##</style>
+                        <span class="contents" pp-ref={closer}>
+                            <Icon name="close" class="size-5" />
+                        </span>
+                    </Button>
+                </PopoverContent>
+            </Popover>
             <script>r##"
-                const trigger = pp.ref(null);
-                const dialog = pp.ref(null);
-                const nameInput = pp.ref(null);
-                const linkInput = pp.ref(null);
-                const dialogId = pp.id();
-                const titleId = pp.id();
-                const nameId = pp.id();
-                const linkId = pp.id();
-                const errorId = pp.id();
-                const [open, setOpen] = pp.state(false);
-                const [position, setPosition] = pp.state('');
+                const closer = pp.ref(null);
                 const [name, setName] = pp.state(@{default_title});
                 const [busy, setBusy] = pp.state(false);
                 const [shared, setShared] = pp.state(null);
                 const [notice, setNotice] = pp.state('');
                 const [error, setError] = pp.state('');
                 function absolute(url) {return location.origin + url;}
-                function toggleMeetNow() {
-                    if (dialog.current.matches(':popover-open')) {closeMeetNow(); return;}
-                    const anchor = trigger.current.getBoundingClientRect();
-                    const width = Math.min(360, innerWidth - 16);
-                    setPosition('left:' + Math.max(8, Math.min(anchor.right - width, innerWidth - width - 8)) + 'px;top:' + Math.max(8, Math.min(anchor.bottom + 8, innerHeight - 440)) + 'px');
-                    setError(''); dialog.current.showPopover();
-                    nameInput.current?.focus(); nameInput.current?.select();
+                function prepare(state) {
+                    if (state === 'open') setError('');
                 }
-                function closeMeetNow() {dialog.current.hidePopover(); trigger.current?.focus();}
-                function handleKey(event) {
-                    if (event.key === 'Escape') {event.preventDefault(); event.stopPropagation(); closeMeetNow();}
+                // The popover puts the caret after the suggested name as it
+                // focuses the field; selecting once that has run lets typing replace
+                // the whole name instead.
+                function selectAfterFocus(field) {
+                    queueMicrotask(() => field.select());
                 }
                 function changeName(value) {setName(value); setShared(null); setNotice(''); setError('');}
                 async function ensureMeeting(title) {
@@ -166,7 +168,7 @@ pub fn CalendarMeetNow() -> Html {
                     if (busy || !name.trim()) return;
                     setBusy(true); setError(''); setNotice('');
                     try {
-                        const meeting = await ensureMeeting(nameInput.current.value);
+                        const meeting = await ensureMeeting(name);
                         try {await navigator.clipboard.writeText(absolute(meeting.url)); setNotice('Meeting link copied to clipboard.');}
                         catch (failure) {setNotice('Your meeting link is ready. Select the link above to copy it.');}
                     } catch (failure) {setError(failureMessage(failure));}
@@ -182,7 +184,7 @@ pub fn CalendarMeetNow() -> Html {
                     setBusy(true); setError(''); setNotice('');
                     try {
                         const meeting = await ensureMeeting(title);
-                        if (tab && !tab.closed) {tab.location.replace(absolute(meeting.url)); closeMeetNow();}
+                        if (tab && !tab.closed) {tab.location.replace(absolute(meeting.url)); closer.current?.click();}
                         else setNotice('Your meeting is ready. Use Open meeting above.');
                     } catch (failure) {
                         try {if (tab && !tab.closed && tab.location.href === 'about:blank') tab.close();} catch (failure) {}

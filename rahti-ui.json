@@ -25,6 +25,28 @@
   },
   "components": [
     {
+      "components": [
+        "AlertDialog",
+        "AlertDialogAction",
+        "AlertDialogCancel",
+        "AlertDialogContent",
+        "AlertDialogDescription",
+        "AlertDialogFooter",
+        "AlertDialogHeader",
+        "AlertDialogMedia",
+        "AlertDialogTitle",
+        "AlertDialogTrigger"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/alert_dialog.rs",
+          "sha256": "8abe732fd0c7cff4f6764498051f6cf23bfc4bf37e4c0617d86bdc099bb13274"
+        }
+      ],
+      "module": "crate::components::rahti_ui::alert_dialog",
+      "name": "alert-dialog"
+    },
+    {
       "components": [],
       "files": [
         {
@@ -52,6 +74,367 @@
       ],
       "module": "crate::components::rahti_ui::avatar",
       "name": "avatar"
+    },
+    {
+      "components": [
+        "Badge"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/badge.rs",
+          "sha256": "38c782969f0de7ac6b72b12308b922556056c29d6bb9e5c3522d4982fa854c25"
+        }
+      ],
+      "module": "crate::components::rahti_ui::badge",
+      "name": "badge"
+    },
+    {
+      "components": [
+        "Button"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/button.rs",
+          "sha256": "82b52ca42f448f6a4f9ecc2f23471c0519cfcbe67d7d0bada9f067437d9bb453"
+        }
+      ],
+      "module": "crate::components::rahti_ui::button",
+      "name": "button"
+    },
+    {
+      "components": [
+        "Card",
+        "CardAction",
+        "CardContent",
+        "CardDescription",
+        "CardFooter",
+        "CardHeader",
+        "CardTitle"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/card.rs",
+          "sha256": "7534d908cbbf6c5a9a20b34676c6ab74019418852cf274015bcfe40ecbb34a03"
+        }
+      ],
+      "module": "crate::components::rahti_ui::card",
+      "name": "card"
+    },
+    {
+      "components": [
+        "Checkbox"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/checkbox.rs",
+          "sha256": "0f7adfa6a9fbc336a76f80d429c84f22a77c352e24e18d4348544fb99540353f"
+        }
+      ],
+      "module": "crate::components::rahti_ui::checkbox",
+      "name": "checkbox"
+    },
+    {
+      "components": [
+        "Collapsible",
+        "CollapsibleContent",
+        "CollapsibleTrigger"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/collapsible.rs",
+          "sha256": "344430ee0995e398d274b2683c208ff1e9dd6cc5c9b6c65ed822828fe564a30f"
+        }
+      ],
+      "module": "crate::components::rahti_ui::collapsible",
+      "name": "collapsible"
+    },
+    {
+      "components": [
+        "Dialog",
+        "DialogClose",
+        "DialogContent",
+        "DialogDescription",
+        "DialogFooter",
+        "DialogHeader",
+        "DialogTitle",
+        "DialogTrigger"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/dialog.rs",
+          "sha256": "bc69296bff85efa23e711bb244d045a973843c1c346a53e0e689d6c4473704f7"
+        }
+      ],
+      "module": "crate::components::rahti_ui::dialog",
+      "name": "dialog"
+    },
+    {
+      "components": [
+        "DropdownMenu",
+        "DropdownMenuCheckboxItem",
+        "DropdownMenuContent",
+        "DropdownMenuItem",
+        "DropdownMenuLabel",
+        "DropdownMenuRadioItem",
+        "DropdownMenuSeparator",
+        "DropdownMenuSubContent",
+        "DropdownMenuSubTrigger",
+        "DropdownMenuTrigger"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/dropdown_menu.rs",
+          "sha256": "99d534bf39c457785e17cbb6a554b11685d0f1e77e5f34ef45f93c073e62f92e"
+        }
+      ],
+      "module": "crate::components::rahti_ui::dropdown_menu",
+      "name": "dropdown-menu"
+    },
+    {
+      "components": [
+        "Field",
+        "FieldContent",
+        "FieldDescription",
+        "FieldError",
+        "FieldGroup",
+        "FieldLabel",
+        "FieldLegend",
+        "FieldSeparator",
+        "FieldSet",
+        "FieldTitle"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/field.rs",
+          "sha256": "d5c8de0bbdd2d0d10a5a0f8c623918672c34c88fb3e2eeb6f183ea746dd69639"
+        }
+      ],
+      "module": "crate::components::rahti_ui::field",
+      "name": "field"
+    },
+    {
+      "components": [
+        "Input"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/input.rs",
+          "sha256": "88da55fab68c95f07f5a5926e17c531d18376527e126cdc5ec0cc249d188ea3f"
+        }
+      ],
+      "module": "crate::components::rahti_ui::input",
+      "name": "input"
+    },
+    {
+      "components": [
+        "InputGroup",
+        "InputGroupAddon",
+        "InputGroupButton",
+        "InputGroupInput",
+        "InputGroupText",
+        "InputGroupTextarea"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/input_group.rs",
+          "sha256": "135f857a99fd3e65db09aabbc2574bcdc71adfeca5176dbed3ead8d9931c2cd4"
+        }
+      ],
+      "module": "crate::components::rahti_ui::input_group",
+      "name": "input-group"
+    },
+    {
+      "components": [
+        "Kbd",
+        "KbdGroup"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/kbd.rs",
+          "sha256": "9639bb4e735ca2d1a617d4e6e9fd06d562326c73d71df6b4c6aabce81b8613ab"
+        }
+      ],
+      "module": "crate::components::rahti_ui::kbd",
+      "name": "kbd"
+    },
+    {
+      "components": [
+        "Label"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/label.rs",
+          "sha256": "f2c461668a839024adf178cecbbceea43c535c3771172fb354580646e6595038"
+        }
+      ],
+      "module": "crate::components::rahti_ui::label",
+      "name": "label"
+    },
+    {
+      "components": [
+        "Popover",
+        "PopoverAnchor",
+        "PopoverContent",
+        "PopoverDescription",
+        "PopoverHeader",
+        "PopoverTitle",
+        "PopoverTrigger"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/popover.rs",
+          "sha256": "01cff78a2510388daf90cf4f69041881be1c1e4918e86ee220972535dd129e1b"
+        }
+      ],
+      "module": "crate::components::rahti_ui::popover",
+      "name": "popover"
+    },
+    {
+      "components": [
+        "RadioGroup",
+        "RadioGroupItem"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/radio_group.rs",
+          "sha256": "53da46f0218968bffca5749a6cfa6aa99ca010c3c404054ea2f1e423469385ca"
+        }
+      ],
+      "module": "crate::components::rahti_ui::radio_group",
+      "name": "radio-group"
+    },
+    {
+      "components": [
+        "Select",
+        "SelectGroup",
+        "SelectItem",
+        "SelectPlaceholder",
+        "SelectSeparator"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/select.rs",
+          "sha256": "1bb36c6540c4d467a3b9aa0182667306fc5957a87795884341ddec57f20f7f27"
+        }
+      ],
+      "module": "crate::components::rahti_ui::select",
+      "name": "select"
+    },
+    {
+      "components": [
+        "Separator"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/separator.rs",
+          "sha256": "2bae568fbf730acdadb300b3cf3a5f5582347d9ce84590cc9ed45a36164c82dd"
+        }
+      ],
+      "module": "crate::components::rahti_ui::separator",
+      "name": "separator"
+    },
+    {
+      "components": [
+        "Spinner"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/spinner.rs",
+          "sha256": "2bffdfceb4d4e890db839290707f2b3900b4b193507cafabc5877d5c3479c117"
+        }
+      ],
+      "module": "crate::components::rahti_ui::spinner",
+      "name": "spinner"
+    },
+    {
+      "components": [
+        "Switch"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/switch.rs",
+          "sha256": "44831affe601a5b3f9e9a5ba15b69950edef48a99341686bbc3ce9962424d71b"
+        }
+      ],
+      "module": "crate::components::rahti_ui::switch",
+      "name": "switch"
+    },
+    {
+      "components": [
+        "Table",
+        "TableBody",
+        "TableCaption",
+        "TableCell",
+        "TableContainer",
+        "TableFooter",
+        "TableHead",
+        "TableHeader",
+        "TableRow"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/table.rs",
+          "sha256": "c5f9f2b6d12b32e4a178df87c971447fc4e69124c8ffdfac39e1ff0426078f6b"
+        }
+      ],
+      "module": "crate::components::rahti_ui::table",
+      "name": "table"
+    },
+    {
+      "components": [
+        "Textarea"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/textarea.rs",
+          "sha256": "23c6a66d25ad52dd3848d67690bb847e0e878c1c72da3f40c22fcc8e28ade743"
+        }
+      ],
+      "module": "crate::components::rahti_ui::textarea",
+      "name": "textarea"
+    },
+    {
+      "components": [
+        "Toggle"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/toggle.rs",
+          "sha256": "347aed2986e871b386be628f5ae893c5f35ea49598bbc3ba333dbd7ac97614d3"
+        }
+      ],
+      "module": "crate::components::rahti_ui::toggle",
+      "name": "toggle"
+    },
+    {
+      "components": [
+        "ToggleGroup",
+        "ToggleGroupItem"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/toggle_group.rs",
+          "sha256": "d9b6dc8f63de199d60a9dc7b179e2668267f59c068b2e3ee9327cf2c7ad376b9"
+        }
+      ],
+      "module": "crate::components::rahti_ui::toggle_group",
+      "name": "toggle-group"
+    },
+    {
+      "components": [
+        "Tooltip",
+        "TooltipContent",
+        "TooltipProvider",
+        "TooltipTrigger"
+      ],
+      "files": [
+        {
+          "path": "src/components/rahti_ui/tooltip.rs",
+          "sha256": "ea666428bf1bd825bc8f865104be941c79edb5d3450927e93e422ce43596947d"
+        }
+      ],
+      "module": "crate::components::rahti_ui::tooltip",
+      "name": "tooltip"
     },
     {
       "components": [],

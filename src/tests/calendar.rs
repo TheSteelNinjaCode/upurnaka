@@ -182,6 +182,11 @@ async fn full_page_editor_saves_reloads_and_opens_the_scheduled_details() {
     browser.wait_for("document.querySelector('.calendar-event-dialog').open && document.querySelector('.calendar-event-dialog').textContent.includes('Planning room') && document.querySelector('.calendar-event-dialog').textContent.includes('alex@example.com') && document.querySelector('.calendar-event-dialog').textContent.includes('Discuss next release')").await.unwrap();
     browser.wait_for("Array.from(document.querySelectorAll('.calendar-event-dialog strong')).some(el => !el.hidden && el.textContent === 'Discuss next release')").await.unwrap();
     browser.press("Escape").await.unwrap();
+    // The dialog animates closed; the page behind it takes clicks once it has.
+    browser
+        .wait_for("!document.querySelector('.calendar-event-dialog').open")
+        .await
+        .unwrap();
     browser
         .click("main header button:has(svg.lucide-plus)")
         .await

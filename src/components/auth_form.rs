@@ -1,5 +1,15 @@
 use crate::{
     auth::{self, Challenge, SignedIn},
+    components::{
+        aria::submit,
+        rahti_ui::{
+            attrs::Attrs,
+            button::Button,
+            checkbox::Checkbox,
+            field::{Field, FieldDescription, FieldGroup, FieldLabel},
+            input::{Input, input_variants},
+        },
+    },
     rahti::{Html, Result, component, html, rpc},
 };
 
@@ -38,6 +48,51 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
     } else {
         "current-password"
     };
+    // Registration asks two more questions. They are left out of a sign-in
+    // form altogether rather than hidden, so nothing disabled travels with it.
+    let name_field = if register {
+        html! {
+            <Field>
+                <FieldLabel r#for="auth-name">"Your name"</FieldLabel>
+                <Input
+                    id="auth-name"
+                    name="name"
+                    required
+                    class="h-11!"
+                    attrs=@{Attrs::new().set("autocomplete", "name").set("maxlength", "80")}
+                />
+            </Field>
+        }
+    } else {
+        Html::empty()
+    };
+    let password_hint = if register {
+        html! {
+            <FieldDescription>"Use at least 12 characters."</FieldDescription>
+        }
+    } else {
+        Html::empty()
+    };
+    let confirmation_field = if register {
+        html! {
+            <Field>
+                <FieldLabel r#for="auth-confirmation">"Confirm password"</FieldLabel>
+                <Input
+                    id="auth-confirmation"
+                    name="confirmation"
+                    r#type="password"
+                    required
+                    class="h-11!"
+                    attrs=@{Attrs::new().set("autocomplete", "new-password").set("maxlength", "128")}
+                />
+            </Field>
+        }
+    } else {
+        Html::empty()
+    };
+    // An element rather than an `<Input>`: the code step focuses it when it
+    // appears, and a ref is a binding a component tag cannot carry.
+    let code_input = input_variants("h-12! text-lg! tracking-widest");
     html! {
         <main class="ambient flex h-dvh items-center justify-center overflow-y-auto px-5 py-10">
             <section
@@ -56,69 +111,49 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                         "YOUR WORKSPACE"
                     </p>
                     <h1 class="text-2xl font-semibold tracking-tight">@{title}</h1>
-                    <p class="mb-7 mt-2 text-sm leading-relaxed text-muted">@{intro}</p>
-                    <form onsubmit={submitCredentials(event)} class="space-y-4">
-                        <label class="block text-sm" hidden=@{!register}>
-                            "Your name"
-                            <input
-                                name="name"
-                                autocomplete="name"
-                                required=@{register}
-                                disabled=@{!register}
-                                maxlength="80"
-                                class="mt-2 h-11 w-full rounded-lg border border-edge bg-sunken px-3 outline-none focus:border-brand-ink"
-                            />
-                        </label>
-                        <label class="block text-sm">
-                            "Email address"
-                            <input
-                                name="email"
-                                type="email"
-                                autocomplete="username"
-                                required
-                                maxlength="254"
-                                class="mt-2 h-11 w-full rounded-lg border border-edge bg-sunken px-3 outline-none focus:border-brand-ink"
-                            />
-                        </label>
-                        <label class="block text-sm">
-                            "Password"
-                            <input
-                                name="password"
-                                type="password"
-                                autocomplete=@{password_autocomplete}
-                                required
-                                maxlength="128"
-                                class="mt-2 h-11 w-full rounded-lg border border-edge bg-sunken px-3 outline-none focus:border-brand-ink"
-                            />
-                            <span class="mt-2 block text-xs text-subtle" hidden=@{!register}>
-                                "Use at least 12 characters."
-                            </span>
-                        </label>
-                        <label class="block text-sm" hidden=@{!register}>
-                            "Confirm password"
-                            <input
-                                name="confirmation"
-                                type="password"
-                                autocomplete="new-password"
-                                required=@{register}
-                                disabled=@{!register}
-                                maxlength="128"
-                                class="mt-2 h-11 w-full rounded-lg border border-edge bg-sunken px-3 outline-none focus:border-brand-ink"
-                            />
-                        </label>
-                        <button
-                            type="submit"
-                            disabled={busy}
-                            class="h-11 w-full rounded-lg bg-brand text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
-                        >
-                            {busy ? "Please wait…" : "Continue"}
-                        </button>
+                    <p class="mb-7 mt-2 text-sm leading-relaxed text-muted-foreground">@{intro}</p>
+                    <form onsubmit={submitCredentials(event)}>
+                        <FieldGroup class="gap-4">
+                            @{name_field}
+                            <Field>
+                                <FieldLabel r#for="auth-email">"Email address"</FieldLabel>
+                                <Input
+                                    id="auth-email"
+                                    name="email"
+                                    r#type="email"
+                                    required
+                                    class="h-11!"
+                                    attrs=@{Attrs::new().set("autocomplete", "username").set("maxlength", "254")}
+                                />
+                            </Field>
+                            <Field>
+                                <FieldLabel r#for="auth-password">"Password"</FieldLabel>
+                                <Input
+                                    id="auth-password"
+                                    name="password"
+                                    r#type="password"
+                                    required
+                                    class="h-11!"
+                                    attrs=@{Attrs::new().set("autocomplete", password_autocomplete).set("maxlength", "128")}
+                                />
+                                @{password_hint}
+                            </Field>
+                            @{confirmation_field}
+                            <Button
+                                size="lg"
+                                class="h-11! w-full font-semibold"
+                                attrs=@{submit()}
+                                disabled={busy}
+                            >
+                                {busy ? "Please wait…" : "Continue"}
+                            </Button>
+                        </FieldGroup>
                     </form>
-                    <p class="mt-6 text-center text-sm text-muted" hidden=@{!register}>
+                    <p class="mt-6 text-center text-sm text-muted-foreground" hidden=@{!register}>
                         "Already registered? "
                         <a href={signinLink} class="text-link hover:underline">"Sign in"</a>
                     </p>
-                    <p class="mt-6 text-center text-sm text-muted" hidden=@{register}>
+                    <p class="mt-6 text-center text-sm text-muted-foreground" hidden=@{register}>
                         "New to upurnaka? "
                         <a href={registerLink} class="text-link hover:underline">
                             "Create an account"
@@ -132,10 +167,10 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                     <h1 class="text-2xl font-semibold">
                         {setupKey ? "Set up your authenticator" : "Verify it’s you"}
                     </h1>
-                    <p class="mt-2 text-sm text-muted" hidden={!setupKey}>
+                    <p class="mt-2 text-sm text-muted-foreground" hidden={!setupKey}>
                         "Scan this QR code with your authenticator app, then enter its 6-digit code."
                     </p>
-                    <p class="mt-2 text-sm text-muted" hidden={!!setupKey}>
+                    <p class="mt-2 text-sm text-muted-foreground" hidden={!!setupKey}>
                         "Enter the code from your authenticator app, or use a saved recovery code."
                     </p>
                     <div class="mt-5" hidden={!setupKey}>
@@ -147,7 +182,7 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                                 class="mx-auto h-48 w-48 rounded-lg bg-white p-2"
                             />
                         </template>
-                        <p class="mb-2 mt-4 text-xs text-muted">
+                        <p class="mb-2 mt-4 text-xs text-muted-foreground">
                             "Can’t scan? Enter this setup key in your app:"
                         </p>
                         <code
@@ -156,51 +191,62 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                             {setupKey}
                         </code>
                     </div>
-                    <form class="mt-6 space-y-4" onsubmit={submitCode(event)}>
-                        <label class="block text-sm">
-                            {useRecovery ? "Recovery code" : "Authenticator code"}
-                            <input
-                                name="code"
-                                pp-ref={codeInput}
-                                type="text"
-                                autocomplete="one-time-code"
-                                inputmode={useRecovery ? "text" : "numeric"}
-                                required
-                                maxlength="32"
-                                class="mt-2 h-12 w-full rounded-lg border border-edge bg-sunken px-3 text-lg tracking-widest outline-none focus:border-brand-ink"
-                            />
-                        </label>
-                        <button
-                            type="submit"
-                            disabled={busy}
-                            class="h-11 w-full rounded-lg bg-brand text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
-                        >
-                            {busy ? "Verifying…" : "Verify and sign in"}
-                        </button>
+                    <form class="mt-6" onsubmit={submitCode(event)}>
+                        <FieldGroup class="gap-4">
+                            <Field>
+                                <FieldLabel r#for="auth-code">
+                                    {useRecovery ? "Recovery code" : "Authenticator code"}
+                                </FieldLabel>
+                                <input
+                                    id="auth-code"
+                                    name="code"
+                                    type="text"
+                                    data-slot="input"
+                                    autocomplete="one-time-code"
+                                    required
+                                    maxlength="32"
+                                    class=@{code_input.as_str()}
+                                    pp-ref={codeInput}
+                                    inputmode={useRecovery ? "text" : "numeric"}
+                                />
+                            </Field>
+                            <Button
+                                size="lg"
+                                class="h-11! w-full font-semibold"
+                                attrs=@{submit()}
+                                disabled={busy}
+                            >
+                                {busy ? "Verifying…" : "Verify and sign in"}
+                            </Button>
+                        </FieldGroup>
                     </form>
-                    <button
-                        type="button"
-                        class="mt-4 text-sm text-link hover:underline"
-                        hidden={!!setupKey}
-                        onclick={setUseRecovery(!useRecovery)}
-                    >
-                        {useRecovery ? "Use authenticator code" : "Use a recovery code"}
-                    </button>
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onclick={restart()}
-                        class="mt-4 block text-sm text-muted hover:text-ink"
-                    >
-                        "Start again"
-                    </button>
+                    <div class="mt-4 flex flex-col items-start gap-1">
+                        <Button
+                            variant="link"
+                            size="sm"
+                            class="px-0! text-link"
+                            hidden={!!setupKey}
+                            onclick={setUseRecovery(!useRecovery)}
+                        >
+                            {useRecovery ? "Use authenticator code" : "Use a recovery code"}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="px-0! text-muted-foreground hover:bg-transparent!"
+                            disabled={busy}
+                            onclick={restart()}
+                        >
+                            "Start again"
+                        </Button>
+                    </div>
                     <p class="mt-4 text-xs text-subtle">
                         "This step expires after 10 minutes. Keep your device’s clock set automatically."
                     </p>
                 </div>
                 <div hidden={stage !== "recovery"}>
                     <h1 class="text-2xl font-semibold">"Save your recovery codes"</h1>
-                    <p class="mb-5 mt-2 text-sm leading-relaxed text-muted">
+                    <p class="mb-5 mt-2 text-sm leading-relaxed text-muted-foreground">
                         "Your account is ready. Save these codes somewhere safe before continuing. Each code works once if you lose access to your authenticator. These codes are shown only now."
                     </p>
                     <div
@@ -210,23 +256,24 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                             <code key={item} class="select-all font-mono text-xs">{item}</code>
                         </template>
                     </div>
-                    <label class="my-5 flex items-start gap-3 text-sm text-muted">
-                        <input
-                            type="checkbox"
+                    <Field orientation="horizontal" class="my-5">
+                        <Checkbox
+                            id="auth-saved"
                             checked={saved}
                             onchange={setSaved(target.checked)}
-                            class="mt-1"
                         />
-                        "I saved my recovery codes somewhere safe."
-                    </label>
-                    <button
-                        type="button"
-                        onclick={continueToApp()}
+                        <FieldLabel r#for="auth-saved" class="font-normal text-muted-foreground">
+                            "I saved my recovery codes somewhere safe."
+                        </FieldLabel>
+                    </Field>
+                    <Button
+                        size="lg"
+                        class="h-11! w-full font-semibold"
                         disabled={!saved}
-                        class="h-11 w-full rounded-lg bg-brand text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
+                        onclick={continueToApp()}
                     >
                         "Go to my workspace"
-                    </button>
+                    </Button>
                 </div>
                 <p
                     role="alert"

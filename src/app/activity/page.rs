@@ -1,7 +1,10 @@
 //! Activity: the notification feed, and the empty state it starts in.
 
 use crate::components::app_shell::AppShell;
+use crate::components::aria::labelled;
 use crate::components::icon::Icon;
+use crate::components::rahti_ui::button::Button;
+use crate::components::rahti_ui::toggle::Toggle;
 use crate::rahti::{Html, Metadata, html};
 
 pub fn metadata() -> Metadata {
@@ -20,28 +23,27 @@ pub async fn page() -> Html {
                             "Activity"
                         </h1>
                         <div class="flex items-center gap-0.5">
-                            <button
-                                type="button"
-                                class={unreadOnly ? ICON_ON : ICON_OFF}
-                                title="Show unread only"
-                                aria-label="Show unread only"
-                                aria-pressed={unreadOnly}
-                                onclick={setUnreadOnly(on => !on)}
+                            <Toggle
+                                size="sm"
+                                class="px-0! text-muted-foreground has-[:checked]:text-brand-ink"
+                                attrs=@{labelled("Show unread only")}
+                                checked={unreadOnly}
+                                onchange={setUnreadOnly(target.checked)}
                             >
-                                <Icon name="filter" class="h-[18px] w-[18px]" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="Notification settings"
-                                aria-label="Notification settings"
+                                <Icon name="filter" class="size-[18px]" />
+                            </Toggle>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                class="text-muted-foreground"
+                                attrs=@{labelled("Notification settings")}
                             >
-                                <Icon name="settings" class="h-[18px] w-[18px]" />
-                            </button>
+                                <Icon name="settings" class="size-[18px]" />
+                            </Button>
                         </div>
                     </div>
                     <div class="scroll-thin min-h-0 flex-1 overflow-y-auto px-5 pt-5">
-                        <p class="text-[13px] leading-relaxed text-muted">
+                        <p class="text-[13px] leading-relaxed text-muted-foreground">
                             "You will see @mentions, reactions and other notifications here."
                         </p>
                     </div>
@@ -51,9 +53,6 @@ pub async fn page() -> Html {
                 >
                 </main>
                 <script>r##"
-                    const ICON_ON = "flex h-8 w-8 items-center justify-center rounded-md bg-raised text-brand-ink";
-                    const ICON_OFF = "flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink";
-
                     const [unreadOnly, setUnreadOnly] = pp.state(false);
                 "##</script>
             </div>

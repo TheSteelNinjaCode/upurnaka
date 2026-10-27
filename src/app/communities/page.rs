@@ -3,7 +3,17 @@
 use serde::Serialize;
 
 use crate::components::app_shell::AppShell;
+use crate::components::aria::{hidden, submit};
 use crate::components::icon::Icon;
+use crate::components::rahti_ui::attrs::Attrs;
+use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::card::{Card, CardDescription, CardFooter, CardHeader, CardTitle};
+use crate::components::rahti_ui::dialog::{
+    Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    DialogTrigger,
+};
+use crate::components::rahti_ui::field::{Field, FieldLabel};
+use crate::components::rahti_ui::input::Input;
 use crate::rahti::{Html, Metadata, Result, Validator, html, rpc};
 
 pub fn metadata() -> Metadata {
@@ -12,7 +22,20 @@ pub fn metadata() -> Metadata {
         .description("Bring your community together in one place.")
 }
 
+/// A template chip under "Create with a template".
+const TEMPLATE: &str = "rounded-full text-[13px] font-semibold";
+
 pub async fn page() -> Html {
+    let cancel = button_variants(
+        ButtonVariant::Outline,
+        ButtonSize::Default,
+        "text-[13px] font-semibold",
+    );
+    let cancel_link = button_variants(
+        ButtonVariant::Link,
+        ButtonSize::Default,
+        "text-[13px] text-link",
+    );
     html! {
         <AppShell active="communities">
             <main
@@ -26,44 +49,49 @@ pub async fn page() -> Html {
                         <h1 class="text-[30px] font-semibold leading-tight tracking-tight text-ink">
                             "Build your community"
                         </h1>
-                        <p class="mt-5 max-w-[320px] text-[14px] leading-relaxed text-muted">
+                        <p
+                            class="mt-5 max-w-[320px] text-[14px] leading-relaxed text-muted-foreground"
+                        >
                             "Bring your community together in one place to plan events, stay organized, and get more done."
                         </p>
-                        <button
-                            type="button"
-                            class="mt-8 h-10 rounded-md bg-brand px-6 text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover"
+                        <Button
+                            size="lg"
+                            class="mt-8 text-[13px] font-semibold"
                             onclick={openCreate("")}
                         >
                             "Create your own"
-                        </button>
+                        </Button>
                         <h2 class="mt-12 text-[17px] font-semibold text-ink">
                             "Create with a template"
                         </h2>
                         <div class="mt-5 flex items-center gap-3">
-                            <button
-                                type="button"
-                                class="flex h-8 items-center gap-2 rounded-full border border-edge bg-raised px-4 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                class=@{TEMPLATE}
                                 onclick={openCreate("School")}
                             >
                                 <span class="leading-none">"🎓"</span>
                                 "School"
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 items-center gap-2 rounded-full border border-edge bg-raised px-4 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                class=@{TEMPLATE}
                                 onclick={openCreate("Business")}
                             >
                                 <span class="leading-none">"🏪"</span>
                                 "Business"
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 items-center gap-2 rounded-full border border-edge bg-raised px-4 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                class=@{TEMPLATE}
                                 onclick={openCreate("Life")}
                             >
                                 <span class="leading-none">"🏅"</span>
                                 "Life"
-                            </button>
+                            </Button>
                         </div>
                     </div>
                     <div class="relative h-[460px]">
@@ -113,7 +141,7 @@ pub async fn page() -> Html {
                                 <span class="block truncate text-[13px] font-semibold text-ink">
                                     "Onboard volunteers"
                                 </span>
-                                <span class="block truncate text-[11px] text-muted">
+                                <span class="block truncate text-[11px] text-muted-foreground">
                                     "Monday 10:00 AM"
                                 </span>
                             </span>
@@ -133,158 +161,118 @@ pub async fn page() -> Html {
                         <h1 class="text-[22px] font-semibold tracking-tight text-ink">
                             "Your communities"
                         </h1>
-                        <button
-                            type="button"
-                            class="h-9 rounded-md bg-brand px-5 text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover"
-                            onclick={openCreate("")}
-                        >
+                        <Button class="text-[13px] font-semibold" onclick={openCreate("")}>
                             "Create your own"
-                        </button>
+                        </Button>
                     </div>
                     <div class="mt-7 grid grid-cols-3 gap-5">
                         <template pp-for="community in communities">
-                            <div
+                            <Card
                                 key={community.id}
-                                class="overflow-hidden rounded-xl border border-edge bg-raised"
+                                class="gap-4 overflow-hidden bg-raised pt-0 pb-5"
                             >
                                 <div class="h-24 bg-linear-to-br from-[#6f63d8] to-[#3a3270]"></div>
-                                <div class="p-5">
-                                    <p class="truncate text-[15px] font-semibold text-ink">
+                                <CardHeader class="gap-1 px-5">
+                                    <CardTitle class="truncate text-[15px]">
                                         {community.name}
-                                    </p>
-                                    <p class="mt-1 text-xs text-muted">{community.category}</p>
-                                    <p class="mt-4 text-xs text-subtle">
-                                        "1 member · you are the owner"
-                                    </p>
-                                </div>
-                            </div>
+                                    </CardTitle>
+                                    <CardDescription class="text-xs">
+                                        {community.category}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardFooter class="px-5 text-xs text-subtle">
+                                    "1 member · you are the owner"
+                                </CardFooter>
+                            </Card>
                         </template>
                     </div>
                 </div>
-                <div
-                    class="absolute inset-0 z-20 flex items-center justify-center bg-black/60 px-6"
-                    hidden={!createOpen}
-                >
-                    <div
-                        class="w-full max-w-[520px] rounded-lg border border-edge bg-raised px-9 py-8 shadow-2xl shadow-black/70"
-                    >
-                        <h2 class="text-center text-xl font-semibold text-ink">
-                            {step === 1 ? "Name your community" : "Choose a category"}
-                        </h2>
-                        <form
-                            class="mt-7"
-                            onsubmit={goToCategory(event)}
-                            novalidate
-                            hidden={step !== 1}
-                        >
-                            <label
-                                class="block text-xs font-semibold text-muted"
-                                for="community-name"
-                            >
-                                "Community name"
-                            </label>
-                            <input
-                                id="community-name"
-                                name="name"
-                                type="text"
-                                class="mt-2 h-10 w-full rounded border border-edge bg-surface px-3 text-[13px] text-ink placeholder:text-muted focus:border-brand focus:outline-none"
-                                placeholder="Saturday football club"
-                                autocomplete="off"
-                                value={name}
-                                oninput={setName(target.value)}
-                            />
-                            <p class="mt-3 text-xs text-muted" hidden={!template}>
+                <Dialog>
+                    <DialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={createOpener}></span>
+                    </DialogTrigger>
+                    <DialogClose attrs=@{hidden()}>
+                        <span pp-ref={createCloser}></span>
+                    </DialogClose>
+                    <DialogContent class="sm:max-w-[520px]!">
+                        <DialogHeader>
+                            <DialogTitle class="text-center text-xl">
+                                {step === 1 ? "Name your community" : "Choose a category"}
+                            </DialogTitle>
+                            <DialogDescription class="text-center" hidden={!template || step !== 1}>
                                 "Starting from the "
                                 {template}
                                 " template."
-                            </p>
-                            <div class="mt-8 flex items-center justify-end gap-3">
-                                <button
-                                    type="button"
-                                    class="h-9 rounded border border-edge px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                                    onclick={closeCreate()}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form onsubmit={goToCategory(event)} novalidate hidden={step !== 1}>
+                            <Field>
+                                <FieldLabel
+                                    r#for="community-name"
+                                    class="text-xs text-muted-foreground"
                                 >
-                                    "Cancel"
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="h-9 rounded bg-brand px-5 text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
+                                    "Community name"
+                                </FieldLabel>
+                                <Input
+                                    id="community-name"
+                                    name="name"
+                                    placeholder="Saturday football club"
+                                    class="h-10! text-[13px]"
+                                    attrs=@{Attrs::new().set("autocomplete", "off").set("autofocus", "")}
+                                    value={name}
+                                    oninput={setName(target.value)}
+                                />
+                            </Field>
+                            <DialogFooter class="mt-8">
+                                <DialogClose class=@{cancel.as_str()}>"Cancel"</DialogClose>
+                                <Button
+                                    class="text-[13px] font-semibold"
+                                    attrs=@{submit()}
                                     disabled={name.trim().length === 0}
                                 >
                                     "Next"
-                                </button>
-                            </div>
+                                </Button>
+                            </DialogFooter>
                         </form>
                         <div hidden={step !== 2}>
-                            <div class="mt-7 flex flex-col gap-3">
-                                <button
-                                    type="button"
-                                    class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                    onclick={create("Family and friends")}
-                                >
-                                    "Family and friends"
-                                </button>
-                                <button
-                                    type="button"
-                                    class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                    onclick={create("Group projects")}
-                                >
-                                    "Group projects"
-                                </button>
-                                <button
-                                    type="button"
-                                    class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                    onclick={create("Individual projects")}
-                                >
-                                    "Individual projects"
-                                </button>
-                                <button
-                                    type="button"
-                                    class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                    onclick={create("Hobbies")}
-                                >
-                                    "Hobbies"
-                                </button>
-                                <button
-                                    type="button"
-                                    class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                    onclick={create("Events")}
-                                >
-                                    "Events"
-                                </button>
-                                <button
-                                    type="button"
-                                    class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                    onclick={create("Gaming or recreation")}
-                                >
-                                    "Gaming or recreation"
-                                </button>
+                            <div class="flex flex-col gap-3">
+                                <template pp-for="category in CATEGORIES">
+                                    <Button
+                                        key={category}
+                                        variant="outline"
+                                        size="lg"
+                                        class="h-12! w-full text-[13px] font-semibold hover:border-brand"
+                                        disabled={saving}
+                                        onclick={create(category)}
+                                    >
+                                        {category}
+                                    </Button>
+                                </template>
                             </div>
                             <p class="mt-4 text-center text-xs text-busy" hidden={!error}>
                                 {error}
                             </p>
-                            <div class="mt-7 flex items-center justify-between">
-                                <button
-                                    type="button"
-                                    class="h-9 w-24 rounded border border-edge px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
+                            <DialogFooter class="mt-7 sm:justify-between!">
+                                <Button
+                                    variant="outline"
+                                    class="w-24 text-[13px] font-semibold"
                                     onclick={setStep(1)}
                                 >
                                     "Back"
-                                </button>
-                                <button
-                                    type="button"
-                                    class="text-[13px] text-link hover:underline"
-                                    onclick={closeCreate()}
-                                >
-                                    "Cancel"
-                                </button>
-                            </div>
+                                </Button>
+                                <DialogClose class=@{cancel_link.as_str()}>"Cancel"</DialogClose>
+                            </DialogFooter>
                         </div>
-                    </div>
-                </div>
+                    </DialogContent>
+                </Dialog>
                 <script>r##"
                     const [communities, setCommunities] = pp.state([]);
-                    const [createOpen, setCreateOpen] = pp.state(false);
+                    const createOpener = pp.ref(null);
+                    const createCloser = pp.ref(null);
+                    const CATEGORIES = [
+                        "Family and friends", "Group projects", "Individual projects",
+                        "Hobbies", "Events", "Gaming or recreation",
+                    ];
                     const [step, setStep] = pp.state(1);
                     const [name, setName] = pp.state("");
                     const [template, setTemplate] = pp.state("");
@@ -296,11 +284,7 @@ pub async fn page() -> Html {
                         setName(fromTemplate ? fromTemplate + " community" : "");
                         setError("");
                         setStep(1);
-                        setCreateOpen(true);
-                    }
-
-                    function closeCreate() {
-                        setCreateOpen(false);
+                        createOpener.current?.click();
                     }
 
                     function goToCategory(event) {
@@ -319,7 +303,7 @@ pub async fn page() -> Html {
                                 category: category,
                             });
                             setCommunities((current) => current.concat([community]));
-                            setCreateOpen(false);
+                            createCloser.current?.click();
                         } catch (failure) {
                             setError(failure.message || "The community could not be created.");
                         } finally {

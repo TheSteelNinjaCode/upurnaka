@@ -15,14 +15,17 @@ async fn opening_a_header_menu_closes_meet_popovers() {
     for header in ["Settings and more", "Your profile"] {
         for (trigger, panel) in [
             (
-                "button[aria-controls='meeting-join-dialog']",
-                "#meeting-join-dialog",
+                "button[aria-controls='popover-meeting-join']",
+                "#popover-meeting-join",
             ),
             (
-                "button[aria-controls='meeting-schedule-options']",
-                "#meeting-schedule-options",
+                "button[aria-controls='dropdown-menu-meeting-schedule']",
+                "#dropdown-menu-meeting-schedule",
             ),
-            ("main button", "main input[name=title]"),
+            (
+                "button[aria-controls='popover-meeting-compose']",
+                "#popover-meeting-compose input[name=title]",
+            ),
         ] {
             browser.click(trigger).await.unwrap();
             browser
@@ -71,19 +74,19 @@ async fn shell_dropdowns_stay_above_meet_actions() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('button[aria-label=\"Settings and more\"]').getAttribute('aria-expanded') === 'true'").await.unwrap();
-    let unobscured: bool = browser.eval("(() => { const action = document.querySelector('button[aria-controls=\"meeting-join-dialog\"]').getBoundingClientRect(); const menu = Array.from(document.querySelectorAll('header button')).find(el => el.textContent.includes('Tell us how you use Teams')); const rect = menu.getBoundingClientRect(); const x = Math.max(rect.left, action.left) + 5; const y = Math.max(rect.top, action.top) + 5; return x < Math.min(rect.right, action.right) && y < Math.min(rect.bottom, action.bottom) && menu.contains(document.elementFromPoint(x, y)); })()").await.unwrap();
+    let unobscured: bool = browser.eval("(() => { const action = document.querySelector('button[aria-controls=\"popover-meeting-join\"]').getBoundingClientRect(); const menu = Array.from(document.querySelectorAll('[role=menuitem]')).find(el => el.textContent.includes('Tell us how you use Teams')); const rect = menu.getBoundingClientRect(); const x = Math.max(rect.left, action.left) + 5; const y = Math.max(rect.top, action.top) + 5; return x < Math.min(rect.right, action.right) && y < Math.min(rect.bottom, action.bottom) && menu.contains(document.elementFromPoint(x, y)); })()").await.unwrap();
     assert!(
         unobscured,
         "header dropdown must cover the overlapping Meet action"
     );
     browser
-        .click("button[aria-controls='meeting-join-dialog']")
+        .click("button[aria-controls='popover-meeting-join']")
         .await
         .unwrap();
     browser.wait_for("document.querySelector('button[aria-label=\"Settings and more\"]').getAttribute('aria-expanded') === 'false'").await.unwrap();
     assert!(
         browser
-            .eval::<bool>("document.querySelector('#meeting-join-dialog').hidden")
+            .eval::<bool>("!document.querySelector('#popover-meeting-join').matches(':popover-open')")
             .await
             .unwrap(),
         "the dismissal click must not reach the page action"
@@ -147,7 +150,7 @@ async fn chat_search_and_meet_now_controls_work() {
         .click("button[aria-label='Meet now']")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('.chat-meet-now').hidden && document.activeElement.getAttribute('aria-label') === 'Meeting name'").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-meet-now').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'Meeting name'").await.unwrap();
     browser
         .type_text("Meeting from chat controls")
         .await
@@ -192,7 +195,7 @@ async fn chat_search_and_meet_now_controls_work() {
         .click("button[aria-label='Meet now']")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('.chat-meet-now').hidden && document.activeElement.getAttribute('aria-label') === 'Meeting name' && document.activeElement.selectionEnd === document.activeElement.value.length").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-meet-now').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'Meeting name' && document.activeElement.selectionEnd === document.activeElement.value.length").await.unwrap();
     browser.type_text("Direct meeting from chat").await.unwrap();
     browser.wait_for("document.querySelector('.chat-meeting-share').hidden && !document.querySelector('.chat-meeting-start').disabled").await.unwrap();
     browser.click(".chat-meeting-start").await.unwrap();
@@ -216,7 +219,7 @@ async fn chat_search_and_meet_now_controls_work() {
         .unwrap();
     browser.press("Escape").await.unwrap();
     browser
-        .wait_for("document.querySelector('.chat-meet-now').hidden")
+        .wait_for("!document.querySelector('.chat-meet-now').matches(':popover-open')")
         .await
         .unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
@@ -365,7 +368,7 @@ async fn keyboard_shortcuts_dialog_filters_and_handles_focus() {
         .await
         .unwrap();
     browser
-        .click("button[aria-label='Keyboard shortcuts']")
+        .click("[role=menuitem][aria-label='Keyboard shortcuts']")
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.shortcuts-dialog').open && document.querySelector('.shortcuts-dialog').contains(document.activeElement)").await.unwrap();
@@ -787,7 +790,7 @@ async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
     browser.type_text(" time").await.unwrap();
     browser.click("button[aria-label=Emoji]").await.unwrap();
     browser
-        .click(".chat-emoji-tabs button:nth-child(2)")
+        .click(".chat-emoji-tabs label:nth-of-type(2)")
         .await
         .unwrap();
     browser.click(".chat-emoji-search input").await.unwrap();
@@ -803,16 +806,19 @@ async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
         .unwrap();
     browser.press("Backspace").await.unwrap();
     browser
-        .click("button[aria-label='Food and drink']")
+        .click("button[title='Food and drink']")
         .await
         .unwrap();
     browser.wait_for("document.querySelectorAll('.chat-emoji-grid button').length === 12 && document.querySelector('.chat-emoji-grid').textContent.includes('🍕')").await.unwrap();
     browser
-        .click(".chat-emoji-tabs button:nth-child(2)")
+        .click(".chat-emoji-tabs label:nth-of-type(2)")
         .await
         .unwrap();
     browser.press("ArrowRight").await.unwrap();
-    browser.wait_for("document.querySelector('.chat-emoji-tabs button:nth-child(3)').getAttribute('aria-selected') === 'true' && !document.querySelector('.chat-giphy-attribution').hidden").await.unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let debug: String = browser.eval("JSON.stringify({tabs: [...document.querySelectorAll('.chat-emoji-tabs input')].map(i => i.value + ':' + i.checked), active: document.activeElement?.outerHTML.slice(0, 120), footer: document.querySelector('.chat-giphy-attribution').hidden})").await.unwrap();
+    eprintln!("DEBUG-EMOJI {debug}");
+    browser.wait_for("document.querySelector('.chat-emoji-tabs label:nth-of-type(3) input').checked && !document.querySelector('.chat-giphy-attribution').hidden").await.unwrap();
     browser.press("Escape").await.unwrap();
     browser.wait_for("!document.querySelector('.chat-emoji-picker').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'Emoji'").await.unwrap();
     browser.click("button[aria-label=Emoji]").await.unwrap();
@@ -881,7 +887,7 @@ async fn new_message_menu_opens_a_window_and_discards_only_its_draft() {
         .await
         .unwrap();
     browser
-        .click(".new-chat-menu button:first-child")
+        .click(".new-chat-menu [role=menuitem]:first-child")
         .await
         .unwrap();
     browser.wait_for("window.draftPopup && window.draftPopup.location.pathname === '/chat' && window.draftPopup.document.querySelector('textarea')?.value === 'Draft for another window' && window.draftPopup.document.querySelectorAll('.new-chat-chip').length === 1 && window.draftPopup.document.querySelector('[aria-label=\"Group name\"]')?.value === 'Window team'").await.unwrap();
@@ -908,7 +914,7 @@ async fn new_message_menu_opens_a_window_and_discards_only_its_draft() {
         .await
         .unwrap();
     browser
-        .click(".new-chat-menu button:first-child")
+        .click(".new-chat-menu [role=menuitem]:first-child")
         .await
         .unwrap();
     browser.wait_for("document.querySelector('main').textContent.includes('Allow pop-ups') && document.querySelector('textarea').value === 'Draft for another window'").await.unwrap();
@@ -917,7 +923,7 @@ async fn new_message_menu_opens_a_window_and_discards_only_its_draft() {
         .await
         .unwrap();
     browser
-        .click(".new-chat-menu button:last-child")
+        .click(".new-chat-menu [role=menuitem]:last-child")
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.new-chat-header').hidden && document.querySelector('textarea').value === 'Keep my self draft' && document.querySelector('button[aria-label=\"New message\"]').parentElement.hidden").await.unwrap();

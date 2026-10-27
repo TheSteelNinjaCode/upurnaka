@@ -8,8 +8,22 @@
 
 use serde::Serialize;
 
+use crate::components::aria::{hidden, labelled, named};
+use crate::components::avatar::ProfileAvatar;
 use crate::components::icon::Icon;
 use crate::components::keyboard_shortcuts::KeyboardShortcuts;
+use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::dialog::{
+    Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    DialogTrigger,
+};
+use crate::components::rahti_ui::dropdown_menu::{
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+    DropdownMenuTrigger, SHORTCUT,
+};
+use crate::components::rahti_ui::input_group::{
+    InputGroup, InputGroupAddon, input_group_input_variants,
+};
 use crate::rahti::{Html, Result, Validator, component, html, rpc};
 
 /// Every destination on the rail, in the order the client shows them.
@@ -46,7 +60,7 @@ pub fn RailLink(icon: &str, label: &str, href: &str, selected: bool) -> Html {
     let class = if selected {
         "group relative flex h-11 w-11 items-center justify-center rounded-md bg-raised text-brand-ink"
     } else {
-        "group relative flex h-11 w-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
+        "group relative flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-ink"
     };
 
     let current = if selected { Some("page") } else { None };
@@ -60,30 +74,10 @@ pub fn RailLink(icon: &str, label: &str, href: &str, selected: bool) -> Html {
     }
 }
 
-/// The window frame. `active` is the rail key of the section being shown.
+//// The window frame. `active` is the rail key of the section being shown.
 #[component]
 pub fn AppShell(active: &str, children: Html) -> Html {
     let user = crate::auth::current().unwrap_or_default();
-    let profile_photo = || {
-        if user.has_picture {
-            html! {
-                <img
-                    src="/profile-picture"
-                    alt=""
-                    class="absolute inset-0 h-full w-full rounded-full object-cover"
-                />
-            }
-        } else {
-            Html::empty()
-        }
-    };
-    let initials: String = user
-        .name
-        .split_whitespace()
-        .take(2)
-        .filter_map(|s| s.chars().next())
-        .collect::<String>()
-        .to_uppercase();
     let mut links: Vec<Html> = RAIL
         .iter()
         .map(|(key, label, href)| RailLink(rail_icon(key), label, href, *key == active))
@@ -96,80 +90,93 @@ pub fn AppShell(active: &str, children: Html) -> Html {
     let apps_class = if active == "apps" {
         "flex h-11 w-11 items-center justify-center rounded-md bg-raised text-brand-ink"
     } else {
-        "flex h-11 w-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
+        "flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-ink"
     };
+    let close_survey = button_variants(ButtonVariant::Outline, ButtonSize::Sm, "w-24");
+    // Written as an element rather than an `<InputGroupInput>` because Ctrl+G
+    // focuses it, and a ref is a binding a component tag cannot carry.
+    let search_input = input_group_input_variants("text-[13px]");
+    let more_trigger = button_variants(
+        ButtonVariant::Ghost,
+        ButtonSize::IconSm,
+        "relative text-muted-foreground",
+    );
 
     html! {
         <div class="ambient relative flex h-screen w-full flex-col overflow-hidden text-ink">
             <header class="relative z-40 flex h-12 shrink-0 items-center gap-1 px-2.5">
                 <a
                     href="/chat"
-                    class="ml-2 mr-1 flex h-8 w-8 items-center justify-center rounded-md hover:bg-hover"
+                    class="ml-2 mr-1 flex size-8 items-center justify-center rounded-md hover:bg-hover"
                     title="Teams"
                     aria-label="Teams"
                 >
-                    <img src="/images/upurnaka-logo.png" alt="" class="h-[22px] w-[22px]" />
+                    <img src="/images/upurnaka-logo.png" alt="" class="size-[22px]" />
                 </a>
-                <button
-                    type="button"
-                    class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
-                    title="Expand or collapse the list pane"
-                    aria-label="Expand or collapse the list pane"
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    class="text-muted-foreground"
+                    attrs=@{labelled("Expand or collapse the list pane")}
                     onclick={togglePane()}
                 >
-                    <Icon name="panel" class="h-[18px] w-[18px]" />
-                </button>
+                    <Icon name="panel" class="size-[18px]" />
+                </Button>
                 <div class="flex min-w-0 flex-1 items-center justify-center gap-1">
-                    <button
-                        type="button"
-                        class="flex h-8 w-8 items-center justify-center rounded-md text-subtle transition-colors hover:bg-hover hover:text-ink"
-                        title="Back"
-                        aria-label="Back"
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="text-subtle"
+                        attrs=@{labelled("Back")}
                         onclick={goBack()}
                     >
-                        <Icon name="chevron-left" class="h-4 w-4" />
-                    </button>
-                    <button
-                        type="button"
-                        class="flex h-8 w-8 items-center justify-center rounded-md text-subtle transition-colors hover:bg-hover hover:text-ink"
-                        title="Forward"
-                        aria-label="Forward"
+                        <Icon name="chevron-left" class="size-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="text-subtle"
+                        attrs=@{labelled("Forward")}
                         onclick={goForward()}
                     >
-                        <Icon name="chevron-right" class="h-4 w-4" />
-                    </button>
+                        <Icon name="chevron-right" class="size-4" />
+                    </Button>
                     <div class="relative ml-2 w-full max-w-[720px]">
-                        <Icon
-                            name="search"
-                            class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-                        />
-                        <input
-                            type="text"
-                            class="h-8 w-full rounded-md border border-transparent bg-raised pl-9 pr-3 text-[13px] text-ink placeholder:text-muted focus:border-brand focus:outline-none"
-                            placeholder="Press Ctrl+G to go right to a chat or channel"
-                            aria-label="Search"
-                            pp-ref={globalSearch}
-                            value={query}
-                            oninput={setQuery(target.value)}
-                            onkeydown={handleGlobalSearchKey(event)}
-                        />
+                        <InputGroup class="h-8! border-transparent bg-raised dark:bg-raised">
+                            <InputGroupAddon>
+                                <Icon name="search" class="size-4" />
+                            </InputGroupAddon>
+                            <input
+                                type="text"
+                                data-slot="input-group-control"
+                                class=@{search_input.as_str()}
+                                placeholder="Press Ctrl+G to go right to a chat or channel"
+                                aria-label="Search"
+                                pp-ref={globalSearch}
+                                value={query}
+                                oninput={setQuery(target.value)}
+                                onkeydown={handleGlobalSearchKey(event)}
+                            />
+                        </InputGroup>
                         <div
-                            class="absolute left-0 right-0 top-10 rounded-lg border border-edge bg-raised p-1 shadow-xl"
+                            class="absolute left-0 right-0 top-10 rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl"
                             hidden={!query.trim()}
                             aria-label="Search results"
                         >
                             <template pp-for="result in searchResults">
-                                <button
+                                <Button
                                     key={result.href}
-                                    type="button"
-                                    class="flex w-full rounded px-3 py-2 text-left text-sm hover:bg-hover"
-                                    onclick={visitSearchResult(result.href)}
+                                    variant="ghost"
+                                    size="sm"
+                                    class="w-full justify-start! font-normal"
+                                    value={result.href}
+                                    onclick={visitSearchResult(event.currentTarget.value)}
                                 >
                                     {result.label}
-                                </button>
+                                </Button>
                             </template>
                             <p
-                                class="px-3 py-2 text-sm text-muted"
+                                class="px-3 py-2 text-sm text-muted-foreground"
                                 hidden={searchResults.length > 0}
                             >
                                 "No matching chats or apps."
@@ -178,179 +185,109 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     </div>
                 </div>
                 <div class="relative flex items-center gap-1">
-                    <button
-                        type="button"
-                        class="relative flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
-                        title="Settings and more"
-                        aria-label="Settings and more"
-                        pp-ref={moreButton}
-                        aria-expanded={menu === "more"}
-                        onclick={toggleMenu("more")}
-                    >
-                        <Icon name="more" class="h-[18px] w-[18px]" />
-                        <span
-                            class="absolute right-1.5 top-1 h-1.5 w-1.5 rounded-full bg-brand-ink"
+                    <DropdownMenu>
+                        <DropdownMenuTrigger
+                            menu="shell-more"
+                            class=@{more_trigger.as_str()}
+                            attrs=@{labelled("Settings and more")}
                         >
-                        </span>
-                    </button>
-                    <button
-                        type="button"
-                        class="relative ml-1 flex h-8 w-8 items-center justify-center rounded-full"
-                        title=@{user.name.as_str()}
-                        aria-label="Your profile"
-                        aria-expanded={menu === "profile"}
-                        onclick={toggleMenu("profile")}
-                    >
-                        <span
-                            class="relative flex h-8 w-8 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
-                        >
-                            @{initials.as_str()}
-                            @{profile_photo()}
-                        </span>
-                        <span
-                            class={"absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-chrome " + PRESENCE_COLORS[presence]}
-                        >
-                        </span>
-                    </button>
-                    <div
-                        class="absolute right-10 top-9 w-72 rounded-lg border border-edge bg-raised p-1 shadow-2xl shadow-black/60"
-                        hidden={menu !== "more"}
-                    >
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                            onclick={closeMenus()}
-                        >
-                            <Icon name="settings" class="h-4 w-4 text-muted" />
-                            "Settings"
-                        </button>
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                            onclick={closeMenus()}
-                        >
-                            <Icon name="bell" class="h-4 w-4 text-muted" />
-                            "Notifications"
-                        </button>
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                            aria-label="Keyboard shortcuts"
-                            aria-keyshortcuts="Control+."
-                            onclick={openShortcuts()}
-                        >
-                            <Icon name="format" class="h-4 w-4 text-muted" />
-                            "Keyboard shortcuts"
-                            <span class="ml-auto whitespace-nowrap text-muted" aria-hidden="true">
-                                "Ctrl+."
-                            </span>
-                        </button>
-                        <div class="my-1 h-px bg-line"></div>
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                            onclick={openSurvey()}
-                        >
-                            <Icon name="sparkle" class="h-4 w-4 text-brand-ink" />
-                            "Tell us how you use Teams"
-                        </button>
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                            onclick={closeMenus()}
-                        >
-                            <Icon name="check-circle" class="h-4 w-4 text-muted" />
-                            "About"
-                        </button>
-                    </div>
-                    <div
-                        class="absolute right-0 top-9 w-80 rounded-lg border border-edge bg-raised p-1 shadow-2xl shadow-black/60"
-                        hidden={menu !== "profile"}
-                    >
-                        <div class="flex items-center gap-3 px-3 py-3">
+                            <Icon name="more" class="size-[18px]" />
                             <span
-                                class="relative flex h-11 w-11 items-center justify-center rounded-full bg-avatar text-sm font-semibold text-avatar-ink"
+                                class="absolute right-1.5 top-1 size-1.5 rounded-full bg-brand-ink"
+                                pp-ref={moreBadge}
                             >
-                                @{initials.as_str()}
-                                @{profile_photo()}
                             </span>
-                            <span class="min-w-0">
-                                <span class="block truncate text-[13px] font-semibold text-ink">
-                                    @{user.name.as_str()}
-                                </span>
-                                <span class="block truncate text-xs text-muted">
-                                    @{user.email.as_str()}
-                                </span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent menu="shell-more" align="end" class="w-72">
+                            <DropdownMenuItem>
+                                <Icon name="settings" class="size-4 text-muted-foreground" />
+                                "Settings"
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Icon name="bell" class="size-4 text-muted-foreground" />
+                                "Notifications"
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                attrs=@{named("Keyboard shortcuts").set("aria-keyshortcuts", "Control+.")}
+                                onclick={openShortcuts()}
+                            >
+                                <Icon name="format" class="size-4 text-muted-foreground" />
+                                "Keyboard shortcuts"
+                                <span class=@{SHORTCUT} aria-hidden="true">"Ctrl+."</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onclick={openSurvey()}>
+                                <Icon name="sparkle" class="size-4 text-brand-ink" />
+                                "Tell us how you use Teams"
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                <Icon name="check-circle" class="size-4 text-muted-foreground" />
+                                "About"
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger
+                            menu="shell-profile"
+                            class="relative ml-1 flex size-8 items-center justify-center rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                            attrs=@{named("Your profile").set("title", user.name.as_str())}
+                        >
+                            <ProfileAvatar size="md" presence="none" />
+                            <span
+                                class={"absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-chrome " + PRESENCE_COLORS[presence]}
+                            >
                             </span>
-                        </div>
-                        <div class="my-1 h-px bg-line"></div>
-                        <p
-                            class="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-subtle"
-                        >
-                            "Presence"
-                        </p>
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] hover:bg-hover"
-                            onclick={pickPresence("online")}
-                        >
-                            <span class="h-2.5 w-2.5 rounded-full bg-online"></span>
-                            "Available"
-                            <Icon name="check" class="ml-auto h-4 w-4 text-brand-ink" />
-                        </button>
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] hover:bg-hover"
-                            onclick={pickPresence("busy")}
-                        >
-                            <span class="h-2.5 w-2.5 rounded-full bg-busy"></span>
-                            "Busy"
-                        </button>
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] hover:bg-hover"
-                            onclick={pickPresence("away")}
-                        >
-                            <span class="h-2.5 w-2.5 rounded-full bg-away"></span>
-                            "Be right back"
-                        </button>
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] hover:bg-hover"
-                            onclick={pickPresence("offline")}
-                        >
-                            <span class="h-2.5 w-2.5 rounded-full bg-offline"></span>
-                            "Appear offline"
-                        </button>
-                        <div class="my-1 h-px bg-line"></div>
-                        <button
-                            type="button"
-                            class="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                            onclick={closeMenus()}
-                        >
-                            <Icon name="person-add" class="h-4 w-4 text-muted" />
-                            "Set a status message"
-                        </button>
-                        <a href="/account" class="block rounded px-3 py-2 text-sm hover:bg-hover">
-                            "My account"
-                        </a>
-                        <button
-                            type="button"
-                            aria-label="Sign out"
-                            onclick={signOut()}
-                            class="block w-full rounded px-3 py-2 text-left text-sm hover:bg-hover"
-                        >
-                            "Sign out"
-                        </button>
-                        <p
-                            role="alert"
-                            hidden={!signoutError}
-                            class="px-3 py-2 text-xs text-danger-ink"
-                        >
-                            {signoutError}
-                        </p>
-                    </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent menu="shell-profile" align="end" class="w-80">
+                            <div class="flex items-center gap-3 px-2 py-2">
+                                <ProfileAvatar size="lg" presence="none" />
+                                <span class="min-w-0">
+                                    <span class="block truncate text-[13px] font-semibold text-ink">
+                                        @{user.name.as_str()}
+                                    </span>
+                                    <span class="block truncate text-xs text-muted-foreground">
+                                        @{user.email.as_str()}
+                                    </span>
+                                </span>
+                            </div>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel
+                                class="text-[11px] font-semibold uppercase tracking-wide text-subtle"
+                            >
+                                "Presence"
+                            </DropdownMenuLabel>
+                            <template pp-for="choice in PRESENCE">
+                                <DropdownMenuItem
+                                    key={choice.key}
+                                    value={choice.key}
+                                    onclick={pickPresence(event.currentTarget.getAttribute("value"))}
+                                >
+                                    <span class={"size-2.5 rounded-full " + choice.dot}></span>
+                                    {choice.label}
+                                    <span class="ml-auto" hidden={presence !== choice.key}>
+                                        <Icon name="check" class="size-4 text-brand-ink" />
+                                    </span>
+                                </DropdownMenuItem>
+                            </template>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>
+                                <Icon name="person-add" class="size-4 text-muted-foreground" />
+                                "Set a status message"
+                            </DropdownMenuItem>
+                            <DropdownMenuItem href="/account">"My account"</DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" onclick={signOut()}>
+                                "Sign out"
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
+                <p
+                    role="alert"
+                    hidden={!signoutError}
+                    class="absolute right-3 top-12 rounded-md border bg-popover px-3 py-2 text-xs text-danger-ink shadow-xl"
+                >
+                    {signoutError}
+                </p>
             </header>
             <div
                 class={paneOpen ? "shell-body isolate flex min-h-0 flex-1" : "shell-body isolate flex min-h-0 flex-1 panes-collapsed"}
@@ -372,223 +309,144 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     <slot />
                 </shortcutcontext.provider>
             </div>
-            <div class="absolute inset-0 z-30" hidden={menu === ""} onclick={closeMenus()}></div>
-            <div
-                class="absolute inset-0 z-50 flex items-center justify-center bg-black/60 px-6"
-                hidden={survey === 0}
-            >
-                <div
-                    class="w-full max-w-[600px] rounded-lg border border-edge bg-raised px-10 py-9 shadow-2xl shadow-black/70"
-                >
-                    <div hidden={survey !== 1}>
-                        <h2 class="text-center text-xl font-semibold text-ink">
-                            "What is your primary use for Teams?"
-                        </h2>
-                        <div class="mt-8 grid grid-cols-2 gap-4">
-                            <button
-                                type="button"
-                                class="flex h-[94px] flex-col items-center justify-center gap-2 rounded-md border border-edge bg-surface px-3 text-center text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickUse("Freelancing or consulting")}
-                            >
-                                <span class="text-2xl leading-none">"📝"</span>
-                                "Freelancing or consulting"
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-[94px] flex-col items-center justify-center gap-2 rounded-md border border-edge bg-surface px-3 text-center text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickUse("Learning or teaching")}
-                            >
-                                <span class="text-2xl leading-none">"📚"</span>
-                                "Learning or teaching"
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-[94px] flex-col items-center justify-center gap-2 rounded-md border border-edge bg-surface px-3 text-center text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickUse("Work or career")}
-                            >
-                                <span class="text-2xl leading-none">"💼"</span>
-                                "Work or career"
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-[94px] flex-col items-center justify-center gap-2 rounded-md border border-edge bg-surface px-3 text-center text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickUse("Organized groups")}
-                            >
-                                <span class="text-2xl leading-none">"🫂"</span>
-                                "Organized groups"
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-[94px] flex-col items-center justify-center gap-2 rounded-md border border-edge bg-surface px-3 text-center text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickUse("Personal use")}
-                            >
-                                <span class="text-2xl leading-none">"💜"</span>
-                                "Personal use"
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-[94px] flex-col items-center justify-center gap-2 rounded-md border border-edge bg-surface px-3 text-center text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickUse("None of these")}
-                            >
-                                "None of these"
-                            </button>
-                        </div>
-                        <p class="mt-8 text-center">
-                            <button type="button" class="text-[13px] text-link hover:underline">
-                                "Learn more"
-                            </button>
-                        </p>
-                    </div>
-                    <div hidden={survey !== 2}>
-                        <h2 class="text-center text-xl font-semibold text-ink">
-                            "Choose a category"
-                        </h2>
-                        <div class="mt-7 flex flex-col gap-3">
-                            <button
-                                type="button"
-                                class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickCategory("Family and friends")}
-                            >
-                                "Family and friends"
-                            </button>
-                            <button
-                                type="button"
-                                class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickCategory("Group projects")}
-                            >
-                                "Group projects"
-                            </button>
-                            <button
-                                type="button"
-                                class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickCategory("Individual projects")}
-                            >
-                                "Individual projects"
-                            </button>
-                            <button
-                                type="button"
-                                class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickCategory("Hobbies")}
-                            >
-                                "Hobbies"
-                            </button>
-                            <button
-                                type="button"
-                                class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickCategory("Events")}
-                            >
-                                "Events"
-                            </button>
-                            <button
-                                type="button"
-                                class="h-12 rounded-md border border-edge bg-surface text-[13px] font-semibold text-ink transition-colors hover:border-brand hover:bg-hover"
-                                onclick={pickCategory("Gaming or recreation")}
-                            >
-                                "Gaming or recreation"
-                            </button>
-                        </div>
-                        <p class="mt-4 text-center text-xs text-busy" hidden={!saveError}>
-                            {saveError}
-                        </p>
-                        <div class="mt-7 flex items-center justify-between">
-                            <button
-                                type="button"
-                                class="h-8 w-24 rounded border border-edge bg-surface text-[13px] font-semibold text-ink hover:bg-hover"
-                                onclick={setSurvey(1)}
-                            >
-                                "Back"
-                            </button>
-                            <button type="button" class="text-[13px] text-link hover:underline">
-                                "Learn more"
-                            </button>
-                            <span class="w-24"></span>
-                        </div>
-                    </div>
-                    <div hidden={survey !== 3}>
-                        <p class="mt-4 text-center text-5xl leading-none">"🎉"</p>
-                        <h2 class="mt-7 text-center text-xl font-semibold text-ink">
-                            "Thank you!"
-                        </h2>
-                        <p class="mt-2 text-center text-[13px] text-muted">
+            <Dialog>
+                <DialogTrigger attrs=@{hidden()}>
+                    <span pp-ref={surveyOpener}></span>
+                </DialogTrigger>
+                <DialogContent class="sm:max-w-[600px]!" onclose={setSurveyActive(false)}>
+                    <DialogHeader>
+                        <DialogTitle class="text-center text-xl">
+                            <span hidden={survey !== 1}>"What is your primary use for Teams?"</span>
+                            <span hidden={survey !== 2}>"Choose a category"</span>
+                            <span hidden={survey !== 3}>"Thank you!"</span>
+                        </DialogTitle>
+                        <DialogDescription class="text-center" hidden={survey !== 3}>
                             "Your responses were saved."
-                        </p>
-                        <p class="mt-2 text-center text-xs text-subtle">{summary}</p>
-                        <div class="mt-9 flex items-center justify-between">
-                            <button
-                                type="button"
-                                class="h-8 w-24 rounded border border-edge bg-surface text-[13px] font-semibold text-ink hover:bg-hover"
-                                onclick={setSurvey(2)}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div class="grid grid-cols-2 gap-4" hidden={survey !== 1}>
+                        <template pp-for="choice in PRIMARY_USES">
+                            <Button
+                                key={choice.label}
+                                variant="outline"
+                                class="h-[94px]! flex-col whitespace-normal text-center text-[13px] font-semibold hover:border-brand"
+                                value={choice.label}
+                                onclick={pickUse(event.currentTarget.value)}
                             >
-                                "Back"
-                            </button>
-                            <button type="button" class="text-[13px] text-link hover:underline">
-                                "Learn more"
-                            </button>
-                            <button
-                                type="button"
-                                class="h-8 w-24 rounded border border-edge bg-surface text-[13px] font-semibold text-ink hover:bg-hover"
-                                onclick={closeSurvey()}
-                            >
-                                "Close"
-                            </button>
-                        </div>
+                                <span class="text-2xl leading-none" hidden={!choice.emoji}>
+                                    {choice.emoji}
+                                </span>
+                                {choice.label}
+                            </Button>
+                        </template>
                     </div>
-                </div>
-            </div>
-            <dialog
-                class="shortcuts-dialog m-auto h-[calc(100dvh-32px)] max-h-[1400px] w-[calc(100vw-32px)] max-w-[1080px] rounded-xl border-0 bg-raised p-0 text-ink shadow-2xl shadow-black/50 backdrop:bg-black/50"
-                pp-ref={shortcutsDialog}
-                aria-label="Keyboard shortcuts"
-                onclose={restoreShortcutsFocus()}
-            >
-                <KeyboardShortcuts />
-            </dialog>
+                    <div class="flex flex-col gap-3" hidden={survey !== 2}>
+                        <template pp-for="label in CATEGORIES">
+                            <Button
+                                key={label}
+                                variant="outline"
+                                size="lg"
+                                class="w-full text-[13px] font-semibold hover:border-brand"
+                                disabled={saving}
+                                value={label}
+                                onclick={pickCategory(event.currentTarget.value)}
+                            >
+                                {label}
+                            </Button>
+                        </template>
+                        <p class="text-center text-xs text-busy" hidden={!saveError}>{saveError}</p>
+                    </div>
+                    <div class="text-center" hidden={survey !== 3}>
+                        <p class="text-5xl leading-none">"🎉"</p>
+                        <p class="mt-3 text-xs text-subtle">{summary}</p>
+                    </div>
+                    <DialogFooter class="items-center sm:justify-between!">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            class="w-24"
+                            hidden={survey === 1}
+                            onclick={setSurvey(survey - 1)}
+                        >
+                            "Back"
+                        </Button>
+                        <span class="w-24" hidden={survey !== 1}></span>
+                        <Button variant="link" size="sm">"Learn more"</Button>
+                        <DialogClose class=@{close_survey.as_str()} hidden={survey !== 3}>
+                            "Close"
+                        </DialogClose>
+                        <span class="w-24" hidden={survey === 3}></span>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog>
+                <DialogTrigger attrs=@{hidden()}>
+                    <span pp-ref={shortcutsOpener}></span>
+                </DialogTrigger>
+                <DialogClose attrs=@{hidden()}>
+                    <span pp-ref={shortcutsCloser}></span>
+                </DialogClose>
+                <DialogContent
+                    hide_close=@{true}
+                    class="shortcuts-dialog h-[calc(100dvh-32px)] max-h-[1400px] w-[calc(100vw-32px)] max-w-[1080px]! gap-0 bg-raised! p-0! sm:max-w-[1080px]!"
+                    onclose={restoreShortcutsFocus()}
+                >
+                    <KeyboardShortcuts />
+                </DialogContent>
+            </Dialog>
             <script>r##"
                 const ShortcutContext = window.UpurnakaShortcutContext ||= pp.createContext(null);
                 const pageShortcuts = pp.ref(null);
                 const globalSearch = pp.ref(null);
                 const appRail = pp.ref(null);
+                const moreBadge = pp.ref(null);
+                const shortcutsOpener = pp.ref(null);
+                const shortcutsCloser = pp.ref(null);
+                const surveyOpener = pp.ref(null);
+                const [shortcutsActive, setShortcutsActive] = pp.state(false);
+                const [surveyActive, setSurveyActive] = pp.state(false);
                 const [appBarOpen, setAppBarOpen] = pp.state(true);
-                const shortcutsDialog = pp.ref(null);
                 const [signoutError, setSignoutError] = pp.state('');
                 async function signOut() {
                     try { await pp.rpc('sign_out_account', {}); window.location.replace('/signin'); }
                     catch (e) { setSignoutError('Could not sign out. Please try again.'); }
                 }
-                const moreButton = pp.ref(null);
+                // The two dialogs are rahti-ui's, which open from a trigger and
+                // close from a close button; a keyboard shortcut or a menu row
+                // reaches them by clicking the hidden pair each one carries.
                 function openShortcuts() {
                     pageShortcuts.current?.dismissPopovers?.();
-                    setMenu("");
-                    if (!shortcutsDialog.current.open) shortcutsDialog.current.showModal();
+                    if (shortcutsActive) return;
+                    setShortcutsActive(true);
+                    shortcutsOpener.current?.click();
                 }
+                function closeShortcuts() {
+                    shortcutsCloser.current?.click();
+                }
+                // The row that opened the dialog was in a menu that has since
+                // closed, so focus goes back to the menu's own button.
                 function restoreShortcutsFocus() {
-                    const active = document.activeElement;
-                    if (active === document.body || shortcutsDialog.current?.contains(active)) moreButton.current?.focus();
+                    setShortcutsActive(false);
+                    if (document.activeElement === document.body) moreBadge.current?.closest("button")?.focus();
                 }
                 // Document-level keyboard integration must also receive keys when
                 // the body has focus. Keep ordinary controls in their markup.
                 const handleGlobalKey = pp.event(event => {
                     if (event.defaultPrevented || event.isComposing) return;
-                    if (event.key === "Escape" && shortcutsDialog.current?.open) {
-                        event.preventDefault();
-                        shortcutsDialog.current.close();
-                        moreButton.current?.focus();
-                        return;
-                    }
                     const control = (event.ctrlKey || event.metaKey) && !event.altKey;
                     const key = event.key.toLowerCase();
                     if (control && !event.shiftKey && (key === "." || event.code === "Period")) {
                         event.preventDefault();
                         if (event.repeat) return;
-                        if (shortcutsDialog.current.open) shortcutsDialog.current.close();
+                        if (shortcutsActive) closeShortcuts();
                         else openShortcuts();
                         return;
                     }
-                    if (shortcutsDialog.current.open || survey !== 0) return;
+                    if (shortcutsActive || surveyActive) return;
                     pageShortcuts.current?.handleKey?.(event);
                     if (event.defaultPrevented) return;
                     if (control && !event.shiftKey && ["e", "g", "/"].includes(key)) {
-                        event.preventDefault(); setMenu("");
+                        event.preventDefault();
                         if (key === "/") setQuery("/");
                         globalSearch.current?.focus(); globalSearch.current?.select();
                     } else if (control && !event.shiftKey && key === "l") {
@@ -630,34 +488,41 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     }
                 }
                 const [paneOpen, setPaneOpen] = pp.state(true);
-                const [menu, setMenu] = pp.state("");
                 const [presence, setPresence] = pp.state("online");
-                const [survey, setSurvey] = pp.state(0);
+                const [survey, setSurvey] = pp.state(1);
                 const [primaryUse, setPrimaryUse] = pp.state("");
                 const [category, setCategory] = pp.state("");
                 const [saving, setSaving] = pp.state(false);
                 const [saveError, setSaveError] = pp.state("");
 
+                const PRESENCE = [
+                    {key: "online", label: "Available", dot: "bg-online"},
+                    {key: "busy", label: "Busy", dot: "bg-busy"},
+                    {key: "away", label: "Be right back", dot: "bg-away"},
+                    {key: "offline", label: "Appear offline", dot: "bg-offline"},
+                ];
                 const PRESENCE_COLORS = {
                     online: "bg-online",
                     busy: "bg-busy",
                     away: "bg-away",
                     offline: "bg-offline",
                 };
-
+                const PRIMARY_USES = [
+                    {emoji: "📝", label: "Freelancing or consulting"},
+                    {emoji: "📚", label: "Learning or teaching"},
+                    {emoji: "💼", label: "Work or career"},
+                    {emoji: "🫂", label: "Organized groups"},
+                    {emoji: "💜", label: "Personal use"},
+                    {emoji: "", label: "None of these"},
+                ];
+                const CATEGORIES = [
+                    "Family and friends", "Group projects", "Individual projects",
+                    "Hobbies", "Events", "Gaming or recreation",
+                ];
                 const summary = primaryUse && category ? primaryUse + " · " + category : "";
 
                 function togglePane() {
                     setPaneOpen((open) => !open);
-                }
-
-                function toggleMenu(name) {
-                    pageShortcuts.current?.dismissPopovers?.();
-                    setMenu((open) => (open === name ? "" : name));
-                }
-
-                function closeMenus() {
-                    setMenu("");
                 }
 
                 function goBack() {
@@ -670,17 +535,13 @@ pub fn AppShell(active: &str, children: Html) -> Html {
 
                 function pickPresence(value) {
                     setPresence(value);
-                    setMenu("");
                 }
 
                 function openSurvey() {
-                    setMenu("");
                     setSaveError("");
                     setSurvey(1);
-                }
-
-                function closeSurvey() {
-                    setSurvey(0);
+                    setSurveyActive(true);
+                    surveyOpener.current?.click();
                 }
 
                 function pickUse(value) {
@@ -708,7 +569,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
     }
 }
 
-/// What the browser gets back once a survey answer is accepted.
+// What the browser gets back once a survey answer is accepted.
 #[derive(Serialize)]
 pub struct SurveyReceipt {
     pub primary_use: String,

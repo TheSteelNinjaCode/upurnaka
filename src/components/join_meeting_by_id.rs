@@ -1,136 +1,119 @@
 //! Calendar's meeting-ID entry point; meetings open in their own window.
+use crate::components::aria::{labelled, named, submit};
 use crate::components::icon::Icon;
+use crate::components::rahti_ui::attrs::Attrs;
+use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::field::{Field, FieldError, FieldGroup, FieldLabel};
+use crate::components::rahti_ui::input::Input;
+use crate::components::rahti_ui::popover::{
+    Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger,
+};
 use crate::rahti::{Html, component, html};
+
+/// The popover's name: its id is `popover-join-by-id`, and the close button
+/// names that id to hide it with no script.
+const NAME: &str = "join-by-id";
 
 #[component]
 pub fn JoinMeetingById() -> Html {
+    let trigger = button_variants(
+        ButtonVariant::Outline,
+        ButtonSize::Default,
+        "text-[13px] font-semibold",
+    );
+    let close = Attrs::new()
+        .set("popovertarget", format!("popover-{NAME}"))
+        .set("popovertargetaction", "hide")
+        .merge(&labelled("Close meeting ID dialog"));
     html! {
         <div>
-            <button
-                type="button"
-                class="flex h-9 items-center gap-2 rounded-md border border-edge bg-raised px-4 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                aria-label="Join with an ID"
-                aria-haspopup="dialog"
-                aria-expanded={open}
-                aria-controls={dialogId}
-                pp-ref={trigger}
-                onclick={toggleJoin()}
-            >
-                <Icon name="hash" class="h-4 w-4" />
-                "Join with an ID"
-            </button>
-            <section
-                id={dialogId}
-                pp-ref={dialog}
-                popover="auto"
-                role="dialog"
-                aria-labelledby={titleId}
-                class="calendar-join-dialog rounded-md border border-edge bg-raised p-5 text-ink shadow-2xl"
-                pp-style={position}
-                ontoggle={setOpen(event.newState === "open")}
-                onkeydown={handleKey(event)}
-            >
-                <header class="mb-5 flex items-center justify-between gap-3">
-                    <h2 id={titleId} class="text-[15px] font-semibold">
-                        "Join a meeting with an ID"
-                    </h2>
-                    <button
-                        type="button"
-                        aria-label="Close meeting ID dialog"
-                        class="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-hover hover:text-ink"
-                        onclick={closeJoin()}
+            <Popover>
+                <PopoverTrigger name=@{NAME} class=@{trigger.as_str()} attrs=@{named("Join with an ID")}>
+                    <Icon name="hash" class="size-4" />
+                    "Join with an ID"
+                </PopoverTrigger>
+                <PopoverContent
+                    name=@{NAME}
+                    align="end"
+                    class="calendar-join-dialog w-[340px]! max-w-[calc(100vw-16px)] p-5!"
+                    ontoggle={resetJoin(event.newState)}
+                >
+                    <PopoverHeader class="mb-4 pr-8">
+                        <PopoverTitle class="text-[15px] font-semibold">
+                            "Join a meeting with an ID"
+                        </PopoverTitle>
+                    </PopoverHeader>
+                    <form onsubmit={join(event)} novalidate>
+                        <FieldGroup class="gap-4">
+                            <Field>
+                                <FieldLabel r#for="join-meeting-id" class="text-[13px]">
+                                    "Meeting ID"
+                                    <span class="text-danger-ink" aria-hidden="true">"*"</span>
+                                </FieldLabel>
+                                <Input
+                                    id="join-meeting-id"
+                                    name="meeting"
+                                    required
+                                    placeholder="Type a meeting ID"
+                                    class="h-10!"
+                                    attrs=@{Attrs::new()
+                                        .set("maxlength", "80")
+                                        .set("autocomplete", "off")
+                                        .set("spellcheck", "false")}
+                                    value={meetingId}
+                                    oninput={changeId(target.value)}
+                                />
+                                <FieldError hidden={!error}>{error}</FieldError>
+                            </Field>
+                            <Field>
+                                <FieldLabel r#for="join-meeting-passcode" class="text-[13px]">
+                                    "Meeting passcode"
+                                </FieldLabel>
+                                <Input
+                                    id="join-meeting-passcode"
+                                    disabled
+                                    placeholder="Not required for Upurnaka meetings"
+                                    class="h-10!"
+                                />
+                            </Field>
+                            <a
+                                href={joinUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="text-sm text-link hover:underline"
+                                hidden={!blocked}
+                            >
+                                "Open meeting"
+                            </a>
+                            <Button
+                                class="h-10! w-full font-semibold"
+                                attrs=@{submit()}
+                                disabled={!meetingId.trim()}
+                            >
+                                "Join meeting"
+                            </Button>
+                        </FieldGroup>
+                    </form>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="absolute right-3 top-3 text-muted-foreground"
+                        attrs=@{close}
                     >
-                        <Icon name="close" class="h-5 w-5" />
-                    </button>
-                </header>
-                <form onsubmit={join(event)} novalidate>
-                    <label for={inputId} class="mb-2 block text-[13px]">
-                        "Meeting ID "
-                        <span class="text-danger-ink" aria-hidden="true">"*"</span>
-                    </label>
-                    <input
-                        id={inputId}
-                        pp-ref={meetingInput}
-                        name="meeting"
-                        type="text"
-                        required
-                        maxlength="80"
-                        autocomplete="off"
-                        spellcheck="false"
-                        aria-label="Meeting ID"
-                        aria-describedby={error ? errorId : null}
-                        aria-invalid={!!error}
-                        placeholder="Type a meeting ID"
-                        class="h-10 w-full rounded-t border-b-2 border-edge bg-surface px-3 text-[14px] outline-none placeholder:text-muted focus:border-brand-ink"
-                        value={meetingId}
-                        oninput={changeId(target.value)}
-                    />
-                    <label for={passcodeId} class="mb-2 mt-4 block text-[13px]">
-                        "Meeting passcode"
-                    </label>
-                    <input
-                        id={passcodeId}
-                        type="text"
-                        disabled
-                        placeholder="Not required for Upurnaka meetings"
-                        class="h-10 w-full rounded-t border-b-2 border-edge bg-surface px-3 text-[13px] text-muted disabled:cursor-not-allowed"
-                    />
-                    <p
-                        id={errorId}
-                        role="alert"
-                        class="mt-3 text-xs text-danger-ink"
-                        hidden={!error}
-                    >
-                        {error}
-                    </p>
-                    <a
-                        href={joinUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="mt-3 block text-sm text-link hover:underline"
-                        hidden={!blocked}
-                    >
-                        "Open meeting"
-                    </a>
-                    <button
-                        type="submit"
-                        disabled={!meetingId.trim()}
-                        class="mt-4 h-10 w-full rounded bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:bg-surface disabled:text-subtle"
-                    >
-                        "Join meeting"
-                    </button>
-                </form>
-            </section>
-            <style>r##"
-                .calendar-join-dialog {position:fixed;inset:auto;margin:0;width:340px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow-y:auto;}
-            "##</style>
+                        <span class="contents" pp-ref={closer}>
+                            <Icon name="close" class="size-5" />
+                        </span>
+                    </Button>
+                </PopoverContent>
+            </Popover>
             <script>r##"
-                const trigger = pp.ref(null);
-                const dialog = pp.ref(null);
-                const meetingInput = pp.ref(null);
-                const dialogId = pp.id();
-                const titleId = pp.id();
-                const inputId = pp.id();
-                const passcodeId = pp.id();
-                const errorId = pp.id();
-                const [open, setOpen] = pp.state(false);
-                const [position, setPosition] = pp.state('');
+                const closer = pp.ref(null);
                 const [meetingId, setMeetingId] = pp.state('');
                 const [error, setError] = pp.state('');
                 const [blocked, setBlocked] = pp.state(false);
                 const joinUrl = '/meet/j/' + encodeURIComponent(meetingId.trim());
-                function toggleJoin() {
-                    if (dialog.current.matches(':popover-open')) {closeJoin(); return;}
-                    const anchor = trigger.current.getBoundingClientRect();
-                    const width = Math.min(340, innerWidth - 16);
-                    const left = Math.max(8, Math.min(anchor.right - width, innerWidth - width - 8));
-                    setPosition('left:' + left + 'px;top:' + Math.max(8, Math.min(anchor.bottom + 8, innerHeight - 360)) + 'px');
-                    setError(''); setBlocked(false);
-                    dialog.current.showPopover(); meetingInput.current?.focus();
-                }
-                function closeJoin() {dialog.current.hidePopover(); trigger.current?.focus();}
-                function handleKey(event) {
-                    if (event.key === 'Escape') {event.preventDefault(); event.stopPropagation(); closeJoin();}
+                function resetJoin(state) {
+                    if (state === 'open') {setError(''); setBlocked(false);}
                 }
                 function changeId(value) {setMeetingId(value); setError(''); setBlocked(false);}
                 function join(event) {
@@ -139,13 +122,13 @@ pub fn JoinMeetingById() -> Html {
                     const id = String(data.meeting || '').trim();
                     if (!/^[A-Za-z0-9-]{1,80}$/.test(id)) {
                         setError('Enter a valid meeting ID using letters, numbers or hyphens.');
-                        meetingInput.current?.focus(); return;
+                        event.currentTarget.elements.meeting.focus(); return;
                     }
                     const tab = window.open('about:blank', '_blank');
                     if (!tab) {setError('Allow pop-ups, or use Open meeting below.'); setBlocked(true); return;}
                     tab.opener = null;
                     tab.location.replace('/meet/j/' + encodeURIComponent(id));
-                    closeJoin();
+                    closer.current?.click();
                 }
             "##</script>
         </div>

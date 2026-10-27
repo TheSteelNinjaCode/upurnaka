@@ -123,7 +123,7 @@ async fn giphy_picker_trends_searches_paginates_and_sends_a_gif() {
     let trending: bool = browser.eval("window.giphyRequests.some(value => {const u = new URL(value); return u.pathname.endsWith('/trending') && u.searchParams.get('rating') === 'g' && u.searchParams.get('api_key') === 'public-test-key';})").await.unwrap();
     assert!(trending);
     browser
-        .click(".chat-emoji-tabs button:nth-child(3)")
+        .click(".chat-emoji-tabs label:nth-of-type(3)")
         .await
         .unwrap();
     browser.wait_for("document.querySelectorAll('.chat-gif-grid button').length === 1 && !document.querySelector('.chat-gif-more').hidden").await.unwrap();
@@ -131,7 +131,7 @@ async fn giphy_picker_trends_searches_paginates_and_sends_a_gif() {
     browser.wait_for("document.querySelectorAll('.chat-gif-grid button').length === 2 && document.querySelector('.chat-gif-more').hidden").await.unwrap();
     browser.click(".chat-emoji-search input").await.unwrap();
     browser.type_text("happy & excited").await.unwrap();
-    browser.wait_for("document.querySelector('.chat-gif-grid button')?.getAttribute('aria-label') === 'happy & excited GIF'").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-gif-grid button img')?.getAttribute('alt') === 'happy & excited GIF'").await.unwrap();
     let query: bool = browser.eval("window.giphyRequests.some(value => {const u = new URL(value); return u.pathname.endsWith('/search') && u.searchParams.get('q') === 'happy & excited' && u.searchParams.get('offset') === '0';})").await.unwrap();
     assert!(
         query,
@@ -158,12 +158,20 @@ async fn giphy_picker_trends_searches_paginates_and_sends_a_gif() {
     browser.click("button[aria-label=Send]").await.unwrap();
     browser.wait_for("document.querySelectorAll('.chat-message-gif').length === 1 && document.querySelector('.chat-draft-gif').hidden").await.unwrap();
     browser.click("button[aria-label=Emoji]").await.unwrap();
+    // The picker focuses its search field as it opens; work in it after that.
+    browser
+        .wait_for("document.querySelector('.chat-emoji-picker').matches(':popover-open') && document.activeElement === document.querySelector('.chat-emoji-search input')")
+        .await
+        .unwrap();
     browser.click(".chat-emoji-search input").await.unwrap();
     let _: bool = browser
         .eval("document.activeElement.select(); true")
         .await
         .unwrap();
     browser.type_text("empty").await.unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+    let debug: String = browser.eval("JSON.stringify({search: document.querySelector('.chat-emoji-search input').value, gifs: document.querySelectorAll('.chat-gif-grid button').length, gridHtml: document.querySelector('.chat-gif-grid').innerHTML.slice(0, 300), empties: [...document.querySelectorAll('.chat-emoji-empty')].map(e => e.hidden + ':' + e.textContent.trim().slice(0,20)), requests: window.giphyRequests.slice(-2)})").await.unwrap();
+    eprintln!("DEBUG-GIPHY {debug}");
     browser.wait_for("document.querySelectorAll('.chat-gif-grid button').length === 0 && Array.from(document.querySelectorAll('.chat-emoji-empty')).some(el => !el.hidden && el.textContent.includes('No GIFs found'))").await.unwrap();
     let _: bool = browser
         .eval("window.giphyMode = 'failure'; document.activeElement.select(); true")

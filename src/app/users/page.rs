@@ -1,5 +1,25 @@
 use crate::{
-    components::app_shell::AppShell,
+    components::{
+        app_shell::AppShell,
+        aria::{bound, hidden, named, submit},
+        rahti_ui::{
+            alert_dialog::{
+                AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+                AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+                AlertDialogTrigger,
+            },
+            attrs::{Attrs, ui_expr},
+            badge::Badge,
+            button::{Button, ButtonSize, ButtonVariant, button_variants},
+            dialog::{
+                Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader,
+                DialogTitle, DialogTrigger,
+            },
+            field::{Field, FieldLabel},
+            input::Input,
+            table::{Table, TableBody, TableCell, TableHead, TableHeader, TableRow},
+        },
+    },
     rahti::{Html, Json, Metadata, Result, html, rpc},
     users::{self, UserList, UserSummary},
 };
@@ -12,6 +32,7 @@ pub fn metadata() -> Metadata {
 pub async fn page() -> Result<Html> {
     users::require_admin().await?;
     let listing = users::list(String::new(), 0).await?;
+    let cancel = button_variants(ButtonVariant::Outline, ButtonSize::Default, "");
     Ok(html! {
         <AppShell active="users">
             <main class="min-w-0 flex-1 overflow-y-auto p-6 sm:p-10">
@@ -19,141 +40,23 @@ pub async fn page() -> Result<Html> {
                     <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
                         <div>
                             <h1 class="text-3xl font-semibold">"Users"</h1>
-                            <p class="mt-2 text-sm text-muted">
+                            <p class="mt-2 text-sm text-muted-foreground">
                                 "Manage accounts and access to your workspace."
                             </p>
                         </div>
-                        <button
-                            type="button"
+                        <Button
+                            size="lg"
+                            class="font-semibold"
+                            attrs=@{named("Add user")}
                             onclick={openCreate()}
                             disabled={busy}
-                            class="rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
                         >
                             "Add user"
-                        </button>
+                        </Button>
                     </div>
-                    <section
-                        hidden={mode === ""}
-                        aria-label="User editor"
-                        class="mb-6 rounded-xl border border-edge bg-surface p-6"
-                    >
-                        <div class="mb-5 flex items-center justify-between gap-3">
-                            <h2 class="text-lg font-semibold">
-                                {mode === "create" ? "Create user" : "Edit user"}
-                            </h2>
-                            <button
-                                type="button"
-                                onclick={closeEditor()}
-                                disabled={busy}
-                                class="text-sm text-muted hover:text-ink"
-                            >
-                                "Cancel"
-                            </button>
-                        </div>
-                        <p class="mb-5 text-sm text-muted" hidden={mode !== "create"}>
-                            "New accounts are active regular users. Share the initial password securely; the user will set up their own authenticator at first sign-in."
-                        </p>
-                        <form onsubmit={save(event)} class="grid gap-5 sm:grid-cols-2">
-                            <label class="text-sm">
-                                "Name"
-                                <input
-                                    name="name"
-                                    value={draft.name}
-                                    oninput={changeDraft("name", target.value)}
-                                    pp-ref={nameInput}
-                                    required
-                                    maxlength="80"
-                                    autocomplete="off"
-                                    class="mt-2 h-11 w-full rounded-lg border border-edge bg-sunken px-3 outline-none focus:border-brand-ink"
-                                />
-                            </label>
-                            <label class="text-sm">
-                                "Email address"
-                                <input
-                                    name="email"
-                                    type="email"
-                                    value={draft.email}
-                                    oninput={changeDraft("email", target.value)}
-                                    required
-                                    maxlength="254"
-                                    autocomplete="off"
-                                    class="mt-2 h-11 w-full rounded-lg border border-edge bg-sunken px-3 outline-none focus:border-brand-ink"
-                                />
-                            </label>
-                            <label class="text-sm" hidden={mode !== "create"}>
-                                "Initial password"
-                                <input
-                                    name="password"
-                                    type="password"
-                                    value={password}
-                                    oninput={setPassword(target.value)}
-                                    disabled={mode !== "create"}
-                                    required={mode === "create"}
-                                    minlength="12"
-                                    maxlength="128"
-                                    autocomplete="new-password"
-                                    class="mt-2 h-11 w-full rounded-lg border border-edge bg-sunken px-3 outline-none focus:border-brand-ink"
-                                />
-                            </label>
-                            <label class="text-sm" hidden={mode !== "create"}>
-                                "Confirm password"
-                                <input
-                                    name="confirmation"
-                                    type="password"
-                                    value={confirmation}
-                                    oninput={setConfirmation(target.value)}
-                                    disabled={mode !== "create"}
-                                    required={mode === "create"}
-                                    maxlength="128"
-                                    autocomplete="new-password"
-                                    class="mt-2 h-11 w-full rounded-lg border border-edge bg-sunken px-3 outline-none focus:border-brand-ink"
-                                />
-                            </label>
-                            <div class="flex items-center gap-4 sm:col-span-2">
-                                <button
-                                    type="submit"
-                                    disabled={busy}
-                                    class="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
-                                >
-                                    {busy ? "Saving…" : "Save user"}
-                                </button>
-                                <span class="text-xs text-subtle">"Role: User"</span>
-                            </div>
-                        </form>
-                    </section>
-                    <section
-                        hidden={!deleting}
-                        role="alertdialog"
-                        aria-label="Delete user confirmation"
-                        class="mb-6 rounded-xl border border-busy/50 bg-surface p-6"
-                    >
-                        <h2 class="text-lg font-semibold">"Delete user?"</h2>
-                        <p class="my-3 text-sm text-muted">
-                            {deleting ? deleting.email : ""}
-                            " will lose access immediately. Their meeting links will be revoked. This cannot be undone."
-                        </p>
-                        <div class="flex gap-3">
-                            <button
-                                type="button"
-                                onclick={confirmDelete()}
-                                disabled={busy}
-                                class="rounded-lg bg-busy px-4 py-2 text-sm text-white disabled:opacity-50"
-                            >
-                                "Delete permanently"
-                            </button>
-                            <button
-                                type="button"
-                                onclick={setDeleting(null)}
-                                disabled={busy}
-                                class="rounded-lg border border-edge px-4 py-2 text-sm hover:bg-hover"
-                            >
-                                "Cancel deletion"
-                            </button>
-                        </div>
-                    </section>
                     <p
                         role="alert"
-                        hidden={!error}
+                        hidden={!error || !!mode}
                         class="mb-5 rounded-lg border border-busy/40 p-3 text-sm text-danger-ink"
                     >
                         {error}
@@ -175,135 +78,286 @@ pub async fn page() -> Result<Html> {
                                 onsubmit={searchUsers(event)}
                                 class="flex flex-1 gap-2 sm:max-w-md"
                             >
-                                <input
+                                <Input
                                     name="search"
-                                    aria-label="Search users"
+                                    r#type="search"
+                                    placeholder="Search name or email"
+                                    class="h-10! min-w-0 flex-1"
+                                    attrs=@{named("Search users").set("maxlength", "254")}
                                     value={search}
                                     oninput={setSearch(target.value)}
-                                    maxlength="254"
-                                    placeholder="Search name or email"
-                                    class="h-10 min-w-0 flex-1 rounded-lg border border-edge bg-sunken px-3 text-sm outline-none focus:border-brand-ink"
                                 />
-                                <button
-                                    type="submit"
+                                <Button
+                                    variant="outline"
+                                    class="h-10!"
+                                    attrs=@{submit()}
                                     disabled={busy}
-                                    class="rounded-lg border border-edge px-4 text-sm hover:bg-hover disabled:opacity-50"
                                 >
                                     "Search"
-                                </button>
+                                </Button>
                             </form>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-sm">
-                                <thead class="bg-sunken text-xs uppercase tracking-wide text-muted">
-                                    <tr>
-                                        <th class="px-5 py-4">"User"</th>
-                                        <th class="px-5 py-4">"Role"</th>
-                                        <th class="px-5 py-4">"Status"</th>
-                                        <th class="px-5 py-4">"Authenticator"</th>
-                                        <th class="px-5 py-4 text-right">"Actions"</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template pp-for="row in data.items">
-                                        <tr
-                                            key={row.id}
-                                            data-email={row.email}
-                                            class="border-t border-line"
-                                        >
-                                            <td class="px-5 py-4">
-                                                <span class="block font-medium">{row.name}</span>
-                                                <span class="mt-1 block text-xs text-muted">
-                                                    {row.email}
-                                                </span>
-                                            </td>
-                                            <td class="px-5 py-4">
-                                                {row.role === "admin" ? "Admin" : "User"}
-                                            </td>
-                                            <td class="px-5 py-4">
-                                                <span
-                                                    class={row.active ? "text-online" : "text-danger-ink"}
+                        <Table>
+                            <TableHeader class="bg-sunken">
+                                <TableRow class="hover:bg-transparent">
+                                    <TableHead
+                                        class="px-5 text-xs uppercase tracking-wide text-muted-foreground"
+                                    >
+                                        "User"
+                                    </TableHead>
+                                    <TableHead
+                                        class="px-5 text-xs uppercase tracking-wide text-muted-foreground"
+                                    >
+                                        "Role"
+                                    </TableHead>
+                                    <TableHead
+                                        class="px-5 text-xs uppercase tracking-wide text-muted-foreground"
+                                    >
+                                        "Status"
+                                    </TableHead>
+                                    <TableHead
+                                        class="px-5 text-xs uppercase tracking-wide text-muted-foreground"
+                                    >
+                                        "Authenticator"
+                                    </TableHead>
+                                    <TableHead
+                                        class="px-5 text-right text-xs uppercase tracking-wide text-muted-foreground"
+                                    >
+                                        "Actions"
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <template pp-for="row in data.items">
+                                    // Keyed by what the row shows, not by id alone: a reused
+                                    // row does not re-render the text inside its cells, so a
+                                    // user whose name or state changed gets a fresh row.
+                                    <TableRow
+                                        key={[row.id, row.name, row.email, row.active, row.enrolled].join("|")}
+                                        attrs=@{bound("data-email", ui_expr!(data-email={row.email}))}
+                                    >
+                                        <TableCell class="px-5 py-4">
+                                            <span class="block font-medium">{row.name}</span>
+                                            <span class="mt-1 block text-xs text-muted-foreground">
+                                                {row.email}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell class="px-5 py-4">
+                                            {row.role === "admin" ? "Admin" : "User"}
+                                        </TableCell>
+                                        <TableCell class="px-5 py-4">
+                                            <span
+                                                class={row.active ? "inline-flex rounded-md border border-online/40 bg-online/10 px-2 py-0.5 text-xs font-medium text-online" : "inline-flex rounded-md border border-busy/40 bg-busy/10 px-2 py-0.5 text-xs font-medium text-danger-ink"}
+                                            >
+                                                {row.active ? "Active" : "Inactive"}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell class="px-5 py-4 text-muted-foreground">
+                                            {row.enrolled ? "Enrolled" : "Setup pending"}
+                                        </TableCell>
+                                        <TableCell class="px-5 py-4 text-right">
+                                            <span
+                                                hidden={row.role !== "admin"}
+                                                class="text-xs text-subtle"
+                                            >
+                                                "Protected administrator"
+                                            </span>
+                                            <div
+                                                hidden={row.role === "admin"}
+                                                class="flex justify-end gap-1"
+                                            >
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    class="text-link"
+                                                    value={row.id}
+                                                    onclick={openEdit(rowById(event.currentTarget.value))}
                                                 >
-                                                    {row.active ? "Active" : "Inactive"}
-                                                </span>
-                                            </td>
-                                            <td class="px-5 py-4 text-muted">
-                                                {row.enrolled ? "Enrolled" : "Setup pending"}
-                                            </td>
-                                            <td class="px-5 py-4 text-right">
-                                                <span
-                                                    hidden={row.role !== "admin"}
-                                                    class="text-xs text-subtle"
+                                                    "Edit"
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    class="text-link"
+                                                    value={row.id}
+                                                    onclick={toggleActive(rowById(event.currentTarget.value))}
                                                 >
-                                                    "Protected administrator"
-                                                </span>
-                                                <div
-                                                    hidden={row.role === "admin"}
-                                                    class="flex justify-end gap-3"
+                                                    {row.active ? "Deactivate" : "Activate"}
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    class="text-danger-ink hover:bg-destructive/10"
+                                                    value={row.id}
+                                                    onclick={askDelete(rowById(event.currentTarget.value))}
                                                 >
-                                                    <button
-                                                        type="button"
-                                                        onclick={openEdit(row)}
-                                                        disabled={busy}
-                                                        class="text-link hover:underline disabled:opacity-50"
-                                                    >
-                                                        "Edit"
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onclick={toggleActive(row)}
-                                                        disabled={busy}
-                                                        class="text-link hover:underline disabled:opacity-50"
-                                                    >
-                                                        {row.active ? "Deactivate" : "Activate"}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onclick={askDelete(row)}
-                                                        disabled={busy}
-                                                        class="text-danger-ink hover:underline disabled:opacity-50"
-                                                    >
-                                                        "Delete"
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                            <p
-                                hidden={data.items.length > 0}
-                                class="p-10 text-center text-sm text-muted"
-                            >
-                                "No users match your search."
-                            </p>
-                        </div>
+                                                    "Delete"
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                </template>
+                            </TableBody>
+                        </Table>
+                        <p
+                            hidden={data.items.length > 0}
+                            class="p-10 text-center text-sm text-muted-foreground"
+                        >
+                            "No users match your search."
+                        </p>
                         <div
                             class="flex items-center justify-between border-t border-line p-5 text-sm"
                         >
-                            <button
-                                type="button"
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 onclick={loadPage(data.page - 1)}
                                 disabled={busy || data.page === 0}
-                                class="text-link disabled:opacity-40"
                             >
                                 "Previous"
-                            </button>
-                            <span class="text-muted">"Page "{data.page + 1}</span>
-                            <button
-                                type="button"
+                            </Button>
+                            <span class="text-muted-foreground">"Page "{data.page + 1}</span>
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 onclick={loadPage(data.page + 1)}
                                 disabled={busy || (data.page + 1) * 25 >= data.total}
-                                class="text-link disabled:opacity-40"
                             >
                                 "Next"
-                            </button>
+                            </Button>
                         </div>
                     </section>
                     <p class="mt-4 text-xs text-subtle">
                         "Only active accounts can enter the workspace. The administrator account is managed through database seeding."
                     </p>
                 </div>
+                <Dialog>
+                    <DialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={editorOpener}></span>
+                    </DialogTrigger>
+                    <DialogClose attrs=@{hidden()}>
+                        <span pp-ref={editorCloser}></span>
+                    </DialogClose>
+                    <DialogContent
+                        class="sm:max-w-xl!"
+                        attrs=@{named("User editor")}
+                        onclose={closeEditor()}
+                    >
+                        <DialogHeader>
+                            <DialogTitle>
+                                {mode === "create" ? "Create user" : "Edit user"}
+                            </DialogTitle>
+                            <DialogDescription hidden={mode !== "create"}>
+                                "New accounts are active regular users. Share the initial password securely; the user will set up their own authenticator at first sign-in."
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form onsubmit={save(event)} class="grid gap-5 sm:grid-cols-2">
+                            <Field>
+                                <FieldLabel r#for="user-name">"Name"</FieldLabel>
+                                <Input
+                                    id="user-name"
+                                    name="name"
+                                    required
+                                    class="h-11!"
+                                    attrs=@{Attrs::new()
+                                        .set("maxlength", "80")
+                                        .set("autocomplete", "off")
+                                        .set("autofocus", "")}
+                                    value={draft.name}
+                                    oninput={changeDraft("name", target.value)}
+                                />
+                            </Field>
+                            <Field>
+                                <FieldLabel r#for="user-email">"Email address"</FieldLabel>
+                                <Input
+                                    id="user-email"
+                                    name="email"
+                                    r#type="email"
+                                    required
+                                    class="h-11!"
+                                    attrs=@{Attrs::new().set("maxlength", "254").set("autocomplete", "off")}
+                                    value={draft.email}
+                                    oninput={changeDraft("email", target.value)}
+                                />
+                            </Field>
+                            <Field hidden={mode !== "create"}>
+                                <FieldLabel r#for="user-password">"Initial password"</FieldLabel>
+                                <Input
+                                    id="user-password"
+                                    name="password"
+                                    r#type="password"
+                                    class="h-11!"
+                                    attrs=@{Attrs::new()
+                                        .set("minlength", "12")
+                                        .set("maxlength", "128")
+                                        .set("autocomplete", "new-password")}
+                                    value={password}
+                                    oninput={setPassword(target.value)}
+                                    disabled={mode !== "create"}
+                                    required={mode === "create"}
+                                />
+                            </Field>
+                            <Field hidden={mode !== "create"}>
+                                <FieldLabel r#for="user-confirmation">
+                                    "Confirm password"
+                                </FieldLabel>
+                                <Input
+                                    id="user-confirmation"
+                                    name="confirmation"
+                                    r#type="password"
+                                    class="h-11!"
+                                    attrs=@{Attrs::new()
+                                        .set("maxlength", "128")
+                                        .set("autocomplete", "new-password")}
+                                    value={confirmation}
+                                    oninput={setConfirmation(target.value)}
+                                    disabled={mode !== "create"}
+                                    required={mode === "create"}
+                                />
+                            </Field>
+                            <p
+                                role="alert"
+                                hidden={!error}
+                                class="rounded-lg border border-busy/40 p-3 text-sm text-danger-ink sm:col-span-2"
+                            >
+                                {error}
+                            </p>
+                            <DialogFooter class="items-center sm:col-span-2 sm:justify-between!">
+                                <Badge variant="secondary">"Role: User"</Badge>
+                                <div class="flex flex-col-reverse gap-2 sm:flex-row">
+                                    <DialogClose class=@{cancel.as_str()} disabled={busy}>
+                                        "Cancel"
+                                    </DialogClose>
+                                    <Button attrs=@{submit()} disabled={busy}>
+                                        {busy ? "Saving…" : "Save user"}
+                                    </Button>
+                                </div>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+                <AlertDialog>
+                    <AlertDialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={deleteOpener}></span>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent attrs=@{named("Delete user confirmation")}>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>"Delete user?"</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                {deleting ? deleting.email : ""}
+                                " will lose access immediately. Their meeting links will be revoked. This cannot be undone."
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onclick={setDeleting(null)}>
+                                "Cancel deletion"
+                            </AlertDialogCancel>
+                            <AlertDialogAction variant="destructive" onclick={confirmDelete()}>
+                                "Delete permanently"
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
                 <script>r##"
                     const [data, setData] = pp.state(@{Json(&listing)});
                     const [search, setSearch] = pp.state('');
@@ -316,13 +370,24 @@ pub async fn page() -> Result<Html> {
                     const [error, setError] = pp.state('');
                     const [notice, setNotice] = pp.state('');
                     const [deleting, setDeleting] = pp.state(null);
-                    const nameInput = pp.ref(null);
-                    pp.effect(() => { if (mode) nameInput.current?.focus(); }, [mode]);
+                    const editorOpener = pp.ref(null);
+                    const editorCloser = pp.ref(null);
+                    const deleteOpener = pp.ref(null);
+                    // The editor and the confirmation are rahti-ui dialogs, which
+                    // open from a trigger; a row reaches them through the hidden
+                    // trigger each one carries, once it has said which user.
+                    function openEditor(next) {
+                        setMode(next);
+                        editorOpener.current?.click();
+                    }
                     function changeDraft(field, value) { setDraft(previous => ({...previous, [field]:value})); }
                     function closeEditor() { setMode(''); setPassword(''); setConfirmation(''); }
-                    function openCreate() { setDraft({id:'',name:'',email:''}); setPassword(''); setConfirmation(''); setError(''); setNotice(''); setDeleting(null); setMode('create'); }
-                    function openEdit(row) { setDraft({id:row.id,name:row.name,email:row.email}); setPassword(''); setConfirmation(''); setError(''); setNotice(''); setDeleting(null); setMode('edit'); }
-                    function askDelete(row) { closeEditor(); setError(''); setNotice(''); setDeleting(row); }
+                    function openCreate() { setDraft({id:'',name:'',email:''}); setPassword(''); setConfirmation(''); setError(''); setNotice(''); setDeleting(null); openEditor('create'); }
+                    function openEdit(row) { if (!row) return; setDraft({id:row.id,name:row.name,email:row.email}); setPassword(''); setConfirmation(''); setError(''); setNotice(''); setDeleting(null); openEditor('edit'); }
+                    // A row's actions name their user by id: a handler in a list
+                    // row reads the row through its button, not the loop variable.
+                    function rowById(id) { return data.items.find(item => item.id === id); }
+                    function askDelete(row) { if (!row) return; setError(''); setNotice(''); setDeleting(row); deleteOpener.current?.click(); }
                     function message(e) { return e.body?.error || e.message || 'Could not complete the request.'; }
                     async function loadPage(page) {
                         if (busy) return; setBusy(true); setError('');
@@ -345,13 +410,13 @@ pub async fn page() -> Result<Html> {
                         try {
                             if (mode === 'create') await pp.rpc('create_user', values);
                             else await pp.rpc('update_user', {id:draft.id, name:values.name, email:values.email});
-                            closeEditor(); setNotice('User saved.');
+                            editorCloser.current?.click(); setNotice('User saved.');
                             setData(await pp.rpc('list_users', {search: appliedSearch, page:data.page}));
                         } catch(e) { setError(message(e)); }
                         finally { setBusy(false); }
                     }
                     async function toggleActive(row) {
-                        if (busy) return; setBusy(true); setError(''); setNotice('');
+                        if (busy || !row) return; setBusy(true); setError(''); setNotice('');
                         try {
                             await pp.rpc('set_user_active', {id:row.id, active:!row.active});
                             setNotice(row.active ? 'User deactivated. Existing sessions are blocked.' : 'User activated. They can sign in again.');

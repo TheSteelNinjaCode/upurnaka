@@ -1,90 +1,107 @@
 //! Teams-style shortcut catalog with availability for implemented app actions.
+use crate::components::aria::{bound, labelled, named};
 use crate::components::icon::Icon;
+use crate::components::rahti_ui::attrs::{Attrs, ui_expr};
+use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::dialog::{DialogClose, DialogTitle};
+use crate::components::rahti_ui::input_group::{InputGroup, InputGroupAddon, InputGroupInput};
+use crate::components::rahti_ui::kbd::Kbd;
+use crate::components::rahti_ui::label::Label;
+use crate::components::rahti_ui::select::{Select, SelectItem};
 use crate::rahti::{Html, component, html};
+
+/// A section heading that folds its shortcuts away.
+const SECTION_TOGGLE: &str = "shortcuts-section-toggle mb-2 h-auto! w-fit gap-3.5 px-2! py-2.5 \
+                              text-base font-semibold";
 
 #[component]
 pub fn KeyboardShortcuts() -> Html {
+    let close = button_variants(
+        ButtonVariant::Ghost,
+        ButtonSize::Icon,
+        "text-muted-foreground",
+    );
     html! {
         <div class="flex h-full min-h-0 flex-col text-base leading-[1.45]">
             <header class="shrink-0 px-[22px] pb-3 pt-6 min-[901px]:px-[34px] min-[901px]:pt-8">
                 <div class="shortcuts-title mb-[22px] flex items-center justify-between gap-5">
-                    <h2 class="text-xl font-bold min-[651px]:text-[22px]">"Keyboard shortcuts"</h2>
-                    <form method="dialog">
-                        <button
-                            type="submit"
-                            class="grid h-8 w-8 cursor-pointer place-items-center rounded text-muted hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
-                            aria-label="Close keyboard shortcuts"
-                        >
-                            <Icon name="close" class="h-6 w-6" />
-                        </button>
-                    </form>
+                    <DialogTitle class="text-xl font-bold min-[651px]:text-[22px]">
+                        "Keyboard shortcuts"
+                    </DialogTitle>
+                    <DialogClose
+                        class=@{close.as_str()}
+                        attrs=@{labelled("Close keyboard shortcuts")}
+                    >
+                        <Icon name="close" class="size-6" />
+                    </DialogClose>
                 </div>
                 <div
                     class="flex flex-col items-stretch gap-3.5 min-[651px]:flex-row min-[651px]:items-end min-[651px]:justify-between min-[651px]:gap-7"
                 >
-                    <div class="w-full min-[651px]:w-3/5 min-[901px]:w-1/2">
-                        <label for={profileId} class="mb-[5px] block">
-                            "Use shortcuts from other apps"
-                        </label>
+                    <div class="flex w-full flex-col gap-2 min-[651px]:w-3/5 min-[901px]:w-1/2">
+                        <Label r#for="shortcut-profile">"Use shortcuts from other apps"</Label>
                         <div class="flex gap-3.5">
-                            <select
-                                id={profileId}
-                                class="h-11 w-full min-w-0 rounded-md border border-edge bg-raised px-3.5 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
-                                aria-label="Shortcut profile"
+                            <Select
+                                id="shortcut-profile"
+                                class="h-11 w-full min-w-0"
+                                attrs=@{named("Shortcut profile")}
                             >
-                                <option value="teams">"Teams only (default)"</option>
-                            </select>
-                            <button
-                                type="button"
-                                class="h-11 min-w-[76px] cursor-not-allowed rounded-md bg-sunken px-5 font-semibold text-subtle min-[901px]:min-w-[124px]"
+                                <SelectItem value="teams" selected>
+                                    "Teams only (default)"
+                                </SelectItem>
+                            </Select>
+                            <Button
+                                variant="secondary"
+                                size="lg"
+                                class="h-11! min-w-[76px] min-[901px]:min-w-[124px]"
                                 disabled
-                                title="The default shortcut profile is already applied"
+                                attrs=@{Attrs::new().set("title", "The default shortcut profile is already applied")}
                             >
                                 "Apply"
-                            </button>
+                            </Button>
                         </div>
                     </div>
-                    <div
-                        class="flex h-11 w-full items-center gap-2.5 rounded-md bg-surface px-4 text-subtle focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ring min-[651px]:w-2/5 min-[901px]:w-[34%]"
-                    >
-                        <Icon name="search" class="h-5 w-5" />
-                        <input
-                            type="search"
-                            class="w-full min-w-0 bg-transparent text-ink outline-none"
-                            aria-label="Filter shortcuts"
+                    <InputGroup class="h-11! w-full min-[651px]:w-2/5 min-[901px]:w-[34%]">
+                        <InputGroupAddon>
+                            <Icon name="search" class="size-5" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                            r#type="search"
                             placeholder="Filter shortcuts"
+                            attrs=@{named("Filter shortcuts")}
                             value={filter}
                             oninput={setFilter(target.value)}
                         />
-                    </div>
+                    </InputGroup>
                 </div>
             </header>
             <div
-                class="scroll-thin min-h-0 flex-1 overflow-y-auto overscroll-contain px-[22px] min-[901px]:px-[34px] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
+                class="scroll-thin min-h-0 flex-1 overflow-y-auto overscroll-contain px-[22px] min-[901px]:px-[34px] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted-foreground"
                 tabindex="0"
                 aria-label="Shortcut categories"
             >
                 <template pp-for="section in shown">
                     <section
-                        class="shortcuts-section border-b border-edge pb-[18px] pt-3 last-of-type:border-b-0"
                         key={section.title}
+                        class="shortcuts-section border-b border-edge pb-[18px] pt-3 last-of-type:border-b-0"
                     >
-                        <button
-                            type="button"
-                            class="shortcuts-section-toggle mb-2 flex cursor-pointer items-center gap-3.5 rounded px-2 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
-                            aria-expanded={!collapsed.includes(section.title) || searching}
-                            onclick={toggleSection(section.title)}
+                        <Button
+                            variant="ghost"
+                            class=@{SECTION_TOGGLE}
+                            attrs=@{bound("aria-expanded", ui_expr!(aria-expanded={!collapsed.includes(section.title) || searching}))}
+                            value={section.title}
+                            onclick={toggleSection(event.currentTarget.value)}
                         >
                             <span
                                 class={collapsed.includes(section.title) && !searching ? "inline-flex -rotate-90" : "inline-flex"}
                             >
-                                <Icon name="chevron-down" class="h-5 w-5" />
+                                <Icon name="chevron-down" class="size-5" />
                             </span>
                             {section.title}
-                        </button>
+                        </Button>
                         <div hidden={collapsed.includes(section.title) && !searching}>
                             <p
-                                class="mb-1.5 ml-2 mr-7 text-sm text-muted min-[651px]:mx-7"
+                                class="mb-1.5 ml-2 mr-7 text-sm text-muted-foreground min-[651px]:mx-7"
                                 hidden={section.title !== "Message actions"}
                             >
                                 "Single-character shortcuts are supported only for actions in this section."
@@ -109,11 +126,11 @@ pub fn KeyboardShortcuts() -> Html {
                                                     </span>
                                                 </dt>
                                                 <dd>
-                                                    <kbd
-                                                        class="block whitespace-nowrap rounded-full bg-surface px-2 py-2.5 text-center font-[inherit]"
+                                                    <Kbd
+                                                        class="h-auto! w-full! rounded-full! bg-surface! px-2 py-2.5 text-sm! text-ink!"
                                                     >
                                                         {shortcut[1]}
-                                                    </kbd>
+                                                    </Kbd>
                                                 </dd>
                                             </div>
                                         </template>
@@ -124,7 +141,7 @@ pub fn KeyboardShortcuts() -> Html {
                     </section>
                 </template>
                 <p
-                    class="shortcuts-empty px-4 py-[60px] text-center text-muted"
+                    class="shortcuts-empty px-4 py-[60px] text-center text-muted-foreground"
                     role="status"
                     hidden={shown.length > 0}
                 >
@@ -136,7 +153,7 @@ pub fn KeyboardShortcuts() -> Html {
             >
                 <a
                     href="https://support.microsoft.com/office/keyboard-shortcuts-for-microsoft-teams-2e8e2a70-e8d8-4a19-949b-4c36dd5292d2"
-                    class="text-brand-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
+                    class="text-brand-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted-foreground"
                     target="_blank"
                     rel="noopener noreferrer"
                 >
@@ -145,7 +162,7 @@ pub fn KeyboardShortcuts() -> Html {
                 <span class="hidden h-6 w-px bg-edge min-[651px]:block" aria-hidden="true"></span>
                 <a
                     href="https://support.microsoft.com/office/office-accessibility-center-resources-for-people-with-disabilities-ecab0fcf-d143-4fe8-a2ff-6cd596bddc6d"
-                    class="text-brand-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted"
+                    class="text-brand-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-muted-foreground"
                     target="_blank"
                     rel="noopener noreferrer"
                 >
@@ -155,7 +172,6 @@ pub fn KeyboardShortcuts() -> Html {
             <script>r##"
                 const [filter, setFilter] = pp.state("");
                 const [collapsed, setCollapsed] = pp.state([]);
-                const profileId = pp.id();
                 const searching = filter.trim().length > 0;
                 function normalize(value) { return value.toLowerCase().replace(/\s+/g, ""); }
                 function toggleSection(title) {

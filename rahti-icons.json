@@ -185,6 +185,12 @@
       "name": "list-ordered"
     },
     {
+      "component": "LoaderCircle",
+      "file": "src/components/rahti_icons/loader_circle.rs",
+      "module": "crate::components::rahti_icons::loader_circle",
+      "name": "loader-circle"
+    },
+    {
       "component": "MapPin",
       "file": "src/components/rahti_icons/map_pin.rs",
       "module": "crate::components::rahti_icons::map_pin",

@@ -1,5 +1,8 @@
 use crate::{
-    components::app_shell::AppShell,
+    components::{
+        app_shell::AppShell,
+        rahti_ui::card::{Card, CardContent, CardDescription, CardHeader, CardTitle},
+    },
     rahti::{Html, Metadata, Result, html},
 };
 use sea_orm::EntityTrait;
@@ -26,35 +29,47 @@ pub async fn page() -> Result<Html> {
             <main class="flex-1 overflow-y-auto p-8 sm:p-12">
                 <div class="max-w-2xl">
                     <h1 class="text-3xl font-semibold">"My account"</h1>
-                    <p class="mb-8 mt-2 text-sm text-muted">"Your profile and sign-in security."</p>
-                    <section class="rounded-xl border border-edge bg-surface p-6">
-                        <h2 class="mb-5 text-lg font-semibold">"Profile"</h2>
-                        <dl class="space-y-4 text-sm">
-                            <div>
-                                <dt class="text-muted">"Role"</dt>
-                                <dd class="mt-1">@{role_label}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-muted">"Name"</dt>
-                                <dd class="mt-1">@{user.name}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-muted">"Email address"</dt>
-                                <dd class="mt-1">@{user.email}</dd>
-                            </div>
-                        </dl>
-                    </section>
-                    <section class="mt-5 rounded-xl border border-edge bg-surface p-6">
-                        <h2 class="mb-3 text-lg font-semibold">"Sign-in security"</h2>
-                        <p class="text-sm text-online">"Two-step verification is enabled"</p>
-                        <p class="mt-2 text-sm text-muted">
-                            "Sign in with your password and authenticator app."
-                        </p>
-                        <p class="mt-4 text-sm">@{remaining}" unused recovery codes"</p>
-                        <p class="mt-2 text-xs text-muted">
-                            "Keep your recovery codes safe. Each can be used once in place of an authenticator code."
-                        </p>
-                    </section>
+                    <p class="mb-8 mt-2 text-sm text-muted-foreground">
+                        "Your profile and sign-in security."
+                    </p>
+                    <Card class="bg-surface">
+                        <CardHeader>
+                            <CardTitle class="text-lg">"Profile"</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <dl class="space-y-4 text-sm">
+                                <div>
+                                    <dt class="text-muted-foreground">"Role"</dt>
+                                    <dd class="mt-1">@{role_label}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-muted-foreground">"Name"</dt>
+                                    <dd class="mt-1">@{user.name}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-muted-foreground">"Email address"</dt>
+                                    <dd class="mt-1">@{user.email}</dd>
+                                </div>
+                            </dl>
+                        </CardContent>
+                    </Card>
+                    <Card class="mt-5 bg-surface">
+                        <CardHeader>
+                            <CardTitle class="text-lg">"Sign-in security"</CardTitle>
+                            <CardDescription class="text-online">
+                                "Two-step verification is enabled"
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p class="text-sm text-muted-foreground">
+                                "Sign in with your password and authenticator app."
+                            </p>
+                            <p class="mt-4 text-sm">@{remaining}" unused recovery codes"</p>
+                            <p class="mt-2 text-xs text-muted-foreground">
+                                "Keep your recovery codes safe. Each can be used once in place of an authenticator code."
+                            </p>
+                        </CardContent>
+                    </Card>
                 </div>
             </main>
         </AppShell>

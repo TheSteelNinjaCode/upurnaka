@@ -16,34 +16,34 @@ async fn meet_popovers_anchor_dismiss_and_open_the_calendar_form() {
         .await
         .unwrap();
     browser
-        .click("button[aria-controls='meeting-schedule-options']")
+        .click("button[aria-controls='dropdown-menu-meeting-schedule']")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('#meeting-schedule-options').hidden && document.activeElement.textContent.includes('Schedule in Upurnaka')").await.unwrap();
+    browser.wait_for("document.querySelector('#dropdown-menu-meeting-schedule').matches(':popover-open') && document.activeElement.textContent.includes('Schedule in Upurnaka')").await.unwrap();
     browser
-        .click("button[aria-controls='meeting-join-dialog']")
+        .click("button[aria-controls='popover-meeting-join']")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('#meeting-join-dialog').hidden && document.querySelector('#meeting-schedule-options').hidden && document.activeElement.id === 'meeting-join-id'").await.unwrap();
-    let anchored: bool = browser.eval("(() => { const button = document.querySelector('button[aria-controls=\"meeting-join-dialog\"]').getBoundingClientRect(); const panel = document.querySelector('#meeting-join-dialog').getBoundingClientRect(); return Math.abs(panel.top - button.bottom - 4) < 2 && Math.abs(panel.right - button.right) < 2; })()").await.unwrap();
+    browser.wait_for("document.querySelector('#popover-meeting-join').matches(':popover-open') && !document.querySelector('#dropdown-menu-meeting-schedule').matches(':popover-open') && document.activeElement.id === 'meeting-join-id'").await.unwrap();
+    let anchored: bool = browser.eval("(() => { const button = document.querySelector('button[aria-controls=\"popover-meeting-join\"]').getBoundingClientRect(); const panel = document.querySelector('#popover-meeting-join').getBoundingClientRect(); return Math.abs(panel.top - button.bottom - 4) < 2 && Math.abs(panel.right - button.right) < 2; })()").await.unwrap();
     assert!(anchored, "join panel must be anchored under its own action");
     assert!(
         browser
             .eval::<bool>(
-                "document.querySelector('#meeting-join-dialog button[type=submit]').disabled"
+                "document.querySelector('#popover-meeting-join button[type=submit]').disabled"
             )
             .await
             .unwrap()
     );
     browser.type_text("test-meeting").await.unwrap();
     browser
-        .wait_for("!document.querySelector('#meeting-join-dialog button[type=submit]').disabled")
+        .wait_for("!document.querySelector('#popover-meeting-join button[type=submit]').disabled")
         .await
         .unwrap();
     browser.press("Escape").await.unwrap();
-    browser.wait_for("document.querySelector('#meeting-join-dialog').hidden && document.activeElement.getAttribute('aria-controls') === 'meeting-join-dialog'").await.unwrap();
+    browser.wait_for("!document.querySelector('#popover-meeting-join').matches(':popover-open') && document.activeElement.getAttribute('aria-controls') === 'popover-meeting-join'").await.unwrap();
     browser
-        .click("button[aria-controls='meeting-join-dialog']")
+        .click("button[aria-controls='popover-meeting-join']")
         .await
         .unwrap();
     browser
@@ -51,24 +51,24 @@ async fn meet_popovers_anchor_dismiss_and_open_the_calendar_form() {
         .await
         .unwrap();
     browser
-        .wait_for("document.querySelector('#meeting-join-dialog').hidden")
+        .wait_for("!document.querySelector('#popover-meeting-join').matches(':popover-open')")
         .await
         .unwrap();
     browser
-        .click("button[aria-controls='meeting-schedule-options']")
+        .click("button[aria-controls='dropdown-menu-meeting-schedule']")
         .await
         .unwrap();
     browser.click("h1").await.unwrap();
     browser
-        .wait_for("document.querySelector('#meeting-schedule-options').hidden")
+        .wait_for("!document.querySelector('#dropdown-menu-meeting-schedule').matches(':popover-open')")
         .await
         .unwrap();
     browser
-        .click("button[aria-controls='meeting-schedule-options']")
+        .click("button[aria-controls='dropdown-menu-meeting-schedule']")
         .await
         .unwrap();
     browser
-        .click("#meeting-schedule-options a[href='/calendar?new=1']")
+        .click("#dropdown-menu-meeting-schedule a[href='/calendar?new=1']")
         .await
         .unwrap();
     browser.wait_for("location.pathname === '/calendar' && Array.from(document.querySelectorAll('h2')).some(el => el.textContent === 'New meeting' && el.getBoundingClientRect().height > 0)").await.unwrap();
@@ -272,6 +272,9 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .click("button[aria-label='More meeting options']")
         .await
         .unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let debug: String = browser.eval("(() => { const b = document.querySelector('.room-more-menu button:first-child'); const r = b.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return JSON.stringify({menuHidden: document.querySelector('.room-more-menu').hidden, text: b.textContent.trim(), rect: [r.left, r.top, r.width, r.height], hit: hit?.outerHTML.slice(0, 160), style: document.querySelector('.room-more-menu').getAttribute('style')}); })()").await.unwrap();
+    eprintln!("DEBUG-ROOM {debug}");
     browser
         .click(".room-more-menu button:first-child")
         .await
@@ -585,10 +588,10 @@ async fn meeting_name_editor_selects_saves_and_cancels() {
     let card = format!("[data-meeting-id='{id}']");
     let edit = format!("{card} button[aria-label='Edit meeting name']");
     browser.click(&edit).await.unwrap();
-    browser.wait_for("!document.querySelector('.meeting-rename-dialog').hidden && document.activeElement.getAttribute('aria-label') === 'Meeting name' && document.activeElement.selectionStart === 0 && document.activeElement.selectionEnd === document.activeElement.value.length").await.unwrap();
+    browser.wait_for("document.querySelector('.meeting-rename-dialog').open && document.activeElement.getAttribute('aria-label') === 'Meeting name' && document.activeElement.selectionStart === 0 && document.activeElement.selectionEnd === document.activeElement.value.length").await.unwrap();
     browser.type_text("Name editor saved").await.unwrap();
     browser.click(".meeting-rename-save").await.unwrap();
-    browser.wait_for(&format!("document.querySelector('.meeting-rename-dialog').hidden && document.querySelector(\"{card}\").textContent.includes('Name editor saved')")).await.unwrap();
+    browser.wait_for(&format!("!document.querySelector('.meeting-rename-dialog').open && document.querySelector(\"{card}\").textContent.includes('Name editor saved')")).await.unwrap();
     browser
         .goto(&format!("http://{address}/meet"))
         .await
@@ -603,7 +606,7 @@ async fn meeting_name_editor_selects_saves_and_cancels() {
     browser.type_text("Cancelled edit").await.unwrap();
     browser.click(".meeting-rename-cancel").await.unwrap();
     browser
-        .wait_for("document.querySelector('.meeting-rename-dialog').hidden")
+        .wait_for("!document.querySelector('.meeting-rename-dialog').open")
         .await
         .unwrap();
     assert_eq!(
@@ -613,7 +616,7 @@ async fn meeting_name_editor_selects_saves_and_cancels() {
     browser.click(&edit).await.unwrap();
     browser.press("Escape").await.unwrap();
     browser
-        .wait_for("document.querySelector('.meeting-rename-dialog').hidden")
+        .wait_for("!document.querySelector('.meeting-rename-dialog').open")
         .await
         .unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
@@ -914,20 +917,20 @@ async fn meeting_background_replacement_processes_video_locally() {
         .click("button[aria-label='Light studio']")
         .await
         .unwrap();
-    browser.click("button[aria-label='Camera']").await.unwrap();
-    browser.wait_for("document.querySelector('button[aria-label=\"Camera\"]').getAttribute('aria-checked') === 'true' && !document.querySelector('button[aria-label=\"Camera\"]').disabled && document.querySelector('.meeting-camera-off').hidden").await.unwrap();
+    browser.click("input[aria-label='Camera']").await.unwrap();
+    browser.wait_for("document.querySelector('input[aria-label=\"Camera\"]').checked && !document.querySelector('input[aria-label=\"Camera\"]').disabled && document.querySelector('.meeting-camera-off').hidden").await.unwrap();
     browser
         .click(".meeting-background-option:nth-child(2)")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('.meeting-background-option:nth-child(2)').getAttribute('aria-pressed') === 'true' && !document.querySelector('button[aria-label=\"Camera\"]').disabled").await.unwrap();
+    browser.wait_for("document.querySelector('.meeting-background-option:nth-child(2)').getAttribute('aria-pressed') === 'true' && !document.querySelector('input[aria-label=\"Camera\"]').disabled").await.unwrap();
     browser
         .click(".meeting-background-option:first-child")
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.meeting-background-option:first-child').getAttribute('aria-pressed') === 'true'").await.unwrap();
-    browser.click("button[aria-label='Camera']").await.unwrap();
-    browser.wait_for("document.querySelector('button[aria-label=\"Camera\"]').getAttribute('aria-checked') === 'false'").await.unwrap();
+    browser.click("input[aria-label='Camera']").await.unwrap();
+    browser.wait_for("!document.querySelector('input[aria-label=\"Camera\"]').checked").await.unwrap();
     let _: bool = browser.eval(r##"
         (async () => {
             const canvas=document.createElement('canvas'); canvas.width=32; canvas.height=32;

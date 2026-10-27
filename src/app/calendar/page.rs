@@ -10,9 +10,24 @@ use axum::extract::Query;
 use serde::{Deserialize, Serialize};
 
 use crate::components::app_shell::AppShell;
+use crate::components::aria::{bound, hidden, labelled, named, plain};
 use crate::components::calendar_meet_now::CalendarMeetNow;
 use crate::components::icon::Icon;
 use crate::components::join_meeting_by_id::JoinMeetingById;
+use crate::components::rahti_ui::attrs::{Attrs, ui_expr};
+use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::dialog::{
+    Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    DialogTrigger,
+};
+use crate::components::rahti_ui::dropdown_menu::{
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+};
+use crate::components::rahti_ui::input::Input;
+use crate::components::rahti_ui::label::Label;
+use crate::components::rahti_ui::select::{Select, SelectItem};
+use crate::components::rahti_ui::switch::Switch;
+use crate::components::rahti_ui::textarea::Textarea;
 use crate::rahti::time::NaiveDate;
 use crate::rahti::{Html, Json, Metadata, Result, Validator, html, rpc};
 
@@ -29,6 +44,15 @@ pub fn metadata() -> Metadata {
         .description("Your work week, meetings included.")
 }
 
+/// One row of the meeting editor: an icon, then the field.
+const ROW: &str = "my-[18px] flex items-center gap-5 max-[700px]:gap-2.5";
+
+/// A field that takes the rest of its row.
+const FIELD: &str = "h-10! min-w-0 flex-1";
+
+/// A field's message, lined up under the field rather than its icon.
+const FIELD_ERROR: &str = "ml-10 text-xs text-danger-ink";
+
 #[derive(Deserialize)]
 pub struct CalendarQuery {
     new: Option<String>,
@@ -41,6 +65,13 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
     let app_date = app_now.format("%Y-%m-%d").to_string();
     let app_clock = app_now.format("%H:%M").to_string();
     let app_zone = crate::rahti::time::timezone().name();
+    let view_trigger = button_variants(
+        ButtonVariant::Outline,
+        ButtonSize::Sm,
+        "text-[13px] font-semibold",
+    );
+    let close_event = button_variants(ButtonVariant::Outline, ButtonSize::Default, "");
+    let join_event = button_variants(ButtonVariant::Default, ButtonSize::Default, "font-semibold");
     Ok(html! {
         <AppShell active="calendar">
             <main
@@ -50,9 +81,9 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     <header class="flex h-16 shrink-0 items-center justify-between px-6">
                         <div class="flex items-center gap-3">
                             <span
-                                class="flex h-9 w-9 items-center justify-center rounded-md bg-brand text-white"
+                                class="flex size-9 items-center justify-center rounded-md bg-brand text-white"
                             >
-                                <Icon name="calendar" class="h-5 w-5" />
+                                <Icon name="calendar" class="size-5" />
                             </span>
                             <h1 class="text-[20px] font-semibold tracking-tight text-ink">
                                 "Calendar"
@@ -61,91 +92,87 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         <div class="flex items-center gap-2">
                             <JoinMeetingById />
                             <CalendarMeetNow />
-                            <button
-                                type="button"
-                                class="flex h-9 items-center gap-2 rounded-md bg-brand px-4 text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover"
-                                onclick={openCompose()}
-                                pp-ref={newMeetingButton}
-                            >
-                                <Icon name="plus" class="h-4 w-4" />
+                            <Button class="text-[13px] font-semibold" onclick={openCompose()}>
+                                <span class="contents" pp-ref={newMeetingMarker}>
+                                    <Icon name="plus" class="size-4" />
+                                </span>
                                 "New meeting"
-                            </button>
+                            </Button>
                         </div>
                     </header>
                     <div class="flex h-12 shrink-0 items-center justify-between px-6">
                         <div class="flex items-center gap-1">
-                            <button
-                                type="button"
-                                class="flex h-8 items-center gap-2 rounded-md px-3 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                class="text-[13px] font-semibold"
                                 onclick={goToday()}
                             >
-                                <Icon name="calendar-day" class="h-4 w-4" />
+                                <Icon name="calendar-day" class="size-4" />
                                 "Today"
-                            </button>
-                            <button
-                                type="button"
-                                class="ml-1 flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="Previous"
-                                aria-label="Previous"
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                class="ml-1 text-muted-foreground"
+                                attrs=@{labelled("Previous")}
                                 onclick={setOffset(value => value - 1)}
                             >
-                                <Icon name="chevron-left" class="h-4 w-4" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
-                                title="Next"
-                                aria-label="Next"
+                                <Icon name="chevron-left" class="size-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                class="text-muted-foreground"
+                                attrs=@{labelled("Next")}
                                 onclick={setOffset(value => value + 1)}
                             >
-                                <Icon name="chevron-right" class="h-4 w-4" />
-                            </button>
-                            <button
-                                type="button"
-                                class="ml-2 flex h-8 items-center gap-2 rounded-md px-2 text-[15px] font-semibold text-ink transition-colors hover:bg-hover"
+                                <Icon name="chevron-right" class="size-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                class="ml-2 text-[15px] font-semibold"
                             >
                                 {title}
-                                <Icon name="chevron-down" class="h-4 w-4 text-muted" />
-                            </button>
+                                <Icon name="chevron-down" class="size-4 text-muted-foreground" />
+                            </Button>
                         </div>
-                        <div class="relative flex items-center gap-4">
-                            <span class="text-[13px] text-muted">"You're up to date!"</span>
-                            <button
-                                type="button"
-                                class="flex h-8 items-center gap-2 rounded-md border border-edge bg-raised px-3 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                                aria-expanded={viewOpen}
-                                onclick={setViewOpen(open => !open)}
-                            >
-                                <Icon name="calendar-day" class="h-4 w-4 text-muted" />
-                                {view}
-                                <Icon name="chevron-down" class="h-4 w-4 text-muted" />
-                            </button>
-                            <div
-                                class="absolute right-0 top-9 z-20 w-40 rounded-md border border-edge bg-raised p-1 shadow-2xl shadow-black/60"
-                                hidden={!viewOpen}
-                            >
-                                <button
-                                    type="button"
-                                    class="flex w-full items-center rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                                    onclick={pickView("Day")}
+                        <div class="flex items-center gap-4">
+                            <span class="text-[13px] text-muted-foreground">
+                                "You're up to date!"
+                            </span>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger
+                                    menu="calendar-view"
+                                    class=@{view_trigger.as_str()}
+                                    attrs=@{named("Calendar view")}
                                 >
-                                    "Day"
-                                </button>
-                                <button
-                                    type="button"
-                                    class="flex w-full items-center rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                                    onclick={pickView("Work week")}
-                                >
-                                    "Work week"
-                                </button>
-                                <button
-                                    type="button"
-                                    class="flex w-full items-center rounded px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
-                                    onclick={pickView("Week")}
-                                >
-                                    "Week"
-                                </button>
-                            </div>
+                                    <Icon
+                                        name="calendar-day"
+                                        class="size-4 text-muted-foreground"
+                                    />
+                                    {view}
+                                    <Icon
+                                        name="chevron-down"
+                                        class="size-4 text-muted-foreground"
+                                    />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent menu="calendar-view" align="end" class="w-40">
+                                    <template pp-for="choice in VIEWS">
+                                        <DropdownMenuItem
+                                            key={choice}
+                                            class="text-[13px]"
+                                            onclick={pickView(choice)}
+                                        >
+                                            {choice}
+                                            <span class="ml-auto" hidden={view !== choice}>
+                                                <Icon name="check" class="size-4 text-brand-ink" />
+                                            </span>
+                                        </DropdownMenuItem>
+                                    </template>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
                     <div class="flex shrink-0 border-b border-line pr-2">
@@ -187,21 +214,26 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                     </template>
                                 </div>
                                 <template pp-for="meeting in placed">
-                                    <button
-                                        type="button"
-                                        key={meeting.id}
-                                        onclick={showEvent(meeting, event)}
-                                        aria-label={meeting.title}
-                                        class="calendar-event absolute overflow-hidden rounded-md border-l-[3px] border-brand bg-brand-soft px-2 py-1 text-left"
-                                        pp-style={meeting.style}
-                                    >
-                                        <p class="truncate text-[11px] font-semibold text-ink">
-                                            {meeting.title}
-                                        </p>
-                                        <p class="truncate text-[11px] text-muted">
-                                            {meeting.label}
-                                        </p>
-                                    </button>
+                                    <div key={meeting.id} class="absolute" pp-style={meeting.style}>
+                                        <Button
+                                            variant="ghost"
+                                            class="calendar-event size-full! flex-col! items-start! justify-start! gap-0 overflow-hidden rounded-md border-l-[3px] border-brand bg-brand-soft px-2! py-1 text-left hover:bg-brand-soft/80"
+                                            attrs=@{bound("aria-label", ui_expr!(aria-label={meeting.title}))}
+                                            value={meeting.id}
+                                            onclick={showEvent(event.currentTarget.value)}
+                                        >
+                                            <span
+                                                class="w-full truncate text-[11px] font-semibold text-ink"
+                                            >
+                                                {meeting.title}
+                                            </span>
+                                            <span
+                                                class="w-full truncate text-[11px] font-normal text-muted-foreground"
+                                            >
+                                                {meeting.label}
+                                            </span>
+                                        </Button>
+                                    </div>
                                 </template>
                                 <div
                                     class="pointer-events-none absolute inset-x-0 z-10"
@@ -209,9 +241,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                     hidden={!showNow}
                                 >
                                     <div class="border-t border-dashed border-now"></div>
-                                    <div
-                                        class="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-now"
-                                    >
+                                    <div class="absolute -left-1 -top-1 size-2 rounded-full bg-now">
                                     </div>
                                 </div>
                             </div>
@@ -219,236 +249,280 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     </div>
                 </div>
                 <section
-                    class="calendar-editor"
+                    class="calendar-editor flex min-h-0 flex-1 flex-col"
                     hidden={!composeOpen}
                     onkeydown={editorKey(event)}
                     aria-label="New meeting editor"
                 >
-                    <header class="calendar-editor-header">
+                    <header
+                        class="calendar-editor-header flex min-h-[72px] items-center gap-3.5 border-b border-edge px-7 py-3 max-[700px]:flex-wrap max-[700px]:gap-2 max-[700px]:p-3"
+                    >
                         <span
-                            class="flex h-9 w-9 items-center justify-center rounded-md bg-brand text-white"
+                            class="flex size-9 items-center justify-center rounded-md bg-brand text-white"
                         >
-                            <Icon name="calendar" class="h-5 w-5" />
+                            <Icon name="calendar" class="size-5" />
                         </span>
-                        <h2 class="text-[20px] font-semibold">"New meeting"</h2>
-                        <span class="calendar-details-tab">"Details"</span>
+                        <h2 class="text-[20px] font-semibold max-[700px]:text-[17px]">
+                            "New meeting"
+                        </h2>
+                        <span
+                            class="ml-1.5 flex items-center self-stretch border-b-[3px] border-brand-ink px-1 text-sm font-semibold max-[700px]:hidden"
+                        >
+                            "Details"
+                        </span>
                         <div class="ml-auto flex gap-2">
-                            <button
-                                type="button"
-                                class="rounded bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
+                            <Button
+                                class="px-5 font-semibold"
                                 onclick={editorForm.current?.requestSubmit()}
                                 disabled={saving}
                             >
                                 {saving ? "Saving…" : "Save"}
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded border border-edge px-5 py-2 text-sm font-semibold hover:bg-hover"
+                            </Button>
+                            <Button
+                                variant="outline"
+                                class="px-5 font-semibold"
                                 onclick={closeCompose()}
                                 disabled={saving}
                             >
                                 "Close"
-                            </button>
+                            </Button>
                         </div>
                     </header>
-                    <div class="calendar-editor-scroll scroll-thin">
+                    <div
+                        class="calendar-editor-scroll scroll-thin min-h-0 flex-1 overflow-y-auto px-[30px] pt-[18px] pb-9 max-[700px]:p-3"
+                    >
                         <form
                             pp-ref={editorForm}
                             onsubmit={save(event)}
                             novalidate
-                            class="calendar-editor-form"
+                            class="w-full max-w-[1060px]"
                         >
-                            <label class="calendar-timezone">
-                                "Time zone: "
-                                <select
+                            <div
+                                class="mb-8 flex items-center gap-1.5 text-[13px] text-muted-foreground max-[700px]:flex-wrap"
+                            >
+                                <Label r#for="calendar-timezone" class="font-normal">
+                                    "Time zone:"
+                                </Label>
+                                <Select
+                                    id="calendar-timezone"
                                     name="timezone"
-                                    aria-label="Time zone"
+                                    size="sm"
+                                    class="max-w-[300px] border-transparent shadow-none"
                                     value={editorZone}
                                     onchange={setEditorZone(target.value)}
                                 >
                                     <template pp-for="zone in timezones">
-                                        <option key={zone} value={zone}>{zone}</option>
+                                        <SelectItem key={zone} value={zone}>{zone}</SelectItem>
                                     </template>
-                                </select>
-                            </label>
-                            <div class="calendar-field">
-                                <Icon name="edit" class="h-5 w-5 text-muted" />
-                                <input
-                                    pp-ref={titleInput}
+                                </Select>
+                            </div>
+                            <div class=@{ROW}>
+                                <Icon name="edit" class="size-5 shrink-0 text-muted-foreground" />
+                                <Input
                                     name="title"
-                                    aria-label="Meeting title"
                                     placeholder="Add title"
-                                    maxlength="120"
                                     required
-                                    autocomplete="off"
+                                    class=@{FIELD}
+                                    attrs=@{named("Meeting title")
+                                        .set("maxlength", "120")
+                                        .set("autocomplete", "off")}
                                 />
                             </div>
-                            <p class="calendar-field-error" role="alert" hidden={!errors.title}>
+                            <p class=@{FIELD_ERROR} role="alert" hidden={!errors.title}>
                                 {errors.title}
                             </p>
-                            <div class="calendar-field">
-                                <Icon name="person-add" class="h-5 w-5 text-muted" />
-                                <input
+                            <div class=@{ROW}>
+                                <Icon
+                                    name="person-add"
+                                    class="size-5 shrink-0 text-muted-foreground"
+                                />
+                                <Input
                                     name="attendees"
-                                    aria-label="Attendees"
                                     placeholder="Enter names or email addresses, separated by commas"
-                                    maxlength="3000"
-                                    autocomplete="off"
+                                    class=@{FIELD}
+                                    attrs=@{named("Attendees")
+                                        .set("maxlength", "3000")
+                                        .set("autocomplete", "off")}
                                 />
                             </div>
-                            <p class="calendar-field-error" role="alert" hidden={!errors.attendees}>
+                            <p class=@{FIELD_ERROR} role="alert" hidden={!errors.attendees}>
                                 {errors.attendees}
                             </p>
-                            <div class="calendar-field">
-                                <Icon name="clock" class="h-5 w-5 text-muted" />
-                                <div class="calendar-datetime-row">
-                                    <input
+                            <div class=@{ROW}>
+                                <Icon name="clock" class="size-5 shrink-0 text-muted-foreground" />
+                                <div class="flex flex-1 flex-wrap items-center gap-2">
+                                    <Input
                                         name="start_date"
-                                        type="date"
-                                        aria-label="Start date"
+                                        r#type="date"
+                                        required
+                                        class="h-10! w-[150px]"
+                                        attrs=@{named("Start date")}
                                         value={startDate}
                                         onchange={changeStartDate(target.value)}
-                                        required
                                     />
-                                    <input
+                                    <Input
                                         name="start_time"
-                                        type="time"
-                                        aria-label="Start time"
+                                        r#type="time"
+                                        required
+                                        class="h-10! w-[112px]"
+                                        attrs=@{named("Start time")}
                                         value={startTime}
                                         onchange={changeStartTime(target.value)}
                                         disabled={allDay}
-                                        required
                                     />
-                                    <Icon name="arrow-right" class="h-5 w-5 shrink-0 text-muted" />
-                                    <input
+                                    <Icon
+                                        name="arrow-right"
+                                        class="size-5 shrink-0 text-muted-foreground"
+                                    />
+                                    <Input
                                         name="end_date"
-                                        type="date"
-                                        aria-label="End date"
+                                        r#type="date"
+                                        required
+                                        class="h-10! w-[150px]"
+                                        attrs=@{named("End date")}
                                         value={endDate}
                                         onchange={setEndDate(target.value)}
-                                        required
                                     />
-                                    <input
+                                    <Input
                                         name="end_time"
-                                        type="time"
-                                        aria-label="End time"
+                                        r#type="time"
+                                        required
+                                        class="h-10! w-[112px]"
+                                        attrs=@{named("End time")}
                                         value={endTime}
                                         onchange={setEndTime(target.value)}
                                         disabled={allDay}
-                                        required
                                     />
-                                    <span class="text-xs text-muted" hidden={allDay}>
+                                    <span class="text-xs text-muted-foreground" hidden={allDay}>
                                         {durationLabel}
                                     </span>
-                                    <button
-                                        type="button"
-                                        role="switch"
-                                        aria-label="All day"
-                                        aria-checked={allDay}
-                                        onclick={setAllDay(value => !value)}
+                                    <Switch
+                                        id="calendar-all-day"
                                         class="calendar-all-day-toggle"
+                                        attrs=@{named("All day")}
+                                        checked={allDay}
+                                        onchange={setAllDay(target.checked)}
+                                    />
+                                    <Label
+                                        r#for="calendar-all-day"
+                                        class="font-normal text-muted-foreground"
                                     >
-                                        <span></span>
-                                    </button>
-                                    <span class="text-sm text-muted">"All day"</span>
+                                        "All day"
+                                    </Label>
                                 </div>
                             </div>
-                            <div class="calendar-field">
-                                <Icon name="repeat" class="h-5 w-5 text-muted" />
+                            <div class=@{ROW}>
+                                <Icon name="repeat" class="size-5 shrink-0 text-muted-foreground" />
                                 <div class="flex flex-wrap items-center gap-3">
-                                    <select
+                                    <Select
                                         name="recurrence"
-                                        aria-label="Repeat"
+                                        class="h-10"
+                                        attrs=@{named("Repeat")}
                                         value={recurrence}
                                         onchange={setRecurrence(target.value)}
                                     >
-                                        <option value="none">"Does not repeat"</option>
-                                        <option value="daily">"Daily"</option>
-                                        <option value="weekly">"Weekly"</option>
-                                        <option value="monthly">"Monthly"</option>
-                                    </select>
-                                    <label
+                                        <SelectItem value="none" selected>
+                                            "Does not repeat"
+                                        </SelectItem>
+                                        <SelectItem value="daily">"Daily"</SelectItem>
+                                        <SelectItem value="weekly">"Weekly"</SelectItem>
+                                        <SelectItem value="monthly">"Monthly"</SelectItem>
+                                    </Select>
+                                    <div
                                         hidden={recurrence === "none"}
-                                        class="flex items-center gap-2 text-sm text-muted"
+                                        class="flex items-center gap-2"
                                     >
-                                        "Occurrences"
-                                        <input
+                                        <Label
+                                            r#for="calendar-occurrences"
+                                            class="font-normal text-muted-foreground"
+                                        >
+                                            "Occurrences"
+                                        </Label>
+                                        <Input
+                                            id="calendar-occurrences"
                                             name="occurrences"
-                                            type="number"
-                                            min="1"
-                                            max="52"
+                                            r#type="number"
                                             value="10"
-                                            aria-label="Occurrences"
+                                            class="h-10! w-[72px]"
+                                            attrs=@{Attrs::new().set("min", "1").set("max", "52")}
                                         />
-                                    </label>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="calendar-field">
-                                <Icon name="location" class="h-5 w-5 text-muted" />
-                                <input
+                            <div class=@{ROW}>
+                                <Icon
                                     name="location"
-                                    aria-label="Location"
+                                    class="size-5 shrink-0 text-muted-foreground"
+                                />
+                                <Input
+                                    name="location"
                                     placeholder="Add location"
-                                    maxlength="300"
+                                    class=@{FIELD}
+                                    attrs=@{named("Location").set("maxlength", "300")}
                                 />
                             </div>
-                            <div class="calendar-field calendar-description-row">
-                                <Icon name="format" class="h-5 w-5 text-muted" />
+                            <div class="my-[18px] flex items-start gap-5 max-[700px]:gap-2.5">
+                                <Icon
+                                    name="format"
+                                    class="mt-2 size-5 shrink-0 text-muted-foreground"
+                                />
                                 <div class="min-w-0 flex-1">
                                     <div
-                                        class="calendar-format-toolbar"
+                                        class="mb-1 flex items-center gap-1"
                                         role="toolbar"
                                         aria-label="Meeting details formatting"
                                     >
-                                        <button
-                                            type="button"
-                                            aria-label="Bold"
-                                            title="Bold"
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            class="text-muted-foreground"
+                                            attrs=@{(labelled("Bold")).merge(&plain())}
                                             onclick={formatDetails("**", "**")}
                                         >
-                                            <Icon name="bold" class="h-4 w-4" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            aria-label="Italic"
-                                            title="Italic"
+                                            <Icon name="bold" class="size-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            class="text-muted-foreground"
+                                            attrs=@{(labelled("Italic")).merge(&plain())}
                                             onclick={formatDetails("_", "_")}
                                         >
-                                            <Icon name="italic" class="h-4 w-4" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            aria-label="Bulleted list"
-                                            title="Bulleted list"
+                                            <Icon name="italic" class="size-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            class="text-muted-foreground"
+                                            attrs=@{(labelled("Bulleted list")).merge(&plain())}
                                             onclick={formatDetails("\n- ", "")}
                                         >
-                                            <Icon name="list" class="h-4 w-4" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            aria-label="Numbered list"
-                                            title="Numbered list"
+                                            <Icon name="list" class="size-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            class="text-muted-foreground"
+                                            attrs=@{(labelled("Numbered list")).merge(&plain())}
                                             onclick={formatDetails("\n1. ", "")}
                                         >
-                                            <Icon name="list-ordered" class="h-4 w-4" />
-                                        </button>
+                                            <Icon name="list-ordered" class="size-4" />
+                                        </Button>
                                     </div>
-                                    <textarea
-                                        pp-ref={detailsInput}
+                                    <Textarea
                                         name="details"
-                                        aria-label="Meeting details"
                                         placeholder="Type details for this new meeting"
-                                        maxlength="8000"
                                         rows="5"
-                                    >
-                                    </textarea>
-                                    <p class="mt-2 text-xs text-muted">
+                                        class="h-[130px] resize-y field-sizing-fixed!"
+                                        attrs=@{named("Meeting details").set("maxlength", "8000")}
+                                    />
+                                    <p class="mt-2 text-xs text-muted-foreground">
                                         "Supports basic Markdown formatting."
                                     </p>
                                 </div>
                             </div>
                             <p
-                                class="calendar-save-error text-sm text-danger-ink"
+                                class="calendar-save-error ml-10 text-sm text-danger-ink"
                                 role="alert"
                                 hidden={!formError}
                             >
@@ -457,96 +531,59 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         </form>
                     </div>
                 </section>
-                <dialog
-                    pp-ref={eventDialog}
-                    class="calendar-event-dialog rounded-lg border border-edge bg-raised p-6 text-ink shadow-2xl"
-                    aria-label="Meeting details"
-                    onclose={eventTrigger.current?.focus()}
-                >
-                    <h2 class="text-lg font-semibold">{selectedEvent?.title || "Meeting"}</h2>
-                    <p class="mt-3 text-sm text-muted">
-                        {selectedEvent ? eventTime(selectedEvent) : ""}
-                    </p>
-                    <p class="mt-2 text-sm" hidden={!selectedEvent?.location}>
-                        "Location: "
-                        {selectedEvent?.location}
-                    </p>
-                    <p class="mt-2 text-sm" hidden={!selectedEvent?.attendees?.length}>
-                        "Attendees: "
-                        {selectedEvent?.attendees?.join(", ")}
-                    </p>
-                    <p
-                        class="mt-2 text-sm"
-                        hidden={!selectedEvent || selectedEvent.recurrence === "none"}
+                <Dialog>
+                    <DialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={eventOpener}></span>
+                    </DialogTrigger>
+                    <DialogContent
+                        class="calendar-event-dialog max-h-[calc(100dvh-32px)] overflow-y-auto sm:max-w-[480px]!"
+                        attrs=@{named("Meeting details")}
                     >
-                        "Repeats "
-                        {selectedEvent?.recurrence}
-                    </p>
-                    <p class="mt-4 whitespace-pre-wrap text-sm">
-                        <template pp-for="part in detailParts">
-                            <span key={part.key}>
-                                <strong hidden={part.kind !== "bold"}>{part.text}</strong>
-                                <em hidden={part.kind !== "italic"}>{part.text}</em>
-                                <span hidden={part.kind !== "text"}>{part.text}</span>
-                            </span>
-                        </template>
-                    </p>
-                    <div class="mt-6 flex justify-end gap-3">
-                        <button
-                            type="button"
-                            class="rounded border border-edge px-4 py-2 text-sm"
-                            onclick={eventDialog.current?.close()}
-                        >
-                            "Close"
-                        </button>
-                        <a
-                            class="rounded bg-brand px-4 py-2 text-sm font-semibold text-white"
-                            href={selectedEvent ? "/meet/j/" + selectedEvent.event_id : "/calendar"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            "Join meeting"
-                        </a>
-                    </div>
-                </dialog>
-                <style>r##"
-                    .calendar-editor {display:flex;flex:1;flex-direction:column;min-height:0;}
-                    .calendar-editor-header {display:flex;align-items:center;gap:14px;min-height:72px;padding:12px 28px;border-bottom:1px solid var(--color-edge);}
-                    .calendar-details-tab {align-self:stretch;display:flex;align-items:center;padding:0 4px;margin-left:6px;border-bottom:3px solid var(--color-brand-ink);font-size:14px;font-weight:600;}
-                    .calendar-editor-scroll {flex:1;overflow-y:auto;min-height:0;padding:18px 30px 36px;}
-                    .calendar-editor-form {width:100%;max-width:1060px;}
-                    .calendar-timezone {display:flex;align-items:center;gap:6px;color:var(--color-muted);font-size:13px;margin:0 0 32px;}
-                    .calendar-timezone select {background:transparent;max-width:300px;}
-                    .calendar-field {display:flex;align-items:center;gap:20px;margin:18px 0;}
-                    .calendar-field > svg {flex-shrink:0;}
-                    .calendar-field > input {flex:1;min-width:0;}
-                    .calendar-field input,.calendar-field select,.calendar-field textarea {height:40px;border:0;border-radius:3px;background:var(--color-raised);padding:8px 12px;font-size:14px;color:var(--color-ink);outline:none;}
-                    .calendar-field input:focus,.calendar-field select:focus,.calendar-field textarea:focus {box-shadow:inset 0 -2px var(--color-brand-ink);}
-                    .calendar-field input::placeholder,.calendar-field textarea::placeholder {color:var(--color-muted);}
-                    .calendar-datetime-row {display:flex;flex:1;flex-wrap:wrap;align-items:center;gap:8px;}
-                    .calendar-datetime-row input[type=date] {width:150px;}
-                    .calendar-datetime-row input[type=time] {width:112px;}
-                    .calendar-field input[type=number] {width:72px;}
-                    .calendar-datetime-row input:disabled {opacity:.4;}
-                    .calendar-all-day-toggle {width:36px;height:20px;padding:3px;border-radius:12px;background:var(--color-hover);}
-                    .calendar-all-day-toggle span {display:block;width:14px;height:14px;border-radius:50%;background:#ddd;transition:transform .15s;}
-                    .calendar-all-day-toggle[aria-checked=true] {background:var(--color-brand);}
-                    .calendar-all-day-toggle[aria-checked=true] span {transform:translateX(16px);}
-                    .calendar-description-row {align-items:flex-start;}
-                    .calendar-description-row > svg {margin-top:8px;}
-                    .calendar-format-toolbar {display:flex;align-items:center;gap:5px;margin-bottom:4px;}
-                    .calendar-format-toolbar button {padding:8px;border-radius:3px;color:var(--color-muted);}
-                    .calendar-format-toolbar button:hover {background:var(--color-hover);color:var(--color-ink);}
-                    .calendar-field textarea {display:block;width:100%;height:130px;resize:vertical;}
-                    .calendar-field-error {margin-left:40px;color:var(--color-danger-ink);font-size:12px;}
-                    .calendar-save-error {margin-left:40px;}
-                    .calendar-event-dialog {margin:auto;width:min(480px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow-y:auto;}
-                    .calendar-event-dialog::backdrop {background:#0007;}
-                    @media(max-width:700px) {.calendar-editor-header {padding:12px;gap:8px;flex-wrap:wrap;}.calendar-details-tab {display:none;}.calendar-editor-scroll {padding:12px;}.calendar-field {gap:10px;}.calendar-timezone {flex-wrap:wrap;}.calendar-editor-header h2 {font-size:17px;}}
-                "##</style>
+                        <DialogHeader>
+                            <DialogTitle>{selectedEvent?.title || "Meeting"}</DialogTitle>
+                            <DialogDescription>
+                                {selectedEvent ? eventTime(selectedEvent) : ""}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div class="space-y-2 text-sm">
+                            <p hidden={!selectedEvent?.location}>
+                                "Location: "
+                                {selectedEvent?.location}
+                            </p>
+                            <p hidden={!selectedEvent?.attendees?.length}>
+                                "Attendees: "
+                                {selectedEvent?.attendees?.join(", ")}
+                            </p>
+                            <p hidden={!selectedEvent || selectedEvent.recurrence === "none"}>
+                                "Repeats "
+                                {selectedEvent?.recurrence}
+                            </p>
+                            <p class="whitespace-pre-wrap pt-2">
+                                <template pp-for="part in detailParts">
+                                    <span key={part.key}>
+                                        <strong hidden={part.kind !== "bold"}>{part.text}</strong>
+                                        <em hidden={part.kind !== "italic"}>{part.text}</em>
+                                        <span hidden={part.kind !== "text"}>{part.text}</span>
+                                    </span>
+                                </template>
+                            </p>
+                        </div>
+                        <DialogFooter>
+                            <DialogClose class=@{close_event.as_str()}>"Close"</DialogClose>
+                            <a
+                                class=@{join_event.as_str()}
+                                href={selectedEvent ? "/meet/j/" + selectedEvent.event_id : "/calendar"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                "Join meeting"
+                            </a>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
                 <script>r##"
                     const HEAD_ON = "flex flex-col border-l border-l-line border-t-2 border-t-brand px-3 py-2.5 text-brand-ink";
-                    const HEAD_OFF = "flex flex-col border-l border-l-line px-3 py-2.5 text-muted";
+                    const HEAD_OFF = "flex flex-col border-l border-l-line px-3 py-2.5 text-muted-foreground";
                     const HOUR_HEIGHT = 56;
 
                     const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -557,18 +594,15 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
 
                     const [offset, setOffset] = pp.state(0);
                     const [view, setView] = pp.state("Work week");
-                    const [viewOpen, setViewOpen] = pp.state(false);
+                    const VIEWS = ["Day", "Work week", "Week"];
                     const [meetings, setMeetings] = pp.state(@{Json(&saved_meetings)});
                     const [composeOpen, setComposeOpen] = pp.state(@{start_compose});
                     const [saving, setSaving] = pp.state(false);
                     const [errors, setErrors] = pp.state({});
                     const [formError, setFormError] = pp.state("");
                     const editorForm = pp.ref(null);
-                    const titleInput = pp.ref(null);
-                    const detailsInput = pp.ref(null);
-                    const newMeetingButton = pp.ref(null);
-                    const eventDialog = pp.ref(null);
-                    const eventTrigger = pp.ref(null);
+                    const newMeetingMarker = pp.ref(null);
+                    const eventOpener = pp.ref(null);
                     const [selectedEvent, setSelectedEvent] = pp.state(null);
                     const detailParts = (selectedEvent?.details || '').split(/(\*\*[^*]+\*\*|_[^_]+_)/g).map((text,key) => {
                         if (text.startsWith('**') && text.endsWith('**')) return {key,kind:'bold',text:text.slice(2,-2)};
@@ -616,7 +650,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         setEndDate(dayKey(end)); setEndTime(clockValue(end));
                     }
                     function formatDetails(before, after) {
-                        const input = detailsInput.current;
+                        const input = editorForm.current?.elements.details;
                         if (!input) return;
                         const start = input.selectionStart; const end = input.selectionEnd;
                         const selection = input.value.slice(start,end) || 'text';
@@ -628,7 +662,9 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         const format = new Intl.DateTimeFormat(undefined, {dateStyle:'medium', timeStyle:'short', timeZone:meeting.timezone});
                         return format.format(new Date(meeting.starts_at)) + ' – ' + format.format(new Date(meeting.ends_at)) + ' (' + meeting.timezone + ')';
                     }
-                    function showEvent(meeting, event) {eventTrigger.current = event.currentTarget; setSelectedEvent(meeting); eventDialog.current.showModal();}
+                    // The details dialog is rahti-ui's, which opens from a trigger;
+                    // an event on the grid reaches it through the hidden one.
+                    function showEvent(id) {const meeting = placed.find(item => item.id === id); if (!meeting) return; setSelectedEvent(meeting); eventOpener.current?.click();}
                     function goToday() {setAnchorDate(@{app_date}); setOffset(0);}
 
                     function describe(date) {
@@ -695,7 +731,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         const startHour = Math.floor(start);
                         const startMinute = Math.round((start - startHour) * 60);
                         return hourLabel(startHour).replace(" ", ":" + pad(startMinute) + " ") +
-                            " Â· " + length + "h";
+                            " · " + length + "h";
                     }
 
                     const placed = meetings
@@ -725,7 +761,6 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
 
                     function pickView(value) {
                         setView(value);
-                        setViewOpen(false);
                         setOffset(0);
                     }
 
@@ -735,7 +770,8 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         setComposeOpen(true);
                     }
                     const editorWasOpen = pp.ref(false);
-                    const focusEditor = pp.event(() => (composeOpen ? titleInput : newMeetingButton).current?.focus());
+                    const newMeetingButton = () => newMeetingMarker.current?.closest("button");
+                    const focusEditor = pp.event(() => (composeOpen ? editorForm.current?.elements.title : newMeetingButton())?.focus());
                     pp.effect(() => {
                         if (!composeOpen && !editorWasOpen.current) return;
                         editorWasOpen.current = composeOpen;
@@ -747,7 +783,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         if (saving) return;
                         setComposeOpen(false);
                         clearComposeUrl();
-                        newMeetingButton.current?.focus();
+                        newMeetingButton()?.focus();
                     }
                     function clearComposeUrl() {
                         const url = new URL(location.href);
@@ -773,7 +809,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                             editorForm.current?.reset(); setAllDay(false); setRecurrence('none');
                             setStartDate(dayKey(initialStart)); setStartTime(clockValue(initialStart));
                             setEndDate(dayKey(initialEnd)); setEndTime(clockValue(initialEnd));
-                            newMeetingButton.current?.focus();
+                            newMeetingButton()?.focus();
                         } catch (failure) {
                             const fields = failure.errors || {};
                             setErrors({
@@ -799,7 +835,7 @@ pub struct Meeting {
     pub title: String,
     /// The day the grid keys its columns by, `YYYY-MM-DD`.
     pub day: String,
-    /// Start, in hours from midnight â€” `9.5` is half past nine.
+    /// Start, in hours from midnight — `9.5` is half past nine.
     pub start: f64,
     /// Length, in hours.
     pub length: f64,

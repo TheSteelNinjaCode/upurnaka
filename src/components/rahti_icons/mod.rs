@@ -33,6 +33,7 @@ pub mod link;
 pub mod list;
 pub mod list_filter;
 pub mod list_ordered;
+pub mod loader_circle;
 pub mod map_pin;
 pub mod message_circle;
 pub mod mic;

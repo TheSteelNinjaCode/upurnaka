@@ -20,10 +20,46 @@
 use axum::extract::Path;
 use axum::http::StatusCode;
 
+use crate::components::aria::{bound, labelled, named, submit};
 use crate::components::avatar::Avatar;
 use crate::components::icon::Icon;
+use crate::components::rahti_ui::attrs::{Attrs, ui_expr};
+use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::input::Input;
+use crate::components::rahti_ui::label::Label;
+use crate::components::rahti_ui::radio_group::{RadioGroup, RadioGroupItem};
+use crate::components::rahti_ui::select::{Select, SelectItem};
+use crate::components::rahti_ui::switch::Switch;
 use crate::meetings::{self, JoinInfo, chime, recording};
 use crate::rahti::{Error, Html, Json, Metadata, Page, Result, RpcUpload, Validator, html, rpc};
+
+/// A tool in the meeting toolbar: an icon over its label, underlined while on.
+const ROOM_TOOL: &str = "h-[60px]! min-w-14 flex-col gap-[5px] px-2.5! py-1.5 text-xs font-normal \
+                         text-ink aria-pressed:bg-hover \
+                         aria-pressed:shadow-[inset_0_-2px_var(--color-brand-ink)] \
+                         max-[1000px]:min-w-[45px] max-[1000px]:p-1.5! max-[1000px]:text-[11px] \
+                         max-[650px]:h-[52px]! max-[650px]:min-w-10 \
+                         [&_svg]:size-6! max-[650px]:[&_svg]:size-5!";
+
+/// Leaving the meeting: the toolbar tool in the danger colour.
+const ROOM_LEAVE: &str = "ml-3.5 text-danger-ink! hover:bg-destructive/40! max-[1000px]:ml-1";
+
+/// A device picker on the pre-join screen.
+const DEVICE_SELECT: &str = "w-full min-w-0 border-transparent bg-transparent text-base shadow-none \
+                             dark:bg-transparent \
+                             min-[1101px]:group-data-[backgrounds=true]/body:text-sm";
+
+/// A background tile in the background panel, outlined while chosen.
+const BACKGROUND_OPTION: &str = "meeting-background-option relative h-[70px]! min-w-0 flex-col \
+                                 gap-[3px] overflow-hidden rounded-[3px]! border-2 \
+                                 border-transparent bg-raised p-0! text-xs font-normal \
+                                 aria-pressed:border-brand-ink";
+
+/// A row in a menu the room draws itself: the reactions, More, a tile's options.
+const MENU_ROW: &str = "w-full justify-start! px-4! py-2.5 text-left text-[13px] font-normal";
+
+/// An action that reads as a link.
+const LINK: &str = "h-auto! px-0! text-link";
 
 pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
     let user = crate::auth::current().unwrap_or_default();
@@ -47,6 +83,19 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
     let provider_ready = chime::is_configured();
     let recording_ready = recording::is_configured();
 
+    let room_leave = format!("{ROOM_TOOL} {ROOM_LEAVE}");
+    let cancel_join = button_variants(
+        ButtonVariant::Outline,
+        ButtonSize::Lg,
+        "min-w-[118px] px-[22px] text-base font-semibold",
+    );
+    let upload_background = button_variants(
+        ButtonVariant::Ghost,
+        ButtonSize::Default,
+        &format!(
+            "{BACKGROUND_OPTION} focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-ring"
+        ),
+    );
     let content = html! {
         <main
             class="meeting-join h-dvh overflow-auto bg-pane text-ink **:focus-visible:outline-2 **:focus-visible:outline-offset-4 **:focus-visible:outline-ring"
@@ -65,30 +114,24 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         class="flex min-w-40 flex-col gap-0.5 text-[15px] max-[480px]:min-w-0 max-[480px]:text-[13px]"
                     >
                         <strong>{displayName || "Your name"}</strong>
-                        <span class="text-[13px] text-muted">"Joining as a guest"</span>
+                        <span class="text-[13px] text-muted-foreground">"Joining as a guest"</span>
                     </div>
-                    <button
-                        type="button"
-                        class="cursor-pointer text-link hover:underline"
-                        onclick={setEditingName(!editingName)}
-                    >
+                    <Button variant="link" class=@{LINK} onclick={setEditingName(!editingName)}>
                         {editingName ? "Done" : "Change"}
-                    </button>
-                    <label
+                    </Button>
+                    <div
                         class="meeting-name-editor absolute inset-x-0 top-full z-2 grid gap-2 bg-raised p-4 text-[13px] shadow-lg shadow-black/30"
                         hidden={!editingName}
                     >
-                        "Your name"
-                        <input
-                            class="rounded-[3px] border border-edge bg-surface p-[9px] text-ink"
+                        <Label r#for="meeting-display-name" class="font-normal">"Your name"</Label>
+                        <Input
+                            id="meeting-display-name"
                             name="display_name"
-                            aria-label="Your name"
-                            autocomplete="name"
-                            maxlength="64"
+                            attrs=@{Attrs::new().set("autocomplete", "name").set("maxlength", "64")}
                             value={displayName}
                             oninput={setDisplayName(target.value)}
                         />
-                    </label>
+                    </div>
                 </div>
                 <div
                     class="mb-8 mt-11 flex flex-col items-center gap-6 text-center max-[480px]:mt-9 min-[851px]:m-0 min-[851px]:shrink-0 min-[851px]:gap-[clamp(10px,1.5dvh,20px)] min-[851px]:pt-[clamp(4px,2dvh,26px)]"
@@ -124,7 +167,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             >
                             </video>
                             <div
-                                class="meeting-camera-off relative flex flex-col items-center gap-[18px] text-[17px] text-muted"
+                                class="meeting-camera-off relative flex flex-col items-center gap-[18px] text-[17px] text-muted-foreground"
                                 hidden={cameraLive}
                             >
                                 <Icon name="video-off" class="h-8 w-8" />
@@ -134,42 +177,36 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             </div>
                         </div>
                         <div
-                            class="flex min-h-16 items-center gap-[18px] border-t border-edge px-6 py-3 text-muted max-[480px]:gap-2.5 max-[480px]:p-3 min-[851px]:min-h-14 min-[851px]:px-5 min-[851px]:py-2.5 min-[1101px]:group-data-[backgrounds=true]/body:gap-2.5 min-[1101px]:group-data-[backgrounds=true]/body:px-3"
+                            class="flex min-h-16 items-center gap-[18px] border-t border-edge px-6 py-3 text-muted-foreground max-[480px]:gap-2.5 max-[480px]:p-3 min-[851px]:min-h-14 min-[851px]:px-5 min-[851px]:py-2.5 min-[1101px]:group-data-[backgrounds=true]/body:gap-2.5 min-[1101px]:group-data-[backgrounds=true]/body:px-3"
                         >
                             <Icon name="video-off" class="h-6 w-6" />
-                            <button
-                                type="button"
-                                role="switch"
-                                aria-label="Camera"
-                                aria-checked={camera}
+                            <Switch
+                                attrs=@{named("Camera")}
+                                checked={camera}
                                 disabled={applyingBackground || joining}
-                                class={TOGGLE}
-                                onclick={toggleCamera()}
-                            >
-                                <span class={TOGGLE_KNOB}></span>
-                            </button>
+                                onchange={toggleCamera()}
+                            />
                             <span class="ml-2 mr-0.5 h-[30px] border-l border-edge"></span>
-                            <button
-                                type="button"
-                                class="meeting-background-button flex cursor-pointer items-center gap-2.5 text-left text-sm text-muted hover:text-ink aria-expanded:text-brand-ink"
-                                aria-expanded={backgroundsOpen}
+                            <Button
+                                variant="ghost"
+                                class="meeting-background-button gap-2.5 px-2! text-sm font-normal text-muted-foreground aria-expanded:text-brand-ink"
+                                attrs=@{bound("aria-expanded", ui_expr!(aria-expanded={backgroundsOpen}))}
                                 onclick={setBackgroundsOpen(!backgroundsOpen)}
                             >
-                                <Icon name="image" class="h-5 w-5" />
+                                <Icon name="image" class="size-5" />
                                 "Background filters"
-                            </button>
+                            </Button>
                         </div>
                     </section>
-                    <section class="flex min-w-0 flex-col gap-2" aria-label="Audio options">
+                    <RadioGroup class="flex min-w-0 flex-col gap-2" attrs=@{named("Audio options")}>
                         <div
                             class="overflow-hidden rounded-md border border-edge bg-raised min-[851px]:flex min-[851px]:flex-1 min-[851px]:flex-col"
                         >
                             <label class={AUDIO_CHOICE}>
-                                <input
-                                    type="radio"
-                                    class="h-6 w-6 shrink-0 accent-brand-ink"
+                                <RadioGroupItem
                                     name="audio-mode"
                                     value="computer"
+                                    class="size-6"
                                     checked={audioMode === "computer"}
                                     onchange={setAudioMode("computer")}
                                     disabled={session !== null}
@@ -182,104 +219,99 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             >
                                 <div class={DEVICE_ROW}>
                                     <Icon name="mic" class="h-6 w-6" />
-                                    <select
-                                        class={DEVICE_SELECT}
-                                        aria-label="Microphone"
+                                    <Select
+                                        class=@{DEVICE_SELECT}
+                                        attrs=@{named("Microphone device")}
                                         value={microphoneDevice}
                                         onfocus={refreshDevices()}
                                         onchange={setMicrophoneDevice(target.value)}
                                         disabled={session !== null}
                                     >
-                                        <option value="">"Default microphone"</option>
+                                        <SelectItem value="">"Default microphone"</SelectItem>
                                         <template pp-for="device in audioInputs">
-                                            <option key={device.deviceId} value={device.deviceId}>
+                                            <SelectItem
+                                                key={device.deviceId}
+                                                value={device.deviceId}
+                                            >
                                                 {device.label || "Microphone"}
-                                            </option>
+                                            </SelectItem>
                                         </template>
-                                    </select>
-                                    <button
-                                        type="button"
-                                        role="switch"
-                                        aria-label="Microphone"
-                                        aria-checked={microphone}
-                                        class={TOGGLE}
-                                        onclick={toggleMicrophone()}
-                                    >
-                                        <span class={TOGGLE_KNOB}></span>
-                                    </button>
+                                    </Select>
+                                    <Switch
+                                        attrs=@{named("Microphone")}
+                                        checked={microphone}
+                                        onchange={toggleMicrophone()}
+                                    />
                                 </div>
                                 <div class={DEVICE_ROW}>
                                     <Icon name="speaker" class="h-6 w-6 shrink-0" />
-                                    <select
-                                        class={DEVICE_SELECT}
-                                        aria-label="Speakers"
+                                    <Select
+                                        class=@{DEVICE_SELECT}
+                                        attrs=@{named("Speakers")}
                                         value={speakerDevice}
                                         onfocus={refreshDevices()}
                                         onchange={setSpeakerDevice(target.value)}
                                         disabled={session !== null}
                                     >
-                                        <option value="">"Default speakers"</option>
+                                        <SelectItem value="">"Default speakers"</SelectItem>
                                         <template pp-for="device in audioOutputs">
-                                            <option key={device.deviceId} value={device.deviceId}>
+                                            <SelectItem
+                                                key={device.deviceId}
+                                                value={device.deviceId}
+                                            >
                                                 {device.label || "Speaker"}
-                                            </option>
+                                            </SelectItem>
                                         </template>
-                                    </select>
+                                    </Select>
                                 </div>
-                                <button
-                                    type="button"
-                                    class="mb-0.5 ml-auto mt-4 block cursor-pointer text-[15px] text-link hover:underline min-[851px]:mt-2.5"
+                                <Button
+                                    variant="link"
+                                    class="mb-0.5 ml-auto mt-4 flex h-auto! px-0! text-[15px] text-link min-[851px]:mt-2.5"
                                     onclick={testSpeaker()}
                                 >
                                     "Test speaker"
-                                </button>
+                                </Button>
                             </div>
                         </div>
                         <label
                             class={twMerge(AUDIO_CARD + " " + AUDIO_CHOICE + " cursor-not-allowed text-subtle")}
                             title="Phone audio is not available"
                         >
-                            <input
-                                type="radio"
-                                class="h-6 w-6 shrink-0 accent-brand-ink"
+                            <RadioGroupItem
                                 name="audio-mode"
+                                value="phone"
+                                class="size-6"
                                 disabled
                             />
                             "Phone audio"
                         </label>
                         <label class={AUDIO_CARD + " " + AUDIO_CHOICE}>
-                            <input
-                                type="radio"
-                                class="h-6 w-6 shrink-0 accent-brand-ink"
+                            <RadioGroupItem
                                 name="audio-mode"
                                 value="none"
+                                class="size-6"
                                 checked={audioMode === "none"}
                                 onchange={setAudioMode("none")}
                                 disabled={session !== null}
                             />
                             "Don't use audio"
                         </label>
-                    </section>
+                    </RadioGroup>
                 </div>
                 <audio pp-ref={meetingAudio} class="hidden"></audio>
                 <div
                     class="mt-7 flex shrink-0 justify-end gap-3 min-[851px]:mt-0"
                     hidden={session !== null}
                 >
-                    <a
-                        href="/meet"
-                        class="inline-flex min-h-10 min-w-[118px] items-center justify-center rounded border border-edge bg-surface px-[22px] py-2 text-base font-semibold text-ink hover:bg-hover"
-                    >
-                        "Cancel"
-                    </a>
-                    <button
-                        type="button"
-                        class="meeting-primary inline-flex min-h-10 min-w-[118px] cursor-pointer items-center justify-center rounded bg-brand px-[22px] py-2 text-base font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-45"
+                    <a href="/meet" class=@{cancel_join.as_str()}>"Cancel"</a>
+                    <Button
+                        size="lg"
+                        class="meeting-primary min-w-[118px] px-[22px]! text-base font-semibold"
                         disabled={!providerReady || joining || lobbyWaiting || applyingBackground || displayName.trim().length === 0}
                         onclick={joinNow()}
                     >
                         {lobbyWaiting ? "Waiting for admission…" : joining ? "Joining…" : "Join now"}
-                    </button>
+                    </Button>
                 </div>
                 <div
                     class="meeting-lobby-wait mt-4 rounded-lg border border-edge bg-raised p-4 text-sm"
@@ -287,16 +319,16 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     role="status"
                 >
                     <strong>"Waiting in the lobby"</strong>
-                    <p class="mt-2 text-muted">
+                    <p class="mt-2 text-muted-foreground">
                         "The organizer will let you in. Your microphone and camera are not being sent to the meeting."
                     </p>
-                    <button
-                        type="button"
+                    <Button
+                        variant="link"
+                        class="mt-3 h-auto! px-0! text-link"
                         onclick={cancelLobby()}
-                        class="mt-3 text-link hover:underline"
                     >
                         "Cancel request"
-                    </button>
+                    </Button>
                 </div>
                 <p
                     class="mt-4 shrink-0 text-right text-sm text-danger-ink min-[851px]:mt-0"
@@ -306,7 +338,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     {error}
                 </p>
                 <p
-                    class="mt-4 shrink-0 text-right text-[13px] text-muted min-[851px]:mt-0"
+                    class="mt-4 shrink-0 text-right text-[13px] text-muted-foreground min-[851px]:mt-0"
                     hidden={providerReady}
                 >
                     "This meeting is unavailable right now. Please contact the organizer."
@@ -314,13 +346,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                 <footer
                     class="meeting-footer mt-9 flex shrink-0 flex-wrap items-center justify-center gap-6 text-xs text-subtle max-[480px]:gap-2.5 min-[851px]:mt-auto min-[851px]:flex-nowrap"
                 >
-                    <button
-                        type="button"
-                        class="cursor-pointer text-link hover:underline"
+                    <Button
+                        variant="link"
+                        size="sm"
+                        class="h-auto! px-0! text-xs text-link"
                         onclick={share()}
                     >
                         "Copy meeting link"
-                    </button>
+                    </Button>
                     <span>"Meeting ID: "@{&code}</span>
                 </footer>
             </div>
@@ -335,7 +368,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     class="relative z-3 flex h-[72px] shrink-0 items-center justify-between gap-6 border-b border-line bg-raised px-5 py-1 max-[1000px]:gap-2 max-[1000px]:px-2.5 max-[650px]:h-auto max-[650px]:min-h-16 max-[650px]:items-start"
                 >
                     <div
-                        class="flex shrink-0 items-center gap-3 text-sm tabular-nums text-muted max-[1000px]:gap-1.5 max-[1000px]:text-xs max-[650px]:pt-[18px]"
+                        class="flex shrink-0 items-center gap-3 text-sm tabular-nums text-muted-foreground max-[1000px]:gap-1.5 max-[1000px]:text-xs max-[650px]:pt-[18px]"
                     >
                         <Icon name="shield" class="h-5 w-5" />
                         <span>{elapsedLabel}</span>
@@ -351,13 +384,13 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     <div
                         class="flex items-center gap-1.5 max-[1000px]:gap-0 max-[650px]:flex-wrap max-[650px]:justify-end"
                     >
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label={recordingId ? "Stop recording" : "Start recording"}
-                            aria-pressed={!!recordingId}
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{bound("aria-label", ui_expr!(aria-label={recordingId ? "Stop recording" : "Start recording"}))
+                                .merge(&bound("aria-pressed", ui_expr!(aria-pressed={!!recordingId})))
+                                .merge(&bound("title", ui_expr!(title={recordTitle})))}
                             disabled={!recordingAllowed || recordingBusy}
-                            title={recordTitle}
                             onclick={toggleRecording()}
                         >
                             <span class={recordingId ? "text-danger-ink" : ""}>
@@ -369,22 +402,20 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <span>
                                 {recordingBusy ? "Wait…" : recordingId ? "Stop" : "Record"}
                             </span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label="Meeting chat"
-                            aria-pressed={roomPanel === "chat"}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{named("Meeting chat").merge(&bound("aria-pressed", ui_expr!(aria-pressed={roomPanel === "chat"})))}
                             onclick={toggleRoomPanel("chat")}
                         >
                             <Icon name="chat" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"Chat"</span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label="Participants"
-                            aria-pressed={roomPanel === "people"}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{named("Participants").merge(&bound("aria-pressed", ui_expr!(aria-pressed={roomPanel === "people"})))}
                             onclick={toggleRoomPanel("people")}
                         >
                             <Icon name="people" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
@@ -395,56 +426,55 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             >
                                 {lobbyRequests.length}
                             </span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label="Raise hand"
-                            aria-pressed={handRaised}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{named("Raise hand").merge(&bound("aria-pressed", ui_expr!(aria-pressed={handRaised})))}
                             disabled={connectionStatus !== "connected"}
                             onclick={raiseHand()}
                         >
                             <Icon name="hand" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>{handRaised ? "Lower" : "Raise"}</span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label="Send a reaction"
-                            pp-ref={reactionTrigger}
-                            aria-expanded={reactionsOpen}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{named("Send a reaction")
+                                .merge(&bound("aria-expanded", ui_expr!(aria-expanded={reactionsOpen})))}
                             disabled={connectionStatus !== "connected"}
                             onclick={toggleRoomMenu("reactions")}
                         >
-                            <Icon name="emoji" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
+                            <span class="contents" pp-ref={reactionTriggerMark}>
+                                <Icon name="emoji" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
+                            </span>
                             <span>"React"</span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label="Change meeting view"
-                            aria-pressed={focusView}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{named("Change meeting view").merge(&bound("aria-pressed", ui_expr!(aria-pressed={focusView})))}
                             onclick={setFocusView(!focusView)}
                         >
                             <Icon name="grid" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"View"</span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label="More meeting options"
-                            pp-ref={moreTrigger}
-                            aria-expanded={moreOpen}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{named("More meeting options")
+                                .merge(&bound("aria-expanded", ui_expr!(aria-expanded={moreOpen})))}
                             onclick={toggleRoomMenu("more")}
                         >
-                            <Icon name="more" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
+                            <span class="contents" pp-ref={moreTriggerMark}>
+                                <Icon name="more" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
+                            </span>
                             <span>"More"</span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label="Toggle meeting camera"
-                            aria-pressed={camera}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{named("Toggle meeting camera").merge(&bound("aria-pressed", ui_expr!(aria-pressed={camera})))}
                             disabled={applyingBackground || joining}
                             onclick={toggleCamera()}
                         >
@@ -461,12 +491,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 />
                             </span>
                             <span>"Camera"</span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label="Toggle meeting microphone"
-                            aria-pressed={microphone}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{named("Toggle meeting microphone").merge(&bound("aria-pressed", ui_expr!(aria-pressed={microphone})))}
                             disabled={audioMode === "none"}
                             onclick={toggleMicrophone()}
                         >
@@ -480,12 +509,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 />
                             </span>
                             <span>"Mic"</span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_TOOL}
-                            aria-label="Share screen"
-                            aria-pressed={sharingScreen}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{ROOM_TOOL}
+                            attrs=@{named("Share screen").merge(&bound("aria-pressed", ui_expr!(aria-pressed={sharingScreen})))}
                             disabled={connectionStatus !== "connected" || startingShare}
                             onclick={toggleScreenShare()}
                         >
@@ -494,68 +522,83 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5"
                             />
                             <span>{sharingScreen ? "Stop share" : "Share"}</span>
-                        </button>
-                        <button
-                            type="button"
-                            class={ROOM_LEAVE}
-                            aria-label="Leave meeting"
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{room_leave.as_str()}
+                            attrs=@{named("Leave meeting")}
                             onclick={leave()}
                         >
                             <Icon name="leave" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
                             <span>"Leave"</span>
-                        </button>
+                        </Button>
                     </div>
                     <div
-                        class="room-reactions fixed z-5 flex w-max gap-2 overflow-auto rounded-md border border-edge bg-raised p-2 shadow-xl shadow-black/40 *:cursor-pointer *:p-2 *:text-[26px]"
+                        class="room-reactions fixed z-5 flex w-max gap-1 overflow-auto rounded-md border bg-popover p-2 shadow-xl shadow-black/40"
                         style={roomMenuStyle}
                         pp-ref={reactionMenu}
                         hidden={!reactionsOpen}
                     >
-                        <button
-                            type="button"
-                            aria-label="Send thumbs up"
+                        <Button
+                            variant="ghost"
+                            size="icon-lg"
+                            class="size-12! text-[26px]"
+                            attrs=@{labelled("Send thumbs up")}
                             onclick={sendReaction("👍")}
                         >
                             "👍"
-                        </button>
-                        <button
-                            type="button"
-                            aria-label="Send heart"
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon-lg"
+                            class="size-12! text-[26px]"
+                            attrs=@{labelled("Send heart")}
                             onclick={sendReaction("❤️")}
                         >
                             "❤️"
-                        </button>
-                        <button
-                            type="button"
-                            aria-label="Send applause"
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon-lg"
+                            class="size-12! text-[26px]"
+                            attrs=@{labelled("Send applause")}
                             onclick={sendReaction("👏")}
                         >
                             "👏"
-                        </button>
-                        <button
-                            type="button"
-                            aria-label="Send laugh"
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon-lg"
+                            class="size-12! text-[26px]"
+                            attrs=@{labelled("Send laugh")}
                             onclick={sendReaction("😄")}
                         >
                             "😄"
-                        </button>
+                        </Button>
                     </div>
                     <div
-                        class="room-more-menu fixed z-5 grid w-max gap-1 overflow-auto rounded-md border border-edge bg-raised p-2 shadow-xl shadow-black/40 *:cursor-pointer *:rounded-[3px] *:px-4 *:py-2.5 *:text-left *:text-[13px] *:hover:bg-hover"
+                        class="room-more-menu fixed z-5 grid w-max gap-1 overflow-auto rounded-md border bg-popover p-2 shadow-xl shadow-black/40"
                         style={roomMenuStyle}
                         pp-ref={moreMenu}
                         hidden={!moreOpen}
                     >
-                        <button type="button" onclick={openRoomBackgrounds()}>
+                        <Button variant="ghost" class=@{MENU_ROW} onclick={openRoomBackgrounds()}>
                             "Background settings"
-                        </button>
-                        <button type="button" onclick={copyRoomLink()}>"Copy meeting link"</button>
-                        <button type="button" hidden={!isOrganizer} onclick={openRecordings()}>
+                        </Button>
+                        <Button variant="ghost" class=@{MENU_ROW} onclick={copyRoomLink()}>
+                            "Copy meeting link"
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{MENU_ROW}
+                            hidden={!isOrganizer}
+                            onclick={openRecordings()}
+                        >
                             "Recordings"
-                        </button>
-                        <button type="button" onclick={setHideSelf(!hideSelf)}>
+                        </Button>
+                        <Button variant="ghost" class=@{MENU_ROW} onclick={setHideSelf(!hideSelf)}>
                             {hideSelf ? "Show me in gallery" : "Hide me from gallery"}
-                        </button>
+                        </Button>
                     </div>
                 </header>
                 <div
@@ -580,23 +623,20 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     {handLowerSeconds}
                                     " seconds"
                                 </strong>
-                                <button
-                                    type="button"
-                                    aria-label="Dismiss and keep hand raised"
+                                <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    class="text-muted-foreground"
+                                    attrs=@{labelled("Dismiss and keep hand raised")}
                                     onclick={keepHandRaised()}
-                                    class="text-muted"
                                 >
-                                    <Icon name="close" class="h-4 w-4" />
-                                </button>
+                                    <Icon name="close" class="size-4" />
+                                </Button>
                             </div>
-                            <p class="my-3 text-muted">"We noticed you spoke."</p>
-                            <button
-                                type="button"
-                                onclick={keepHandRaised()}
-                                class="w-full rounded bg-brand px-4 py-2 font-medium text-white"
-                            >
+                            <p class="my-3 text-muted-foreground">"We noticed you spoke."</p>
+                            <Button class="w-full" onclick={keepHandRaised()}>
                                 "Keep it raised"
-                            </button>
+                            </Button>
                         </section>
                         <section
                             class="room-lobby-notice absolute left-1/2 top-3 z-5 w-[min(380px,90%)] -translate-x-1/2 rounded-lg border border-edge bg-raised p-4 shadow-xl"
@@ -608,20 +648,21 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 <div key={request.id} class="mt-3 text-sm">
                                     <p>{request.name}</p>
                                     <div class="mt-3 flex gap-2">
-                                        <button
-                                            type="button"
-                                            onclick={decideEntry(request.id, false)}
-                                            class="flex-1 rounded border border-edge px-4 py-2"
+                                        <Button
+                                            variant="outline"
+                                            class="flex-1"
+                                            value={request.id}
+                                            onclick={decideEntry(event.currentTarget.value, false)}
                                         >
                                             "Deny"
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onclick={decideEntry(request.id, true)}
-                                            class="flex-1 rounded bg-brand px-4 py-2 text-white"
+                                        </Button>
+                                        <Button
+                                            class="flex-1"
+                                            value={request.id}
+                                            onclick={decideEntry(event.currentTarget.value, true)}
                                         >
                                             "Admit"
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
                             </template>
@@ -633,14 +674,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         >
                             <Icon name="hand" class="h-5 w-5 shrink-0 text-away" />
                             <span class="truncate">{handNotice}" raised their hand"</span>
-                            <button
-                                type="button"
-                                aria-label="Dismiss raised hand notification"
+                            <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                class="text-muted-foreground"
+                                attrs=@{labelled("Dismiss raised hand notification")}
                                 onclick={setHandNotice("")}
-                                class="text-muted"
                             >
-                                <Icon name="close" class="h-4 w-4" />
-                            </button>
+                                <Icon name="close" class="size-4" />
+                            </Button>
                         </div>
                         <div
                             class="absolute left-1/2 top-[18px] z-2 -translate-x-1/2 rounded bg-raised px-4 py-2 text-[13px]"
@@ -673,7 +715,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     >
                                     </video>
                                     <div
-                                        class="absolute inset-0 grid place-items-center bg-raised text-center text-sm text-muted"
+                                        class="absolute inset-0 grid place-items-center bg-raised text-center text-sm text-muted-foreground"
                                         hidden={!slot.paused || !slot.content}
                                         role="status"
                                     >
@@ -692,15 +734,18 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                                     >
                                         {slot.name}
-                                        <button
-                                            type="button"
-                                            class="ml-2 inline-flex items-center text-white"
-                                            aria-label={"Options for " + slot.name}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-xs"
+                                            class="ml-2 size-5! text-white hover:bg-white/15"
+                                            attrs=@{bound("aria-label", ui_expr!(aria-label={"Options for " + slot.name}))}
                                             hidden={slot.content}
-                                            onclick={openTileMenu(slot.attendeeId, slot.name)}
+                                            value={slot.attendeeId}
+                                            name={slot.name}
+                                            onclick={openTileMenu(event.currentTarget.value, event.currentTarget.name)}
                                         >
-                                            <Icon name="more" class="h-4 w-4" />
-                                        </button>
+                                            <Icon name="more" class="size-4" />
+                                        </Button>
                                     </span>
                                 </div>
                             </template>
@@ -729,14 +774,17 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                                     >
                                         {person.name}
-                                        <button
-                                            type="button"
-                                            class="ml-2 inline-flex items-center text-white"
-                                            aria-label={"Options for " + person.name}
-                                            onclick={openTileMenu(person.id, person.name)}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-xs"
+                                            class="ml-2 size-5! text-white hover:bg-white/15"
+                                            attrs=@{bound("aria-label", ui_expr!(aria-label={"Options for " + person.name}))}
+                                            value={person.id}
+                                            name={person.name}
+                                            onclick={openTileMenu(event.currentTarget.value, event.currentTarget.name)}
                                         >
-                                            <Icon name="more" class="h-4 w-4" />
-                                        </button>
+                                            <Icon name="more" class="size-4" />
+                                        </Button>
                                     </span>
                                 </div>
                             </template>
@@ -777,14 +825,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             >
                                 {displayName}
                                 " (You)"
-                                <button
-                                    type="button"
-                                    class="ml-2 inline-flex items-center text-white"
-                                    aria-label="Options for your video"
+                                <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    class="ml-2 size-5! text-white hover:bg-white/15"
+                                    attrs=@{labelled("Options for your video")}
                                     onclick={openTileMenu(selfAttendeeId, displayName)}
                                 >
-                                    <Icon name="more" class="h-4 w-4" />
-                                </button>
+                                    <Icon name="more" class="size-4" />
+                                </Button>
                             </span>
                             <span
                                 class="room-raised-hand room-hand-indicator absolute left-3 top-3 z-1 inline-flex items-center gap-2 rounded-md bg-black/75 px-2.5 py-2 text-xs font-medium text-away"
@@ -805,65 +854,61 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <div class="truncate border-b border-line px-3 py-2 font-semibold">
                                 {tileMenu ? tileMenu.name : ""}
                             </div>
-                            <button
-                                type="button"
-                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                            <Button
+                                variant="ghost"
+                                class=@{MENU_ROW}
                                 hidden={!tileMenu || tileMenu.id !== selfAttendeeId}
-                                data-action="switch-camera"
+                                attrs=@{Attrs::new().set("data-action", "switch-camera")}
                                 onclick={switchCamera()}
                             >
                                 "Switch camera"
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded px-3 py-2 text-left hover:bg-hover"
-                                data-action="pin"
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                class=@{MENU_ROW}
+                                attrs=@{Attrs::new().set("data-action", "pin")}
                                 onclick={pinTile()}
                             >
                                 {tileMenu && pinnedId === tileMenu.id ? "Unpin for me" : "Pin for me"}
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded px-3 py-2 text-left hover:bg-hover"
-                                data-action="fit"
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                class=@{MENU_ROW}
+                                attrs=@{Attrs::new().set("data-action", "fit")}
                                 onclick={fitTile()}
                             >
                                 {tileMenu && tileFits[tileMenu.id] === false ? "Fit to frame" : "Fill frame"}
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                class=@{MENU_ROW}
                                 hidden={!tileMenu || tileMenu.id !== selfAttendeeId}
-                                data-action="hide-self"
+                                attrs=@{Attrs::new().set("data-action", "hide-self")}
                                 onclick={hideMyTile()}
                             >
                                 "Remove me from gallery"
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                class=@{MENU_ROW}
                                 hidden={!isOrganizer}
-                                data-action="spotlight"
+                                attrs=@{Attrs::new().set("data-action", "spotlight")}
                                 onclick={spotlightTile()}
                             >
                                 {tileMenu && spotlightId === tileMenu.id ? "Stop spotlight for everyone" : "Spotlight for everyone"}
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded px-3 py-2 text-left hover:bg-hover"
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                class=@{MENU_ROW}
                                 hidden={!isOrganizer || !tileMenu || tileMenu.id === selfAttendeeId}
-                                data-action="mute"
+                                attrs=@{Attrs::new().set("data-action", "mute")}
                                 onclick={muteTile()}
                             >
                                 "Mute participant"
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded px-3 py-2 text-left text-muted hover:bg-hover"
-                                onclick={setTileMenu(null)}
-                            >
+                            </Button>
+                            <Button variant="ghost" class=@{MENU_ROW} onclick={setTileMenu(null)}>
                                 "Close"
-                            </button>
+                            </Button>
                         </section>
                         <div
                             class="room-reaction-toast absolute bottom-16 left-1/2 z-2 -translate-x-1/2 rounded-3xl bg-raised/70 px-6 py-3 text-[28px]"
@@ -890,14 +935,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <h2>
                                 {roomPanel === "people" ? "People (" + people.length + ")" : roomPanel === "recordings" ? "Recordings" : "Meeting chat"}
                             </h2>
-                            <button
-                                type="button"
-                                class="cursor-pointer"
-                                aria-label="Close meeting panel"
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                attrs=@{labelled("Close meeting panel")}
                                 onclick={setRoomPanel("")}
                             >
-                                <Icon name="close" class="h-5 w-5" />
-                            </button>
+                                <Icon name="close" class="size-5" />
+                            </Button>
                         </header>
                         <div class="overflow-auto px-5" hidden={roomPanel !== "people"}>
                             <section
@@ -913,20 +958,24 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     <div key={request.id} class="my-3 text-sm">
                                         <p>{request.name}</p>
                                         <div class="mt-2 flex gap-3">
-                                            <button
-                                                type="button"
-                                                onclick={decideEntry(request.id, true)}
-                                                class="text-link"
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                class=@{LINK}
+                                                value={request.id}
+                                                onclick={decideEntry(event.currentTarget.value, true)}
                                             >
                                                 "Admit"
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onclick={decideEntry(request.id, false)}
-                                                class="text-muted"
+                                            </Button>
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                class="h-auto! px-0! text-muted-foreground"
+                                                value={request.id}
+                                                onclick={decideEntry(event.currentTarget.value, false)}
                                             >
                                                 "Deny"
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 </template>
@@ -949,26 +998,25 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     <span hidden={!person.raised}>
                                         <Icon name="hand" class="h-5 w-5" />
                                     </span>
-                                    <button
-                                        type="button"
-                                        aria-label={"Options for " + person.name}
-                                        onclick={openTileMenu(person.id, person.name)}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        attrs=@{bound("aria-label", ui_expr!(aria-label={"Options for " + person.name}))}
+                                        value={person.id}
+                                        name={person.name}
+                                        onclick={openTileMenu(event.currentTarget.value, event.currentTarget.name)}
                                     >
-                                        <Icon name="more" class="h-4 w-4" />
-                                    </button>
+                                        <Icon name="more" class="size-4" />
+                                    </Button>
                                 </div>
                             </template>
-                            <button
-                                type="button"
-                                class="cursor-pointer text-link hover:underline"
-                                onclick={share()}
-                            >
+                            <Button variant="link" class=@{LINK} onclick={share()}>
                                 "Copy invite link"
-                            </button>
+                            </Button>
                         </div>
                         <div class="overflow-auto px-5" hidden={roomPanel !== "recordings"}>
                             <p
-                                class="my-3 text-[13px] leading-relaxed text-muted"
+                                class="my-3 text-[13px] leading-relaxed text-muted-foreground"
                                 hidden={recordings.length > 0}
                             >
                                 {recordingsLoading ? "Loading recordings…" : "Recordings of this meeting appear here. They are kept in Dilnaka Storage."}
@@ -977,26 +1025,30 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 <div key={item.id} class="my-4 flex items-center gap-3 text-[13px]">
                                     <div class="min-w-0 flex-1">
                                         <strong class="block font-medium">{item.started}</strong>
-                                        <span class="text-xs text-muted">
+                                        <span class="text-xs text-muted-foreground">
                                             {recordingSummary(item)}
                                         </span>
                                     </div>
-                                    <button
-                                        type="button"
-                                        class="cursor-pointer text-link hover:underline"
+                                    <Button
+                                        variant="link"
+                                        size="sm"
+                                        class=@{LINK}
                                         hidden={item.state !== "stored"}
-                                        onclick={openRecording(item.id)}
+                                        value={item.id}
+                                        onclick={openRecording(event.currentTarget.value)}
                                     >
                                         "Download"
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="cursor-pointer text-link hover:underline"
+                                    </Button>
+                                    <Button
+                                        variant="link"
+                                        size="sm"
+                                        class=@{LINK}
                                         hidden={item.state !== "failed"}
-                                        onclick={retryRecording(item.id)}
+                                        value={item.id}
+                                        onclick={retryRecording(event.currentTarget.value)}
                                     >
                                         "Retry"
-                                    </button>
+                                    </Button>
                                 </div>
                             </template>
                         </div>
@@ -1006,7 +1058,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 aria-live="polite"
                             >
                                 <p
-                                    class="text-[13px] leading-relaxed text-muted"
+                                    class="text-[13px] leading-relaxed text-muted-foreground"
                                     hidden={chatMessages.length > 0}
                                 >
                                     "Chat with everyone in this meeting. Messages are available during the call."
@@ -1021,26 +1073,22 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     </article>
                                 </template>
                             </div>
-                            <form
-                                class="m-4 flex gap-2 rounded-md border border-edge p-2"
-                                onsubmit={sendChat(event)}
-                            >
-                                <input
-                                    class="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
-                                    aria-label="Message everyone"
+                            <form class="m-4 flex gap-2" onsubmit={sendChat(event)}>
+                                <Input
                                     placeholder="Type a message"
-                                    maxlength="500"
+                                    class="min-w-0 flex-1 text-[13px]"
+                                    attrs=@{named("Message everyone").set("maxlength", "500")}
                                     value={chatDraft}
                                     oninput={setChatDraft(target.value)}
                                 />
-                                <button
-                                    type="submit"
-                                    class="cursor-pointer disabled:cursor-default disabled:opacity-40"
-                                    aria-label="Send meeting message"
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    attrs=@{labelled("Send meeting message").merge(&submit())}
                                     disabled={!chatDraft.trim() || connectionStatus !== "connected"}
                                 >
-                                    <Icon name="send" class="h-5 w-5" />
-                                </button>
+                                    <Icon name="send" class="size-5" />
+                                </Button>
                             </form>
                         </div>
                     </aside>
@@ -1056,60 +1104,59 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             >
                 <header class="flex items-center justify-between gap-3 px-5 py-6">
                     <h2 class="text-lg font-semibold">"Background settings"</h2>
-                    <button
-                        type="button"
-                        class="cursor-pointer p-1.5 text-muted hover:text-ink"
-                        aria-label="Close background settings"
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="text-muted-foreground"
+                        attrs=@{labelled("Close background settings")}
                         onclick={setBackgroundsOpen(false)}
                     >
-                        <Icon name="close" class="h-5 w-5" />
-                    </button>
+                        <Icon name="close" class="size-5" />
+                    </Button>
                 </header>
                 <div class="min-h-0 overflow-y-auto px-5 pb-6 pt-2">
                     <div class="grid grid-cols-3 gap-2">
-                        <button
-                            type="button"
-                            class={BACKGROUND_OPTION}
-                            aria-pressed={backgroundId === "none"}
+                        <Button
+                            variant="ghost"
+                            class=@{BACKGROUND_OPTION}
+                            attrs=@{bound("aria-pressed", ui_expr!(aria-pressed={backgroundId === "none"}))}
                             disabled={applyingBackground || joining}
                             onclick={selectBackground("none")}
                         >
                             <span class="text-[25px] leading-7">"⊘"</span>
                             <span>"None"</span>
-                        </button>
-                        <button
-                            type="button"
-                            class={BACKGROUND_OPTION}
-                            aria-pressed={backgroundId === "blur"}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{BACKGROUND_OPTION}
+                            attrs=@{bound("aria-pressed", ui_expr!(aria-pressed={backgroundId === "blur"}))}
                             disabled={applyingBackground || joining}
                             onclick={selectBackground("blur")}
                         >
                             <span class="text-[25px] leading-7">"≋"</span>
                             <span>"Standard blur"</span>
-                        </button>
-                        <label
-                            class={BACKGROUND_OPTION + " focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-ring"}
-                        >
-                            <Icon name="plus" class="h-6 w-6" />
+                        </Button>
+                        <label class=@{upload_background.as_str()}>
+                            <Icon name="plus" class="size-6" />
                             <span>"Add new"</span>
-                            <input
-                                type="file"
-                                class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                accept="image/jpeg,image/png,image/webp"
-                                aria-label="Upload background image"
+                            <Input
+                                r#type="file"
+                                class="absolute inset-0 h-full! cursor-pointer opacity-0"
+                                attrs=@{named("Upload background image").set("accept", "image/jpeg,image/png,image/webp")}
                                 disabled={applyingBackground || joining}
                                 onchange={uploadBackground(event)}
                             />
                         </label>
                         <template pp-for="background in backgrounds">
-                            <button
+                            <Button
                                 key={background.id}
-                                type="button"
-                                class={BACKGROUND_OPTION}
-                                aria-label={background.name}
-                                aria-pressed={backgroundId === background.id}
+                                variant="ghost"
+                                class=@{BACKGROUND_OPTION}
+                                attrs=@{bound("aria-label", ui_expr!(aria-label={background.name}))
+                                    .merge(&bound("aria-pressed", ui_expr!(aria-pressed={backgroundId === background.id})))}
                                 disabled={applyingBackground || joining}
-                                onclick={selectBackground(background.id)}
+                                value={background.id}
+                                onclick={selectBackground(event.currentTarget.value)}
                             >
                                 <img
                                     src={background.url}
@@ -1121,7 +1168,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 >
                                     {background.name}
                                 </span>
-                            </button>
+                            </Button>
                         </template>
                     </div>
                     <p class="mt-[18px] text-xs leading-relaxed text-subtle" role="status">
@@ -1147,15 +1194,11 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                 {toast}
             </div>
             <script>r##"
-                    const CONTROL_ON = "flex h-10 items-center gap-2 rounded-md border border-edge bg-raised px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-hover";
-                    const CONTROL_OFF = "flex h-10 items-center gap-2 rounded-md border border-busy bg-busy/15 px-5 text-[13px] font-semibold text-ink transition-colors hover:bg-busy/25";
 
                     // Repeated class lists. The pre-join body carries
                     // `data-backgrounds`, so its children tighten up through
                     // `group-data-[backgrounds=true]/body` when the background
                     // panel takes 340px of a wide window.
-                    const TOGGLE = "group/toggle h-[25px] w-12 shrink-0 cursor-pointer rounded-full border border-subtle bg-transparent p-[3px] aria-checked:border-brand-ink aria-checked:bg-brand-ink";
-                    const TOGGLE_KNOB = "block h-[17px] w-[17px] rounded-full bg-subtle transition-transform duration-150 group-aria-checked/toggle:translate-x-[22px] group-aria-checked/toggle:bg-surface";
                     const AUDIO_CARD = "overflow-hidden rounded-md border border-edge bg-raised";
                     const AUDIO_CHOICE = "flex min-h-[66px] cursor-pointer items-center gap-4 px-[26px] py-[23px] text-[17px] max-[480px]:p-5 min-[851px]:min-h-14 min-[851px]:shrink-0 min-[851px]:px-6 min-[851px]:py-4 min-[851px]:text-base min-[1101px]:group-data-[backgrounds=true]/body:px-4";
                     const DEVICE_ROW = "flex min-h-[47px] items-center gap-4 text-ink min-[851px]:min-h-[42px] min-[1101px]:group-data-[backgrounds=true]/body:gap-2";
@@ -1185,10 +1228,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
                     const localVideo = pp.ref(null);
                     const roomLocalVideo = pp.ref(null);
-                    const reactionTrigger = pp.ref(null);
+                    // The two menu buttons are rahti-ui Buttons, which cannot carry a
+                    // ref of their own; each holds a marker the button is found from.
+                    const reactionTriggerMark = pp.ref(null);
+                    const reactionTrigger = {get current() {return reactionTriggerMark.current?.closest("button") || null;}};
                     const roomToolbar = pp.ref(null);
                     const backgroundPanel = pp.ref(null);
-                    const moreTrigger = pp.ref(null);
+                    const moreTriggerMark = pp.ref(null);
+                    const moreTrigger = {get current() {return moreTriggerMark.current?.closest("button") || null;}};
                     const reactionMenu = pp.ref(null);
                     const moreMenu = pp.ref(null);
                     const startedAt = pp.ref(0);

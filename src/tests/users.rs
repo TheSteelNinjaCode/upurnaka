@@ -446,7 +446,7 @@ async fn admin_browser_can_create_edit_deactivate_activate_search_and_delete() {
     assert!(browser.eval::<bool>("Array.from(document.querySelectorAll('tr[data-email=\"admin-test@example.com\"] button')).every(b => b.getBoundingClientRect().height === 0)").await.unwrap());
     browser.click("main > div > div button").await.unwrap();
     browser
-        .wait_for("!document.querySelector('section[aria-label=\"User editor\"]').hidden")
+        .wait_for("document.querySelector('dialog[aria-label=\"User editor\"]').open")
         .await
         .unwrap();
     for (name, value) in [
@@ -462,10 +462,10 @@ async fn admin_browser_can_create_edit_deactivate_activate_search_and_delete() {
         browser.type_text(value).await.unwrap();
     }
     browser
-        .click("section[aria-label='User editor'] button[type=submit]")
+        .click("dialog[aria-label='User editor'] button[type=submit]")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('tr[data-email=\"browser-managed@example.com\"]')?.textContent.includes('Browser Managed') && document.querySelector('section[aria-label=\"User editor\"]').hidden").await.unwrap();
+    browser.wait_for("document.querySelector('tr[data-email=\"browser-managed@example.com\"]')?.textContent.includes('Browser Managed') && !document.querySelector('dialog[aria-label=\"User editor\"]').open").await.unwrap();
     browser
         .click("tr[data-email='browser-managed@example.com'] button:nth-of-type(1)")
         .await
@@ -477,7 +477,7 @@ async fn admin_browser_can_create_edit_deactivate_activate_search_and_delete() {
         .unwrap();
     browser.type_text("Browser Edited").await.unwrap();
     browser
-        .click("section[aria-label='User editor'] button[type=submit]")
+        .click("dialog[aria-label='User editor'] button[type=submit]")
         .await
         .unwrap();
     browser.wait_for("document.querySelector('tr[data-email=\"browser-managed@example.com\"]')?.textContent.includes('Browser Edited')").await.unwrap();
@@ -506,15 +506,15 @@ async fn admin_browser_can_create_edit_deactivate_activate_search_and_delete() {
         .await
         .unwrap();
     browser
-        .wait_for("!document.querySelector('[aria-label=\"Delete user confirmation\"]').hidden")
+        .wait_for("document.querySelector('dialog[aria-label=\"Delete user confirmation\"]').open")
         .await
         .unwrap();
     browser
-        .click("[aria-label='Delete user confirmation'] button:nth-of-type(2)")
+        .click("[aria-label='Delete user confirmation'] [data-slot=alert-dialog-cancel]")
         .await
         .unwrap();
     browser
-        .wait_for("document.querySelector('[aria-label=\"Delete user confirmation\"]').hidden")
+        .wait_for("!document.querySelector('dialog[aria-label=\"Delete user confirmation\"]').open")
         .await
         .unwrap();
     browser
@@ -522,7 +522,7 @@ async fn admin_browser_can_create_edit_deactivate_activate_search_and_delete() {
         .await
         .unwrap();
     browser
-        .click("[aria-label='Delete user confirmation'] button:nth-of-type(1)")
+        .click("[aria-label='Delete user confirmation'] [data-slot=alert-dialog-action]")
         .await
         .unwrap();
     browser.wait_for("document.querySelectorAll('tbody tr').length === 0 && document.querySelector('[role=status]').textContent.includes('User deleted')").await.unwrap();

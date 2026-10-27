@@ -587,7 +587,7 @@ async fn a_browser_can_register_enroll_save_codes_and_sign_out() {
         .unwrap();
     browser.wait_for("document.querySelector('button[aria-label=\"Your profile\"]').getAttribute('aria-expanded') === 'true'").await.unwrap();
     browser
-        .click("button[aria-label='Sign out']")
+        .click("[role=menuitem][data-variant=destructive]")
         .await
         .unwrap();
     browser
@@ -619,7 +619,7 @@ async fn a_browser_can_register_enroll_save_codes_and_sign_out() {
         .await
         .unwrap();
     browser
-        .click("section > div:nth-of-type(2) > button")
+        .click("section > div:nth-of-type(2) > div > button:first-child")
         .await
         .unwrap();
     browser

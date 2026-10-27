@@ -208,7 +208,7 @@ async fn people_profile_menu_edits_name_and_picture_and_restores_focus() {
         .await
         .unwrap();
     browser
-        .click(".people-profile-menu button:first-child")
+        .click(".people-profile-menu [role=menuitem]:first-child")
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.people-profile-dialog').open && document.activeElement.name === 'name'").await.unwrap();
@@ -227,10 +227,10 @@ async fn people_profile_menu_edits_name_and_picture_and_restores_focus() {
         .await
         .unwrap();
     browser
-        .click(".people-profile-menu button:last-child")
+        .click(".people-profile-menu [role=menuitem]:last-of-type")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('.people-profile-dialog').open && document.activeElement.textContent.includes('Upload') && document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
+    browser.wait_for("document.querySelector('.picture-editor').open && document.activeElement.textContent.includes('Upload') && document.querySelector('.picture-editor button[type=submit]').disabled").await.unwrap();
     let compact: bool = browser.eval("(() => {const dialog = document.querySelector('.picture-editor'); const frame = dialog.getBoundingClientRect(); const preview = dialog.querySelector('.picture-editor-preview').getBoundingClientRect(); return frame.width <= 640 && frame.height <= 504 && preview.width <= 196 && preview.height <= 196 && dialog.scrollWidth <= dialog.clientWidth && dialog.scrollHeight <= dialog.clientHeight;})()").await.unwrap();
     assert!(
         compact,
@@ -239,26 +239,26 @@ async fn people_profile_menu_edits_name_and_picture_and_restores_focus() {
     use base64::Engine;
     let encoded = base64::engine::general_purpose::STANDARD.encode(png());
     let _: bool = browser.eval(&format!("const transfer = new DataTransfer(); transfer.items.add(new File([Uint8Array.from(atob({}), c => c.charCodeAt(0))], 'portrait.png', {{type:'image/png'}})); const input = document.querySelector('input[name=picture]'); input.files = transfer.files; input.dispatchEvent(new Event('change', {{bubbles:true}})); true",json!(encoded))).await.unwrap();
-    browser.wait_for("document.querySelector('.picture-editor-preview img')?.src.startsWith('data:image/png') && !document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
+    browser.wait_for("document.querySelector('.picture-editor-preview img')?.src.startsWith('data:image/png') && !document.querySelector('.picture-editor button[type=submit]').disabled").await.unwrap();
     browser
-        .click(".people-profile-dialog button[type=submit]")
+        .click(".picture-editor button[type=submit]")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('.people-profile-dialog').open && Array.from(document.querySelectorAll('img[src=\"/profile-picture\"]')).length >= 3 && Array.from(document.querySelectorAll('img[src=\"/profile-picture\"]')).every(img => img.complete && img.naturalWidth === 256)").await.unwrap();
+    browser.wait_for("!document.querySelector('.picture-editor').open && Array.from(document.querySelectorAll('img[src=\"/profile-picture\"]')).length >= 3 && Array.from(document.querySelectorAll('img[src=\"/profile-picture\"]')).every(img => img.complete && img.naturalWidth === 256)").await.unwrap();
     browser
         .click("aside button[aria-label='More options']")
         .await
         .unwrap();
     browser
-        .click(".people-profile-menu button:last-child")
+        .click(".people-profile-menu [role=menuitem]:last-of-type")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('.picture-editor').open && document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
+    browser.wait_for("document.querySelector('.picture-editor').open && document.querySelector('.picture-editor button[type=submit]').disabled").await.unwrap();
     browser
         .click(".picture-editor-actions button:nth-child(2)")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('.picture-editor-preview span').hidden && !document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
+    browser.wait_for("!document.querySelector('.picture-editor-preview span').hidden && !document.querySelector('.picture-editor button[type=submit]').disabled").await.unwrap();
     // Closing discards the pending removal.
     browser.press("Escape").await.unwrap();
     browser
@@ -266,28 +266,28 @@ async fn people_profile_menu_edits_name_and_picture_and_restores_focus() {
         .await
         .unwrap();
     browser
-        .click(".people-profile-menu button:last-child")
+        .click(".people-profile-menu [role=menuitem]:last-of-type")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('.picture-editor-preview img').hidden && document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
+    browser.wait_for("!document.querySelector('.picture-editor-preview img').hidden && document.querySelector('.picture-editor button[type=submit]').disabled").await.unwrap();
     browser
         .click(".picture-editor-actions button:nth-child(2)")
         .await
         .unwrap();
     browser
-        .click(".people-profile-dialog button[type=submit]")
+        .click(".picture-editor button[type=submit]")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('.people-profile-dialog').open && document.querySelectorAll('img[src=\"/profile-picture\"]').length === 0").await.unwrap();
+    browser.wait_for("!document.querySelector('.picture-editor').open && document.querySelectorAll('img[src=\"/profile-picture\"]').length === 0").await.unwrap();
     browser
         .click("aside button[aria-label='More options']")
         .await
         .unwrap();
     browser
-        .click(".people-profile-menu button:first-child")
+        .click(".people-profile-menu [role=menuitem]:first-child")
         .await
         .unwrap();
     browser.press("Escape").await.unwrap();
-    browser.wait_for("!document.querySelector('.people-profile-dialog').open && document.activeElement.getAttribute('aria-label') === 'More options'").await.unwrap();
+    browser.wait_for("!document.querySelector('.picture-editor').open && document.activeElement.getAttribute('aria-label') === 'More options'").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
