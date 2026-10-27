@@ -25,9 +25,6 @@ pub async fn page() -> Result<Html> {
         <AppShell active="account">
             <main class="flex-1 overflow-y-auto p-8 sm:p-12">
                 <div class="max-w-2xl">
-                    <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-ink">
-                        "YOUR WORKSPACE"
-                    </p>
                     <h1 class="text-3xl font-semibold">"My account"</h1>
                     <p class="mb-8 mt-2 text-sm text-muted">"Your profile and sign-in security."</p>
                     <section class="rounded-xl border border-edge bg-surface p-6">
