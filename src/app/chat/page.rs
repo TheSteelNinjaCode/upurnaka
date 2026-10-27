@@ -133,21 +133,40 @@ pub async fn page() -> Html {
                             </span>
                             "Chats"
                         </button>
-                        <button
-                            type="button"
+                        <div
                             class={selected === "new" ? ROW_ON : ROW_OFF}
                             hidden={!chatsOpen || !newRowMatches}
-                            onclick={openNewChat()}
-                            disabled={sending}
-                            aria-label="New message"
                         >
-                            <span
-                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-hover text-muted"
+                            <button
+                                type="button"
+                                class="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                onclick={openNewChat()}
+                                disabled={sending}
+                                aria-label="New message"
                             >
-                                <Icon name="chat" class="h-4 w-4" />
-                            </span>
-                            <span class="truncate text-[13px] font-semibold">"New message"</span>
-                        </button>
+                                <span
+                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-hover text-muted"
+                                >
+                                    <Icon name="chat" class="h-4 w-4" />
+                                </span>
+                                <span class="truncate text-[13px] font-semibold">
+                                    "New message"
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted hover:bg-hover hover:text-ink"
+                                aria-label="New message options"
+                                aria-haspopup="menu"
+                                aria-expanded={draftMenuOpen}
+                                aria-controls={draftMenuId}
+                                pp-ref={draftMenuTrigger}
+                                onclick={openDraftMenu()}
+                                disabled={sending}
+                            >
+                                <Icon name="more" class="h-5 w-5" />
+                            </button>
+                        </div>
                         <template pp-for="thread in visibleThreads">
                             <button
                                 key={thread.id}
@@ -562,7 +581,42 @@ pub async fn page() -> Html {
                         </button>
                     </form>
                 </section>
+                <div
+                    id={draftMenuId}
+                    pp-ref={draftMenu}
+                    popover="auto"
+                    role="menu"
+                    aria-label="New message options"
+                    class="new-chat-menu rounded-md border border-edge bg-raised p-1 text-sm text-ink shadow-xl"
+                    pp-style={draftMenuPosition}
+                    ontoggle={setDraftMenuOpen(event.newState === "open")}
+                    onkeydown={handleDraftMenuKey(event)}
+                >
+                    <button
+                        type="button"
+                        role="menuitem"
+                        pp-ref={draftWindowAction}
+                        class="flex w-full items-center gap-3 rounded px-3 py-2 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-ink"
+                        onclick={openDraftWindow()}
+                        disabled={sending}
+                    >
+                        <Icon name="maximize" class="h-4 w-4" />
+                        "Open in new window"
+                    </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        pp-ref={draftDiscardAction}
+                        class="flex w-full items-center gap-3 rounded px-3 py-2 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-ink"
+                        onclick={discardNewChat()}
+                        disabled={sending}
+                    >
+                        <Icon name="trash" class="h-4 w-4" />
+                        "Discard"
+                    </button>
+                </div>
                 <style>r##"
+                    .new-chat-menu {position:fixed;inset:auto;margin:0;width:240px;max-width:calc(100vw - 16px);}
                     /* The new-conversation illustration: layered gradients and pseudo-element
                        shapes that utilities cannot express readably. */
                     .new-chat-bubble {position:absolute;inset:14px 16px 10px 28px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#48484d,#29292f 58%,#1f1f24 80%);box-shadow:inset 3px 2px 7px #ffffff20,4px 5px 8px #0005;}
@@ -607,6 +661,13 @@ pub async fn page() -> Html {
                     const [recipientError, setRecipientError] = pp.state("");
                     const [groupName, setGroupName] = pp.state("");
                     const [groupNameOpen, setGroupNameOpen] = pp.state(false);
+                    const draftMenu = pp.ref(null);
+                    const draftMenuTrigger = pp.ref(null);
+                    const draftWindowAction = pp.ref(null);
+                    const draftDiscardAction = pp.ref(null);
+                    const draftMenuId = pp.id();
+                    const [draftMenuOpen, setDraftMenuOpen] = pp.state(false);
+                    const [draftMenuPosition, setDraftMenuPosition] = pp.state("");
                     const recipientInput = pp.ref(null);
                     const groupNameInput = pp.ref(null);
                     const recipientId = pp.id();
@@ -653,6 +714,66 @@ pub async fn page() -> Html {
                         setConversationQuery(""); setConversationSearchOpen(false); setError("");
                         recipientInput.current?.focus();
                     }
+                    function openDraftMenu() {
+                        if (sending) return;
+                        if (draftMenu.current?.matches(':popover-open')) {draftMenu.current.hidePopover(); return;}
+                        const anchor = draftMenuTrigger.current.getBoundingClientRect();
+                        const width = Math.min(240, innerWidth - 16);
+                        const left = Math.max(8, Math.min(anchor.left, innerWidth - width - 8));
+                        const top = Math.max(8, Math.min(anchor.bottom + 4, innerHeight - 100));
+                        setDraftMenuPosition('left:' + left + 'px;top:' + top + 'px');
+                        draftMenu.current?.showPopover();
+                        draftWindowAction.current?.focus();
+                    }
+                    function handleDraftMenuKey(event) {
+                        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                            event.preventDefault();
+                            const first = event.key === 'Home' || (event.key !== 'End' && document.activeElement !== draftWindowAction.current);
+                            (first ? draftWindowAction : draftDiscardAction).current?.focus();
+                        } else if (event.key === 'Escape') {
+                            event.preventDefault(); draftMenu.current?.hidePopover(); draftMenuTrigger.current?.focus();
+                        } else if (event.key === 'Tab') {
+                            draftMenu.current?.hidePopover(); draftMenuTrigger.current?.focus();
+                        }
+                    }
+                    function discardNewChat() {
+                        if (sending) return;
+                        draftMenu.current?.hidePopover();
+                        setHasNewChat(false); setNewDraft(''); setRecipients([]); setRecipientQuery('');
+                        setRecipientError(''); setGroupName(''); setGroupNameOpen(false);
+                        if (newChat) selectThread('self');
+                        setError(''); composerInput.current?.focus();
+                    }
+                    function openDraftWindow() {
+                        if (sending) return;
+                        draftMenu.current?.hidePopover();
+                        const popup = window.open('about:blank', '_blank', 'popup,width=1000,height=760');
+                        if (!popup) {setError('Allow pop-ups to open this draft in a new window.'); return;}
+                        try {
+                            popup.sessionStorage.setItem('upurnaka.chat.compose', JSON.stringify({owner:selfEmail, draft:newDraft, recipients, recipientQuery, groupName, groupNameOpen}));
+                            popup.opener = null;
+                            popup.location.replace('/chat?compose=1');
+                        } catch (failure) {
+                            popup.close(); setError('The draft could not be opened. Please try again.');
+                        }
+                    }
+                    pp.effect(() => {
+                        const params = new URLSearchParams(location.search);
+                        if (params.get('compose') !== '1') return;
+                        openNewChat();
+                        try {
+                            const raw = sessionStorage.getItem('upurnaka.chat.compose');
+                            sessionStorage.removeItem('upurnaka.chat.compose');
+                            const saved = raw ? JSON.parse(raw) : null;
+                            if (saved?.owner === selfEmail) {
+                                setNewDraft(typeof saved.draft === 'string' ? saved.draft : '');
+                                setRecipients(Array.isArray(saved.recipients) ? saved.recipients.filter(value => typeof value === 'string').slice(0, 20) : []);
+                                setRecipientQuery(typeof saved.recipientQuery === 'string' ? saved.recipientQuery : '');
+                                setGroupName(typeof saved.groupName === 'string' ? saved.groupName : '');
+                                setGroupNameOpen(saved.groupNameOpen === true);
+                            }
+                        } catch (failure) {setError('The draft could not be restored. You can start a new message.');}
+                    }, []);
                     pp.effect(() => {if (newChat) recipientInput.current?.focus();}, [newChat]);
                     pp.effect(() => {if (newChat && groupNameOpen) groupNameInput.current?.focus();}, [newChat, groupNameOpen]);
                     function toggleGroupName() {

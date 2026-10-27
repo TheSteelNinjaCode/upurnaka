@@ -2825,6 +2825,10 @@
   .focus-visible\:text-brand-ink:focus-visible {
     color: var(--color-brand-ink);
   }
+  .focus-visible\:outline:focus-visible {
+    outline-style: var(--tw-outline-style);
+    outline-width: 1px;
+  }
   .focus-visible\:outline-1:focus-visible {
     outline-style: var(--tw-outline-style);
     outline-width: 1px;
@@ -2835,6 +2839,9 @@
   }
   .focus-visible\:outline-offset-3:focus-visible {
     outline-offset: 3px;
+  }
+  .focus-visible\:outline-brand-ink:focus-visible {
+    outline-color: var(--color-brand-ink);
   }
   .focus-visible\:outline-ink:focus-visible {
     outline-color: var(--color-ink);

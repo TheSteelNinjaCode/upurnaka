@@ -598,3 +598,106 @@ async fn new_chat_composes_a_group_and_preserves_other_drafts() {
     assert!(fills, "new chat must retain the full-height shell layout");
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
+
+#[tokio::test]
+async fn new_message_menu_opens_a_window_and_discards_only_its_draft() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser.click("textarea").await.unwrap();
+    browser.type_text("Keep my self draft").await.unwrap();
+    browser
+        .click("button[aria-label='New chat']")
+        .await
+        .unwrap();
+    browser.type_text("alex@example.com").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser
+        .click("button[aria-label='Show group name']")
+        .await
+        .unwrap();
+    browser.type_text("Window team").await.unwrap();
+    browser.click("textarea").await.unwrap();
+    browser.type_text("Draft for another window").await.unwrap();
+    browser
+        .click("button[aria-label='New message options']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.new-chat-menu').matches(':popover-open') && document.activeElement.textContent.includes('Open in new window')").await.unwrap();
+    browser.press("ArrowDown").await.unwrap();
+    browser
+        .wait_for("document.activeElement.textContent.includes('Discard')")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("!document.querySelector('.new-chat-menu').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'New message options'").await.unwrap();
+    browser
+        .click("button[aria-label='New message options']")
+        .await
+        .unwrap();
+    browser.click(".new-chat-empty").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.new-chat-menu').matches(':popover-open')")
+        .await
+        .unwrap();
+    // Keep a handle to the real second window so its restored state can be checked.
+    let _: bool = browser.eval("window.originalOpen = window.open.bind(window); window.open = (...args) => { window.draftPopup = window.originalOpen(...args); return window.draftPopup; }; true").await.unwrap();
+    browser
+        .click("button[aria-label='New message options']")
+        .await
+        .unwrap();
+    browser
+        .click(".new-chat-menu button:first-child")
+        .await
+        .unwrap();
+    browser.wait_for("window.draftPopup && window.draftPopup.location.pathname === '/chat' && window.draftPopup.document.querySelector('textarea')?.value === 'Draft for another window' && window.draftPopup.document.querySelectorAll('.new-chat-chip').length === 1 && window.draftPopup.document.querySelector('[aria-label=\"Group name\"]')?.value === 'Window team'").await.unwrap();
+    let detached: bool = browser.eval("window.draftPopup.opener === null && window.draftPopup.sessionStorage.getItem('upurnaka.chat.compose') === null").await.unwrap();
+    assert!(
+        detached,
+        "the restored window must detach its opener and consume its transfer data"
+    );
+    let _: bool = browser
+        .eval("window.draftPopup.close(); true")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('textarea').value === 'Draft for another window'")
+        .await
+        .unwrap();
+    // A blocked popup must leave the source draft available.
+    let _: bool = browser
+        .eval("window.open = () => null; true")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='New message options']")
+        .await
+        .unwrap();
+    browser
+        .click(".new-chat-menu button:first-child")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('main').textContent.includes('Allow pop-ups') && document.querySelector('textarea').value === 'Draft for another window'").await.unwrap();
+    browser
+        .click("button[aria-label='New message options']")
+        .await
+        .unwrap();
+    browser
+        .click(".new-chat-menu button:last-child")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.new-chat-header').hidden && document.querySelector('textarea').value === 'Keep my self draft' && document.querySelector('button[aria-label=\"New message\"]').parentElement.hidden").await.unwrap();
+    browser
+        .click("button[aria-label='New chat']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('textarea').value === '' && document.querySelectorAll('.new-chat-chip').length === 0 && document.querySelector('[aria-label=Recipients]').value === '' && document.querySelector('[aria-label=\"Group name\"]').value === ''").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
