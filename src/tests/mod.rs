@@ -9,6 +9,7 @@ use support::*;
 
 mod auth;
 mod database;
+pub(crate) mod giphy;
 mod meeting_controls;
 mod meetings;
 mod pages;

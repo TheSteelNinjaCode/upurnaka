@@ -659,7 +659,7 @@ async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
         .await
         .unwrap();
     browser.press("ArrowRight").await.unwrap();
-    browser.wait_for("document.querySelector('.chat-emoji-tabs button:nth-child(3)').getAttribute('aria-selected') === 'true' && document.querySelector('.chat-emoji-content').textContent.includes('GIF search is not connected yet.')").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-emoji-tabs button:nth-child(3)').getAttribute('aria-selected') === 'true' && !document.querySelector('.chat-giphy-attribution').hidden").await.unwrap();
     browser.press("Escape").await.unwrap();
     browser.wait_for("!document.querySelector('.chat-emoji-picker').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'Emoji'").await.unwrap();
     browser.click("button[aria-label=Emoji]").await.unwrap();

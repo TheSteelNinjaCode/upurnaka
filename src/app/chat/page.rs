@@ -17,6 +17,10 @@ pub fn metadata() -> Metadata {
 
 pub async fn page() -> Html {
     let user = crate::auth::current().unwrap_or_default();
+    // GIPHY requires direct browser requests; this is a public web integration key.
+    let giphy_key = std::env::var("GIPHY_API_KEY").unwrap_or_default();
+    #[cfg(test)]
+    let giphy_key = crate::app_tests::giphy::key_for(&user.id).unwrap_or(giphy_key);
     let initials = user.initials();
     let self_label = format!("{} (You)", user.name);
     html! {
@@ -416,12 +420,40 @@ pub async fn page() -> Html {
                                         >
                                             {message.text}
                                         </p>
+                                        <template
+                                            pp-for="url in message.gif_url ? [message.gif_url] : []"
+                                        >
+                                            <img
+                                                key={url}
+                                                src={url}
+                                                alt="GIF from GIPHY"
+                                                class="chat-message-gif"
+                                                loading="lazy"
+                                            />
+                                        </template>
                                     </div>
                                 </div>
                             </template>
                         </div>
                     </div>
                     <div class="shrink-0 px-8 pb-6 pt-2">
+                        <div class="chat-draft-gif" hidden={!draftGif}>
+                            <template pp-for="gif in draftGif ? [draftGif] : []">
+                                <img
+                                    key={gif.id}
+                                    src={gif.url}
+                                    alt={gif.title || "Selected GIF from GIPHY"}
+                                />
+                            </template>
+                            <button
+                                type="button"
+                                aria-label="Remove selected GIF"
+                                onclick={setDraftGif(null)}
+                                disabled={sending}
+                            >
+                                <Icon name="close" class="h-4 w-4" />
+                            </button>
+                        </div>
                         <form
                             class="flex items-center gap-2 rounded-lg border border-edge bg-raised px-3 py-1.5 focus-within:border-brand"
                             onsubmit={send(event)}
@@ -494,7 +526,7 @@ pub async fn page() -> Html {
                                 class="flex h-8 w-8 items-center justify-center rounded text-brand-ink transition-colors hover:bg-hover disabled:text-subtle"
                                 title="Send"
                                 aria-label="Send"
-                                disabled={draft.trim().length === 0 || sending || (newChat && recipients.length === 0)}
+                                disabled={(!draft.trim() && !draftGif) || sending || (newChat && recipients.length === 0)}
                             >
                                 <Icon name="send" class="h-[18px] w-[18px]" />
                             </button>
@@ -672,14 +704,14 @@ pub async fn page() -> Html {
                             "GIFs"
                         </button>
                     </div>
-                    <div class="chat-emoji-search" hidden={emojiTab === "gifs"}>
+                    <div class="chat-emoji-search">
                         <input
                             type="search"
                             pp-ref={emojiSearchInput}
                             aria-label="Find something fun"
                             placeholder="Find something fun"
                             value={emojiQuery}
-                            oninput={setEmojiQuery(target.value)}
+                            oninput={searchMedia(target.value)}
                         />
                         <Icon name="search" class="h-[18px] w-[18px]" />
                     </div>
@@ -752,9 +784,75 @@ pub async fn page() -> Html {
                                     <Icon name="chevron-right" class="h-4 w-4" />
                                 </button>
                             </div>
-                            <p class="chat-emoji-empty">"GIF search is not connected yet."</p>
+                            <p class="chat-emoji-empty" role="status" hidden={!gifLoading}>
+                                "Loading GIFs…"
+                            </p>
+                            <p class="chat-emoji-empty" role="status" hidden={!gifError}>
+                                {gifError}
+                            </p>
+                            <button
+                                type="button"
+                                class="chat-gif-retry"
+                                hidden={!gifError || !giphyKey}
+                                onclick={setGifRetry(value => value + 1)}
+                            >
+                                "Try again"
+                            </button>
+                            <div
+                                class="chat-gif-grid"
+                                aria-label="GIF choices"
+                                aria-busy={gifLoading}
+                            >
+                                <template pp-for="gif in visibleGifs">
+                                    <button
+                                        key={gif.id}
+                                        type="button"
+                                        aria-label={gif.title || "Choose GIF"}
+                                        onclick={chooseGif(gif)}
+                                    >
+                                        <img
+                                            src={gif.preview}
+                                            alt={gif.title || "GIF from GIPHY"}
+                                            loading="lazy"
+                                        />
+                                    </button>
+                                </template>
+                            </div>
+                            <p
+                                class="chat-emoji-empty"
+                                role="status"
+                                hidden={gifLoading || !!gifError || gifs.length > 0}
+                            >
+                                "No GIFs found. Try another search."
+                            </p>
+                            <button
+                                type="button"
+                                class="chat-gif-more"
+                                hidden={emojiTab !== "gifs" || !gifMore || !!gifError}
+                                disabled={gifLoading}
+                                onclick={setGifOffset(gifs.length)}
+                            >
+                                "Load more"
+                            </button>
                         </div>
                     </div>
+                    <footer class="chat-giphy-attribution" hidden={emojiTab === "emoji"}>
+                        <a
+                            href="https://giphy.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="GIFs powered by GIPHY"
+                        >
+                            <img src="/images/powered-by-giphy.png" alt="GIFs powered by GIPHY" />
+                        </a>
+                        <a
+                            href="https://support.giphy.com/hc/en-us/articles/360020027752-GIPHY-API-Terms-of-Service"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            "View Terms"
+                        </a>
+                    </footer>
                 </section>
                 <style>r##"
                     .chat-emoji-picker {position:fixed;inset:auto;margin:0;width:360px;max-width:calc(100vw - 16px);height:480px;padding:0;border:1px solid #393939;border-radius:8px;background:#292929;color:#f5f5f5;box-shadow:0 12px 32px #0006;overflow:hidden;}
@@ -778,6 +876,18 @@ pub async fn page() -> Html {
                     .chat-emoji-categories button {width:34px;height:32px;border-radius:4px;font-size:19px;}
                     .chat-emoji-categories button[aria-pressed=true] {background:#514b79;}
                     .chat-emoji-empty {padding:16px 0;font-size:13px;color:#b6b6bd;line-height:1.5;}
+                    .chat-gif-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+                    .chat-gif-grid button {height:92px;border-radius:5px;overflow:hidden;background:#202020;}
+                    .chat-gif-grid img {width:100%;height:100%;object-fit:cover;}
+                    .chat-giphy-attribution {flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 12px;border-top:1px solid #393939;background:#242424;font-size:12px;}
+                    .chat-giphy-attribution img {width:125px;height:auto;}
+                    .chat-giphy-attribution > a:last-child {color:#a89aff;}
+                    .chat-gif-more,.chat-gif-retry {padding:8px 12px;border-radius:4px;color:#c4baff;font-size:13px;}
+                    .chat-gif-more {display:block;margin:10px auto 0;}
+                    .chat-message-gif {display:block;max-width:min(320px,100%);max-height:280px;border-radius:8px;margin-top:6px;}
+                    .chat-draft-gif {position:relative;display:inline-flex;margin-bottom:8px;padding:8px;border:1px solid #393939;border-radius:8px;}
+                    .chat-draft-gif img {max-width:180px;max-height:120px;border-radius:4px;}
+                    .chat-draft-gif button {position:absolute;right:4px;top:4px;padding:5px;border-radius:50%;background:#202020;color:white;}
                     .new-chat-menu {position:fixed;inset:auto;margin:0;width:240px;max-width:calc(100vw - 16px);}
                     /* The new-conversation illustration: layered gradients and pseudo-element
                        shapes that utilities cannot express readably. */
@@ -814,6 +924,14 @@ pub async fn page() -> Html {
                     const [emojiTab, setEmojiTab] = pp.state('all');
                     const [emojiQuery, setEmojiQuery] = pp.state('');
                     const [emojiCategory, setEmojiCategory] = pp.state('faces');
+                    const giphyKey = @{giphy_key};
+                    const [gifs, setGifs] = pp.state([]);
+                    const [gifLoading, setGifLoading] = pp.state(false);
+                    const [gifError, setGifError] = pp.state('');
+                    const [gifOffset, setGifOffset] = pp.state(0);
+                    const [gifMore, setGifMore] = pp.state(false);
+                    const [gifRetry, setGifRetry] = pp.state(0);
+                    const visibleGifs = emojiTab === 'all' ? gifs.slice(0,6) : gifs;
                     const emojiCategories = [
                         {id:'faces', name:'Smileys and emotions', icon:'😀', entries:[['😮','Surprised wow'],['😰','Anxious worried'],['😠','Angry'],['😍','Heart eyes love'],['😎','Cool sunglasses'],['🙌','Raised hands hooray'],['🫶','Heart hands'],['🔥','Fire lit'],['🎉','Party celebration'],['👀','Eyes looking'],['💯','Hundred perfect'],['💡','Light bulb idea'],['😀','Grinning smile happy'],['😂','Tears of joy laugh'],['😊','Smiling blush'],['🥰','Smiling hearts'],['🤔','Thinking'],['😭','Crying sad'],['🥳','Party face'],['😴','Sleeping tired'],['🤩','Star struck'],['😅','Sweat smile'],['😉','Wink'],['🤗','Hug']]},
                         {id:'hands', name:'People and gestures', icon:'👋', entries:[['👋','Wave hello goodbye'],['👍','Thumbs up yes'],['👎','Thumbs down no'],['👏','Clap applause'],['🙏','Thanks prayer please'],['🤝','Handshake agreement'],['✌️','Victory peace'],['💪','Flex muscle strong'],['🤞','Fingers crossed luck'],['👌','Okay hand'],['🫡','Salute'],['🤷','Shrug']]},
@@ -841,9 +959,10 @@ pub async fn page() -> Html {
                     const selfName = @{user.name.as_str()};
                     const selfLabel = @{self_label.as_str()};
                     const selfEmail = @{user.email.as_str()};
-                    const [threads, setThreads] = pp.state([{id:"self", label:selfLabel, messages:[], draft:"", recipients:[]}]);
+                    const [threads, setThreads] = pp.state([{id:"self", label:selfLabel, messages:[], draft:"", gif:null, recipients:[]}]);
                     const [hasNewChat, setHasNewChat] = pp.state(false);
                     const [newDraft, setNewDraft] = pp.state("");
+                    const [newGif, setNewGif] = pp.state(null);
                     const [recipients, setRecipients] = pp.state([]);
                     const [recipientQuery, setRecipientQuery] = pp.state("");
                     const [recipientError, setRecipientError] = pp.state("");
@@ -865,6 +984,7 @@ pub async fn page() -> Html {
                     const currentThread = threads.find(thread => thread.id === selected) || threads[0];
                     const messages = newChat ? [] : currentThread.messages;
                     const draft = newChat ? newDraft : currentThread.draft;
+                    const draftGif = newChat ? newGif : currentThread.gif;
                     const suggestSelf = !recipients.includes(selfLabel) && recipientQuery.trim().length > 0 && (selfLabel + ' ' + selfEmail).toLocaleLowerCase().includes(recipientQuery.toLocaleLowerCase());
                     const [sending, setSending] = pp.state(false);
                     const [error, setError] = pp.state("");
@@ -891,6 +1011,50 @@ pub async fn page() -> Html {
                         if (newChat) setNewDraft(value);
                         else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread, draft:value} : thread));
                     }
+                    function setDraftGif(gif) {
+                        if (newChat) setNewGif(gif);
+                        else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread, gif} : thread));
+                    }
+                    function searchMedia(value) {setEmojiQuery(value); setGifOffset(0);}
+                    function giphyImage(value) {
+                        try {const url = new URL(value); return url.protocol === 'https:' && /^(media[0-4]?|i)\.giphy\.com$/.test(url.hostname) && !url.username && !url.password && !url.port ? url.href : '';}
+                        catch (failure) {return '';}
+                    }
+                    function chooseGif(gif) {
+                        if (sending) return;
+                        setDraftGif({id:gif.id, url:gif.url, title:gif.title});
+                        emojiPicker.current.hidePopover(); composerInput.current?.focus();
+                    }
+                    pp.effect(() => {
+                        if (!emojiOpen || emojiTab === 'emoji') return;
+                        if (!giphyKey) {setGifError('GIPHY is not configured yet.'); setGifLoading(false); return;}
+                        let active = true;
+                        const controller = new AbortController();
+                        setGifLoading(true); setGifError('');
+                        if (!gifOffset) setGifs([]);
+                        const timer = setTimeout(async () => {
+                            const timeout = setTimeout(() => controller.abort(), 10000);
+                            try {
+                                const url = new URL('https://api.giphy.com/v1/gifs/' + (emojiQuery.trim() ? 'search' : 'trending'));
+                                url.search = new URLSearchParams({api_key:giphyKey, limit:'18', offset:String(gifOffset), rating:'g', ...(emojiQuery.trim() ? {q:emojiQuery} : {})});
+                                const response = await fetch(url, {signal:controller.signal, credentials:'omit', referrerPolicy:'no-referrer'});
+                                if (!response.ok) throw new Error(response.status === 429 ? 'GIPHY is busy. Please try again later.' : 'GIFs could not be loaded. Please try again.');
+                                const body = await response.json();
+                                if (!Array.isArray(body.data)) throw new Error('GIFs could not be loaded. Please try again.');
+                                const items = body.data.map(item => {
+                                    if (!/^[A-Za-z0-9]{1,80}$/.test(item.id)) throw new Error('GIPHY returned an unsupported GIF. Please try again.');
+                                    const url = 'https://media.giphy.com/media/' + item.id + '/giphy.gif';
+                                    return {id:item.id, title:item.title || 'GIF from GIPHY', url, preview:giphyImage(item.images?.fixed_height_small?.url) || url};
+                                });
+                                if (!active) return;
+                                setGifs(previous => gifOffset ? previous.concat(items.filter(item => !previous.some(existing => existing.id === item.id))) : items);
+                                setGifMore(items.length > 0 && gifOffset + items.length < Math.min(499, body.pagination?.total_count || 0));
+                            } catch (failure) {
+                                if (active) setGifError(failure.name === 'AbortError' ? 'GIPHY took too long to respond. Please try again.' : (failure.message === 'Failed to fetch' ? 'GIFs could not be loaded. Check your connection and try again.' : failure.message));
+                            } finally {clearTimeout(timeout); if (active) setGifLoading(false);}
+                        }, emojiQuery.trim() ? 350 : 0);
+                        return () => {active = false; clearTimeout(timer); controller.abort();};
+                    }, [emojiOpen, emojiTab, emojiQuery, gifOffset, gifRetry]);
                     function toggleEmojiPicker() {
                         if (emojiPicker.current.matches(':popover-open')) {emojiPicker.current.hidePopover(); return;}
                         const input = composerInput.current;
@@ -968,7 +1132,7 @@ pub async fn page() -> Html {
                     function discardNewChat() {
                         if (sending) return;
                         draftMenu.current?.hidePopover();
-                        setHasNewChat(false); setNewDraft(''); setRecipients([]); setRecipientQuery('');
+                        setHasNewChat(false); setNewDraft(''); setNewGif(null); setRecipients([]); setRecipientQuery('');
                         setRecipientError(''); setGroupName(''); setGroupNameOpen(false);
                         if (newChat) selectThread('self');
                         setError(''); composerInput.current?.focus();
@@ -979,7 +1143,7 @@ pub async fn page() -> Html {
                         const popup = window.open('about:blank', '_blank', 'popup,width=1000,height=760');
                         if (!popup) {setError('Allow pop-ups to open this draft in a new window.'); return;}
                         try {
-                            popup.sessionStorage.setItem('upurnaka.chat.compose', JSON.stringify({owner:selfEmail, draft:newDraft, recipients, recipientQuery, groupName, groupNameOpen}));
+                            popup.sessionStorage.setItem('upurnaka.chat.compose', JSON.stringify({owner:selfEmail, draft:newDraft, gif:newGif, recipients, recipientQuery, groupName, groupNameOpen}));
                             popup.opener = null;
                             popup.location.replace('/chat?compose=1');
                         } catch (failure) {
@@ -996,6 +1160,7 @@ pub async fn page() -> Html {
                             const saved = raw ? JSON.parse(raw) : null;
                             if (saved?.owner === selfEmail) {
                                 setNewDraft(typeof saved.draft === 'string' ? saved.draft : '');
+                                if (saved.gif && /^[A-Za-z0-9]{1,80}$/.test(saved.gif.id)) setNewGif({id:saved.gif.id, title:String(saved.gif.title || 'GIF from GIPHY'), url:'https://media.giphy.com/media/' + saved.gif.id + '/giphy.gif'});
                                 setRecipients(Array.isArray(saved.recipients) ? saved.recipients.filter(value => typeof value === 'string').slice(0, 20) : []);
                                 setRecipientQuery(typeof saved.recipientQuery === 'string' ? saved.recipientQuery : '');
                                 setGroupName(typeof saved.groupName === 'string' ? saved.groupName : '');
@@ -1183,7 +1348,7 @@ pub async fn page() -> Html {
                     async function send(event) {
                         event.preventDefault();
                         const text = draft.trim();
-                        if (!text || sending || (newChat && recipients.length === 0)) return;
+                        if ((!text && !draftGif) || sending || (newChat && recipients.length === 0)) return;
                         const targetId = selected;
                         const targetLabel = groupName.trim() || recipients.join(", ");
                         const targetRecipients = [...recipients];
@@ -1191,14 +1356,14 @@ pub async fn page() -> Html {
                         setSending(true);
                         setError("");
                         try {
-                            const message = await pp.rpc("send_message", { text });
+                            const message = await pp.rpc("send_message", { text, gif_id: draftGif?.id || null });
                             if (targetId === "new") {
                                 const id = "chat-" + crypto.randomUUID();
-                                setThreads(previous => [...previous, {id, label:targetLabel, recipients:targetRecipients, messages:[message], draft:""}]);
-                                setSelected(id); setHasNewChat(false); setNewDraft("");
+                                setThreads(previous => [...previous, {id, label:targetLabel, recipients:targetRecipients, messages:[message], draft:"", gif:null}]);
+                                setSelected(id); setHasNewChat(false); setNewDraft(""); setNewGif(null);
                                 setRecipients([]); setRecipientQuery(""); setGroupName(""); setGroupNameOpen(false);
                             } else {
-                                setThreads(previous => previous.map(thread => thread.id === targetId ? {...thread, messages:[...thread.messages, message], draft:""} : thread));
+                                setThreads(previous => previous.map(thread => thread.id === targetId ? {...thread, messages:[...thread.messages, message], draft:"", gif:null} : thread));
                             }
                         } catch (failure) {
                             setError(failure.message || "The message could not be sent.");
@@ -1220,6 +1385,7 @@ pub struct Message {
     pub initials: String,
     pub time: String,
     pub text: String,
+    pub gif_url: Option<String>,
 }
 
 /// Accept a line the composer sent.
@@ -1229,13 +1395,24 @@ pub struct Message {
 /// comes from the application clock rather than from whatever the device
 /// believes the hour is.
 #[rpc(auth)]
-pub async fn send_message(text: String) -> Result<Message> {
+pub async fn send_message(text: String, gif_id: Option<String>) -> Result<Message> {
     let text = text.trim().to_string();
 
     let mut validator = Validator::new();
     validator
-        .required("text", &text)
+        .check(
+            "text",
+            !text.is_empty() || gif_id.is_some(),
+            "Write a message or choose a GIF.",
+        )
         .max_chars("text", &text, 2000);
+    if let Some(id) = &gif_id {
+        validator.check(
+            "gif_id",
+            !id.is_empty() && id.len() <= 80 && id.bytes().all(|c| c.is_ascii_alphanumeric()),
+            "Choose a valid GIPHY GIF.",
+        );
+    }
     validator.finish()?;
 
     let now = time::now();
@@ -1248,6 +1425,7 @@ pub async fn send_message(text: String) -> Result<Message> {
         initials,
         time: now.format("%-I:%M %p").to_string(),
         text,
+        gif_url: gif_id.map(|id| format!("https://media.giphy.com/media/{id}/giphy.gif")),
     })
 }
 
