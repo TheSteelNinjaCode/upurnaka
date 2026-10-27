@@ -19,7 +19,7 @@ async fn meet_popovers_anchor_dismiss_and_open_the_calendar_form() {
         .click("button[aria-controls='meeting-schedule-options']")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('#meeting-schedule-options').hidden && document.activeElement.textContent.includes('Schedule in Teams')").await.unwrap();
+    browser.wait_for("!document.querySelector('#meeting-schedule-options').hidden && document.activeElement.textContent.includes('Schedule in Upurnaka')").await.unwrap();
     browser
         .click("button[aria-controls='meeting-join-dialog']")
         .await

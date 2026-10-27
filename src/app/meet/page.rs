@@ -105,7 +105,7 @@ pub async fn page() -> Result {
                                     class="flex min-h-10 items-center gap-3 rounded px-3 text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ink"
                                 >
                                     <Icon name="people" class="h-5 w-5 text-brand-ink" />
-                                    "Schedule in Teams"
+                                    "Schedule in Upurnaka"
                                 </a>
                                 <a
                                     href="https://calendar.google.com/calendar/r/eventedit"
