@@ -1352,9 +1352,9 @@ dependencies = [
 
 [[package]]
 name = "dilnaka"
-version = "0.0.1"
+version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9972ee0cae9e6571043b71b01e96f4ac09b79ac6db3dad443da27ca1a0517c6"
+checksum = "17b252f21b55faa97615102444410c57bf99cdc5c5452c05c1aeba6f132b93ce"
 dependencies = [
  "dotenvy",
  "mime_guess",

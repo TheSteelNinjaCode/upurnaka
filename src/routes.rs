@@ -67,6 +67,7 @@ const PAGE_RPCS: &[&str] = &[
     "rename_meeting_link",
     "request_meeting_entry",
     "resume_meeting_audio",
+    "retry_meeting_recording",
     "send_message",
     "set_user_active",
     "spotlight_participant",
@@ -153,6 +154,7 @@ async fn rpc_p_meet_j_id(req: axum::extract::Request) -> axum::response::Respons
         "finish_meeting_recording" => p_meet_j_id::__rahti_rpc_finish_meeting_recording(req).await,
         "meeting_recordings" => p_meet_j_id::__rahti_rpc_meeting_recordings(req).await,
         "meeting_recording_url" => p_meet_j_id::__rahti_rpc_meeting_recording_url(req).await,
+        "retry_meeting_recording" => p_meet_j_id::__rahti_rpc_retry_meeting_recording(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -232,7 +234,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
-/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url)
+/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
 ///
 /// Every page above also answers the component rpcs, because a
 /// component posts to the page it was rendered on: sign_out_account, save_usage_survey, register_account, start_signin, verify_signin.

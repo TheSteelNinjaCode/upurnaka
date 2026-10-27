@@ -1003,6 +1003,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     >
                                         "Download"
                                     </button>
+                                    <button
+                                        type="button"
+                                        class="cursor-pointer text-link hover:underline"
+                                        hidden={item.state !== "failed"}
+                                        onclick={retryRecording(item.id)}
+                                    >
+                                        "Retry"
+                                    </button>
                                 </div>
                             </template>
                         </div>
@@ -1645,9 +1653,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             const stream = new MediaStream([...capture.getVideoTracks(), ...mix.destination.stream.getAudioTracks()]);
                             const media = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2500000, audioBitsPerSecond: 128000 });
                             const live = { id: started.id, type, media, capture, mix, part: 0, sending: Promise.resolve(), failed: false, stopping: false };
-                            media.ondataavailable = pp.event(event => queueRecordingPiece(live, event.data));
+                            media.ondataavailable = event => queueRecordingPiece(live, event.data);
                             // "Stop sharing" in the browser's own bar ends the capture.
-                            capture.getVideoTracks()[0].onended = pp.event(() => stopRecording());
+                            capture.getVideoTracks()[0].onended = () => stopRecording();
                             recorder.current = live;
                             media.start(RECORDING_SLICE);
                             setRecordingId(started.id);
@@ -1789,6 +1797,16 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         if (item.state === "uploading") return "Saving to storage… · " + size;
                         if (item.state === "failed") return "Could not be saved";
                         return length + " · " + size;
+                    }
+
+                    async function retryRecording(itemId) {
+                        try {
+                            await pp.rpc("retry_meeting_recording", { id: code, recording: itemId });
+                            setToast("Saving the recording to storage again.");
+                            loadRecordings();
+                        } catch (failure) {
+                            setError(failure.body?.error || failure.message || "The recording could not be uploaded again.");
+                        }
                     }
 
                     async function openRecording(itemId) {
@@ -2028,10 +2046,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             volume.gain.linearRampToValueAtTime(0, context.currentTime + 0.6);
                             tone.connect(volume);
                             volume.connect(context.destination);
-                            tone.onended = pp.event(() => {
+                            tone.onended = () => {
                                 context.close();
                                 if (speakerTest.current === context) speakerTest.current = null;
-                            });
+                            };
                             tone.start();
                             tone.stop(context.currentTime + 0.65);
                         } catch (failure) {
@@ -2555,4 +2573,9 @@ pub async fn meeting_recordings(id: String) -> Result<Vec<recording::Listed>> {
 #[rpc(auth)]
 pub async fn meeting_recording_url(id: String, recording: String) -> Result<String> {
     recording::access(id, recording).await
+}
+/// Upload a recording whose upload failed again.
+#[rpc(auth)]
+pub async fn retry_meeting_recording(id: String, recording: String) -> Result<bool> {
+    recording::retry(id, recording).await
 }

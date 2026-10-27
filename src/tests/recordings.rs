@@ -213,7 +213,7 @@ async fn the_organizer_records_in_ordered_pieces_and_the_file_is_stored() {
     let access = json!({"id":id,"recording":recording_id});
     let (s, _) = call(&mut guest, &id, "meeting_recording_url", access.clone()).await;
     assert_eq!(s, StatusCode::FORBIDDEN);
-    let (s, url) = call(&mut host, &id, "meeting_recording_url", access).await;
+    let (s, url) = call(&mut host, &id, "meeting_recording_url", access.clone()).await;
     assert_eq!(s, StatusCode::OK);
     assert!(
         url.as_str()

@@ -285,6 +285,34 @@ pub async fn finish(id: String, recording_id: String) -> Result<bool> {
     Ok(true)
 }
 
+/// Upload a recording whose upload failed again, from the pieces a failure
+/// keeps on disk. Any organizer of the meeting may ask.
+pub async fn retry(id: String, recording_id: String) -> Result<bool> {
+    lobby::host(&id).await?;
+    let row = recording::Entity::find_by_id(&recording_id)
+        .filter(recording::Column::MeetingId.eq(&id))
+        .one(db::db())
+        .await?
+        .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "Recording not found."))?;
+    if row.state != "failed" || row.parts == 0 || !folder(&row.id).exists() {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            "This recording cannot be uploaded again.",
+        ));
+    }
+    let claimed = recording::Entity::update_many()
+        .col_expr(recording::Column::State, Expr::value("uploading"))
+        .col_expr(recording::Column::UpdatedAt, Expr::value(now()))
+        .filter(recording::Column::Id.eq(&row.id))
+        .filter(recording::Column::State.eq("failed"))
+        .exec(db::db())
+        .await?;
+    if claimed.rows_affected == 1 {
+        tokio::spawn(deliver(row.id));
+    }
+    Ok(true)
+}
+
 /// Claim a recording for upload. Only one caller wins.
 async fn close(id: &str) -> Result<bool> {
     let at = now();
