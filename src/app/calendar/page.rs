@@ -664,7 +664,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     }
                     // The details dialog is rahti-ui's, which opens from a trigger;
                     // an event on the grid reaches it through the hidden one.
-                    function showEvent(id) {const meeting = placed.find(item => item.id === id); if (!meeting) return; setSelectedEvent(meeting); eventOpener.current?.click();}
+                    const showEvent = pp.event(function showEvent(id) {const meeting = placed.find(item => item.id === id); if (!meeting) return; setSelectedEvent(meeting); eventOpener.current?.click();});
                     function goToday() {setAnchorDate(@{app_date}); setOffset(0);}
 
                     function describe(date) {

@@ -44,7 +44,7 @@ pub fn hidden() -> Attrs {
     Attrs::new().set("hidden", "").set("tabindex", "-1")
 }
 
-/// One client binding — `aria-pressed={on}`, `pp-ref={field}` — as an
+/// One client binding — `aria-pressed={on}`, `aria-label={name}` — as an
 /// attribute set, for a rahti-ui tag.
 ///
 /// A component tag's props are Rust identifiers, so an attribute with a `-` in
@@ -61,6 +61,10 @@ pub fn hidden() -> Attrs {
 /// InputGroup — it is evaluated in that component's scope and finds nothing.
 /// There, put the binding on an element you write instead. And `ui_expr!` must
 /// be written where the expression is: it reads the source from its span.
+///
+/// Not for `pp-ref`: a ref carried this way is never bound. Put
+/// `<span class="contents" pp-ref={mark}>` inside the component and reach the
+/// element from it (`mark.current?.closest("button")`).
 pub fn bound(name: &str, binding: ClientBinding) -> Attrs {
     Attrs::new().bind(name, binding)
 }

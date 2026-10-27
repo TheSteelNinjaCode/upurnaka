@@ -174,9 +174,9 @@ pub fn KeyboardShortcuts() -> Html {
                 const [collapsed, setCollapsed] = pp.state([]);
                 const searching = filter.trim().length > 0;
                 function normalize(value) { return value.toLowerCase().replace(/\s+/g, ""); }
-                function toggleSection(title) {
+                const toggleSection = pp.event(function toggleSection(title) {
                     setCollapsed(previous => previous.includes(title) ? previous.filter(item => item !== title) : [...previous, title]);
-                }
+                });
                 const availableActions = new Set([
                     "Show keyboard shortcuts", "Start new chat", "Open Search", "Show commands", "Go to a specific chat or channel",
                     "Zoom in", "Zoom out", "Reset zoom level", "Toggle app bar",

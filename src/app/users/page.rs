@@ -383,11 +383,11 @@ pub async fn page() -> Result<Html> {
                     function changeDraft(field, value) { setDraft(previous => ({...previous, [field]:value})); }
                     function closeEditor() { setMode(''); setPassword(''); setConfirmation(''); }
                     function openCreate() { setDraft({id:'',name:'',email:''}); setPassword(''); setConfirmation(''); setError(''); setNotice(''); setDeleting(null); openEditor('create'); }
-                    function openEdit(row) { if (!row) return; setDraft({id:row.id,name:row.name,email:row.email}); setPassword(''); setConfirmation(''); setError(''); setNotice(''); setDeleting(null); openEditor('edit'); }
+                    const openEdit = pp.event(function openEdit(row) { if (!row) return; setDraft({id:row.id,name:row.name,email:row.email}); setPassword(''); setConfirmation(''); setError(''); setNotice(''); setDeleting(null); openEditor('edit'); });
                     // A row's actions name their user by id: a handler in a list
                     // row reads the row through its button, not the loop variable.
-                    function rowById(id) { return data.items.find(item => item.id === id); }
-                    function askDelete(row) { if (!row) return; setError(''); setNotice(''); setDeleting(row); deleteOpener.current?.click(); }
+                    const rowById = pp.event(function rowById(id) { return data.items.find(item => item.id === id); });
+                    const askDelete = pp.event(function askDelete(row) { if (!row) return; setError(''); setNotice(''); setDeleting(row); deleteOpener.current?.click(); });
                     function message(e) { return e.body?.error || e.message || 'Could not complete the request.'; }
                     async function loadPage(page) {
                         if (busy) return; setBusy(true); setError('');
@@ -415,7 +415,7 @@ pub async fn page() -> Result<Html> {
                         } catch(e) { setError(message(e)); }
                         finally { setBusy(false); }
                     }
-                    async function toggleActive(row) {
+                    const toggleActive = pp.event(async function toggleActive(row) {
                         if (busy || !row) return; setBusy(true); setError(''); setNotice('');
                         try {
                             await pp.rpc('set_user_active', {id:row.id, active:!row.active});
@@ -423,7 +423,7 @@ pub async fn page() -> Result<Html> {
                             setData(await pp.rpc('list_users', {search: appliedSearch, page:data.page}));
                         } catch(e) { setError(message(e)); }
                         finally { setBusy(false); }
-                    }
+                    });
                     async function confirmDelete() {
                         if (busy || !deleting) return; setBusy(true); setError(''); setNotice('');
                         try {

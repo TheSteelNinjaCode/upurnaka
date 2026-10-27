@@ -480,7 +480,7 @@ async fn admin_browser_can_create_edit_deactivate_activate_search_and_delete() {
         .click("dialog[aria-label='User editor'] button[type=submit]")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('tr[data-email=\"browser-managed@example.com\"]')?.textContent.includes('Browser Edited')").await.unwrap();
+    browser.wait_for("document.querySelector('tr[data-email=\"browser-managed@example.com\"]')?.textContent.includes('Browser Edited') && !document.querySelector('dialog[aria-label=\"User editor\"]').open").await.unwrap();
     browser
         .click("tr[data-email='browser-managed@example.com'] button:nth-of-type(2)")
         .await

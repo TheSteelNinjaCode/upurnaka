@@ -86,7 +86,9 @@ async fn shell_dropdowns_stay_above_meet_actions() {
     browser.wait_for("document.querySelector('button[aria-label=\"Settings and more\"]').getAttribute('aria-expanded') === 'false'").await.unwrap();
     assert!(
         browser
-            .eval::<bool>("!document.querySelector('#popover-meeting-join').matches(':popover-open')")
+            .eval::<bool>(
+                "!document.querySelector('#popover-meeting-join').matches(':popover-open')"
+            )
             .await
             .unwrap(),
         "the dismissal click must not reach the page action"
@@ -814,10 +816,13 @@ async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
         .click(".chat-emoji-tabs label:nth-of-type(2)")
         .await
         .unwrap();
+    // The media tabs are one radio group: from the chosen tab, the arrow keys
+    // move the choice.
+    let _: bool = browser
+        .eval("document.querySelector('.chat-emoji-tabs input:checked').focus(); true")
+        .await
+        .unwrap();
     browser.press("ArrowRight").await.unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    let debug: String = browser.eval("JSON.stringify({tabs: [...document.querySelectorAll('.chat-emoji-tabs input')].map(i => i.value + ':' + i.checked), active: document.activeElement?.outerHTML.slice(0, 120), footer: document.querySelector('.chat-giphy-attribution').hidden})").await.unwrap();
-    eprintln!("DEBUG-EMOJI {debug}");
     browser.wait_for("document.querySelector('.chat-emoji-tabs label:nth-of-type(3) input').checked && !document.querySelector('.chat-giphy-attribution').hidden").await.unwrap();
     browser.press("Escape").await.unwrap();
     browser.wait_for("!document.querySelector('.chat-emoji-picker').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'Emoji'").await.unwrap();

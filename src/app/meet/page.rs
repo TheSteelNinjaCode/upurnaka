@@ -430,7 +430,7 @@ pub async fn page() -> Result {
                     // The rename and delete dialogs are rahti-ui's, which open
                     // from a trigger; a card reaches them by clicking the hidden
                     // trigger each one carries, once it has said which link.
-                    function openRename(link) {
+                    const openRename = pp.event(function openRename(link) {
                         if (!link) return;
                         setRenameTitle(link.title);
                         setRenameError("");
@@ -439,7 +439,7 @@ pub async fn page() -> Result {
                         // The dialog leaves the caret after the name; renaming starts from
                         // the whole of it selected, so typing replaces it.
                         requestAnimationFrame(() => renameForm.current?.elements.title?.select());
-                    }
+                    });
 
                     function finishRename() {
                         setEditingId("");
@@ -508,21 +508,21 @@ pub async fn page() -> Result {
                         }
                     }
 
-                    function shareLink(url) {
+                    const shareLink = pp.event(function shareLink(url) {
                         copy(absolute(url), "Link copied to clipboard");
-                    }
+                    });
 
                     // A card's actions name their link by id: a handler in a list
                     // row reads the row through its button, not the loop variable.
-                    function linkById(id) {
+                    const linkById = pp.event(function linkById(id) {
                         return links.find(item => item.id === id);
-                    }
+                    });
 
-                    function confirmRemove(link) {
+                    const confirmRemove = pp.event(function confirmRemove(link) {
                         if (!link) return;
                         setPendingRemove(link);
                         removeOpener.current?.click();
-                    }
+                    });
 
                     async function removeLink() {
                         const link = pendingRemove;

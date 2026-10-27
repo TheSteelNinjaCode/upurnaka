@@ -169,9 +169,6 @@ async fn giphy_picker_trends_searches_paginates_and_sends_a_gif() {
         .await
         .unwrap();
     browser.type_text("empty").await.unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
-    let debug: String = browser.eval("JSON.stringify({search: document.querySelector('.chat-emoji-search input').value, gifs: document.querySelectorAll('.chat-gif-grid button').length, gridHtml: document.querySelector('.chat-gif-grid').innerHTML.slice(0, 300), empties: [...document.querySelectorAll('.chat-emoji-empty')].map(e => e.hidden + ':' + e.textContent.trim().slice(0,20)), requests: window.giphyRequests.slice(-2)})").await.unwrap();
-    eprintln!("DEBUG-GIPHY {debug}");
     browser.wait_for("document.querySelectorAll('.chat-gif-grid button').length === 0 && Array.from(document.querySelectorAll('.chat-emoji-empty')).some(el => !el.hidden && el.textContent.includes('No GIFs found'))").await.unwrap();
     let _: bool = browser
         .eval("window.giphyMode = 'failure'; document.activeElement.select(); true")

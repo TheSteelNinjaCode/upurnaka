@@ -218,7 +218,9 @@ pub async fn page() -> Html {
                                     class=@{more.as_str()}
                                     attrs=@{labelled("More options")}
                                 >
-                                    <Icon name="more" class="size-[18px]" />
+                                    <span class="contents" pp-ref={profileMenuMark}>
+                                        <Icon name="more" class="size-[18px]" />
+                                    </span>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent
                                     menu="people-profile"
@@ -398,7 +400,7 @@ pub async fn page() -> Html {
                     </DialogTrigger>
                     <DialogContent
                         class="people-profile-dialog sm:max-w-[460px]!"
-                        onclose={resetProfile()}
+                        onclose={finishProfile()}
                     >
                         <DialogHeader>
                             <DialogTitle>"Edit name"</DialogTitle>
@@ -435,8 +437,8 @@ pub async fn page() -> Html {
                     </DialogTrigger>
                     <DialogContent
                         hide_close=@{true}
-                        class="people-profile-dialog picture-editor open:flex! h-[min(504px,calc(100dvh-32px))] w-[min(640px,calc(100vw-32px))] max-w-none! flex-col gap-0 px-8 pt-7 pb-10 max-[600px]:p-6"
-                        onclose={resetProfile()}
+                        class="people-profile-dialog picture-editor open:flex! h-[min(504px,calc(100dvh-32px))]! w-[min(640px,calc(100vw-32px))]! max-w-none! flex-col gap-0! overflow-hidden px-8! pt-7! pb-10! max-[600px]:p-6!"
+                        onclose={finishProfile()}
                     >
                         <DialogHeader>
                             <DialogTitle class="text-xl font-bold">"Profile picture"</DialogTitle>
@@ -533,6 +535,7 @@ pub async fn page() -> Html {
                     const nameOpener = pp.ref(null);
                     const pictureOpener = pp.ref(null);
                     const profilePictureInput = pp.ref(null);
+                    const profileMenuMark = pp.ref(null);
                     const [profileName, setProfileName] = pp.state(@{user.name.as_str()});
                     const [profileBusy, setProfileBusy] = pp.state(false);
                     const [profileError, setProfileError] = pp.state('');
@@ -552,6 +555,12 @@ pub async fn page() -> Html {
                     function editPicture() {
                         resetProfile();
                         pictureOpener.current?.click();
+                    }
+                    // Closing a profile dialog hands focus back to the menu button
+                    // it was opened from; the menu row itself has closed with the menu.
+                    function finishProfile() {
+                        resetProfile();
+                        profileMenuMark.current?.closest("button")?.focus();
                     }
                     function resetProfile() {
                         setProfileError('');

@@ -261,6 +261,11 @@ async fn people_profile_menu_edits_name_and_picture_and_restores_focus() {
     browser.wait_for("!document.querySelector('.picture-editor-preview span').hidden && !document.querySelector('.picture-editor button[type=submit]').disabled").await.unwrap();
     // Closing discards the pending removal.
     browser.press("Escape").await.unwrap();
+    // The dialog animates closed; the page behind it takes clicks once it has.
+    browser
+        .wait_for("!document.querySelector('.picture-editor').open")
+        .await
+        .unwrap();
     browser
         .click("aside button[aria-label='More options']")
         .await

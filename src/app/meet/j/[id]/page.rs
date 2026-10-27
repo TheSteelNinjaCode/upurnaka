@@ -446,7 +446,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             onclick={toggleRoomMenu("reactions")}
                         >
                             <span class="contents" pp-ref={reactionTriggerMark}>
-                                <Icon name="emoji" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
+                                <Icon
+                                    name="emoji"
+                                    class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5"
+                                />
                             </span>
                             <span>"React"</span>
                         </Button>
@@ -1441,12 +1444,12 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         return () => { cancelled = true; clearInterval(timer); };
                     }, [admission]);
 
-                    async function decideEntry(ticket, admit) {
+                    const decideEntry = pp.event(async function decideEntry(ticket, admit) {
                         try {
                             await pp.rpc('decide_meeting_entry', {id:code, ticket, admit});
                             setLobbyRequests(current => current.filter(request => request.id !== ticket));
                         } catch (failure) { setError(failure.body?.error || failure.message); }
-                    }
+                    });
                     async function cancelLobby() {
                         const ticket = admission;
                         setLobbyWaiting(false); setAdmission('');
@@ -1455,7 +1458,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             catch (failure) { setError(failure.body?.error || failure.message); }
                         }
                     }
-                    function openTileMenu(id, name) { setMoreOpen(false); setReactionsOpen(false); setTileMenu(tileMenu?.id === id ? null : {id,name}); }
+                    const openTileMenu = pp.event(function openTileMenu(id, name) { setMoreOpen(false); setReactionsOpen(false); setTileMenu(tileMenu?.id === id ? null : {id,name}); });
                     function pinTile() { if (tileMenu) setPinnedId(pinnedId === tileMenu.id ? '' : tileMenu.id); setTileMenu(null); }
                     function fitTile() { if (tileMenu) { const id = tileMenu.id; setTileFits(current => ({...current,[id]:current[id] === false})); } setTileMenu(null); }
                     function hideMyTile() { setHideSelf(true); if (pinnedId === selfAttendeeId) setPinnedId(''); setTileMenu(null); }
@@ -1832,7 +1835,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         return length + " · " + size;
                     }
 
-                    async function retryRecording(itemId) {
+                    const retryRecording = pp.event(async function retryRecording(itemId) {
                         try {
                             await pp.rpc("retry_meeting_recording", { id: code, recording: itemId });
                             setToast("Saving the recording to storage again.");
@@ -1840,9 +1843,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         } catch (failure) {
                             setError(failure.body?.error || failure.message || "The recording could not be uploaded again.");
                         }
-                    }
+                    });
 
-                    async function openRecording(itemId) {
+                    const openRecording = pp.event(async function openRecording(itemId) {
                         // Opened before the await, while the click still allows a
                         // new window; pointed at the short-lived link once it arrives.
                         const tab = window.open("", "_blank");
@@ -1854,7 +1857,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             if (tab) tab.close();
                             setError(failure.body?.error || failure.message || "The recording could not be opened.");
                         }
-                    }
+                    });
 
                     // Read off the session for the panel, because a binding
                     // renders text and `session.Meeting.MeetingId` on a null
@@ -1963,7 +1966,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         share();
                     }
 
-                    async function selectBackground(id, custom) {
+                    const selectBackground = pp.event(async function selectBackground(id, custom) {
                         if (applyingBackground || joining) return;
                         setBackgroundError("");
                         const effect = custom || backgroundEffect(id);
@@ -1995,7 +1998,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         } finally {
                             setApplyingBackground(false);
                         }
-                    }
+                    });
 
                     async function uploadBackground(event) {
                         const input = event.currentTarget;

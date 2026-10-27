@@ -479,7 +479,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     {label:"Communities", href:"/communities"}, {label:"Calendar", href:"/calendar"},
                     {label:"Activity", href:"/activity"}, {label:"Apps", href:"/apps"}
                 ].filter(result => result.label.toLocaleLowerCase().includes(searchTerm) || result.href.slice(1).includes(searchTerm));
-                function visitSearchResult(href) {setQuery(""); pp.redirect(href);}
+                const visitSearchResult = pp.event(function visitSearchResult(href) {setQuery(""); pp.redirect(href);});
                 function handleGlobalSearchKey(event) {
                     if (event.isComposing) return;
                     if (event.key === "Escape") {event.preventDefault(); setQuery("");}
@@ -533,9 +533,9 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     window.history.forward();
                 }
 
-                function pickPresence(value) {
+                const pickPresence = pp.event(function pickPresence(value) {
                     setPresence(value);
-                }
+                });
 
                 function openSurvey() {
                     setSaveError("");
@@ -544,13 +544,13 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     surveyOpener.current?.click();
                 }
 
-                function pickUse(value) {
+                const pickUse = pp.event(function pickUse(value) {
                     setPrimaryUse(value);
                     setSaveError("");
                     setSurvey(2);
-                }
+                });
 
-                async function pickCategory(value) {
+                const pickCategory = pp.event(async function pickCategory(value) {
                     if (saving) return;
                     setCategory(value);
                     setSaving(true);
@@ -563,7 +563,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     } finally {
                         setSaving(false);
                     }
-                }
+                });
             "##</script>
         </div>
     }

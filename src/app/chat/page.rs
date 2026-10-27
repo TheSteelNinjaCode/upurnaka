@@ -724,10 +724,29 @@ pub async fn page() -> Html {
                                             attrs=@{named("Emoji and GIF picker")}
                                             ontoggle={emojiToggled(event.newState)}
                                         >
+                                            // The search comes first in the document so the popover
+                                            // focuses it on open; the tabs are drawn above it.
+                                            <InputGroup
+                                                class="chat-emoji-search mx-4 mb-2 mt-4 w-auto! shrink-0"
+                                            >
+                                                <input
+                                                    type="search"
+                                                    data-slot="input-group-control"
+                                                    class=@{emoji_search.as_str()}
+                                                    pp-ref={emojiSearchInput}
+                                                    aria-label="Find something fun"
+                                                    placeholder="Find something fun"
+                                                    value={emojiQuery}
+                                                    oninput={searchMedia(target.value)}
+                                                />
+                                                <InputGroupAddon align="inline-end">
+                                                    <Icon name="search" class="size-[18px]" />
+                                                </InputGroupAddon>
+                                            </InputGroup>
                                             <ToggleGroup
                                                 r#type="single"
                                                 name="chat-media"
-                                                class="chat-emoji-tabs w-full shrink-0 rounded-none! bg-sunken px-3"
+                                                class="chat-emoji-tabs order-first w-full shrink-0 rounded-none! bg-sunken px-3"
                                                 attrs=@{named("Media type")}
                                             >
                                                 <ToggleGroupItem
@@ -762,21 +781,6 @@ pub async fn page() -> Html {
                                                     "GIFs"
                                                 </ToggleGroupItem>
                                             </ToggleGroup>
-                                            <InputGroup class="chat-emoji-search mx-4 mb-2 mt-4 w-auto! shrink-0">
-                                                <input
-                                                    type="search"
-                                                    data-slot="input-group-control"
-                                                    class=@{emoji_search.as_str()}
-                                                    pp-ref={emojiSearchInput}
-                                                    aria-label="Find something fun"
-                                                    placeholder="Find something fun"
-                                                    value={emojiQuery}
-                                                    oninput={searchMedia(target.value)}
-                                                />
-                                                <InputGroupAddon align="inline-end">
-                                                    <Icon name="search" class="size-[18px]" />
-                                                </InputGroupAddon>
-                                            </InputGroup>
                                             <div
                                                 class="chat-emoji-content scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-2"
                                                 role="region"
@@ -1125,12 +1129,12 @@ pub async fn page() -> Html {
                         try {const url = new URL(value); return url.protocol === 'https:' && /^(media[0-4]?|i)\.giphy\.com$/.test(url.hostname) && !url.username && !url.password && !url.port ? url.href : '';}
                         catch (failure) {return '';}
                     }
-                    function chooseGif(id) {
+                    const chooseGif = pp.event(function chooseGif(id) {
                         const gif = gifs.find(item => item.id === id);
                         if (sending || !gif) return;
                         setDraftGif({id:gif.id, url:gif.url, title:gif.title});
                         closeEmoji(); returnToComposer();
-                    }
+                    });
                     // The picker is rahti-ui's Popover, which hands focus back to
                     // its trigger as it closes; the composer takes it after that.
                     function closeEmoji() {if (emojiOpen) emojiCloser.current?.click();}
@@ -1180,25 +1184,24 @@ pub async fn page() -> Html {
                     }
                     function emojiToggled(state) {
                         setEmojiOpen(state === 'open');
-                        if (state === 'open') requestAnimationFrame(() => emojiSearchInput.current?.focus());
                     }
-                    function insertEmoji(symbol) {
+                    const insertEmoji = pp.event(function insertEmoji(symbol) {
                         if (sending) return;
                         const {start,end} = emojiSelection.current;
                         emojiCaret.current = start + symbol.length;
                         setDraft(draft.slice(0,start) + symbol + draft.slice(end));
                         closeEmoji(); returnToComposer();
-                    }
+                    });
                     pp.layoutEffect(() => {
                         if (emojiCaret.current === null) return;
                         composerInput.current?.setSelectionRange(emojiCaret.current, emojiCaret.current);
                         emojiCaret.current = null;
                     }, [draft]);
-                    function selectThread(id) {
+                    const selectThread = pp.event(function selectThread(id) {
                         if (sending) return;
                         closeEmoji();
                         setSelected(id); setConversationQuery(""); setConversationSearchOpen(false); setError("");
-                    }
+                    });
                     function openNewChat() {
                         if (sending) return;
                         closeEmoji();
@@ -1261,7 +1264,7 @@ pub async fn page() -> Html {
                         if (!recipients.some(item => item.toLocaleLowerCase() === value.toLocaleLowerCase())) setRecipients(previous => [...previous, value]);
                         setRecipientQuery(""); setRecipientError(""); recipientInput.current?.focus();
                     }
-                    function removeRecipient(value) {setRecipients(previous => previous.filter(item => item !== value)); recipientInput.current?.focus();}
+                    const removeRecipient = pp.event(function removeRecipient(value) {setRecipients(previous => previous.filter(item => item !== value)); recipientInput.current?.focus();});
                     function handleRecipientKey(event) {
                         if (event.isComposing) return;
                         if (event.key === "Enter" || event.key === ";" || event.key === ",") {

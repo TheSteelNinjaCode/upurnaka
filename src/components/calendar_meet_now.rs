@@ -3,9 +3,7 @@ use crate::components::aria::{labelled, named, plain, submit};
 use crate::components::icon::Icon;
 use crate::components::rahti_ui::attrs::Attrs;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
-use crate::components::rahti_ui::field::{
-    Field, FieldError, FieldGroup, FieldLabel,
-};
+use crate::components::rahti_ui::field::{Field, FieldError, FieldGroup, FieldLabel};
 use crate::components::rahti_ui::input::{Input, input_variants};
 use crate::components::rahti_ui::popover::{
     Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger,
@@ -98,7 +96,13 @@ pub fn CalendarMeetNow() -> Html {
                                     value={shared ? absolute(shared.url) : ""}
                                     onfocus={event.currentTarget.select()}
                                 />
-                                <p role="status" class="text-xs text-muted-foreground" hidden={!notice}>{notice}</p>
+                                <p
+                                    role="status"
+                                    class="text-xs text-muted-foreground"
+                                    hidden={!notice}
+                                >
+                                    {notice}
+                                </p>
                                 <a
                                     href={shared ? shared.url : "/meet"}
                                     target="_blank"

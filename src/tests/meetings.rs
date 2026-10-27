@@ -25,6 +25,11 @@ async fn meet_popovers_anchor_dismiss_and_open_the_calendar_form() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('#popover-meeting-join').matches(':popover-open') && !document.querySelector('#dropdown-menu-meeting-schedule').matches(':popover-open') && document.activeElement.id === 'meeting-join-id'").await.unwrap();
+    // The panel zooms in as it opens; measure where it settles.
+    browser
+        .wait_for("document.querySelector('#popover-meeting-join').getAnimations().every(animation => animation.playState === 'finished')")
+        .await
+        .unwrap();
     let anchored: bool = browser.eval("(() => { const button = document.querySelector('button[aria-controls=\"popover-meeting-join\"]').getBoundingClientRect(); const panel = document.querySelector('#popover-meeting-join').getBoundingClientRect(); return Math.abs(panel.top - button.bottom - 4) < 2 && Math.abs(panel.right - button.right) < 2; })()").await.unwrap();
     assert!(anchored, "join panel must be anchored under its own action");
     assert!(
@@ -60,7 +65,9 @@ async fn meet_popovers_anchor_dismiss_and_open_the_calendar_form() {
         .unwrap();
     browser.click("h1").await.unwrap();
     browser
-        .wait_for("!document.querySelector('#dropdown-menu-meeting-schedule').matches(':popover-open')")
+        .wait_for(
+            "!document.querySelector('#dropdown-menu-meeting-schedule').matches(':popover-open')",
+        )
         .await
         .unwrap();
     browser
@@ -272,9 +279,6 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .click("button[aria-label='More meeting options']")
         .await
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    let debug: String = browser.eval("(() => { const b = document.querySelector('.room-more-menu button:first-child'); const r = b.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return JSON.stringify({menuHidden: document.querySelector('.room-more-menu').hidden, text: b.textContent.trim(), rect: [r.left, r.top, r.width, r.height], hit: hit?.outerHTML.slice(0, 160), style: document.querySelector('.room-more-menu').getAttribute('style')}); })()").await.unwrap();
-    eprintln!("DEBUG-ROOM {debug}");
     browser
         .click(".room-more-menu button:first-child")
         .await
@@ -930,7 +934,10 @@ async fn meeting_background_replacement_processes_video_locally() {
         .unwrap();
     browser.wait_for("document.querySelector('.meeting-background-option:first-child').getAttribute('aria-pressed') === 'true'").await.unwrap();
     browser.click("input[aria-label='Camera']").await.unwrap();
-    browser.wait_for("!document.querySelector('input[aria-label=\"Camera\"]').checked").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('input[aria-label=\"Camera\"]').checked")
+        .await
+        .unwrap();
     let _: bool = browser.eval(r##"
         (async () => {
             const canvas=document.createElement('canvas'); canvas.width=32; canvas.height=32;
