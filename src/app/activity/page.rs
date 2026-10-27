@@ -36,6 +36,7 @@ pub async fn page() -> Html {
                                 variant="ghost"
                                 size="icon-sm"
                                 class="text-muted-foreground"
+                                href="/settings?category=notifications"
                                 attrs=@{labelled("Notification settings")}
                             >
                                 <Icon name="settings" class="size-[18px]" />

@@ -1,7 +1,7 @@
 use crate::{
     components::{
         app_shell::AppShell, device_settings::DeviceSettings, icon::Icon,
-        privacy_settings::PrivacySettings,
+        notification_settings::NotificationSettings, privacy_settings::PrivacySettings,
     },
     rahti::{Html, Metadata, html},
 };
@@ -55,6 +55,9 @@ pub async fn page() -> Html {
                                     </span>
                                     <span hidden={item.key !== "chats"}>
                                         <Icon name="chat" class="size-5" />
+                                    </span>
+                                    <span hidden={item.key !== "notifications"}>
+                                        <Icon name="bell" class="size-5" />
                                     </span>
                                     <span hidden={item.key !== "accessibility"}>
                                         <Icon name="accessibility" class="size-5" />
@@ -630,6 +633,9 @@ pub async fn page() -> Html {
                         <section hidden={!show("devices")}>
                             <DeviceSettings active={show("devices")} />
                         </section>
+                        <section hidden={!show("notifications")}>
+                            <NotificationSettings />
+                        </section>
                         <section hidden={!show("privacy")}>
                             <PrivacySettings />
                         </section>
@@ -661,6 +667,7 @@ pub async fn page() -> Html {
                         {key:'general', label:'General'},
                         {key:'appearance', label:'Appearance'},
                         {key:'chats', label:'Chats'},
+                        {key:'notifications', label:'Notifications and activity'},
                         {key:'privacy', label:'Privacy'},
                         {key:'accessibility', label:'Accessibility'},
                         {key:'devices', label:'Devices'},
@@ -683,10 +690,12 @@ pub async fn page() -> Html {
                         {id:'downloads', category:'files', text:'downloads folder location save browser files'},
                         {id:'cloud', category:'files', text:'dilnaka cloud storage quota connection'},
                         {id:'devices', category:'devices', text:'audio video speaker microphone camera noise suppression sensitivity mirror brightness soft focus headset devices'},
+                        {id:'notifications', category:'notifications', text:'notifications activity mute sound banner toast test display previews flash tab dismiss position size comfy compact missed emails mentions likes reactions meetings join requests lobby'},
                         {id:'privacy', category:'privacy', text:'privacy contact information find profile groups calls screen lock diagnostics connected experiences gifs content analysis'}
                     ];
                     const themes = [{key:'light',label:'Light'}, {key:'dark',label:'Dark'}, {key:'system',label:'Follow system'}];
-                    const [active, setActive] = pp.state('general');
+                    const requested = new URLSearchParams(location.search).get('category');
+                    const [active, setActive] = pp.state(categories.some(item => item.key === requested) ? requested : 'general');
                     const [query, setQuery] = pp.state('');
                     const [confirmReset, setConfirmReset] = pp.state(false);
                     const searchInput = pp.ref(null);

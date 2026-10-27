@@ -99,6 +99,8 @@ pub async fn page() -> Html {
         ButtonSize::IconSm,
         "text-muted-foreground",
     );
+    // Composer tools read brighter than other muted chrome, as in Teams.
+    let composer_button = button_variants(ButtonVariant::Ghost, ButtonSize::IconSm, "text-ink/85");
     // The fields below are elements rather than `<Input>` tags because each one
     // is focused from a script — opening a search, starting a new chat — and a
     // ref is a binding a component tag cannot carry. They wear the same class
@@ -953,7 +955,7 @@ pub async fn page() -> Html {
                                     <Popover>
                                         <PopoverTrigger
                                             name="chat-emoji"
-                                            class=@{icon_button.as_str()}
+                                            class=@{composer_button.as_str()}
                                             attrs=@{labelled("Emoji")}
                                             onclick={rememberSelection()}
                                         >
@@ -1225,7 +1227,7 @@ pub async fn page() -> Html {
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
-                                        class="text-muted-foreground"
+                                        class="text-ink/85"
                                         attrs=@{(labelled("Attach a file")).merge(&plain())}
                                     >
                                         <Icon name="attach" class="size-[18px]" />
@@ -1233,7 +1235,7 @@ pub async fn page() -> Html {
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
-                                        class="text-muted-foreground"
+                                        class="text-ink/85"
                                         attrs=@{(labelled("Send an image")).merge(&plain())}
                                     >
                                         <Icon name="image" class="size-[18px]" />
@@ -1241,7 +1243,7 @@ pub async fn page() -> Html {
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
-                                        class="text-muted-foreground"
+                                        class="text-ink/85"
                                         attrs=@{(labelled("Format")).merge(&plain())}
                                         onclick={toggleCompose()}
                                     >
@@ -1254,15 +1256,16 @@ pub async fn page() -> Html {
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
-                                        class="text-muted-foreground"
+                                        class="text-ink/85"
                                         attrs=@{(labelled("More actions")).merge(&plain())}
                                     >
                                         <Icon name="plus" class="size-[18px]" />
                                     </Button>
+                                    <span class="mx-1 h-5 w-px bg-edge" aria-hidden="true"></span>
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
-                                        class="text-brand-ink"
+                                        class="text-ink/85 enabled:text-brand-ink disabled:opacity-100!"
                                         attrs=@{labelled("Send").merge(&submit())}
                                         disabled={(!draft.trim() && !draftGif) || sending || (newChat && recipients.length === 0)}
                                     >

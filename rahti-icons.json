@@ -29,10 +29,22 @@
       "name": "arrow-right"
     },
     {
+      "component": "AtSign",
+      "file": "src/components/rahti_icons/at_sign.rs",
+      "module": "crate::components::rahti_icons::at_sign",
+      "name": "at-sign"
+    },
+    {
       "component": "Bell",
       "file": "src/components/rahti_icons/bell.rs",
       "module": "crate::components::rahti_icons::bell",
       "name": "bell"
+    },
+    {
+      "component": "BellOff",
+      "file": "src/components/rahti_icons/bell_off.rs",
+      "module": "crate::components::rahti_icons::bell_off",
+      "name": "bell-off"
     },
     {
       "component": "Bold",
@@ -119,6 +131,12 @@
       "name": "ellipsis"
     },
     {
+      "component": "Eye",
+      "file": "src/components/rahti_icons/eye.rs",
+      "module": "crate::components::rahti_icons::eye",
+      "name": "eye"
+    },
+    {
       "component": "FaceSlightlySmiling",
       "file": "src/components/rahti_icons/face_slightly_smiling.rs",
       "module": "crate::components::rahti_icons::face_slightly_smiling",
@@ -191,6 +209,12 @@
       "name": "loader-circle"
     },
     {
+      "component": "Mail",
+      "file": "src/components/rahti_icons/mail.rs",
+      "module": "crate::components::rahti_icons::mail",
+      "name": "mail"
+    },
+    {
       "component": "MapPin",
       "file": "src/components/rahti_icons/map_pin.rs",
       "module": "crate::components::rahti_icons::map_pin",
@@ -243,6 +267,12 @@
       "file": "src/components/rahti_icons/phone.rs",
       "module": "crate::components::rahti_icons::phone",
       "name": "phone"
+    },
+    {
+      "component": "Play",
+      "file": "src/components/rahti_icons/play.rs",
+      "module": "crate::components::rahti_icons::play",
+      "name": "play"
     },
     {
       "component": "Plus",
@@ -303,6 +333,12 @@
       "file": "src/components/rahti_icons/square_pen.rs",
       "module": "crate::components::rahti_icons::square_pen",
       "name": "square-pen"
+    },
+    {
+      "component": "ThumbsUp",
+      "file": "src/components/rahti_icons/thumbs_up.rs",
+      "module": "crate::components::rahti_icons::thumbs_up",
+      "name": "thumbs-up"
     },
     {
       "component": "Trash2",

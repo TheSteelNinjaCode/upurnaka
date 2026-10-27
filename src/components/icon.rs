@@ -1,7 +1,9 @@
 //! Application icon names backed by installed rahti-icons components.
 
 use crate::components::rahti_icons::arrow_right::ArrowRight;
+use crate::components::rahti_icons::at_sign::AtSign;
 use crate::components::rahti_icons::bell::Bell;
+use crate::components::rahti_icons::bell_off::BellOff;
 use crate::components::rahti_icons::bold::Bold;
 use crate::components::rahti_icons::calendar::Calendar;
 use crate::components::rahti_icons::calendar_days::CalendarDays;
@@ -16,6 +18,7 @@ use crate::components::rahti_icons::clock::Clock;
 use crate::components::rahti_icons::contact::Contact;
 use crate::components::rahti_icons::copy::Copy;
 use crate::components::rahti_icons::ellipsis::Ellipsis;
+use crate::components::rahti_icons::eye::Eye;
 use crate::components::rahti_icons::face_slightly_smiling::FaceSlightlySmiling;
 use crate::components::rahti_icons::gem::Gem;
 use crate::components::rahti_icons::grid_2x2::Grid2x2;
@@ -27,6 +30,7 @@ use crate::components::rahti_icons::link::Link;
 use crate::components::rahti_icons::list::List;
 use crate::components::rahti_icons::list_filter::ListFilter;
 use crate::components::rahti_icons::list_ordered::ListOrdered;
+use crate::components::rahti_icons::mail::Mail;
 use crate::components::rahti_icons::map_pin::MapPin;
 use crate::components::rahti_icons::message_circle::MessageCircle;
 use crate::components::rahti_icons::mic::Mic;
@@ -36,6 +40,7 @@ use crate::components::rahti_icons::panels_left_bottom::PanelsLeftBottom;
 use crate::components::rahti_icons::paperclip::Paperclip;
 use crate::components::rahti_icons::pencil::Pencil;
 use crate::components::rahti_icons::phone::Phone;
+use crate::components::rahti_icons::play::Play;
 use crate::components::rahti_icons::plus::Plus;
 use crate::components::rahti_icons::repeat::Repeat;
 use crate::components::rahti_icons::screen_share::ScreenShare;
@@ -46,6 +51,7 @@ use crate::components::rahti_icons::shield::Shield;
 use crate::components::rahti_icons::sparkles::Sparkles;
 use crate::components::rahti_icons::square::Square;
 use crate::components::rahti_icons::square_pen::SquarePen;
+use crate::components::rahti_icons::thumbs_up::ThumbsUp;
 use crate::components::rahti_icons::trash_2::Trash2;
 use crate::components::rahti_icons::type_icon::Type;
 use crate::components::rahti_icons::upload::Upload;
@@ -246,6 +252,24 @@ pub fn Icon(name: &str, class: &str) -> Html {
         },
         "upload" => html! {
             <Upload class=@{class} stroke_width="1.6" />
+        },
+        "bell-off" => html! {
+            <BellOff class=@{class} stroke_width="1.6" />
+        },
+        "eye" => html! {
+            <Eye class=@{class} stroke_width="1.6" />
+        },
+        "mail" => html! {
+            <Mail class=@{class} stroke_width="1.6" />
+        },
+        "at" => html! {
+            <AtSign class=@{class} stroke_width="1.6" />
+        },
+        "thumbs-up" => html! {
+            <ThumbsUp class=@{class} stroke_width="1.6" />
+        },
+        "play" => html! {
+            <Play class=@{class} stroke_width="1.6" />
         },
         _ => Html::empty(),
     }

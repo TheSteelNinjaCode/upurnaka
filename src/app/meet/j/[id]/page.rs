@@ -23,6 +23,7 @@ use axum::http::StatusCode;
 use crate::components::aria::{bound, labelled, named, submit};
 use crate::components::avatar::Avatar;
 use crate::components::icon::Icon;
+use crate::components::notification_sound::NotificationSound;
 use crate::components::rahti_ui::attrs::{Attrs, ui_expr};
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
 use crate::components::rahti_ui::input::Input;
@@ -1229,6 +1230,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     </p>
                 </div>
             </aside>
+            <NotificationSound />
             <div
                 class="fixed bottom-6 left-6 rounded-md border border-edge bg-raised px-5 py-3.5 text-sm"
                 role="status"
@@ -1252,7 +1254,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             softFocus:saved.softFocus === true,
                             signLanguageMode:saved.signLanguageMode === true,
                             mutedNotification:saved.mutedNotification !== false,
-                            lockMediaOnScreenLock:saved.lockMediaOnScreenLock === true
+                            lockMediaOnScreenLock:saved.lockMediaOnScreenLock === true,
+                            notifyCallSound:saved.notifyCallSound !== false,
+                            notifySoundName:['default','chime','ping','pop'].includes(saved.notifySoundName) ? saved.notifySoundName : 'default'
                         };
                     }, []);
                     const selfVideoStyle = 'transform:scaleX(' + (devicePreferences.mirrorVideo ? '-1' : '1') + ');filter:brightness(' + (devicePreferences.videoBrightness ? '1.2' : '1') + ') blur(' + (devicePreferences.softFocus ? '0.6px' : '0px') + ')';
@@ -1542,7 +1546,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         return () => clearTimeout(timer);
                     }, [handNotice]);
 
+                    // Organizers hear a join request once, when it first appears.
+                    const knownLobby = pp.ref(null);
                     const applyRoomState = pp.event(async (result, ticket) => {
+                        const waitingIds = result.waiting.map(request => request.id);
+                        if (isOrganizer && knownLobby.current && devicePreferences.notifyCallSound && waitingIds.some(id => !knownLobby.current.includes(id))) {
+                            window.UpurnakaNotificationSound?.play(devicePreferences.notifySoundName);
+                        }
+                        knownLobby.current = waitingIds;
                         setLobbyRequests(result.waiting);
                         setSpotlightId(result.spotlight || '');
                         setRoomRecording(!!result.recording);

@@ -629,13 +629,17 @@ async fn browsers_can_use_lobby_and_host_controls_without_replacing_video_elemen
         .wait_for("!document.querySelector('.meeting-room').hidden")
         .await
         .unwrap();
+    let _: bool = host_browser
+        .eval("window.lobbySounds = []; window.UpurnakaNotificationSound.play = name => window.lobbySounds.push(name); true")
+        .await
+        .unwrap();
     guest_browser
         .goto(&format!("http://{address}/meet/j/{id}"))
         .await
         .unwrap();
     browser_join(&mut guest_browser).await;
     guest_browser.wait_for("!document.querySelector('.meeting-lobby-wait').hidden && document.querySelector('.meeting-room').hidden").await.unwrap();
-    host_browser.wait_for("!document.querySelector('.room-lobby-notice').hidden && document.querySelector('button[aria-label=Participants]').textContent.includes('1')").await.unwrap();
+    host_browser.wait_for("!document.querySelector('.room-lobby-notice').hidden && document.querySelector('button[aria-label=Participants]').textContent.includes('1') && window.lobbySounds.join() === 'default'").await.unwrap();
     host_browser
         .click(".room-lobby-notice button:nth-of-type(1)")
         .await

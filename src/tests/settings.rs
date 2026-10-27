@@ -12,6 +12,9 @@ async fn settings_renders_storage_options_and_download_guidance() {
         "browser's download folder",
         "Audio settings",
         "Video settings",
+        "Mute all notifications (except for calls and meetings)",
+        "Test notification",
+        "Position on the screen",
     ] {
         assert!(body.contains(text), "missing {text}");
     }
@@ -713,5 +716,79 @@ async fn chat_settings_persist_and_control_the_chat_list_and_density() {
         .await
         .unwrap();
     assert_eq!(comfy_padding, "8px");
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
+async fn notification_settings_save_and_drive_the_test_notification() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/activity"))
+        .await
+        .unwrap();
+    browser
+        .click("a[aria-label='Notification settings']")
+        .await
+        .unwrap();
+    browser.wait_for("location.search === '?category=notifications' && document.querySelector('.settings-main h2').textContent === 'Notifications and activity' && document.querySelector('input[name=\"notification-position\"][value=bottom-right]').checked").await.unwrap();
+    let unavailable: bool = browser.eval("['Follow device Do not disturb', 'Meeting start notifications', 'Show meeting join bar', 'Meet now start notifications'].every(label => { const input = document.querySelector('input[aria-label=\"' + label + '\"]'); return input.disabled && !input.checked; }) && ['Missed activity emails', 'Chat message notifications', 'Mention notifications', 'Reaction notifications', 'Meeting chat notifications'].every(label => document.querySelector('select[aria-label=\"' + label + '\"]').disabled)").await.unwrap();
+    assert!(
+        unavailable,
+        "notifications Upurnaka cannot deliver must not be presented as working controls"
+    );
+    // Record synthesized tones instead of playing them.
+    let _: bool = browser.eval("window.playedTones = []; window.AudioContext = class { constructor(){ this.currentTime = 0; this.state = 'running'; this.destination = {}; } createGain(){ return {gain:{setValueAtTime(){}, exponentialRampToValueAtTime(){}}, connect(node){ return node; }}; } createOscillator(){ const tone = {type:'', frequency:{value:0}, connect(node){ return node; }, start(){ window.playedTones.push(tone.frequency.value); }, stop(){}}; return tone; } }; true").await.unwrap();
+    let _: bool = browser.eval("const select = document.querySelector('select[aria-label=\"Notification sound\"]'); select.value = 'ping'; select.dispatchEvent(new Event('change',{bubbles:true})); true").await.unwrap();
+    browser.wait_for("JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')).notifySoundName === 'ping'").await.unwrap();
+    let _: bool = browser.eval("const dismiss = document.querySelector('select[aria-label=\"Dismiss notifications after\"]'); dismiss.value = '10'; dismiss.dispatchEvent(new Event('change',{bubbles:true})); true").await.unwrap();
+    browser
+        .click("button[aria-label='Play notification sound']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("window.playedTones.join() === '1760'")
+        .await
+        .unwrap();
+    browser
+        .click("input[name='notification-position'][value=top-left]")
+        .await
+        .unwrap();
+    browser
+        .click("input[name='notification-size'][value=compact]")
+        .await
+        .unwrap();
+    browser
+        .click(".notification-display-heading .settings-secondary")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.notification-toast').hidden && document.querySelector('.notification-toast').classList.contains('at-top-left') && document.querySelector('.notification-toast').classList.contains('size-compact') && document.querySelector('.notification-toast').getBoundingClientRect().top < 40 && document.querySelector('.notification-toast').textContent.includes('test notification') && window.playedTones.length === 2").await.unwrap();
+    browser
+        .click("button[aria-label='Dismiss notification']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.notification-toast').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Mute all notifications']")
+        .await
+        .unwrap();
+    browser
+        .click(".notification-display-heading .settings-secondary")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.notification-toast').hidden && !document.querySelector('.notification-muted-note').hidden && window.playedTones.length === 2").await.unwrap();
+    browser.wait_for("(s => s.notifyMuteAll === true && s.notifySoundName === 'ping' && s.notifyDismissAfter === '10' && s.notifyPosition === 'top-left' && s.notifySize === 'compact')(JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')))").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/settings?category=notifications"))
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('input[aria-label=\"Mute all notifications\"]').checked && document.querySelector('select[aria-label=\"Notification sound\"]').value === 'ping' && document.querySelector('input[name=\"notification-size\"][value=compact]').checked").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }

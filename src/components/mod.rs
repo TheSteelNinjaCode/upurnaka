@@ -15,6 +15,8 @@ pub mod device_settings;
 pub mod icon;
 pub mod join_meeting_by_id;
 pub mod keyboard_shortcuts;
+pub mod notification_settings;
+pub mod notification_sound;
 pub mod privacy_settings;
 pub mod rahti_icons;
 pub mod rahti_ui;

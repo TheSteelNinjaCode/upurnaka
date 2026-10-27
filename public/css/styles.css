@@ -598,6 +598,9 @@
   .-mx-1 {
     margin-inline: calc(var(--spacing) * -1);
   }
+  .mx-1 {
+    margin-inline: var(--spacing);
+  }
   .mx-2 {
     margin-inline: calc(var(--spacing) * 2);
   }
@@ -3133,6 +3136,12 @@
   .text-ink\! {
     color: var(--color-ink) !important;
   }
+  .text-ink\/85 {
+    color: color-mix(in srgb, #f3f3f5 85%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      color: color-mix(in oklab, var(--color-ink) 85%, transparent);
+    }
+  }
   .text-link {
     color: var(--color-link);
   }
@@ -3978,6 +3987,9 @@
   :is(.\*\*\:focus-visible\:outline-ring *):focus-visible {
     outline-color: var(--color-ring);
   }
+  .enabled\:text-brand-ink:enabled {
+    color: var(--color-brand-ink);
+  }
   .disabled\:pointer-events-none:disabled {
     pointer-events: none;
   }
@@ -4001,6 +4013,9 @@
   }
   .disabled\:opacity-60:disabled {
     opacity: 60%;
+  }
+  .disabled\:opacity-100\!:disabled {
+    opacity: 100% !important;
   }
   :where([data-slot="combobox-content"]) .in-data-\[slot\=combobox-content\]\:focus-within\:border-inherit:focus-within {
     border-color: inherit;
@@ -6128,6 +6143,325 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 .chat-message-list[data-density="compact"] .chat-message-row [data-slot="avatar"] {
   width: 24px;
   height: 24px;
+}
+.notification-heading {
+  margin: 22px 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.notification-heading:first-of-type {
+  margin-top: 0;
+}
+.notification-section-note {
+  margin: -4px 0 12px;
+  color: var(--color-muted-foreground);
+  font-size: 12px;
+}
+.notification-setting {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 64px;
+  padding: 18px 22px;
+}
+.notification-setting > svg {
+  flex-shrink: 0;
+}
+.notification-setting h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.notification-setting p {
+  margin-top: 3px;
+  color: var(--color-muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.notification-display-heading {
+  align-items: center;
+}
+.notification-display-heading h3 {
+  flex: 1;
+}
+.notification-check-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.notification-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-left: 38px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.notification-check input {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  accent-color: var(--color-brand-ink);
+}
+.notification-check small {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.notification-check.is-disabled {
+  cursor: not-allowed;
+}
+.notification-check.is-disabled > span {
+  opacity: .65;
+}
+.notification-sound-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.notification-play {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.notification-play:hover {
+  background: var(--color-hover);
+}
+.notification-play:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+.notification-row {
+  margin-left: 0;
+}
+.notification-settings .settings-card > .notification-row {
+  margin-left: 38px;
+}
+.notification-label {
+  margin: 16px 0 10px 38px;
+}
+.notification-muted-note {
+  margin-top: -8px;
+  margin-bottom: 6px;
+}
+.notification-choice {
+  width: 170px;
+}
+.notification-position-preview, .notification-size-preview {
+  position: relative;
+  display: block;
+  height: 80px;
+  border-bottom: 8px solid var(--color-hover);
+  background: var(--color-sunken);
+}
+.notification-position-preview i {
+  position: absolute;
+  width: 52px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--color-edge);
+}
+.notification-position-preview i::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  background: var(--color-ink);
+}
+.notification-position-preview i::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  right: 6px;
+  top: 6px;
+  height: 6px;
+  border-top: 1px solid var(--color-ink);
+  border-bottom: 1px solid var(--color-ink);
+}
+.notification-choice.is-selected .notification-position-preview i {
+  background: var(--color-brand);
+}
+.notification-position-preview.at-bottom-right i {
+  right: 6px;
+  bottom: 4px;
+}
+.notification-position-preview.at-top-right i {
+  right: 6px;
+  top: 4px;
+}
+.notification-position-preview.at-bottom-left i {
+  left: 6px;
+  bottom: 4px;
+}
+.notification-position-preview.at-top-left i {
+  left: 6px;
+  top: 4px;
+}
+.notification-size-preview {
+  display: grid;
+  place-items: center;
+  border-bottom: 0;
+}
+.notification-size-preview i {
+  position: relative;
+  display: block;
+  width: 82%;
+  height: 52px;
+  border-radius: 3px;
+  background: var(--color-edge);
+}
+.notification-choice.is-selected .notification-size-preview i {
+  background: var(--color-brand);
+}
+.notification-size-preview b {
+  position: absolute;
+  left: 10px;
+  top: 13px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-ink);
+  opacity: .85;
+}
+.notification-size-preview s, .notification-size-preview u {
+  position: absolute;
+  left: 44px;
+  right: 10px;
+  top: 14px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--color-ink);
+  opacity: .85;
+  text-decoration: none;
+}
+.notification-size-preview u {
+  top: 26px;
+  right: 30px;
+}
+.notification-size-preview.size-compact i {
+  height: 34px;
+}
+.notification-size-preview.size-compact b {
+  top: 6px;
+  width: 22px;
+  height: 22px;
+}
+.notification-size-preview.size-compact s {
+  top: 10px;
+}
+.notification-size-preview.size-compact u {
+  top: 20px;
+}
+.notification-toast {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 14px 12px 14px 14px;
+  border: 1px solid var(--color-edge);
+  border-radius: 8px;
+  background: var(--color-raised);
+  color: var(--color-ink);
+  font-size: 13px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / .35);
+}
+.notification-toast[hidden] {
+  display: none;
+}
+.notification-toast.at-bottom-right {
+  right: 16px;
+  bottom: 16px;
+}
+.notification-toast.at-top-right {
+  right: 16px;
+  top: 16px;
+}
+.notification-toast.at-bottom-left {
+  left: 16px;
+  bottom: 16px;
+}
+.notification-toast.at-top-left {
+  left: 16px;
+  top: 16px;
+}
+.notification-toast-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-brand);
+  color: #fff;
+  font-weight: 600;
+}
+.notification-toast strong {
+  display: block;
+  font-weight: 600;
+}
+.notification-toast-body {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-muted-foreground);
+  line-height: 1.45;
+}
+.notification-toast-close {
+  flex-shrink: 0;
+  border-radius: 4px;
+  padding: 2px;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+}
+.notification-toast-close:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+.notification-toast.size-compact {
+  align-items: center;
+  gap: 10px;
+  width: min(300px, calc(100vw - 32px));
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.notification-toast.size-compact .notification-toast-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+.notification-toast.size-compact .notification-toast-body {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+@media (max-width: 700px) {
+  .notification-setting {
+    flex-wrap: wrap;
+    padding: 16px 12px;
+    gap: 10px;
+  }
+  .notification-setting .settings-select {
+    width: 100%;
+  }
+  .notification-check, .notification-label, .notification-settings .settings-card > .notification-row {
+    margin-left: 0;
+  }
+  .notification-choice {
+    width: 140px;
+    flex-grow: 1;
+  }
 }
 @property --tw-translate-x {
   syntax: "*";

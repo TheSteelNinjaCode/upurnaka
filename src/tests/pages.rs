@@ -810,6 +810,10 @@ async fn calendar_joins_a_meeting_by_id_and_handles_dismissal_and_blocked_window
         .await
         .unwrap();
     browser
+        .wait_for("document.querySelector('.calendar-join-dialog').matches(':popover-open') && document.activeElement.name === 'meeting' && document.querySelector('.calendar-join-dialog').getAnimations().length === 0")
+        .await
+        .unwrap();
+    browser
         .click(".calendar-join-dialog button[type=submit]")
         .await
         .unwrap();

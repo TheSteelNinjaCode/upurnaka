@@ -205,7 +205,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                 "Settings"
                                 <span class=@{SHORTCUT} aria-hidden="true">"Ctrl+,"</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem href="/settings?category=notifications">
                                 <Icon name="bell" class="size-4 text-muted-foreground" />
                                 "Notifications"
                             </DropdownMenuItem>
