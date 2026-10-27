@@ -257,6 +257,143 @@ pub async fn page() -> Html {
                                 </select>
                             </label>
                         </section>
+                        <section class="settings-card" hidden={!show("chat-list")}>
+                            <div class="settings-card-heading">
+                                <Icon name="list" class="size-5" />
+                                <h3>"Chats list"</h3>
+                            </div>
+                            <label class="settings-row">
+                                <span>"Show message previews for chats"</span>
+                                <span class="accessibility-control">
+                                    <span aria-hidden="true">
+                                        {prefs.chatPreviews ? "On" : "Off"}
+                                    </span>
+                                    <input
+                                        class="settings-switch"
+                                        type="checkbox"
+                                        role="switch"
+                                        aria-label="Show message previews for chats"
+                                        checked={prefs.chatPreviews}
+                                        onchange={settings.update("chatPreviews", target.checked)}
+                                    />
+                                </span>
+                            </label>
+                            <label class="settings-row">
+                                <span>"Show time stamps"</span>
+                                <span class="accessibility-control">
+                                    <span aria-hidden="true">
+                                        {prefs.chatTimestamps ? "On" : "Off"}
+                                    </span>
+                                    <input
+                                        class="settings-switch"
+                                        type="checkbox"
+                                        role="switch"
+                                        aria-label="Show time stamps"
+                                        checked={prefs.chatTimestamps}
+                                        onchange={settings.update("chatTimestamps", target.checked)}
+                                    />
+                                </span>
+                            </label>
+                            <label class="settings-row">
+                                <span>"Filters"</span>
+                                <span class="accessibility-control">
+                                    <span aria-hidden="true">
+                                        {prefs.chatFilters ? "On" : "Off"}
+                                    </span>
+                                    <input
+                                        class="settings-switch"
+                                        type="checkbox"
+                                        role="switch"
+                                        aria-label="Chat list filters"
+                                        checked={prefs.chatFilters}
+                                        onchange={settings.update("chatFilters", target.checked)}
+                                    />
+                                </span>
+                            </label>
+                        </section>
+                        <section class="settings-card" hidden={!show("chat-density")}>
+                            <div class="settings-card-heading">
+                                <Icon name="chat" class="size-5" />
+                                <h3>"Chat"</h3>
+                            </div>
+                            <p class="chat-density-label settings-detail font-medium">
+                                "Message density"
+                            </p>
+                            <div
+                                class="settings-choices"
+                                role="radiogroup"
+                                aria-label="Message density"
+                            >
+                                <label
+                                    class={"settings-choice chat-density-choice " + (prefs.chatDensity === "comfy" ? "is-selected" : "")}
+                                >
+                                    <span
+                                        class="chat-density-preview density-comfy"
+                                        aria-hidden="true"
+                                    >
+                                        <i></i>
+                                        <i></i>
+                                        <i></i>
+                                        <i></i>
+                                    </span>
+                                    <span class="flex items-center justify-between gap-3">
+                                        "Comfy"
+                                        <input
+                                            type="radio"
+                                            name="chat-density"
+                                            value="comfy"
+                                            checked={prefs.chatDensity === "comfy"}
+                                            onchange={settings.update("chatDensity", target.value)}
+                                        />
+                                    </span>
+                                </label>
+                                <label
+                                    class={"settings-choice chat-density-choice " + (prefs.chatDensity === "compact" ? "is-selected" : "")}
+                                >
+                                    <span
+                                        class="chat-density-preview density-compact"
+                                        aria-hidden="true"
+                                    >
+                                        <i></i>
+                                        <i></i>
+                                        <i></i>
+                                        <i></i>
+                                    </span>
+                                    <span class="flex items-center justify-between gap-3">
+                                        "Compact"
+                                        <input
+                                            type="radio"
+                                            name="chat-density"
+                                            value="compact"
+                                            checked={prefs.chatDensity === "compact"}
+                                            onchange={settings.update("chatDensity", target.value)}
+                                        />
+                                    </span>
+                                </label>
+                            </div>
+                        </section>
+                        <section
+                            class="settings-card accessibility-setting"
+                            hidden={!show("read-receipts")}
+                        >
+                            <Icon name="check-circle" class="size-5" />
+                            <div class="min-w-0 flex-1">
+                                <h3>"Read receipts"</h3>
+                                <p>
+                                    "Read receipts are not available yet. Chats currently stay in this page and are not delivered to other recipients."
+                                </p>
+                            </div>
+                            <label class="accessibility-control">
+                                <span aria-hidden="true">"Off"</span>
+                                <input
+                                    class="settings-switch"
+                                    type="checkbox"
+                                    role="switch"
+                                    aria-label="Read receipts"
+                                    disabled
+                                />
+                            </label>
+                        </section>
                         <section class="settings-card" hidden={!show("composer")}>
                             <div class="settings-card-heading">
                                 <Icon name="chat" class="size-5" />
@@ -534,6 +671,9 @@ pub async fn page() -> Html {
                         {id:'timezone', category:'general', text:'time zone computer clock'},
                         {id:'theme', category:'appearance', text:'theme dark light system appearance'},
                         {id:'text', category:'appearance', text:'text size standard large accessibility'},
+                        {id:'chat-list', category:'chats', text:'chats list message previews time stamps timestamps filters'},
+                        {id:'chat-density', category:'chats', text:'chat message density comfy compact spacing'},
+                        {id:'read-receipts', category:'chats', text:'chat read receipts seen messages'},
                         {id:'composer', category:'chats', text:'message composer enter send spelling spellcheck typing keyboard'},
                         {id:'motion', category:'appearance', text:'reduce motion animations transitions'},
                         {id:'sign-language', category:'accessibility', text:'sign language mode interpreter video accessibility'},

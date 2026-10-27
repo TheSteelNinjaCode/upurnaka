@@ -6066,6 +6066,69 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
     max-width: 100%;
   }
 }
+.chat-density-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 80px;
+  padding: 9px 8px;
+  background: var(--color-sunken);
+}
+.chat-density-preview i {
+  position: relative;
+  display: block;
+  width: 68%;
+  height: 10px;
+  margin-left: 15px;
+  border-radius: 2px;
+  background: var(--color-hover);
+}
+.chat-density-preview i::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-avatar);
+}
+.chat-density-preview i::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 70%;
+  height: 2px;
+  background: var(--color-muted-foreground);
+}
+.density-comfy i:last-child {
+  margin-left: 45px;
+  width: 60%;
+  background: var(--color-brand-soft);
+}
+.density-comfy i:last-child::before {
+  display: none;
+}
+.density-compact {
+  gap: 4px;
+}
+.chat-density-label {
+  margin-bottom: 12px;
+}
+.density-compact i {
+  height: 8px;
+  background: transparent;
+}
+.chat-message-list[data-density="compact"] .chat-message-row {
+  gap: 8px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.chat-message-list[data-density="compact"] .chat-message-row [data-slot="avatar"] {
+  width: 24px;
+  height: 24px;
+}
 @property --tw-translate-x {
   syntax: "*";
   inherits: false;

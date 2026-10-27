@@ -258,7 +258,10 @@ pub async fn page() -> Html {
                             onkeydown={handleSearchKey(event)}
                         />
                     </div>
-                    <div class="flex items-center gap-2 px-5 py-3">
+                    <div
+                        class="chat-list-filters flex items-center gap-2 px-5 py-3"
+                        hidden={!settings.preferences.chatFilters}
+                    >
                         <Toggle
                             variant="outline"
                             size="sm"
@@ -316,8 +319,26 @@ pub async fn page() -> Html {
                                             size="md"
                                             presence="online"
                                         />
-                                        <span class="truncate text-[13px] font-semibold text-ink">
-                                            @{self_label.as_str()}
+                                        <span class="min-w-0 flex-1 text-left">
+                                            <span class="flex items-baseline justify-between gap-2">
+                                                <span
+                                                    class="truncate text-[13px] font-semibold text-ink"
+                                                >
+                                                    @{self_label.as_str()}
+                                                </span>
+                                                <span
+                                                    class="chat-list-time shrink-0 text-[10px] font-normal text-subtle"
+                                                    hidden={!settings.preferences.chatTimestamps || !lastMessage(threads[0])}
+                                                >
+                                                    {lastMessage(threads[0])?.time || ""}
+                                                </span>
+                                            </span>
+                                            <span
+                                                class="chat-list-preview mt-0.5 block truncate text-xs font-normal text-muted-foreground"
+                                                hidden={!settings.preferences.chatPreviews || !lastMessage(threads[0])}
+                                            >
+                                                {messagePreview(threads[0])}
+                                            </span>
                                         </span>
                                     </Button>
                                     <DropdownMenu>
@@ -417,8 +438,26 @@ pub async fn page() -> Html {
                                             size="md"
                                             presence="online"
                                         />
-                                        <span class="truncate text-[13px] font-semibold text-ink">
-                                            @{self_label.as_str()}
+                                        <span class="min-w-0 flex-1 text-left">
+                                            <span class="flex items-baseline justify-between gap-2">
+                                                <span
+                                                    class="truncate text-[13px] font-semibold text-ink"
+                                                >
+                                                    @{self_label.as_str()}
+                                                </span>
+                                                <span
+                                                    class="chat-list-time shrink-0 text-[10px] font-normal text-subtle"
+                                                    hidden={!settings.preferences.chatTimestamps || !lastMessage(threads[0])}
+                                                >
+                                                    {lastMessage(threads[0])?.time || ""}
+                                                </span>
+                                            </span>
+                                            <span
+                                                class="chat-list-preview mt-0.5 block truncate text-xs font-normal text-muted-foreground"
+                                                hidden={!settings.preferences.chatPreviews || !lastMessage(threads[0])}
+                                            >
+                                                {messagePreview(threads[0])}
+                                            </span>
                                         </span>
                                     </Button>
                                     <DropdownMenu>
@@ -553,10 +592,28 @@ pub async fn page() -> Html {
                                                     {initials(thread.label)}
                                                 </AvatarFallback>
                                             </UiAvatar>
-                                            <span
-                                                class="min-w-0 truncate text-[13px] font-semibold"
-                                            >
-                                                {thread.label}
+                                            <span class="min-w-0 flex-1 text-left">
+                                                <span
+                                                    class="flex items-baseline justify-between gap-2"
+                                                >
+                                                    <span
+                                                        class="min-w-0 truncate text-[13px] font-semibold"
+                                                    >
+                                                        {thread.label}
+                                                    </span>
+                                                    <span
+                                                        class="chat-list-time shrink-0 text-[10px] font-normal text-subtle"
+                                                        hidden={!settings.preferences.chatTimestamps || !lastMessage(thread)}
+                                                    >
+                                                        {lastMessage(thread)?.time || ""}
+                                                    </span>
+                                                </span>
+                                                <span
+                                                    class="chat-list-preview mt-0.5 block truncate text-xs font-normal text-muted-foreground"
+                                                    hidden={!settings.preferences.chatPreviews || !lastMessage(thread)}
+                                                >
+                                                    {messagePreview(thread)}
+                                                </span>
                                             </span>
                                         </Button>
                                         <div
@@ -705,7 +762,7 @@ pub async fn page() -> Html {
                                 size="icon-sm"
                                 class="text-muted-foreground"
                                 attrs=@{bound("aria-label", ui_expr!(aria-label={groupNameOpen ? "Hide group name" : "Show group name"}))
-                                    .merge(&bound("aria-expanded", ui_expr!(aria-expanded={groupNameOpen})))}
+                                        .merge(&bound("aria-expanded", ui_expr!(aria-expanded={groupNameOpen})))}
                                 onclick={toggleGroupName()}
                                 disabled={sending}
                             >
@@ -803,9 +860,13 @@ pub async fn page() -> Html {
                                 "Type your first message below."
                             </p>
                         </div>
-                        <div class="w-full py-5" hidden={messages.length === 0}>
+                        <div
+                            class="chat-message-list w-full py-5"
+                            data-density={settings.preferences.chatDensity}
+                            hidden={messages.length === 0}
+                        >
                             <template pp-for="message in matchingMessages">
-                                <div key={message.id} class="flex gap-3 py-2">
+                                <div key={message.id} class="chat-message-row flex gap-3 py-2">
                                     <UiAvatar class="mt-0.5">
                                         <AvatarFallback class=@{INITIALS}>
                                             {message.initials}
@@ -907,7 +968,7 @@ pub async fn page() -> Html {
                                             ontoggle={emojiToggled(event.newState)}
                                         >
                                             // The search comes first in the document so the popover
-                                            // focuses it on open; the tabs are drawn above it.
+                                                // focuses it on open; the tabs are drawn above it.
                                             <InputGroup
                                                 class="chat-emoji-search mx-4 mb-2 mt-4 w-auto! shrink-0"
                                             >
@@ -1295,11 +1356,18 @@ pub async fn page() -> Html {
                     const [meetingNotice, setMeetingNotice] = pp.state("");
                     const [sharedMeeting, setSharedMeeting] = pp.state(null);
                     const meetingNameInput = pp.ref(null);
-                    const hasChatFilter = !!chatFilter.trim() || filters.unread || filters.meetings || filters.unmuted;
-                    const selfMatches = (!selfHidden || !!chatFilter.trim()) && selfLabel.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
+                    const activeFilters = settings.preferences.chatFilters ? filters : {unread:false,meetings:false,unmuted:false};
+                    const hasChatFilter = !!chatFilter.trim() || activeFilters.unread || activeFilters.meetings || activeFilters.unmuted;
+                    const selfMatches = (!selfHidden || !!chatFilter.trim()) && selfLabel.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !activeFilters.unread && !activeFilters.meetings;
 
-                    const newRowMatches = hasNewChat && "new message".includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
-                    const visibleThreads = threads.filter(thread => thread.id !== "self" && thread.label.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings);
+                    const newRowMatches = hasNewChat && "new message".includes(chatFilter.trim().toLocaleLowerCase()) && !activeFilters.unread && !activeFilters.meetings;
+                    const visibleThreads = threads.filter(thread => thread.id !== "self" && thread.label.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !activeFilters.unread && !activeFilters.meetings);
+                    function lastMessage(thread) {return thread.messages[thread.messages.length - 1];}
+                    function messagePreview(thread) {
+                        const message = lastMessage(thread);
+                        if (!message) return '';
+                        return message.text || (message.gif_url ? (settings.preferences.connectedExperiences ? 'GIF' : 'GIF hidden by your privacy settings') : '');
+                    }
                     function moveThread(id, direction) {
                         const index = visibleThreads.findIndex(thread => thread.id === id);
                         const neighbor = visibleThreads[index + direction];

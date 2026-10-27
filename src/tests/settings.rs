@@ -605,3 +605,113 @@ async fn optional_connected_experiences_off_blocks_giphy_requests() {
     );
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
+
+#[tokio::test]
+async fn chat_settings_persist_and_control_the_chat_list_and_density() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    browser
+        .click(".settings-nav[data-category=chats]")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.settings-main h2').textContent === 'Chats' && document.querySelector('input[name=\"chat-density\"][value=comfy]').checked").await.unwrap();
+    let receipts_unavailable: bool = browser.eval("document.querySelector('input[aria-label=\"Read receipts\"]').disabled && !document.querySelector('input[aria-label=\"Read receipts\"]').checked").await.unwrap();
+    assert!(
+        receipts_unavailable,
+        "read receipts require recipient delivery and must not be simulated"
+    );
+    for label in [
+        "Show message previews for chats",
+        "Show time stamps",
+        "Chat list filters",
+    ] {
+        browser
+            .click(&format!("input[aria-label='{label}']"))
+            .await
+            .unwrap();
+    }
+    browser
+        .click("input[name='chat-density'][value=compact]")
+        .await
+        .unwrap();
+    browser.wait_for("JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')).chatDensity === 'compact'").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    browser
+        .click(".settings-nav[data-category=chats]")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('input[name=\"chat-density\"][value=compact]').checked && !document.querySelector('input[aria-label=\"Show message previews for chats\"]').checked && !document.querySelector('input[aria-label=\"Show time stamps\"]').checked && !document.querySelector('input[aria-label=\"Chat list filters\"]').checked").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .click("textarea[aria-label='Type a message']")
+        .await
+        .unwrap();
+    browser.type_text("Hidden preview text").await.unwrap();
+    browser.click("button[aria-label=Send]").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-message-row') && document.querySelector('.chat-message-list').dataset.density === 'compact'").await.unwrap();
+    let hidden: bool = browser.eval("document.querySelector('.chat-list-filters').hidden && Array.from(document.querySelectorAll('.chat-list-preview')).every(element => element.hidden) && Array.from(document.querySelectorAll('.chat-list-time')).every(element => element.hidden)").await.unwrap();
+    assert!(
+        hidden,
+        "chat list preferences must affect the actual chat UI"
+    );
+    let compact_padding: String = browser
+        .eval("getComputedStyle(document.querySelector('.chat-message-row')).paddingTop")
+        .await
+        .unwrap();
+    assert_eq!(compact_padding, "2px");
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    browser
+        .click(".settings-nav[data-category=chats]")
+        .await
+        .unwrap();
+    for label in [
+        "Show message previews for chats",
+        "Show time stamps",
+        "Chat list filters",
+    ] {
+        browser
+            .click(&format!("input[aria-label='{label}']"))
+            .await
+            .unwrap();
+    }
+    browser
+        .click("input[name='chat-density'][value=comfy]")
+        .await
+        .unwrap();
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .click("textarea[aria-label='Type a message']")
+        .await
+        .unwrap();
+    browser.type_text("Visible preview text").await.unwrap();
+    browser.click("button[aria-label=Send]").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-message-row') && document.querySelector('.chat-self-entry .chat-list-preview').textContent === 'Visible preview text'").await.unwrap();
+    let visible: bool = browser.eval("!document.querySelector('.chat-list-filters').hidden && !document.querySelector('.chat-self-entry .chat-list-preview').hidden && !document.querySelector('.chat-self-entry .chat-list-time').hidden && document.querySelector('.chat-self-entry .chat-list-time').textContent.trim().length > 0 && document.querySelector('.chat-message-list').dataset.density === 'comfy'").await.unwrap();
+    assert!(visible);
+    let comfy_padding: String = browser
+        .eval("getComputedStyle(document.querySelector('.chat-message-row')).paddingTop")
+        .await
+        .unwrap();
+    assert_eq!(comfy_padding, "8px");
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
