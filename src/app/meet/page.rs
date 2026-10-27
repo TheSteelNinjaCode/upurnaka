@@ -54,7 +54,7 @@ pub async fn page() -> Result {
     let join_link = button_variants(
         ButtonVariant::Secondary,
         ButtonSize::Default,
-        "flex-1 bg-hover text-[13px] font-semibold hover:bg-edge",
+        "h-9 min-w-0 flex-1 rounded-lg bg-[#3d3d3d] text-[13px] font-semibold hover:bg-[#4a4a4a]",
     );
     let cancel = button_variants(
         ButtonVariant::Outline,
@@ -281,17 +281,16 @@ pub async fn page() -> Result {
                                         href={link.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class=@{join_link.as_str()}
+                                        class={twMerge(meetingActionClass)}
                                     >
                                         "Join"
                                     </a>
                                     <Button
                                         variant="secondary"
-                                        class="flex-1 bg-hover text-[13px] font-semibold hover:bg-edge"
+                                        class={twMerge(meetingActionClass)}
                                         value={link.url}
                                         onclick={shareLink(event.currentTarget.value)}
                                     >
-                                        <Icon name="copy" class="size-4" />
                                         "Share link"
                                     </Button>
                                 </div>
@@ -405,6 +404,7 @@ pub async fn page() -> Result {
                     {toast}
                 </div>
                 <script>r##"
+                    const meetingActionClass = @{join_link};
                     const [links, setLinks] = pp.state(@{Json(&links)});
                     const [title, setTitle] = pp.state(@{Json(&suggested_title)});
                     const [creating, setCreating] = pp.state(false);
