@@ -72,6 +72,7 @@ totp-rs = { version = "6.0.0", default-features = false, features = ["std", "qr"
 # It reads `DILNAKA_API_KEY` and brings its own rustls on ring.
 dilnaka = "0.0.2"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
+chrono = "0.4.45"
 
 # What `src/tests/support.rs` needs to drive the generated router in-process:
 # a request in, a response out, no port bound. See docs/conventions/testing.md.

@@ -6,7 +6,9 @@
 
 #![allow(dead_code, unused_imports)]
 
+pub mod arrow_right;
 pub mod bell;
+pub mod bold;
 pub mod calendar;
 pub mod calendar_days;
 pub mod check;
@@ -16,6 +18,7 @@ pub mod chevron_right;
 pub mod chevron_up;
 pub mod circle_check;
 pub mod circle_dot;
+pub mod clock;
 pub mod contact;
 pub mod copy;
 pub mod ellipsis;
@@ -25,8 +28,12 @@ pub mod grid_2x2;
 pub mod hand;
 pub mod hash;
 pub mod image;
+pub mod italic;
 pub mod link;
+pub mod list;
 pub mod list_filter;
+pub mod list_ordered;
+pub mod map_pin;
 pub mod message_circle;
 pub mod mic;
 pub mod mic_off;
@@ -36,6 +43,7 @@ pub mod paperclip;
 pub mod pencil;
 pub mod phone;
 pub mod plus;
+pub mod repeat;
 pub mod screen_share;
 pub mod search;
 pub mod send;

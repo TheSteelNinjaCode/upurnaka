@@ -1,6 +1,8 @@
 //! Application icon names backed by installed rahti-icons components.
 
+use crate::components::rahti_icons::arrow_right::ArrowRight;
 use crate::components::rahti_icons::bell::Bell;
+use crate::components::rahti_icons::bold::Bold;
 use crate::components::rahti_icons::calendar::Calendar;
 use crate::components::rahti_icons::calendar_days::CalendarDays;
 use crate::components::rahti_icons::check::Check;
@@ -10,6 +12,7 @@ use crate::components::rahti_icons::chevron_right::ChevronRight;
 use crate::components::rahti_icons::chevron_up::ChevronUp;
 use crate::components::rahti_icons::circle_check::CircleCheck;
 use crate::components::rahti_icons::circle_dot::CircleDot;
+use crate::components::rahti_icons::clock::Clock;
 use crate::components::rahti_icons::contact::Contact;
 use crate::components::rahti_icons::copy::Copy;
 use crate::components::rahti_icons::ellipsis::Ellipsis;
@@ -19,8 +22,12 @@ use crate::components::rahti_icons::grid_2x2::Grid2x2;
 use crate::components::rahti_icons::hand::Hand;
 use crate::components::rahti_icons::hash::Hash;
 use crate::components::rahti_icons::image::Image;
+use crate::components::rahti_icons::italic::Italic;
 use crate::components::rahti_icons::link::Link;
+use crate::components::rahti_icons::list::List;
 use crate::components::rahti_icons::list_filter::ListFilter;
+use crate::components::rahti_icons::list_ordered::ListOrdered;
+use crate::components::rahti_icons::map_pin::MapPin;
 use crate::components::rahti_icons::message_circle::MessageCircle;
 use crate::components::rahti_icons::mic::Mic;
 use crate::components::rahti_icons::mic_off::MicOff;
@@ -30,6 +37,7 @@ use crate::components::rahti_icons::paperclip::Paperclip;
 use crate::components::rahti_icons::pencil::Pencil;
 use crate::components::rahti_icons::phone::Phone;
 use crate::components::rahti_icons::plus::Plus;
+use crate::components::rahti_icons::repeat::Repeat;
 use crate::components::rahti_icons::screen_share::ScreenShare;
 use crate::components::rahti_icons::search::Search;
 use crate::components::rahti_icons::send::Send;
@@ -73,6 +81,30 @@ pub fn Icon(name: &str, class: &str) -> Html {
         },
         "calendar-day" => html! {
             <CalendarDays class=@{class} stroke_width="1.6" />
+        },
+        "clock" => html! {
+            <Clock class=@{class} stroke_width="1.6" />
+        },
+        "repeat" => html! {
+            <Repeat class=@{class} stroke_width="1.6" />
+        },
+        "location" => html! {
+            <MapPin class=@{class} stroke_width="1.6" />
+        },
+        "bold" => html! {
+            <Bold class=@{class} stroke_width="1.6" />
+        },
+        "italic" => html! {
+            <Italic class=@{class} stroke_width="1.6" />
+        },
+        "list" => html! {
+            <List class=@{class} stroke_width="1.6" />
+        },
+        "list-ordered" => html! {
+            <ListOrdered class=@{class} stroke_width="1.6" />
+        },
+        "arrow-right" => html! {
+            <ArrowRight class=@{class} stroke_width="1.6" />
         },
         "bell" => html! {
             <Bell class=@{class} stroke_width="1.6" />

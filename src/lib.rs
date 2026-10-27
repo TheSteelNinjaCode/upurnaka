@@ -13,6 +13,7 @@
 pub use rahti;
 pub mod auth;
 mod browser_policy;
+pub mod calendar;
 mod middleware;
 pub mod seed;
 pub mod users;

@@ -8,6 +8,7 @@ mod support;
 use support::*;
 
 mod auth;
+mod calendar;
 mod database;
 pub(crate) mod giphy;
 mod meeting_controls;

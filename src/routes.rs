@@ -71,6 +71,7 @@ const PAGE_RPCS: &[&str] = &[
     "request_meeting_entry",
     "resume_meeting_audio",
     "retry_meeting_recording",
+    "schedule_meeting",
     "send_message",
     "set_user_active",
     "spotlight_participant",
@@ -110,6 +111,7 @@ async fn rpc_p_calendar(req: axum::extract::Request) -> axum::response::Response
         Err(res) => return res,
     };
     match name.as_str() {
+        "schedule_meeting" => p_calendar::__rahti_rpc_schedule_meeting(req).await,
         "create_meeting" => p_calendar::__rahti_rpc_create_meeting(req).await,
         _ => component_rpc(&name, req).await,
     }
@@ -240,7 +242,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/signin` [GET, POST] — src/app/signin/page.rs (layouts: src/app/layout.rs)
 /// - `/account` [GET, POST] — src/app/account/page.rs (layouts: src/app/layout.rs)
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
-/// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)
+/// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: schedule_meeting, create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
 /// - `/profile-picture` [GET] — src/app/profile-picture/route.rs

@@ -100,6 +100,9 @@ pub fn authorization() -> rahti::authorization::Gate {
     gate.define_resource::<PublicUser, String, _>("profile.update", |user, owner| {
         user.id == *owner
     });
+    gate.define_resource::<PublicUser, String, _>("calendar.manage", |user, owner| {
+        user.id == *owner
+    });
     gate
 }
 

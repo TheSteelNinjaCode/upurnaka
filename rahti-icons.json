@@ -23,10 +23,22 @@
   "generatedWith": "0.0.27",
   "icons": [
     {
+      "component": "ArrowRight",
+      "file": "src/components/rahti_icons/arrow_right.rs",
+      "module": "crate::components::rahti_icons::arrow_right",
+      "name": "arrow-right"
+    },
+    {
       "component": "Bell",
       "file": "src/components/rahti_icons/bell.rs",
       "module": "crate::components::rahti_icons::bell",
       "name": "bell"
+    },
+    {
+      "component": "Bold",
+      "file": "src/components/rahti_icons/bold.rs",
+      "module": "crate::components::rahti_icons::bold",
+      "name": "bold"
     },
     {
       "component": "Calendar",
@@ -83,6 +95,12 @@
       "name": "circle-dot"
     },
     {
+      "component": "Clock",
+      "file": "src/components/rahti_icons/clock.rs",
+      "module": "crate::components::rahti_icons::clock",
+      "name": "clock"
+    },
+    {
       "component": "Contact",
       "file": "src/components/rahti_icons/contact.rs",
       "module": "crate::components::rahti_icons::contact",
@@ -137,16 +155,40 @@
       "name": "image"
     },
     {
+      "component": "Italic",
+      "file": "src/components/rahti_icons/italic.rs",
+      "module": "crate::components::rahti_icons::italic",
+      "name": "italic"
+    },
+    {
       "component": "Link",
       "file": "src/components/rahti_icons/link.rs",
       "module": "crate::components::rahti_icons::link",
       "name": "link"
     },
     {
+      "component": "List",
+      "file": "src/components/rahti_icons/list.rs",
+      "module": "crate::components::rahti_icons::list",
+      "name": "list"
+    },
+    {
       "component": "ListFilter",
       "file": "src/components/rahti_icons/list_filter.rs",
       "module": "crate::components::rahti_icons::list_filter",
       "name": "list-filter"
+    },
+    {
+      "component": "ListOrdered",
+      "file": "src/components/rahti_icons/list_ordered.rs",
+      "module": "crate::components::rahti_icons::list_ordered",
+      "name": "list-ordered"
+    },
+    {
+      "component": "MapPin",
+      "file": "src/components/rahti_icons/map_pin.rs",
+      "module": "crate::components::rahti_icons::map_pin",
+      "name": "map-pin"
     },
     {
       "component": "MessageCircle",
@@ -201,6 +243,12 @@
       "file": "src/components/rahti_icons/plus.rs",
       "module": "crate::components::rahti_icons::plus",
       "name": "plus"
+    },
+    {
+      "component": "Repeat",
+      "file": "src/components/rahti_icons/repeat.rs",
+      "module": "crate::components::rahti_icons::repeat",
+      "name": "repeat"
     },
     {
       "component": "ScreenShare",
