@@ -161,6 +161,7 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                             {useRecovery ? "Recovery code" : "Authenticator code"}
                             <input
                                 name="code"
+                                pp-ref={codeInput}
                                 type="text"
                                 autocomplete="one-time-code"
                                 inputmode={useRecovery ? "text" : "numeric"}
@@ -252,6 +253,10 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                     const [recoveryCodes, setRecoveryCodes] = pp.state([]);
                     const [saved, setSaved] = pp.state(false);
                     const [useRecovery, setUseRecovery] = pp.state(false);
+                    const codeInput = pp.ref(null);
+                    pp.effect(() => {
+                        if (stage === 'otp') codeInput.current?.focus();
+                    }, [stage, useRecovery]);
                     function message(e) { return e.body?.error || e.message || 'Something went wrong. Please try again.'; }
                     async function submitCredentials(event) {
                         event.preventDefault(); if (busy) return;

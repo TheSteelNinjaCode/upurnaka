@@ -557,7 +557,10 @@ async fn a_browser_can_register_enroll_save_codes_and_sign_out() {
         .await
         .unwrap();
     let code = otp(&json!({"setup_key":key}), "browser-auth@example.com");
-    browser.click("input[name=code]").await.unwrap();
+    browser
+        .wait_for("document.activeElement === document.querySelector('input[name=code]')")
+        .await
+        .unwrap();
     browser.type_text(&code).await.unwrap();
     browser
         .click("form:has(input[name=code]) button[type=submit]")
@@ -611,7 +614,18 @@ async fn a_browser_can_register_enroll_save_codes_and_sign_out() {
     }
     browser.click("form button[type=submit]").await.unwrap();
     browser.wait_for("Array.from(document.querySelectorAll('h1')).some(h => h.textContent.includes('Verify it’s you') && h.getBoundingClientRect().height > 0)").await.unwrap();
-    browser.click("input[name=code]").await.unwrap();
+    browser
+        .wait_for("document.activeElement === document.querySelector('input[name=code]')")
+        .await
+        .unwrap();
+    browser
+        .click("section > div:nth-of-type(2) > button")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.activeElement === document.querySelector('input[name=code]') && document.activeElement.inputMode === 'text'")
+        .await
+        .unwrap();
     browser.type_text(&recovery).await.unwrap();
     browser
         .click("form:has(input[name=code]) button[type=submit]")
