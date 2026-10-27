@@ -600,6 +600,80 @@ async fn new_chat_composes_a_group_and_preserves_other_drafts() {
 }
 
 #[tokio::test]
+async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser.click("textarea").await.unwrap();
+    browser.type_text("Hello world").await.unwrap();
+    let _: bool = browser
+        .eval("document.querySelector('textarea').setSelectionRange(6,11); true")
+        .await
+        .unwrap();
+    browser.click("button[aria-label=Emoji]").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-emoji-picker').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'Find something fun' && document.querySelectorAll('.chat-emoji-grid button').length === 12").await.unwrap();
+    let fits: bool = browser.eval("(() => {const box = document.querySelector('.chat-emoji-picker').getBoundingClientRect(); const trigger = document.querySelector('button[aria-label=Emoji]').getBoundingClientRect(); return box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= trigger.top;})()").await.unwrap();
+    assert!(
+        fits,
+        "the picker must fit above the composer inside the viewport"
+    );
+    browser.type_text("coffee").await.unwrap();
+    browser
+        .wait_for("document.querySelectorAll('.chat-emoji-grid button').length === 1")
+        .await
+        .unwrap();
+    browser.click(".chat-emoji-grid button").await.unwrap();
+    browser.wait_for("document.querySelector('textarea').value === 'Hello ☕' && document.activeElement.tagName === 'TEXTAREA' && document.activeElement.selectionStart === 7 && !document.querySelector('.chat-emoji-picker').matches(':popover-open')").await.unwrap();
+    browser.type_text(" time").await.unwrap();
+    browser.click("button[aria-label=Emoji]").await.unwrap();
+    browser
+        .click(".chat-emoji-tabs button:nth-child(2)")
+        .await
+        .unwrap();
+    browser.click(".chat-emoji-search input").await.unwrap();
+    let _: bool = browser
+        .eval("document.activeElement.select(); true")
+        .await
+        .unwrap();
+    browser.type_text("zzzznoemoji").await.unwrap();
+    browser.wait_for("document.querySelectorAll('.chat-emoji-grid button').length === 0 && !document.querySelector('.chat-emoji-empty').hidden").await.unwrap();
+    let _: bool = browser
+        .eval("document.activeElement.select(); true")
+        .await
+        .unwrap();
+    browser.press("Backspace").await.unwrap();
+    browser
+        .click("button[aria-label='Food and drink']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelectorAll('.chat-emoji-grid button').length === 12 && document.querySelector('.chat-emoji-grid').textContent.includes('🍕')").await.unwrap();
+    browser
+        .click(".chat-emoji-tabs button:nth-child(2)")
+        .await
+        .unwrap();
+    browser.press("ArrowRight").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-emoji-tabs button:nth-child(3)').getAttribute('aria-selected') === 'true' && document.querySelector('.chat-emoji-content').textContent.includes('GIF search is not connected yet.')").await.unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("!document.querySelector('.chat-emoji-picker').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'Emoji'").await.unwrap();
+    browser.click("button[aria-label=Emoji]").await.unwrap();
+    browser.click("main h2").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.chat-emoji-picker').matches(':popover-open')")
+        .await
+        .unwrap();
+    browser.click("button[aria-label=Send]").await.unwrap();
+    browser.wait_for("document.querySelector('[aria-label=Messages]').textContent.includes('Hello ☕ time') && document.querySelector('textarea').value === ''").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn new_message_menu_opens_a_window_and_discards_only_its_draft() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;

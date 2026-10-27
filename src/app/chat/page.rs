@@ -446,6 +446,12 @@ pub async fn page() -> Html {
                                 class="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-hover hover:text-ink"
                                 title="Emoji"
                                 aria-label="Emoji"
+                                aria-haspopup="dialog"
+                                aria-expanded={emojiOpen}
+                                aria-controls={emojiPickerId}
+                                pp-ref={emojiTrigger}
+                                onclick={toggleEmojiPicker()}
+                                disabled={sending}
                             >
                                 <Icon name="emoji" class="h-[18px] w-[18px]" />
                             </button>
@@ -615,7 +621,163 @@ pub async fn page() -> Html {
                         "Discard"
                     </button>
                 </div>
+                <section
+                    id={emojiPickerId}
+                    pp-ref={emojiPicker}
+                    popover="auto"
+                    role="dialog"
+                    aria-label="Emoji and GIF picker"
+                    class="chat-emoji-picker"
+                    pp-style={emojiPosition}
+                    ontoggle={setEmojiOpen(event.newState === "open")}
+                    onkeydown={handleEmojiKey(event)}
+                >
+                    <div
+                        class="chat-emoji-tabs"
+                        role="tablist"
+                        aria-label="Media type"
+                        onkeydown={handleEmojiTabKey(event)}
+                    >
+                        <button
+                            type="button"
+                            role="tab"
+                            pp-ref={emojiAllTab}
+                            aria-selected={emojiTab === "all"}
+                            tabindex={emojiTab === "all" ? 0 : -1}
+                            aria-controls={emojiPanelId}
+                            onclick={setEmojiTab("all")}
+                        >
+                            "All"
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            pp-ref={emojiOnlyTab}
+                            aria-selected={emojiTab === "emoji"}
+                            tabindex={emojiTab === "emoji" ? 0 : -1}
+                            aria-controls={emojiPanelId}
+                            onclick={setEmojiTab("emoji")}
+                        >
+                            "Emoji"
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            pp-ref={emojiGifTab}
+                            aria-selected={emojiTab === "gifs"}
+                            tabindex={emojiTab === "gifs" ? 0 : -1}
+                            aria-controls={emojiPanelId}
+                            onclick={setEmojiTab("gifs")}
+                        >
+                            "GIFs"
+                        </button>
+                    </div>
+                    <div class="chat-emoji-search" hidden={emojiTab === "gifs"}>
+                        <input
+                            type="search"
+                            pp-ref={emojiSearchInput}
+                            aria-label="Find something fun"
+                            placeholder="Find something fun"
+                            value={emojiQuery}
+                            oninput={setEmojiQuery(target.value)}
+                        />
+                        <Icon name="search" class="h-[18px] w-[18px]" />
+                    </div>
+                    <div
+                        class="chat-emoji-content scroll-thin"
+                        id={emojiPanelId}
+                        role="tabpanel"
+                        aria-label={emojiTab === "gifs" ? "GIFs" : "Emoji"}
+                    >
+                        <div hidden={emojiTab === "gifs"}>
+                            <div class="chat-emoji-heading">
+                                <h3>"Emoji"</h3>
+                                <button
+                                    type="button"
+                                    hidden={emojiTab !== "all"}
+                                    onclick={setEmojiTab("emoji")}
+                                >
+                                    "See all "
+                                    <Icon name="chevron-right" class="h-4 w-4" />
+                                </button>
+                            </div>
+                            <div
+                                class="chat-emoji-categories"
+                                hidden={emojiTab !== "emoji"}
+                                aria-label="Emoji categories"
+                            >
+                                <template pp-for="category in emojiCategories">
+                                    <button
+                                        key={category.id}
+                                        type="button"
+                                        aria-label={category.name}
+                                        title={category.name}
+                                        aria-pressed={emojiCategory === category.id}
+                                        onclick={setEmojiCategory(category.id)}
+                                    >
+                                        {category.icon}
+                                    </button>
+                                </template>
+                            </div>
+                            <div class="chat-emoji-grid" aria-label="Emoji choices">
+                                <template pp-for="item in shownEmojis">
+                                    <button
+                                        key={item.symbol}
+                                        type="button"
+                                        aria-label={item.name}
+                                        title={item.name}
+                                        onclick={insertEmoji(item.symbol)}
+                                    >
+                                        {item.symbol}
+                                    </button>
+                                </template>
+                            </div>
+                            <p
+                                class="chat-emoji-empty"
+                                role="status"
+                                hidden={shownEmojis.length > 0}
+                            >
+                                "No emoji found. Try another search."
+                            </p>
+                        </div>
+                        <div hidden={emojiTab === "emoji"}>
+                            <div class="chat-emoji-heading">
+                                <h3>"GIFs"</h3>
+                                <button
+                                    type="button"
+                                    hidden={emojiTab !== "all"}
+                                    onclick={setEmojiTab("gifs")}
+                                >
+                                    "See all "
+                                    <Icon name="chevron-right" class="h-4 w-4" />
+                                </button>
+                            </div>
+                            <p class="chat-emoji-empty">"GIF search is not connected yet."</p>
+                        </div>
+                    </div>
+                </section>
                 <style>r##"
+                    .chat-emoji-picker {position:fixed;inset:auto;margin:0;width:360px;max-width:calc(100vw - 16px);height:480px;padding:0;border:1px solid #393939;border-radius:8px;background:#292929;color:#f5f5f5;box-shadow:0 12px 32px #0006;overflow:hidden;}
+                    .chat-emoji-picker:popover-open {display:flex;flex-direction:column;}
+                    .chat-emoji-tabs {display:flex;flex-shrink:0;background:#242424;padding:0 12px;}
+                    .chat-emoji-tabs button {position:relative;flex:1;height:56px;font-size:15px;color:#ccc;}
+                    .chat-emoji-tabs button[aria-selected=true] {color:white;font-weight:600;}
+                    .chat-emoji-tabs button[aria-selected=true]::after {content:'';position:absolute;bottom:0;left:calc(50% - 10px);width:20px;height:3px;border-radius:3px;background:#9287ff;}
+                    .chat-emoji-search {position:relative;margin:16px 16px 8px;flex-shrink:0;}
+                    .chat-emoji-search input {width:100%;height:38px;padding:0 38px 0 12px;border:0;border-radius:5px;background:#202020;color:white;font-size:14px;outline-offset:2px;}
+                    .chat-emoji-search > svg {position:absolute;right:12px;top:10px;color:#aaa;pointer-events:none;}
+                    .chat-emoji-content {overflow-y:auto;min-height:0;flex:1;padding:8px 16px 16px;}
+                    .chat-emoji-heading {display:flex;align-items:center;justify-content:space-between;margin:12px 0 10px;font-size:14px;}
+                    .chat-emoji-heading h3 {font-weight:600;}
+                    .chat-emoji-heading button {display:flex;align-items:center;gap:4px;color:#ccc;}
+                    .chat-emoji-grid {display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;}
+                    .chat-emoji-grid button {height:44px;font-size:29px;line-height:1;border-radius:5px;}
+                    .chat-emoji-picker button:hover {background:#ffffff0d;}
+                    .chat-emoji-picker button:focus-visible {outline:2px solid #b6acff;outline-offset:-2px;}
+                    .chat-emoji-categories {display:flex;flex-wrap:wrap;gap:3px;margin-bottom:12px;}
+                    .chat-emoji-categories button {width:34px;height:32px;border-radius:4px;font-size:19px;}
+                    .chat-emoji-categories button[aria-pressed=true] {background:#514b79;}
+                    .chat-emoji-empty {padding:16px 0;font-size:13px;color:#b6b6bd;line-height:1.5;}
                     .new-chat-menu {position:fixed;inset:auto;margin:0;width:240px;max-width:calc(100vw - 16px);}
                     /* The new-conversation illustration: layered gradients and pseudo-element
                        shapes that utilities cannot express readably. */
@@ -637,6 +799,32 @@ pub async fn page() -> Html {
 
                     const shortcuts = pp.context(window.UpurnakaShortcutContext);
                     const composerInput = pp.ref(null);
+                    const emojiTrigger = pp.ref(null);
+                    const emojiPicker = pp.ref(null);
+                    const emojiSearchInput = pp.ref(null);
+                    const emojiAllTab = pp.ref(null);
+                    const emojiOnlyTab = pp.ref(null);
+                    const emojiGifTab = pp.ref(null);
+                    const emojiPickerId = pp.id();
+                    const emojiPanelId = pp.id();
+                    const emojiSelection = pp.ref({start:0, end:0});
+                    const emojiCaret = pp.ref(null);
+                    const [emojiOpen, setEmojiOpen] = pp.state(false);
+                    const [emojiPosition, setEmojiPosition] = pp.state('');
+                    const [emojiTab, setEmojiTab] = pp.state('all');
+                    const [emojiQuery, setEmojiQuery] = pp.state('');
+                    const [emojiCategory, setEmojiCategory] = pp.state('faces');
+                    const emojiCategories = [
+                        {id:'faces', name:'Smileys and emotions', icon:'😀', entries:[['😮','Surprised wow'],['😰','Anxious worried'],['😠','Angry'],['😍','Heart eyes love'],['😎','Cool sunglasses'],['🙌','Raised hands hooray'],['🫶','Heart hands'],['🔥','Fire lit'],['🎉','Party celebration'],['👀','Eyes looking'],['💯','Hundred perfect'],['💡','Light bulb idea'],['😀','Grinning smile happy'],['😂','Tears of joy laugh'],['😊','Smiling blush'],['🥰','Smiling hearts'],['🤔','Thinking'],['😭','Crying sad'],['🥳','Party face'],['😴','Sleeping tired'],['🤩','Star struck'],['😅','Sweat smile'],['😉','Wink'],['🤗','Hug']]},
+                        {id:'hands', name:'People and gestures', icon:'👋', entries:[['👋','Wave hello goodbye'],['👍','Thumbs up yes'],['👎','Thumbs down no'],['👏','Clap applause'],['🙏','Thanks prayer please'],['🤝','Handshake agreement'],['✌️','Victory peace'],['💪','Flex muscle strong'],['🤞','Fingers crossed luck'],['👌','Okay hand'],['🫡','Salute'],['🤷','Shrug']]},
+                        {id:'nature', name:'Animals and nature', icon:'🐻', entries:[['🐶','Dog puppy'],['🐱','Cat kitten'],['🐻','Bear'],['🦊','Fox'],['🦋','Butterfly'],['🐝','Bee'],['🌻','Sunflower flower'],['🌱','Seedling plant'],['🌳','Tree'],['🌈','Rainbow'],['☀️','Sun sunny'],['🌙','Moon night']]},
+                        {id:'food', name:'Food and drink', icon:'🍔', entries:[['☕','Coffee hot drink'],['🍕','Pizza'],['🍔','Burger'],['🍟','French fries'],['🎂','Birthday cake'],['🍰','Cake slice'],['🍎','Apple fruit'],['🥑','Avocado'],['🌮','Taco'],['🍿','Popcorn'],['🍩','Doughnut donut'],['🧃','Juice']]},
+                        {id:'activities', name:'Activities and travel', icon:'⚽', entries:[['⚽','Soccer football'],['🏀','Basketball'],['🏆','Trophy winner'],['🎮','Video game controller'],['🎵','Music note'],['🎨','Art palette'],['🚗','Car'],['✈️','Airplane travel'],['🚀','Rocket launch'],['🏠','House home'],['🏖️','Beach holiday'],['🌍','Earth world']]},
+                        {id:'symbols', name:'Objects and symbols', icon:'❤️', entries:[['❤️','Red heart love'],['💜','Purple heart'],['✅','Check done yes'],['❌','Cross no'],['⭐','Star'],['✨','Sparkles'],['🎁','Gift present'],['📅','Calendar date'],['📌','Pin'],['💻','Laptop computer'],['🔔','Bell notification'],['⚠️','Warning']]}
+                    ];
+                    const emojiNeedle = emojiQuery.trim().toLocaleLowerCase();
+                    const emojiItems = emojiCategories.flatMap(category => category.entries.map(([symbol,name]) => ({symbol,name,category:category.id})));
+                    const shownEmojis = emojiItems.filter(item => emojiNeedle ? item.name.toLocaleLowerCase().includes(emojiNeedle) || item.symbol === emojiNeedle : emojiTab !== 'emoji' || item.category === emojiCategory).slice(0, emojiTab === 'all' && !emojiNeedle ? 12 : 120);
                     const composerForm = pp.ref(null);
                     const messagePane = pp.ref(null);
                     const conversationSearchInput = pp.ref(null);
@@ -703,12 +891,53 @@ pub async fn page() -> Html {
                         if (newChat) setNewDraft(value);
                         else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread, draft:value} : thread));
                     }
+                    function toggleEmojiPicker() {
+                        if (emojiPicker.current.matches(':popover-open')) {emojiPicker.current.hidePopover(); return;}
+                        const input = composerInput.current;
+                        emojiSelection.current = {start:input.selectionStart ?? draft.length, end:input.selectionEnd ?? draft.length};
+                        const anchor = emojiTrigger.current.getBoundingClientRect();
+                        const width = Math.min(360, innerWidth - 16);
+                        const left = Math.max(8, Math.min(anchor.right - width, innerWidth - width - 8));
+                        setEmojiPosition('left:' + left + 'px;bottom:' + (innerHeight - anchor.top + 8) + 'px;max-height:' + Math.max(100, anchor.top - 16) + 'px');
+                        emojiPicker.current.showPopover(); emojiSearchInput.current?.focus();
+                    }
+                    function insertEmoji(symbol) {
+                        if (sending) return;
+                        const {start,end} = emojiSelection.current;
+                        emojiCaret.current = start + symbol.length;
+                        setDraft(draft.slice(0,start) + symbol + draft.slice(end));
+                        emojiPicker.current.hidePopover(); composerInput.current?.focus();
+                    }
+                    pp.layoutEffect(() => {
+                        if (emojiCaret.current === null) return;
+                        composerInput.current?.setSelectionRange(emojiCaret.current, emojiCaret.current);
+                        emojiCaret.current = null;
+                    }, [draft]);
+                    function handleEmojiKey(event) {
+                        if (event.key === 'Escape') {
+                            event.preventDefault(); event.stopPropagation();
+                            emojiPicker.current.hidePopover(); emojiTrigger.current?.focus();
+                        }
+                    }
+                    function handleEmojiTabKey(event) {
+                        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+                        event.preventDefault();
+                        const names = ['all','emoji','gifs'];
+                        const refs = [emojiAllTab,emojiOnlyTab,emojiGifTab];
+                        let index = names.indexOf(emojiTab);
+                        if (event.key === 'Home') index = 0;
+                        else if (event.key === 'End') index = 2;
+                        else index = (index + (event.key === 'ArrowRight' ? 1 : 2)) % 3;
+                        setEmojiTab(names[index]); refs[index].current?.focus();
+                    }
                     function selectThread(id) {
                         if (sending) return;
+                        emojiPicker.current?.hidePopover();
                         setSelected(id); setConversationQuery(""); setConversationSearchOpen(false); setError("");
                     }
                     function openNewChat() {
                         if (sending) return;
+                        emojiPicker.current?.hidePopover();
                         setHasNewChat(true); setSelected("new"); setChatsOpen(true);
                         setChatFilter(""); setFilters({unread:false, meetings:false, unmuted:false});
                         setConversationQuery(""); setConversationSearchOpen(false); setError("");
