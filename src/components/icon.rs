@@ -40,8 +40,10 @@ use crate::components::rahti_icons::mic_off::MicOff;
 use crate::components::rahti_icons::minus::Minus;
 use crate::components::rahti_icons::panels_left_bottom::PanelsLeftBottom;
 use crate::components::rahti_icons::paperclip::Paperclip;
+use crate::components::rahti_icons::paw_print::PawPrint;
 use crate::components::rahti_icons::pencil::Pencil;
 use crate::components::rahti_icons::phone::Phone;
+use crate::components::rahti_icons::pizza::Pizza;
 use crate::components::rahti_icons::play::Play;
 use crate::components::rahti_icons::plus::Plus;
 use crate::components::rahti_icons::repeat::Repeat;
@@ -61,6 +63,7 @@ use crate::components::rahti_icons::user_plus::UserPlus;
 use crate::components::rahti_icons::users::Users;
 use crate::components::rahti_icons::video::Video;
 use crate::components::rahti_icons::video_off::VideoOff;
+use crate::components::rahti_icons::volleyball::Volleyball;
 use crate::components::rahti_icons::volume_2::Volume2;
 use crate::components::rahti_icons::x::X;
 use crate::rahti::{Html, component, html};
@@ -278,6 +281,15 @@ pub fn Icon(name: &str, class: &str) -> Html {
         },
         "file" => html! {
             <File class=@{class} stroke_width="1.6" />
+        },
+        "paw" => html! {
+            <PawPrint class=@{class} stroke_width="1.6" />
+        },
+        "pizza" => html! {
+            <Pizza class=@{class} stroke_width="1.6" />
+        },
+        "volleyball" => html! {
+            <Volleyball class=@{class} stroke_width="1.6" />
         },
         _ => Html::empty(),
     }

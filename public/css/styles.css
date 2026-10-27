@@ -985,9 +985,6 @@
   .h-14 {
     height: calc(var(--spacing) * 14);
   }
-  .h-14\! {
-    height: calc(var(--spacing) * 14) !important;
-  }
   .h-16 {
     height: calc(var(--spacing) * 16);
   }
@@ -2945,9 +2942,6 @@
   .text-\[17px\] {
     font-size: 17px;
   }
-  .text-\[19px\] {
-    font-size: 19px;
-  }
   .text-\[20px\] {
     font-size: 20px;
   }
@@ -2965,9 +2959,6 @@
   }
   .text-\[28px\] {
     font-size: 28px;
-  }
-  .text-\[29px\] {
-    font-size: 29px;
   }
   .text-\[30px\] {
     font-size: 30px;
@@ -6480,6 +6471,49 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
     width: 140px;
     flex-grow: 1;
   }
+}
+.chat-emoji-cell {
+  display: grid;
+  place-items: center;
+  height: 46px;
+  border-radius: 6px;
+  font-size: 27px;
+  line-height: 1;
+  cursor: pointer;
+}
+.chat-emoji-cell:hover {
+  background: var(--color-hover);
+}
+.chat-emoji-cell:focus-visible, .chat-emoji-nav-button:focus-visible {
+  outline: 2px solid var(--color-brand-ink);
+  outline-offset: -2px;
+}
+.chat-emoji-section-title {
+  margin: 10px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.chat-emoji-section:first-of-type .chat-emoji-section-title {
+  margin-top: 2px;
+}
+.chat-emoji-nav-button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+}
+.chat-emoji-nav-button:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+.chat-emoji-nav-button[aria-pressed="true"] {
+  background: var(--color-hover);
+  color: var(--color-ink);
+  box-shadow: inset 0 -2px 0 var(--color-brand-ink);
 }
 @property --tw-translate-x {
   syntax: "*";

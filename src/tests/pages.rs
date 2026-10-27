@@ -880,11 +880,19 @@ async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
         .await
         .unwrap();
     browser.press("Backspace").await.unwrap();
+    // Browsing the Emoji tab is one list: what was used recently first, then
+    // every category, with a bar along the bottom that jumps between them.
+    browser.wait_for("!document.querySelector('.chat-emoji-sections').hidden && document.querySelector('.chat-emoji-section').getAttribute('aria-label') === 'Recent' && document.querySelector('.chat-emoji-section').textContent.includes('☕') && document.querySelectorAll('.chat-emoji-section').length === 7 && document.querySelector('.chat-emoji-nav button[aria-label=Recent]').getAttribute('aria-pressed') === 'true'").await.unwrap();
     browser
-        .click("button[title='Food and drink']")
+        .click(".chat-emoji-nav button[aria-label='Food and drink']")
         .await
         .unwrap();
-    browser.wait_for("document.querySelectorAll('.chat-emoji-grid button').length === 12 && document.querySelector('.chat-emoji-grid').textContent.includes('🍕')").await.unwrap();
+    browser.wait_for("(() => { const box = document.querySelector('.chat-emoji-content'); const food = document.querySelector('.chat-emoji-section[aria-label=\"Food and drink\"]'); return box.scrollTop > 0 && Math.abs(food.offsetTop - box.scrollTop) < 12 && food.textContent.includes('🍕') && document.querySelector('.chat-emoji-nav button[aria-label=\"Food and drink\"]').getAttribute('aria-pressed') === 'true'; })()").await.unwrap();
+    browser
+        .click(".chat-emoji-nav button[aria-label='Objects and symbols']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.chat-emoji-nav button[aria-label=\"Objects and symbols\"]').getAttribute('aria-pressed') === 'true'").await.unwrap();
     browser
         .click(".chat-emoji-tabs label:nth-of-type(2)")
         .await

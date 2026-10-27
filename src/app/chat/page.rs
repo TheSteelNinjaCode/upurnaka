@@ -88,7 +88,7 @@ const PILL: &str = "h-7! min-w-0 shrink-0 rounded-full! px-3! text-xs text-muted
                     has-[:checked]:font-semibold has-[:checked]:text-ink!";
 
 /// A tab across the top of the emoji and GIF picker.
-const MEDIA_TAB: &str = "relative h-14! flex-1 rounded-none! text-[15px] text-muted-foreground \
+const MEDIA_TAB: &str = "relative h-12! flex-1 rounded-none! text-sm text-muted-foreground \
                          hover:bg-transparent! has-[:checked]:font-semibold \
                          has-[:checked]:text-ink! has-[:checked]:bg-transparent! \
                          after:absolute after:bottom-0 after:left-[calc(50%-10px)] after:h-[3px] \
@@ -1120,12 +1120,14 @@ pub async fn page() -> Html {
                                                 </ToggleGroupItem>
                                             </ToggleGroup>
                                             <div
-                                                class="chat-emoji-content scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-2"
+                                                class="chat-emoji-content scroll-thin relative min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-2"
                                                 role="region"
+                                                pp-ref={emojiContent}
+                                                onscroll={trackEmojiSection(event.currentTarget)}
                                                 aria-label={emojiTab === "gifs" ? "GIFs" : "Emoji"}
                                             >
                                                 <div hidden={emojiTab === "gifs"}>
-                                                    <div class=@{HEADING}>
+                                                    <div class=@{HEADING} hidden={browsingEmoji}>
                                                         <h3 class="font-semibold">"Emoji"</h3>
                                                         <Button
                                                             attrs=@{plain()}
@@ -1143,44 +1145,16 @@ pub async fn page() -> Html {
                                                         </Button>
                                                     </div>
                                                     <div
-                                                        class="chat-emoji-categories mb-3 flex flex-wrap gap-[3px]"
-                                                        hidden={emojiTab !== "emoji"}
-                                                        aria-label="Emoji categories"
-                                                    >
-                                                        <template
-                                                            pp-for="category in emojiCategories"
-                                                        >
-                                                            <div
-                                                                key={category.id}
-                                                                class={emojiCategory === category.id ? "rounded bg-brand-soft" : "rounded"}
-                                                            >
-                                                                <Button
-                                                                    attrs=@{plain()}
-                                                                    variant="ghost"
-                                                                    size="icon-sm"
-                                                                    class="text-[19px]"
-                                                                    title={category.name}
-                                                                    value={category.id}
-                                                                    onclick={setEmojiCategory(event.currentTarget.value)}
-                                                                >
-                                                                    {category.icon}
-                                                                    <span class="sr-only">
-                                                                        {category.name}
-                                                                    </span>
-                                                                </Button>
-                                                            </div>
-                                                        </template>
-                                                    </div>
-                                                    <div
-                                                        class="chat-emoji-grid grid grid-cols-6 gap-1"
+                                                        class="chat-emoji-grid grid grid-cols-6"
                                                         aria-label="Emoji choices"
+                                                        hidden={browsingEmoji}
                                                     >
                                                         <template pp-for="item in shownEmojis">
-                                                            <Button
-                                                                attrs=@{plain()}
+                                                            <button
+                                                                type="button"
                                                                 key={item.symbol}
-                                                                variant="ghost"
-                                                                class="h-11! px-0! text-[29px] leading-none"
+                                                                class="chat-emoji-cell"
+                                                                title={item.name}
                                                                 value={item.symbol}
                                                                 onclick={insertEmoji(event.currentTarget.value)}
                                                             >
@@ -1188,13 +1162,53 @@ pub async fn page() -> Html {
                                                                 <span class="sr-only">
                                                                     {item.name}
                                                                 </span>
-                                                            </Button>
+                                                            </button>
+                                                        </template>
+                                                    </div>
+                                                    <div
+                                                        class="chat-emoji-sections"
+                                                        pp-ref={emojiSections}
+                                                        hidden={!browsingEmoji}
+                                                    >
+                                                        <template
+                                                            pp-for="section in emojiSectionList"
+                                                        >
+                                                            <section
+                                                                key={section.id}
+                                                                class="chat-emoji-section"
+                                                                aria-label={section.name}
+                                                            >
+                                                                <h3
+                                                                    class="chat-emoji-section-title"
+                                                                >
+                                                                    {section.name}
+                                                                </h3>
+                                                                <div class="grid grid-cols-6">
+                                                                    <template
+                                                                        pp-for="item in section.items"
+                                                                    >
+                                                                        <button
+                                                                            type="button"
+                                                                            key={item.symbol}
+                                                                            class="chat-emoji-cell"
+                                                                            title={item.name}
+                                                                            value={item.symbol}
+                                                                            onclick={insertEmoji(event.currentTarget.value)}
+                                                                        >
+                                                                            {item.symbol}
+                                                                            <span class="sr-only">
+                                                                                {item.name}
+                                                                            </span>
+                                                                        </button>
+                                                                    </template>
+                                                                </div>
+                                                            </section>
                                                         </template>
                                                     </div>
                                                     <p
                                                         class=@{EMPTY}
                                                         role="status"
-                                                        hidden={shownEmojis.length > 0}
+                                                        hidden={browsingEmoji || shownEmojis.length > 0}
                                                     >
                                                         "No emoji found. Try another search."
                                                     </p>
@@ -1284,6 +1298,49 @@ pub async fn page() -> Html {
                                                     </Button>
                                                 </div>
                                             </div>
+                                            <nav
+                                                class="chat-emoji-nav flex shrink-0 items-center justify-around border-t border-line bg-sunken px-2 py-1.5"
+                                                aria-label="Emoji categories"
+                                                hidden={!browsingEmoji}
+                                            >
+                                                <template pp-for="section in emojiSectionList">
+                                                    <button
+                                                        type="button"
+                                                        key={section.id}
+                                                        class="chat-emoji-nav-button"
+                                                        title={section.name}
+                                                        aria-label={section.name}
+                                                        aria-pressed={currentEmojiSection === section.id ? "true" : "false"}
+                                                        value={section.id}
+                                                        onclick={jumpToEmojiSection(event.currentTarget.value)}
+                                                    >
+                                                        <span hidden={section.id !== "recent"}>
+                                                            <Icon name="clock" class="size-5" />
+                                                        </span>
+                                                        <span hidden={section.id !== "faces"}>
+                                                            <Icon name="emoji" class="size-5" />
+                                                        </span>
+                                                        <span hidden={section.id !== "hands"}>
+                                                            <Icon name="hand" class="size-5" />
+                                                        </span>
+                                                        <span hidden={section.id !== "nature"}>
+                                                            <Icon name="paw" class="size-5" />
+                                                        </span>
+                                                        <span hidden={section.id !== "food"}>
+                                                            <Icon name="pizza" class="size-5" />
+                                                        </span>
+                                                        <span hidden={section.id !== "activities"}>
+                                                            <Icon
+                                                                name="volleyball"
+                                                                class="size-5"
+                                                            />
+                                                        </span>
+                                                        <span hidden={section.id !== "symbols"}>
+                                                            <Icon name="hash" class="size-5" />
+                                                        </span>
+                                                    </button>
+                                                </template>
+                                            </nav>
                                             <footer
                                                 class="chat-giphy-attribution flex shrink-0 items-center justify-center gap-2.5 border-t bg-sunken px-3 py-2.5 text-xs"
                                                 hidden={emojiTab === "emoji"}
@@ -1478,7 +1535,17 @@ pub async fn page() -> Html {
                     const [emojiOpen, setEmojiOpen] = pp.state(false);
                     const [emojiTab, setEmojiTab] = pp.state('all');
                     const [emojiQuery, setEmojiQuery] = pp.state('');
-                    const [emojiCategory, setEmojiCategory] = pp.state('faces');
+                    const [activeEmojiSection, setActiveEmojiSection] = pp.state('');
+                    const emojiContent = pp.ref(null);
+                    const emojiSections = pp.ref(null);
+                    // Recently used emoji, per account on this browser, as Teams
+                    // keeps them at the top of the Emoji tab.
+                    const recentEmojiKey = 'upurnaka.emoji.recent.' + @{user.id.as_str()};
+                    const savedRecentEmojis = pp.memo(() => {
+                        try { const saved = JSON.parse(localStorage.getItem(recentEmojiKey) || '[]'); return Array.isArray(saved) ? saved.filter(item => typeof item === 'string').slice(0, 18) : []; }
+                        catch (_) { return []; }
+                    }, [recentEmojiKey]);
+                    const [recentEmojis, setRecentEmojis] = pp.state(savedRecentEmojis);
                     const giphyKey = @{giphy_key};
                     const [gifs, setGifs] = pp.state([]);
                     const [gifLoading, setGifLoading] = pp.state(false);
@@ -1497,7 +1564,29 @@ pub async fn page() -> Html {
                     ];
                     const emojiNeedle = emojiQuery.trim().toLocaleLowerCase();
                     const emojiItems = emojiCategories.flatMap(category => category.entries.map(([symbol,name]) => ({symbol,name,category:category.id})));
-                    const shownEmojis = emojiItems.filter(item => emojiNeedle ? item.name.toLocaleLowerCase().includes(emojiNeedle) || item.symbol === emojiNeedle : emojiTab !== 'emoji' || item.category === emojiCategory).slice(0, emojiTab === 'all' && !emojiNeedle ? 12 : 120);
+                    const browsingEmoji = emojiTab === 'emoji' && !emojiNeedle;
+                    const shownEmojis = emojiNeedle ? emojiItems.filter(item => item.name.toLocaleLowerCase().includes(emojiNeedle) || item.symbol === emojiNeedle).slice(0, 120) : emojiItems.slice(0, 12);
+                    const emojiSectionList = [
+                        ...(recentEmojis.length ? [{id:'recent', name:'Recent', items:recentEmojis.map(symbol => emojiItems.find(item => item.symbol === symbol) || {symbol, name:symbol})}] : []),
+                        ...emojiCategories.map(category => ({id:category.id, name:category.name, items:category.entries.map(([symbol,name]) => ({symbol,name}))}))
+                    ];
+                    const currentEmojiSection = activeEmojiSection || emojiSectionList[0].id;
+                    function emojiSectionElements() { return Array.from(emojiSections.current?.children || []).filter(element => element.tagName === 'SECTION'); }
+                    function trackEmojiSection(box) {
+                        if (!browsingEmoji) return;
+                        let current = emojiSectionList[0].id;
+                        emojiSectionElements().forEach((element, index) => { if (element.offsetTop <= box.scrollTop + 12) current = emojiSectionList[index]?.id || current; });
+                        // The last sections cannot reach the top, so the bottom of the list is the last one.
+                        if (box.scrollTop > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 2) current = emojiSectionList[emojiSectionList.length - 1].id;
+                        if (current !== activeEmojiSection) setActiveEmojiSection(current);
+                    }
+                    function jumpToEmojiSection(id) {
+                        const index = emojiSectionList.findIndex(section => section.id === id);
+                        const element = emojiSectionElements()[index];
+                        if (!element || !emojiContent.current) return;
+                        emojiContent.current.scrollTo({top: index === 0 ? 0 : element.offsetTop - 4});
+                        setActiveEmojiSection(id);
+                    }
                     const composerForm = pp.ref(null);
                     const messagePane = pp.ref(null);
                     const conversationSearchInput = pp.ref(null);
@@ -1720,6 +1809,8 @@ pub async fn page() -> Html {
                     // keys carry on from it rather than from wherever focus was.
                     function chooseMediaTab(tab) {
                         setEmojiTab(tab.value);
+                        setActiveEmojiSection('');
+                        emojiContent.current?.scrollTo({top: 0});
                         tab.focus();
                     }
                     function emojiToggled(state) {
@@ -1730,6 +1821,9 @@ pub async fn page() -> Html {
                         const {start,end} = emojiSelection.current;
                         emojiCaret.current = start + symbol.length;
                         setDraft(draft.slice(0,start) + symbol + draft.slice(end));
+                        const recent = [symbol, ...recentEmojis.filter(item => item !== symbol)].slice(0, 18);
+                        setRecentEmojis(recent);
+                        try { localStorage.setItem(recentEmojiKey, JSON.stringify(recent)); } catch (_) {}
                         closeEmoji(); returnToComposer();
                     });
                     pp.layoutEffect(() => {

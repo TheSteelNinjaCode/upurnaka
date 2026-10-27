@@ -269,6 +269,12 @@
       "name": "paperclip"
     },
     {
+      "component": "PawPrint",
+      "file": "src/components/rahti_icons/paw_print.rs",
+      "module": "crate::components::rahti_icons::paw_print",
+      "name": "paw-print"
+    },
+    {
       "component": "Pencil",
       "file": "src/components/rahti_icons/pencil.rs",
       "module": "crate::components::rahti_icons::pencil",
@@ -279,6 +285,12 @@
       "file": "src/components/rahti_icons/phone.rs",
       "module": "crate::components::rahti_icons::phone",
       "name": "phone"
+    },
+    {
+      "component": "Pizza",
+      "file": "src/components/rahti_icons/pizza.rs",
+      "module": "crate::components::rahti_icons::pizza",
+      "name": "pizza"
     },
     {
       "component": "Play",
@@ -393,6 +405,12 @@
       "file": "src/components/rahti_icons/video_off.rs",
       "module": "crate::components::rahti_icons::video_off",
       "name": "video-off"
+    },
+    {
+      "component": "Volleyball",
+      "file": "src/components/rahti_icons/volleyball.rs",
+      "module": "crate::components::rahti_icons::volleyball",
+      "name": "volleyball"
     },
     {
       "component": "Volume2",
