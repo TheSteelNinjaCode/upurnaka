@@ -16,3 +16,4 @@ pub mod join_meeting_by_id;
 pub mod keyboard_shortcuts;
 pub mod rahti_icons;
 pub mod rahti_ui;
+pub mod user_preferences;

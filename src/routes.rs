@@ -38,6 +38,8 @@ mod p_people;
 mod p_register;
 #[path = "app/page.rs"]
 mod p_root;
+#[path = "app/settings/page.rs"]
+mod p_settings;
 #[path = "app/signin/page.rs"]
 mod p_signin;
 #[path = "app/users/page.rs"]
@@ -226,6 +228,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
         ::rahti::StaticRoute::fixed("/"),
         ::rahti::StaticRoute::fixed("/people"),
         ::rahti::StaticRoute::fixed("/register"),
+        ::rahti::StaticRoute::fixed("/settings"),
         ::rahti::StaticRoute::fixed("/signin"),
         ::rahti::StaticRoute::fixed("/users"),
     ]
@@ -244,6 +247,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: schedule_meeting, create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
+/// - `/settings` [GET, POST] — src/app/settings/page.rs (layouts: src/app/layout.rs)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
 /// - `/profile-picture` [GET] — src/app/profile-picture/route.rs
 /// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
@@ -313,6 +317,12 @@ pub fn router() -> Router {
             "/register",
             axum::routing::get(p_register::page).layer(axum::middleware::map_response(|res| {
                 ::rahti::apply_metadata(p_register::metadata(), res)
+            })),
+        )
+        .route(
+            "/settings",
+            axum::routing::get(p_settings::page).layer(axum::middleware::map_response(|res| {
+                ::rahti::apply_metadata(p_settings::metadata(), res)
             })),
         )
         .route(
@@ -388,6 +398,7 @@ pub fn router() -> Router {
         .route("/", axum::routing::post(rpc_components))
         .route("/people", axum::routing::post(rpc_p_people))
         .route("/register", axum::routing::post(rpc_components))
+        .route("/settings", axum::routing::post(rpc_components))
         .route("/signin", axum::routing::post(rpc_components))
         .route("/users", axum::routing::post(rpc_p_users))
         .layer(tower_http::catch_panic::CatchPanicLayer::custom(

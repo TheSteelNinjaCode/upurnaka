@@ -24,6 +24,7 @@ use crate::components::rahti_ui::dropdown_menu::{
 use crate::components::rahti_ui::input_group::{
     InputGroup, InputGroupAddon, input_group_input_variants,
 };
+use crate::components::user_preferences::UserPreferences;
 use crate::rahti::{Html, Result, Validator, component, html, rpc};
 
 /// Every destination on the rail, in the order the client shows them.
@@ -199,9 +200,10 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             </span>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent menu="shell-more" align="end" class="w-72">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem href="/settings">
                                 <Icon name="settings" class="size-4 text-muted-foreground" />
                                 "Settings"
+                                <span class=@{SHORTCUT} aria-hidden="true">"Ctrl+,"</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                                 <Icon name="bell" class="size-4 text-muted-foreground" />
@@ -306,7 +308,9 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     </a>
                 </nav>
                 <shortcutcontext.provider value={pageShortcuts}>
-                    <slot />
+                    <UserPreferences user_id=@{user.id.as_str()}>
+                        <slot />
+                    </UserPreferences>
                 </shortcutcontext.provider>
             </div>
             <Dialog>
@@ -443,6 +447,11 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         return;
                     }
                     if (shortcutsActive || surveyActive) return;
+                    if (control && !event.shiftKey && key === ",") {
+                        event.preventDefault();
+                        pp.redirect("/settings");
+                        return;
+                    }
                     pageShortcuts.current?.handleKey?.(event);
                     if (event.defaultPrevented) return;
                     if (control && !event.shiftKey && ["e", "g", "/"].includes(key)) {
@@ -477,7 +486,8 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     {label: @{user.name.as_str()} + " (You)", href:"/chat"},
                     {label:"Meet", href:"/meet"}, {label:"People", href:"/people"},
                     {label:"Communities", href:"/communities"}, {label:"Calendar", href:"/calendar"},
-                    {label:"Activity", href:"/activity"}, {label:"Apps", href:"/apps"}
+                    {label:"Activity", href:"/activity"}, {label:"Apps", href:"/apps"},
+                    {label:"Settings", href:"/settings"}
                 ].filter(result => result.label.toLocaleLowerCase().includes(searchTerm) || result.href.slice(1).includes(searchTerm));
                 const visitSearchResult = pp.event(function visitSearchResult(href) {setQuery(""); pp.redirect(href);});
                 function handleGlobalSearchKey(event) {

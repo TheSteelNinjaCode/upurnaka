@@ -851,6 +851,7 @@ pub async fn page() -> Html {
                                     class=@{composer_field.as_str()}
                                     placeholder="Type a message"
                                     autocomplete="off"
+                                    spellcheck={settings.preferences.spellcheck ? "true" : "false"}
                                     aria-label="Type a message"
                                     pp-ref={composerInput}
                                     onkeydown={handleComposerKey(event)}
@@ -1188,6 +1189,7 @@ pub async fn page() -> Html {
                 </main>
                 <script>r##"
                     const shortcuts = pp.context(window.UpurnakaShortcutContext);
+                    const settings = pp.context(window.UpurnakaSettingsContext);
                     const composerInput = pp.ref(null);
                     const emojiCloser = pp.ref(null);
                     const emojiSearchInput = pp.ref(null);
@@ -1480,7 +1482,7 @@ pub async fn page() -> Html {
                     }
                     function handleComposerKey(event) {
                         if (event.isComposing || event.repeat) return;
-                        if (event.key === "Enter" && !event.shiftKey && !event.altKey && ((!expandedCompose && !event.ctrlKey && !event.metaKey) || event.ctrlKey || event.metaKey)) {
+                        if (event.key === "Enter" && !event.shiftKey && !event.altKey && ((!expandedCompose && settings.preferences.enterToSend && !event.ctrlKey && !event.metaKey) || event.ctrlKey || event.metaKey)) {
                             event.preventDefault(); composerForm.current?.requestSubmit();
                         }
                     }

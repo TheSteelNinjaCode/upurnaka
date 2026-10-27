@@ -17,4 +17,5 @@ mod pages;
 mod people;
 mod recordings;
 mod rpc;
+mod settings;
 mod users;
