@@ -10,6 +10,7 @@ pub mod app_shell;
 pub mod auth_form;
 pub mod avatar;
 pub mod icon;
+pub mod join_meeting_by_id;
 pub mod keyboard_shortcuts;
 pub mod rahti_icons;
 pub mod rahti_ui;

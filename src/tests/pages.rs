@@ -600,6 +600,90 @@ async fn new_chat_composes_a_group_and_preserves_other_drafts() {
 }
 
 #[tokio::test]
+async fn calendar_joins_a_meeting_by_id_and_handles_dismissal_and_blocked_windows() {
+    setup().await;
+    let meeting = crate::meetings::create("Calendar join test".into())
+        .await
+        .unwrap();
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/calendar"))
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Join with an ID']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.calendar-join-dialog').matches(':popover-open') && document.activeElement.name === 'meeting' && document.querySelector('.calendar-join-dialog button[type=submit]').disabled").await.unwrap();
+    let fits: bool = browser.eval("(() => {const box = document.querySelector('.calendar-join-dialog').getBoundingClientRect(); return box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;})()").await.unwrap();
+    assert!(fits, "the join popover must fit in the calendar viewport");
+    browser.type_text("bad/id").await.unwrap();
+    browser
+        .click(".calendar-join-dialog button[type=submit]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.calendar-join-dialog [role=alert]').hidden && document.activeElement.name === 'meeting'").await.unwrap();
+    let _: bool = browser.eval("document.activeElement.select(); window.originalJoinOpen = window.open.bind(window); window.open = (...args) => {window.calendarJoinWindow = window.originalJoinOpen(...args); return window.calendarJoinWindow;}; true").await.unwrap();
+    browser.type_text(&meeting.id).await.unwrap();
+    browser
+        .click(".calendar-join-dialog button[type=submit]")
+        .await
+        .unwrap();
+    browser.wait_for(&format!("window.calendarJoinWindow?.location.pathname === '/meet/j/{}' && window.calendarJoinWindow.document.body.textContent.includes('Calendar join test')", meeting.id)).await.unwrap();
+    let detached: bool = browser.eval("window.calendarJoinWindow.opener === null && !document.querySelector('.calendar-join-dialog').matches(':popover-open') && location.pathname === '/calendar'").await.unwrap();
+    assert!(
+        detached,
+        "joining opens a separate, detached pre-join window and preserves Calendar"
+    );
+    let _: bool = browser
+        .eval("window.calendarJoinWindow.close(); true")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Join with an ID']")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("!document.querySelector('.calendar-join-dialog').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'Join with an ID'").await.unwrap();
+    browser
+        .click("button[aria-label='Join with an ID']")
+        .await
+        .unwrap();
+    browser.click("main h1").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.calendar-join-dialog').matches(':popover-open')")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("window.open = () => null; true")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Join with an ID']")
+        .await
+        .unwrap();
+    browser
+        .click(".calendar-join-dialog button[type=submit]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.calendar-join-dialog a').hidden && document.querySelector('.calendar-join-dialog [role=alert]').textContent.includes('Allow pop-ups')").await.unwrap();
+    let fallback: String = browser
+        .eval("document.querySelector('.calendar-join-dialog a').getAttribute('href')")
+        .await
+        .unwrap();
+    assert_eq!(fallback, format!("/meet/j/{}", meeting.id));
+    browser
+        .click("button[aria-label='Close meeting ID dialog']")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;

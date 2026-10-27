@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::components::app_shell::AppShell;
 use crate::components::icon::Icon;
+use crate::components::join_meeting_by_id::JoinMeetingById;
 use crate::rahti::time::NaiveDate;
 use crate::rahti::{Html, Metadata, Result, Validator, html, rpc};
 
@@ -44,13 +45,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Html {
                         </h1>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button
-                            type="button"
-                            class="flex h-9 items-center gap-2 rounded-md border border-edge bg-raised px-4 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
-                        >
-                            <Icon name="hash" class="h-4 w-4" />
-                            "Join with an ID"
-                        </button>
+                        <JoinMeetingById />
                         <a
                             href="/meet"
                             class="flex h-9 items-center gap-2 rounded-md border border-edge bg-raised px-4 text-[13px] font-semibold text-ink transition-colors hover:bg-hover"
