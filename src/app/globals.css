@@ -362,3 +362,9 @@ html[data-reduced-motion="true"] *::after {
 .accessibility-control { display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-left: 20px; cursor: pointer; }
 @media (max-width: 700px) { .accessibility-setting { padding: 16px 12px; gap: 10px; } .accessibility-control { margin-left: 0; gap: 6px; } }
 .chat-thread-row > [data-slot="button"] { min-width: 0; flex: 1; }
+.privacy-setting { display: flex; align-items: center; gap: 18px; min-height: 78px; padding: 20px 22px; }
+.privacy-setting > svg { flex-shrink: 0; }
+.privacy-setting h3 { font-size: 13px; font-weight: 600; }
+.privacy-setting p { margin-top: 3px; color: var(--color-muted-foreground); font-size: 12px; line-height: 1.5; }
+@media (max-width: 900px) { .privacy-setting { flex-wrap: wrap; } .privacy-setting > .settings-select, .privacy-setting > a, .privacy-setting > [data-slot="dialog"] { margin-left: 38px; } .privacy-setting > .min-w-0 { min-width: 65%; } }
+@media (max-width: 700px) { .privacy-setting { padding: 16px 12px; gap: 10px; } .privacy-setting .settings-select { width: auto; max-width: 100%; } }

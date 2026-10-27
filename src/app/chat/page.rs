@@ -826,7 +826,7 @@ pub async fn page() -> Html {
                                             {message.text}
                                         </p>
                                         <template
-                                            pp-for="url in message.gif_url ? [message.gif_url] : []"
+                                            pp-for="url in settings.preferences.connectedExperiences && message.gif_url ? [message.gif_url] : []"
                                         >
                                             <img
                                                 key={url}
@@ -836,6 +836,12 @@ pub async fn page() -> Html {
                                                 loading="lazy"
                                             />
                                         </template>
+                                        <p
+                                            class="mt-1 text-xs text-subtle"
+                                            hidden={settings.preferences.connectedExperiences || !message.gif_url}
+                                        >
+                                            "GIF hidden by your privacy settings."
+                                        </p>
                                     </div>
                                 </div>
                             </template>
@@ -1229,7 +1235,7 @@ pub async fn page() -> Html {
                     const [gifOffset, setGifOffset] = pp.state(0);
                     const [gifMore, setGifMore] = pp.state(false);
                     const [gifRetry, setGifRetry] = pp.state(0);
-                    const visibleGifs = emojiTab === 'all' ? gifs.slice(0,6) : gifs;
+                    const visibleGifs = settings.preferences.connectedExperiences ? (emojiTab === 'all' ? gifs.slice(0,6) : gifs) : [];
                     const emojiCategories = [
                         {id:'faces', name:'Smileys and emotions', icon:'😀', entries:[['😮','Surprised wow'],['😰','Anxious worried'],['😠','Angry'],['😍','Heart eyes love'],['😎','Cool sunglasses'],['🙌','Raised hands hooray'],['🫶','Heart hands'],['🔥','Fire lit'],['🎉','Party celebration'],['👀','Eyes looking'],['💯','Hundred perfect'],['💡','Light bulb idea'],['😀','Grinning smile happy'],['😂','Tears of joy laugh'],['😊','Smiling blush'],['🥰','Smiling hearts'],['🤔','Thinking'],['😭','Crying sad'],['🥳','Party face'],['😴','Sleeping tired'],['🤩','Star struck'],['😅','Sweat smile'],['😉','Wink'],['🤗','Hug']]},
                         {id:'hands', name:'People and gestures', icon:'👋', entries:[['👋','Wave hello goodbye'],['👍','Thumbs up yes'],['👎','Thumbs down no'],['👏','Clap applause'],['🙏','Thanks prayer please'],['🤝','Handshake agreement'],['✌️','Victory peace'],['💪','Flex muscle strong'],['🤞','Fingers crossed luck'],['👌','Okay hand'],['🫡','Salute'],['🤷','Shrug']]},
@@ -1274,7 +1280,7 @@ pub async fn page() -> Html {
                     const currentThread = threads.find(thread => thread.id === selected) || threads[0];
                     const messages = newChat ? [] : currentThread.messages;
                     const draft = newChat ? newDraft : currentThread.draft;
-                    const draftGif = newChat ? newGif : currentThread.gif;
+                    const draftGif = settings.preferences.connectedExperiences ? (newChat ? newGif : currentThread.gif) : null;
                     const suggestSelf = !recipients.includes(selfLabel) && recipientQuery.trim().length > 0 && (selfLabel + ' ' + selfEmail).toLocaleLowerCase().includes(recipientQuery.toLocaleLowerCase());
                     const [sending, setSending] = pp.state(false);
                     const [error, setError] = pp.state("");
@@ -1332,6 +1338,7 @@ pub async fn page() -> Html {
                     function returnToComposer() {setTimeout(() => composerInput.current?.focus(), 0);}
                     pp.effect(() => {
                         if (!emojiOpen || emojiTab === 'emoji') return;
+                        if (!settings.preferences.connectedExperiences) {setGifs([]); setGifMore(false); setGifLoading(false); setGifError('Optional connected experiences are off. Enable them in Settings > Privacy to use GIFs.'); return;}
                         if (!giphyKey) {setGifError('GIPHY is not configured yet.'); setGifLoading(false); return;}
                         let active = true;
                         const controller = new AbortController();
@@ -1359,7 +1366,7 @@ pub async fn page() -> Html {
                             } finally {clearTimeout(timeout); if (active) setGifLoading(false);}
                         }, emojiQuery.trim() ? 350 : 0);
                         return () => {active = false; clearTimeout(timer); controller.abort();};
-                    }, [emojiOpen, emojiTab, emojiQuery, gifOffset, gifRetry]);
+                    }, [emojiOpen, emojiTab, emojiQuery, gifOffset, gifRetry, settings.preferences.connectedExperiences]);
                     // The caret is read as the trigger is pressed, before the picker
                     // takes focus away from the composer.
                     function rememberSelection() {

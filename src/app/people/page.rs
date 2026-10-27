@@ -552,6 +552,9 @@ pub async fn page() -> Html {
                         setProfileName(@{user.name.as_str()});
                         nameOpener.current?.click();
                     }
+                    pp.effect(() => {
+                        if (new URLSearchParams(location.search).get('edit') === 'profile') editName();
+                    }, []);
                     function editPicture() {
                         resetProfile();
                         pictureOpener.current?.click();

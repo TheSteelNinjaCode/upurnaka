@@ -217,7 +217,10 @@ async fn devices_save_choices_test_privately_and_release_media() {
             return stream;
         }; true
     "##).await.unwrap();
-    browser.click(".settings-nav:nth-child(5)").await.unwrap();
+    browser
+        .click(".settings-nav[data-category=devices]")
+        .await
+        .unwrap();
     browser.wait_for("document.querySelector('.settings-main h2').textContent === 'Devices' && document.querySelector('select[aria-label=\"Camera device\"]').options.length === 2").await.unwrap();
     let requests: usize = browser.eval("window.deviceRequests.length").await.unwrap();
     assert_eq!(
@@ -246,7 +249,10 @@ async fn devices_save_choices_test_privately_and_release_media() {
     browser.wait_for("window.deviceRequests.some(request => request.audio?.autoGainControl === true && request.audio?.noiseSuppression === true)").await.unwrap();
     browser.click(".settings-nav:first-child").await.unwrap();
     browser.wait_for("window.deviceTracks.length >= 2 && window.deviceTracks.every(track => track.readyState === 'ended')").await.unwrap();
-    browser.click(".settings-nav:nth-child(5)").await.unwrap();
+    browser
+        .click(".settings-nav[data-category=devices]")
+        .await
+        .unwrap();
     let _: bool = browser
         .eval("window.deviceDenied = true; true")
         .await
@@ -264,7 +270,10 @@ async fn devices_save_choices_test_privately_and_release_media() {
         .goto(&format!("http://{address}/settings"))
         .await
         .unwrap();
-    browser.click(".settings-nav:nth-child(5)").await.unwrap();
+    browser
+        .click(".settings-nav[data-category=devices]")
+        .await
+        .unwrap();
     browser.wait_for("!document.querySelector('input[aria-label=\"Mirror my video\"]').checked && document.querySelector('input[aria-label=\"Adjust brightness\"]').checked").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
@@ -287,6 +296,9 @@ async fn saved_devices_and_audio_processing_apply_to_new_meetings() {
             ([("content-type", "text/javascript")], include_str!("fixtures/chime-room.js"))
         }))
         .layer(axum::middleware::from_fn(|request: axum::extract::Request, next: axum::middleware::Next| async move {
+            if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("resume_meeting_audio") {
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from("true")).unwrap();
+            }
             if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("join_meeting") {
                 return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"meeting":{"MeetingId":"fixture"},"attendee":{"AttendeeId":"self","ExternalUserId":"Jefferson Abraham#fixture"}}"#)).unwrap();
             }
@@ -297,13 +309,19 @@ async fn saved_devices_and_audio_processing_apply_to_new_meetings() {
         return;
     };
     authenticate_browser(&mut browser, address).await;
-    let _: bool = browser.eval("localStorage.setItem('upurnaka.settings.v1.legacy-test-user', JSON.stringify({cameraId:'second-camera',microphoneId:'mic-test',speakerId:'speaker-test',mirrorVideo:false,videoBrightness:true,softFocus:true,autoGainControl:false,noiseSuppression:false,signLanguageMode:true,mutedNotification:true})); true").await.unwrap();
+    let _: bool = browser.eval("localStorage.setItem('upurnaka.settings.v1.legacy-test-user', JSON.stringify({cameraId:'second-camera',microphoneId:'mic-test',speakerId:'speaker-test',mirrorVideo:false,videoBrightness:true,softFocus:true,autoGainControl:false,noiseSuppression:false,signLanguageMode:true,mutedNotification:true,lockMediaOnScreenLock:true})); true").await.unwrap();
     browser
         .goto(&format!("http://{address}/meet/j/{id}"))
         .await
         .unwrap();
     let _: bool = browser.eval(r##"
         window.fixtureMicrophones = [{deviceId:'mic-test'}];
+        window.IdleDetector = class extends EventTarget {
+            constructor() { super(); window.meetingIdleDetector = this; this.screenState = 'unlocked'; }
+            async start(options) { options.signal.addEventListener('abort', () => {window.idleProtectionAborted=true;}); }
+        };
+        const originalPermissionQuery = navigator.permissions.query.bind(navigator.permissions);
+        navigator.permissions.query = descriptor => descriptor.name === 'idle-detection' ? Promise.resolve({state:'granted'}) : originalPermissionQuery(descriptor);
         window.meetingTestAudio = new AudioContext();
         navigator.mediaDevices.getUserMedia = async constraints => {
             window.meetingAudioConstraints = constraints;
@@ -368,6 +386,23 @@ async fn saved_devices_and_audio_processing_apply_to_new_meetings() {
         .await
         .unwrap();
     browser
+        .wait_for("!!window.meetingIdleDetector")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("window.meetingIdleDetector.screenState='locked'; window.meetingIdleDetector.dispatchEvent(new Event('change')); true").await.unwrap();
+    browser.wait_for("window.meetingTestStream.getTracks().every(track => track.readyState === 'ended') && window.roomFixture.audioInput.getTracks().every(track => track.readyState === 'ended') && window.testDeviceController.stream.getTracks().every(track => track.readyState === 'ended') && !document.querySelector('.meeting-room').hidden").await.unwrap();
+    let _: bool = browser.eval("window.meetingIdleDetector.screenState='unlocked'; window.meetingIdleDetector.dispatchEvent(new Event('change')); true").await.unwrap();
+    let stays_muted: bool = browser.eval("window.roomFixture.muted && document.querySelector('button[aria-label=\"Toggle meeting microphone\"]').getAttribute('aria-pressed') === 'false'").await.unwrap();
+    assert!(
+        stays_muted,
+        "unlocking must not restart capture automatically"
+    );
+    browser
+        .click("button[aria-label='Toggle meeting microphone']")
+        .await
+        .unwrap();
+    browser.wait_for("!window.roomFixture.muted && window.meetingTestStream.getAudioTracks()[0].readyState === 'live'").await.unwrap();
+    browser
         .click("button[aria-label='Leave meeting']")
         .await
         .unwrap();
@@ -396,7 +431,10 @@ async fn accessibility_matches_teams_and_saves_switches() {
         .goto(&format!("http://{address}/settings"))
         .await
         .unwrap();
-    browser.click(".settings-nav:nth-child(4)").await.unwrap();
+    browser
+        .click(".settings-nav[data-category=accessibility]")
+        .await
+        .unwrap();
     browser.wait_for("document.querySelector('.settings-main h2').textContent === 'Accessibility' && Array.from(document.querySelectorAll('.accessibility-setting')).filter(card => !card.hidden).length === 3").await.unwrap();
     let defaults: bool = browser.eval("!document.querySelector('input[aria-label=\"Sign language mode\"]').checked && document.querySelector('input[aria-label=\"Muted notification\"]').checked && !document.querySelector('input[aria-label=\"Turn on single pointer controls\"]').checked").await.unwrap();
     assert!(defaults);
@@ -415,7 +453,10 @@ async fn accessibility_matches_teams_and_saves_switches() {
         .goto(&format!("http://{address}/settings"))
         .await
         .unwrap();
-    browser.click(".settings-nav:nth-child(4)").await.unwrap();
+    browser
+        .click(".settings-nav[data-category=accessibility]")
+        .await
+        .unwrap();
     browser.wait_for("document.querySelector('input[aria-label=\"Sign language mode\"]').checked && !document.querySelector('input[aria-label=\"Muted notification\"]').checked && document.querySelector('input[aria-label=\"Turn on single pointer controls\"]').checked").await.unwrap();
     browser.click(".settings-intro button").await.unwrap();
     browser.click(".settings-primary").await.unwrap();
@@ -470,5 +511,97 @@ async fn single_pointer_controls_reorder_chats_without_dragging() {
         .wait_for("document.querySelector('.chat-thread-row').textContent.includes('Alex')")
         .await
         .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
+async fn privacy_controls_save_handle_permissions_and_open_profile() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    browser
+        .click(".settings-nav[data-category=privacy]")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.settings-main h2').textContent === 'Privacy' && document.querySelectorAll('.privacy-setting').length === 8").await.unwrap();
+    let unavailable: bool = browser.eval("document.querySelector('select[aria-label=\"Who can call you\"]').disabled && document.querySelector('select[aria-label=\"Who can add you to groups\"]').disabled && document.querySelector('input[aria-label=\"Extended diagnostics data\"]').disabled && !document.querySelector('input[aria-label=\"Experiences that analyze your content\"]').checked").await.unwrap();
+    assert!(
+        unavailable,
+        "unsupported privacy promises must not be presented as working controls"
+    );
+    browser
+        .click(".privacy-settings [data-slot=dialog-trigger]")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.privacy-contact-dialog').open && document.querySelector('.privacy-contact-dialog').textContent.includes('fixture@example.com')").await.unwrap();
+    browser.press("Escape").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.privacy-contact-dialog').open")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("window.privacyPermission='denied'; window.IdleDetector=class {static async requestPermission(){return window.privacyPermission;}}; true").await.unwrap();
+    browser
+        .click("input[aria-label='Optional connected experiences']")
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Turn off my camera and mic when my screen locks']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.privacy-settings [role=alert]').textContent.includes('was not enabled') && !document.querySelector('input[aria-label=\"Turn off my camera and mic when my screen locks\"]').checked").await.unwrap();
+    let _: bool = browser
+        .eval("window.privacyPermission='granted'; true")
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Turn off my camera and mic when my screen locks']")
+        .await
+        .unwrap();
+    browser.wait_for("JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')).lockMediaOnScreenLock === true && JSON.parse(localStorage.getItem('upurnaka.settings.v1.legacy-test-user')).connectedExperiences === false").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/settings"))
+        .await
+        .unwrap();
+    browser
+        .click(".settings-nav[data-category=privacy]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('input[aria-label=\"Optional connected experiences\"]').checked").await.unwrap();
+    browser
+        .click(".privacy-setting:nth-of-type(6) > a")
+        .await
+        .unwrap();
+    browser.wait_for("location.pathname === '/people' && document.querySelector('.people-profile-dialog').open && document.querySelector('input[name=name]').value === 'Jefferson Abraham'").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
+async fn optional_connected_experiences_off_blocks_giphy_requests() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    let _: bool = browser.eval("localStorage.setItem('upurnaka.settings.v1.legacy-test-user', JSON.stringify({connectedExperiences:false})); true").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    let _: bool = browser.eval("window.optionalGifRequests=0; const originalFetch=window.fetch.bind(window); window.fetch=(input,options)=>{if(String(input).includes('giphy.com')){window.optionalGifRequests++; return Promise.reject(new Error('Unexpected GIF request'));} return originalFetch(input,options);}; true").await.unwrap();
+    browser.click("button[aria-label=Emoji]").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-emoji-content').textContent.includes('Optional connected experiences are off')").await.unwrap();
+    let blocked: bool = browser.eval("window.optionalGifRequests === 0 && !Array.from(document.images).some(image => image.src.includes('giphy.com'))").await.unwrap();
+    assert!(
+        blocked,
+        "GIF services must stay disconnected when the privacy setting is off"
+    );
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }

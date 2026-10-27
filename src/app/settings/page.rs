@@ -1,5 +1,8 @@
 use crate::{
-    components::{app_shell::AppShell, device_settings::DeviceSettings, icon::Icon},
+    components::{
+        app_shell::AppShell, device_settings::DeviceSettings, icon::Icon,
+        privacy_settings::PrivacySettings,
+    },
     rahti::{Html, Metadata, html},
 };
 
@@ -39,6 +42,7 @@ pub async fn page() -> Html {
                                 type="button"
                                 class={"settings-nav flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left text-[13px] " + (active === item.key ? "border-edge bg-hover text-ink" : "border-transparent text-muted-foreground hover:bg-hover hover:text-ink")}
                                 aria-current={active === item.key ? "page" : null}
+                                data-category={item.key}
                                 onclick={choose(item.key)}
                                 hidden={!matchesCategory(item.key)}
                             >
@@ -54,6 +58,9 @@ pub async fn page() -> Html {
                                     </span>
                                     <span hidden={item.key !== "accessibility"}>
                                         <Icon name="accessibility" class="size-5" />
+                                    </span>
+                                    <span hidden={item.key !== "privacy"}>
+                                        <Icon name="shield" class="size-5" />
                                     </span>
                                     <span hidden={item.key !== "files"}>
                                         <Icon name="attach" class="size-5" />
@@ -486,6 +493,9 @@ pub async fn page() -> Html {
                         <section hidden={!show("devices")}>
                             <DeviceSettings active={show("devices")} />
                         </section>
+                        <section hidden={!show("privacy")}>
+                            <PrivacySettings />
+                        </section>
                         <div class="settings-card" hidden={!confirmReset}>
                             <h3 class="font-semibold">"Restore default settings?"</h3>
                             <p class="mt-2 text-sm text-muted-foreground">
@@ -514,6 +524,7 @@ pub async fn page() -> Html {
                         {key:'general', label:'General'},
                         {key:'appearance', label:'Appearance'},
                         {key:'chats', label:'Chats'},
+                        {key:'privacy', label:'Privacy'},
                         {key:'accessibility', label:'Accessibility'},
                         {key:'devices', label:'Devices'},
                         {key:'files', label:'Files and links'}
@@ -531,7 +542,8 @@ pub async fn page() -> Html {
                         {id:'storage', category:'files', text:'file storage computer local device cloud dilnaka'},
                         {id:'downloads', category:'files', text:'downloads folder location save browser files'},
                         {id:'cloud', category:'files', text:'dilnaka cloud storage quota connection'},
-                        {id:'devices', category:'devices', text:'audio video speaker microphone camera noise suppression sensitivity mirror brightness soft focus headset devices'}
+                        {id:'devices', category:'devices', text:'audio video speaker microphone camera noise suppression sensitivity mirror brightness soft focus headset devices'},
+                        {id:'privacy', category:'privacy', text:'privacy contact information find profile groups calls screen lock diagnostics connected experiences gifs content analysis'}
                     ];
                     const themes = [{key:'light',label:'Light'}, {key:'dark',label:'Dark'}, {key:'system',label:'Follow system'}];
                     const [active, setActive] = pp.state('general');

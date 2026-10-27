@@ -1251,7 +1251,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             videoBrightness:saved.videoBrightness === true,
                             softFocus:saved.softFocus === true,
                             signLanguageMode:saved.signLanguageMode === true,
-                            mutedNotification:saved.mutedNotification !== false
+                            mutedNotification:saved.mutedNotification !== false,
+                            lockMediaOnScreenLock:saved.lockMediaOnScreenLock === true
                         };
                     }, []);
                     const selfVideoStyle = 'transform:scaleX(' + (devicePreferences.mirrorVideo ? '-1' : '1') + ');filter:brightness(' + (devicePreferences.videoBrightness ? '1.2' : '1') + ') blur(' + (devicePreferences.softFocus ? '0.6px' : '0px') + ')';
@@ -1304,6 +1305,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const meetingAudio = pp.ref(null);
                     const meetingMicrophone = pp.ref(null);
                     const meetingOutgoingMicrophone = pp.ref(null);
+                    const microphoneLifetime = pp.ref(0);
+                    const mediaLocked = pp.ref(false);
+                    const [captureVersion, setCaptureVersion] = pp.state(0);
                     const mutedReminderAt = pp.ref(0);
                     const [mutedNotice, setMutedNotice] = pp.state(false);
                     const remote0 = pp.ref(null);
@@ -1478,7 +1482,48 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             notifyMutedSpeech(Math.sqrt(sum / samples.length));
                         }, 250);
                         return () => { clearInterval(timer); context.close().catch(() => {}); };
-                    }, [session !== null, notifyMutedSpeech]);
+                    }, [session !== null, captureVersion, notifyMutedSpeech]);
+                    const lockMeetingMedia = pp.event(async () => {
+                        const live = call.current;
+                        if (!live) return;
+                        microphoneLifetime.current += 1;
+                        mediaLocked.current = true;
+                        setMicrophone(false); setCamera(false); setMutedNotice(false);
+                        meetingMicrophone.current?.getTracks().forEach(track => track.stop()); meetingMicrophone.current = null;
+                        meetingOutgoingMicrophone.current?.getTracks().forEach(track => track.stop()); meetingOutgoingMicrophone.current = null;
+                        setCaptureVersion(value => value + 1);
+                        localVideo.current?.srcObject?.getTracks().forEach(track => track.stop());
+                        roomLocalVideo.current?.srcObject?.getTracks().forEach(track => track.stop());
+                        shareStream.current?.getTracks().forEach(track => track.stop()); shareStream.current = null; setSharingScreen(false);
+                        if (recorder.current) releaseRecordingMedia(recorder.current);
+                        await Promise.allSettled([
+                            Promise.resolve().then(() => live.av.realtimeMuteLocalAudio()),
+                            Promise.resolve().then(() => live.av.stopLocalVideoTile()),
+                            Promise.resolve().then(() => live.av.stopContentShare()),
+                            Promise.resolve().then(() => live.av.stopAudioInput()),
+                            closeCamera(), recorder.current ? stopRecording() : Promise.resolve()
+                        ]);
+                        if (!disposed.current) setToast('Your screen locked. Camera, microphone, sharing, and recording are off. Turn devices on manually when you return.');
+                    });
+                    pp.effect(() => {
+                        if (!session || !devicePreferences.lockMediaOnScreenLock) return;
+                        if (typeof IdleDetector !== 'function') { setToast('Screen-lock protection is unavailable in this browser.'); return; }
+                        let cancelled = false;
+                        const abort = new AbortController();
+                        const detector = new IdleDetector();
+                        const changed = () => { if (!cancelled && detector.screenState === 'locked') lockMeetingMedia(); };
+                        detector.addEventListener('change', changed);
+                        (async () => {
+                            try {
+                                const permission = await navigator.permissions.query({name:'idle-detection'});
+                                if (cancelled) return;
+                                if (permission.state !== 'granted') { setToast('Screen-lock protection is not active. Enable its browser permission in Settings > Privacy.'); return; }
+                                await detector.start({threshold:60000, signal:abort.signal});
+                                changed();
+                            } catch (_) { if (!cancelled) setToast('Screen-lock protection could not start. Check your browser permissions.'); }
+                        })();
+                        return () => { cancelled = true; abort.abort(); detector.removeEventListener('change', changed); };
+                    }, [session !== null, lockMeetingMedia]);
                     const onLocalHandVolume = pp.event((attendeeId, volume, muted) => {
                         const live = call.current;
                         if (!live || attendeeId !== live.attendeeId) return;
@@ -2268,6 +2313,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setAdmission(''); setLobbyWaiting(false);
                         if (ticket) pp.rpc('leave_meeting_entry', {id:code,ticket}).catch(() => {});
                         call.current = null;
+                        microphoneLifetime.current += 1;
+                        mediaLocked.current = false;
                         meetingMicrophone.current?.getTracks().forEach(track => track.stop());
                         meetingMicrophone.current = null;
                         meetingOutgoingMicrophone.current?.getTracks().forEach(track => track.stop());
@@ -2433,6 +2480,22 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
                     // Open the audio and video session Chime just gave us a
                     // seat in.
+                    async function startMeetingMicrophone(av) {
+                        const lifetime = microphoneLifetime.current;
+                        const microphones = await av.listAudioInputDevices();
+                        if (!microphones.length) return false;
+                        const selected = microphones.find(device => device.deviceId === microphoneDevice) || microphones[0];
+                        const input = await navigator.mediaDevices.getUserMedia({video:false, audio:{deviceId:{exact:selected.deviceId}, autoGainControl:devicePreferences.autoGainControl, noiseSuppression:devicePreferences.noiseSuppression, echoCancellation:true}});
+                        if (disposed.current || lifetime !== microphoneLifetime.current) { input.getTracks().forEach(track => track.stop()); return false; }
+                        const outgoing = devicePreferences.mutedNotification ? input.clone() : input;
+                        meetingMicrophone.current = input; meetingOutgoingMicrophone.current = outgoing;
+                        try { await av.startAudioInput(outgoing); }
+                        catch (failure) { input.getTracks().forEach(track => track.stop()); outgoing.getTracks().forEach(track => track.stop()); throw failure; }
+                        if (disposed.current || lifetime !== microphoneLifetime.current) { input.getTracks().forEach(track => track.stop()); outgoing.getTracks().forEach(track => track.stop()); return false; }
+                        setCaptureVersion(value => value + 1);
+                        mediaLocked.current = false;
+                        return true;
+                    }
                     async function connect(info) {
                         const kit = await ensureDevices();
                         const configuration = new kit.sdk.MeetingSessionConfiguration(
@@ -2460,17 +2523,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         av.realtimeSubscribeToReceiveDataMessage("upurnaka-room", onRoomMessage);
 
                         if (audioMode === "computer") {
-                            const microphones = await av.listAudioInputDevices();
-                            if (microphones.length > 0) {
-                                const selected = microphones.find(device => device.deviceId === microphoneDevice) || microphones[0];
-                                const input = await navigator.mediaDevices.getUserMedia({video:false, audio:{deviceId:{exact:selected.deviceId}, autoGainControl:devicePreferences.autoGainControl, noiseSuppression:devicePreferences.noiseSuppression, echoCancellation:true}});
-                                if (disposed.current) { input.getTracks().forEach(track => track.stop()); return; }
-                                meetingMicrophone.current = input;
-                                const outgoing = devicePreferences.mutedNotification ? input.clone() : input;
-                                meetingOutgoingMicrophone.current = outgoing;
-                                try { await av.startAudioInput(outgoing); }
-                                catch (failure) { input.getTracks().forEach(track => track.stop()); outgoing.getTracks().forEach(track => track.stop()); throw failure; }
-                            }
+                            await startMeetingMicrophone(av);
+                            if (disposed.current) return;
                             if (speakerDevice) {
                                 try { await av.chooseAudioOutput(speakerDevice); }
                                 catch (_) { await av.chooseAudioOutput(null); setToast('Selected speaker unavailable. Using system default.'); }
@@ -2537,6 +2591,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         if (next) {
                             try { if (admission) await pp.rpc('resume_meeting_audio', {id:code,ticket:admission}); }
                             catch(failure) { setError(failure.body?.error || failure.message); return; }
+                            if (mediaLocked.current) {
+                                try { if (!await startMeetingMicrophone(live.av)) {setError('No microphone is available. Check your device settings.'); return;} }
+                                catch (_) {setError('The microphone could not be restarted. Check your browser permissions.'); return;}
+                            }
                             live.av.realtimeUnmuteLocalAudio();
                         } else {
                             live.av.realtimeMuteLocalAudio();
