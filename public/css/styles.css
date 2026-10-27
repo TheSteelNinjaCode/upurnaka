@@ -598,6 +598,9 @@
   .-mx-1 {
     margin-inline: calc(var(--spacing) * -1);
   }
+  .-mx-2 {
+    margin-inline: calc(var(--spacing) * -2);
+  }
   .mx-1 {
     margin-inline: var(--spacing);
   }
@@ -1099,6 +1102,9 @@
   .max-h-\[280px\] {
     max-height: 280px;
   }
+  .max-h-\[340px\] {
+    max-height: 340px;
+  }
   .max-h-\[1400px\] {
     max-height: 1400px;
   }
@@ -1254,6 +1260,9 @@
   }
   .w-\[200px\] {
     width: 200px;
+  }
+  .w-\[240px\] {
+    width: 240px;
   }
   .w-\[260px\] {
     width: 260px;
@@ -3196,6 +3205,9 @@
   }
   .underline-offset-4 {
     text-underline-offset: 4px;
+  }
+  .accent-brand-ink {
+    accent-color: var(--color-brand-ink);
   }
   .opacity-0 {
     opacity: 0%;

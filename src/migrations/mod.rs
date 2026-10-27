@@ -16,6 +16,7 @@ pub mod m20261026_000004_meeting_lobby;
 pub mod m20261026_000005_meeting_recording;
 pub mod m20261027_000001_account_picture;
 pub mod m20261027_000002_calendar_event;
+pub mod m20261027_000003_chat_file;
 
 /// The application's migrations, in the order they are applied.
 pub struct Migrator;
@@ -32,6 +33,7 @@ impl ::sea_orm_migration::MigratorTrait for Migrator {
             Box::new(m20261026_000005_meeting_recording::Migration),
             Box::new(m20261027_000001_account_picture::Migration),
             Box::new(m20261027_000002_calendar_event::Migration),
+            Box::new(m20261027_000003_chat_file::Migration),
         ]
     }
 }

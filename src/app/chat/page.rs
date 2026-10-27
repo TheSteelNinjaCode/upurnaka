@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use crate::chat_files::{self, Attachment};
 use crate::components::app_shell::AppShell;
 use crate::components::aria::{bound, hidden, labelled, named, plain, submit};
 use crate::components::avatar::Avatar;
@@ -10,6 +11,10 @@ use crate::components::rahti_ui::attrs::{Attrs, ui_expr};
 use crate::components::rahti_ui::avatar::{Avatar as UiAvatar, AvatarFallback};
 use crate::components::rahti_ui::badge::Badge;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::dialog::{
+    Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    DialogTrigger,
+};
 use crate::components::rahti_ui::dropdown_menu::{
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 };
@@ -25,7 +30,7 @@ use crate::components::rahti_ui::toggle::Toggle;
 use crate::components::rahti_ui::toggle_group::{ToggleGroup, ToggleGroupItem};
 use crate::meetings::{self, MeetingLink};
 use crate::rahti::time;
-use crate::rahti::{Html, Metadata, Result, Validator, html, rpc};
+use crate::rahti::{Html, Metadata, Result, RpcFile, Validator, html, rpc};
 
 /// Initials on a disc, for a conversation or a message author.
 const INITIALS: &str = "bg-avatar! text-xs font-semibold text-avatar-ink!";
@@ -38,6 +43,10 @@ const HEADING: &str = "mb-2.5 mt-3 flex items-center justify-between text-sm";
 
 /// A picker's empty, loading or failure line.
 const EMPTY: &str = "chat-emoji-empty py-4 text-[13px] leading-normal text-muted-foreground";
+/// An attachment waiting in the composer.
+const FILE_CHIP: &str = "chat-draft-file flex w-[240px] max-w-full items-center gap-2.5 rounded-md border border-edge bg-raised py-2 pl-3 pr-1.5";
+/// An attachment on a sent message; opens the file.
+const FILE_LINK: &str = "chat-message-file flex w-[260px] max-w-full items-center gap-2.5 rounded-md border border-edge bg-raised px-3 py-2 hover:bg-hover";
 
 // The new-conversation illustration: layered gradients and pseudo-element
 // shapes, drawn with arbitrary utilities.
@@ -905,6 +914,36 @@ pub async fn page() -> Html {
                                         >
                                             "GIF hidden by your privacy settings."
                                         </p>
+                                        <div
+                                            class="chat-message-files mt-1.5 flex flex-wrap gap-2"
+                                            hidden={!message.attachments?.length}
+                                        >
+                                            <template pp-for="file in message.attachments || []">
+                                                <a
+                                                    key={file.id}
+                                                    class=@{FILE_LINK}
+                                                    href={"/chat/files/" + encodeURIComponent(file.id)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={"Open " + file.name}
+                                                >
+                                                    <Icon
+                                                        name="file"
+                                                        class="size-5 shrink-0 text-brand-ink"
+                                                    />
+                                                    <span class="min-w-0 flex-1">
+                                                        <span
+                                                            class="block truncate text-[13px] text-ink"
+                                                        >
+                                                            {file.name}
+                                                        </span>
+                                                        <span class="block text-[11px] text-subtle">
+                                                            {fileSize(file.bytes)}
+                                                        </span>
+                                                    </span>
+                                                </a>
+                                            </template>
+                                        </div>
                                     </div>
                                 </div>
                             </template>
@@ -934,6 +973,60 @@ pub async fn page() -> Html {
                                 <Icon name="close" class="size-4" />
                             </Button>
                         </div>
+                        <div
+                            class="chat-draft-files mb-2 flex flex-wrap gap-2"
+                            hidden={draftFiles.length === 0 && uploads.length === 0}
+                            aria-label="Attached files"
+                        >
+                            <template pp-for="file in draftFiles">
+                                <div key={file.id} class=@{FILE_CHIP}>
+                                    <Icon name="file" class="size-5 shrink-0 text-brand-ink" />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-[13px] text-ink">
+                                            {file.name}
+                                        </span>
+                                        <span class="block text-[11px] text-subtle">
+                                            {fileSize(file.bytes)}
+                                        </span>
+                                    </span>
+                                    <button
+                                        type="button"
+                                        class="chat-file-remove rounded p-1 text-muted-foreground hover:bg-hover hover:text-ink"
+                                        aria-label={"Remove " + file.name}
+                                        value={file.id}
+                                        disabled={sending}
+                                        onclick={removeDraftFile(event.currentTarget.value)}
+                                    >
+                                        <Icon name="close" class="size-4" />
+                                    </button>
+                                </div>
+                            </template>
+                            <template pp-for="upload in uploads">
+                                <div key={upload.key} class=@{FILE_CHIP} role="status">
+                                    <Icon
+                                        name="upload"
+                                        class="size-5 shrink-0 text-muted-foreground"
+                                    />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-[13px] text-ink">
+                                            {upload.name}
+                                        </span>
+                                        <span class="block text-[11px] text-subtle">
+                                            "Uploading…"
+                                        </span>
+                                    </span>
+                                </div>
+                            </template>
+                        </div>
+                        <input
+                            type="file"
+                            multiple
+                            hidden
+                            class="chat-file-input"
+                            aria-label="Upload from this device"
+                            pp-ref={fileInput}
+                            onchange={uploadFiles(event.currentTarget)}
+                        />
                         <form onsubmit={send(event)} pp-ref={composerForm} novalidate>
                             <InputGroup class="h-auto! bg-raised px-1 dark:bg-raised">
                                 <textarea
@@ -1224,14 +1317,32 @@ pub async fn page() -> Html {
                                             </Button>
                                         </PopoverContent>
                                     </Popover>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        class="text-ink/85"
-                                        attrs=@{(labelled("Attach a file")).merge(&plain())}
-                                    >
-                                        <Icon name="attach" class="size-[18px]" />
-                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger
+                                            menu="chat-attach"
+                                            class=@{composer_button.as_str()}
+                                            attrs=@{labelled("Attach a file")}
+                                            disabled={sending}
+                                        >
+                                            <Icon name="attach" class="size-[18px]" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            menu="chat-attach"
+                                            side="top"
+                                            align="end"
+                                            class="chat-attach-menu w-60"
+                                            attrs=@{named("Attach")}
+                                        >
+                                            <DropdownMenuItem onclick={openCloudFiles()}>
+                                                <Icon name="cloud" class="size-4" />
+                                                "Attach cloud files"
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onclick={chooseDeviceFiles()}>
+                                                <Icon name="upload" class="size-4" />
+                                                "Upload from this device"
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
@@ -1267,7 +1378,7 @@ pub async fn page() -> Html {
                                         size="icon-sm"
                                         class="text-ink/85 enabled:text-brand-ink disabled:opacity-100!"
                                         attrs=@{labelled("Send").merge(&submit())}
-                                        disabled={(!draft.trim() && !draftGif) || sending || (newChat && recipients.length === 0)}
+                                        disabled={(!draft.trim() && !draftGif && draftFiles.length === 0) || sending || uploads.length > 0 || (newChat && recipients.length === 0)}
                                     >
                                         <Icon name="send" class="size-[18px]" />
                                     </Button>
@@ -1280,6 +1391,82 @@ pub async fn page() -> Html {
                         <p class="mt-2 text-xs text-busy" hidden={!error}>{error}</p>
                     </div>
                 </main>
+                <Dialog>
+                    <DialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={cloudOpener}></span>
+                    </DialogTrigger>
+                    <DialogContent
+                        class="chat-cloud-dialog max-h-[calc(100dvh-32px)] sm:max-w-[520px]!"
+                        attrs=@{named("Attach cloud files")}
+                    >
+                        <DialogHeader>
+                            <DialogTitle>"Attach cloud files"</DialogTitle>
+                            <DialogDescription>
+                                "Files you uploaded to Dilnaka storage from Chat."
+                            </DialogDescription>
+                        </DialogHeader>
+                        <p
+                            class="text-sm text-muted-foreground"
+                            role="status"
+                            hidden={!cloudLoading}
+                        >
+                            "Loading your files…"
+                        </p>
+                        <p class="text-sm text-danger-ink" role="alert" hidden={!cloudError}>
+                            {cloudError}
+                        </p>
+                        <p
+                            class="text-sm text-muted-foreground"
+                            hidden={cloudLoading || !!cloudError || cloudFiles.length > 0}
+                        >
+                            "No cloud files yet. Files you upload from this device appear here."
+                        </p>
+                        <div
+                            class="chat-cloud-files scroll-thin -mx-2 max-h-[340px] overflow-y-auto"
+                            role="group"
+                            aria-label="Cloud files"
+                            hidden={cloudLoading || cloudFiles.length === 0}
+                        >
+                            <template pp-for="file in cloudFiles">
+                                <label
+                                    key={file.id}
+                                    class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-hover"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        class="size-4 accent-brand-ink"
+                                        value={file.id}
+                                        checked={cloudPicked.includes(file.id)}
+                                        onchange={toggleCloudFile(event.currentTarget.value, event.currentTarget.checked)}
+                                    />
+                                    <Icon name="file" class="size-5 shrink-0 text-brand-ink" />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-[13px] text-ink">
+                                            {file.name}
+                                        </span>
+                                        <span class="block text-[11px] text-subtle">
+                                            {fileSize(file.bytes) + " · " + file.uploaded}
+                                        </span>
+                                    </span>
+                                </label>
+                            </template>
+                        </div>
+                        <DialogFooter>
+                            <DialogClose class="settings-secondary">
+                                <span pp-ref={cloudCloser}></span>
+                                "Cancel"
+                            </DialogClose>
+                            <Button
+                                attrs=@{plain()}
+                                class="chat-cloud-attach"
+                                disabled={cloudPicked.length === 0}
+                                onclick={attachCloudFiles()}
+                            >
+                                {cloudPicked.length > 1 ? "Attach " + cloudPicked.length + " files" : "Attach"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
                 <script>r##"
                     const shortcuts = pp.context(window.UpurnakaShortcutContext);
                     const settings = pp.context(window.UpurnakaSettingsContext);
@@ -1329,10 +1516,11 @@ pub async fn page() -> Html {
                     const selfName = @{user.name.as_str()};
                     const selfLabel = @{self_label.as_str()};
                     const selfEmail = @{user.email.as_str()};
-                    const [threads, setThreads] = pp.state([{id:"self", label:selfLabel, messages:[], draft:"", gif:null, recipients:[]}]);
+                    const [threads, setThreads] = pp.state([{id:"self", label:selfLabel, messages:[], draft:"", gif:null, files:[], recipients:[]}]);
                     const [hasNewChat, setHasNewChat] = pp.state(false);
                     const [newDraft, setNewDraft] = pp.state("");
                     const [newGif, setNewGif] = pp.state(null);
+                    const [newFiles, setNewFiles] = pp.state([]);
                     const [recipients, setRecipients] = pp.state([]);
                     const [recipientQuery, setRecipientQuery] = pp.state("");
                     const [recipientError, setRecipientError] = pp.state("");
@@ -1345,6 +1533,7 @@ pub async fn page() -> Html {
                     const messages = newChat ? [] : currentThread.messages;
                     const draft = newChat ? newDraft : currentThread.draft;
                     const draftGif = settings.preferences.connectedExperiences ? (newChat ? newGif : currentThread.gif) : null;
+                    const draftFiles = newChat ? newFiles : (currentThread.files || []);
                     const suggestSelf = !recipients.includes(selfLabel) && recipientQuery.trim().length > 0 && (selfLabel + ' ' + selfEmail).toLocaleLowerCase().includes(recipientQuery.toLocaleLowerCase());
                     const [sending, setSending] = pp.state(false);
                     const [error, setError] = pp.state("");
@@ -1369,7 +1558,9 @@ pub async fn page() -> Html {
                     function messagePreview(thread) {
                         const message = lastMessage(thread);
                         if (!message) return '';
-                        return message.text || (message.gif_url ? (settings.preferences.connectedExperiences ? 'GIF' : 'GIF hidden by your privacy settings') : '');
+                        if (message.text) return message.text;
+                        if (message.attachments?.length) return message.attachments.length > 1 ? message.attachments.length + ' files' : message.attachments[0].name;
+                        return message.gif_url ? (settings.preferences.connectedExperiences ? 'GIF' : 'GIF hidden by your privacy settings') : '';
                     }
                     function moveThread(id, direction) {
                         const index = visibleThreads.findIndex(thread => thread.id === id);
@@ -1393,6 +1584,86 @@ pub async fn page() -> Html {
                         else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread, gif} : thread));
                     }
                     function searchMedia(value) {setEmojiQuery(value); setGifOffset(0);}
+
+                    // Attachments: a device upload goes to storage first, and the
+                    // message carries only the ids of files this person owns.
+                    const fileInput = pp.ref(null);
+                    const cloudOpener = pp.ref(null);
+                    const cloudCloser = pp.ref(null);
+                    const [uploads, setUploads] = pp.state([]);
+                    const [cloudFiles, setCloudFiles] = pp.state([]);
+                    const [cloudPicked, setCloudPicked] = pp.state([]);
+                    const [cloudLoading, setCloudLoading] = pp.state(false);
+                    const [cloudError, setCloudError] = pp.state('');
+                    const FILE_LIMIT = @{crate::chat_files::FILE_LIMIT};
+                    const PER_MESSAGE = @{crate::chat_files::PER_MESSAGE};
+                    function fileSize(bytes) {
+                        if (bytes < 1024) return bytes + ' B';
+                        const units = ['KB', 'MB', 'GB'];
+                        let value = bytes / 1024, unit = 0;
+                        while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+                        return (value >= 10 ? Math.round(value) : value.toFixed(1)) + ' ' + units[unit];
+                    }
+                    // Uploads finish after the person may have switched chats, so
+                    // each one lands in the thread it was started from.
+                    function addFiles(threadId, files) {
+                        const merge = current => [...current, ...files.filter(file => !current.some(item => item.id === file.id))].slice(0, PER_MESSAGE);
+                        if (threadId === 'new') setNewFiles(merge);
+                        else setThreads(previous => previous.map(thread => thread.id === threadId ? {...thread, files:merge(thread.files || [])} : thread));
+                    }
+                    function removeDraftFile(id) {
+                        if (newChat) setNewFiles(current => current.filter(file => file.id !== id));
+                        else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread, files:(thread.files || []).filter(file => file.id !== id)} : thread));
+                    }
+                    function chooseDeviceFiles() {
+                        if (sending) return;
+                        setTimeout(() => fileInput.current?.click(), 0);
+                    }
+                    const uploadFiles = pp.event(async function uploadFiles(input) {
+                        const chosen = Array.from(input.files || []);
+                        input.value = '';
+                        if (!chosen.length) return;
+                        const room = PER_MESSAGE - draftFiles.length - uploads.length;
+                        if (chosen.length > room) { setError('Attach up to ' + PER_MESSAGE + ' files to one message.'); }
+                        const accepted = chosen.slice(0, Math.max(room, 0));
+                        const tooBig = accepted.filter(file => file.size > FILE_LIMIT);
+                        if (tooBig.length) setError(tooBig[0].name + ' is larger than 100 MB.');
+                        else if (accepted.some(file => file.size === 0)) setError('Empty files cannot be attached.');
+                        else if (chosen.length <= room) setError('');
+                        const sendable = accepted.filter(file => file.size > 0 && file.size <= FILE_LIMIT);
+                        const threadId = selected;
+                        const pending = sendable.map(file => ({key:crypto.randomUUID(), name:file.name}));
+                        setUploads(current => [...current, ...pending]);
+                        await Promise.all(sendable.map(async (file, index) => {
+                            try {
+                                const stored = await pp.rpc('upload_chat_file', { file });
+                                addFiles(threadId, [stored]);
+                            } catch (failure) {
+                                setError(failure.message || (file.name + ' could not be uploaded.'));
+                            } finally {
+                                setUploads(current => current.filter(item => item.key !== pending[index].key));
+                            }
+                        }));
+                        returnToComposer();
+                    });
+                    const openCloudFiles = pp.event(async function openCloudFiles() {
+                        if (sending) return;
+                        setCloudPicked([]); setCloudError(''); setCloudLoading(true);
+                        setTimeout(() => cloudOpener.current?.click(), 0);
+                        try { setCloudFiles(await pp.rpc('chat_cloud_files', {})); }
+                        catch (failure) { setCloudError(failure.message || 'Your cloud files could not be loaded.'); }
+                        finally { setCloudLoading(false); }
+                    });
+                    function toggleCloudFile(id, on) {
+                        setCloudPicked(current => on ? (current.includes(id) ? current : [...current, id]) : current.filter(item => item !== id));
+                    }
+                    const attachCloudFiles = pp.event(function attachCloudFiles() {
+                        const picked = cloudFiles.filter(file => cloudPicked.includes(file.id));
+                        if (draftFiles.length + picked.length > PER_MESSAGE) setError('Attach up to ' + PER_MESSAGE + ' files to one message.');
+                        addFiles(selected, picked);
+                        cloudCloser.current?.click();
+                        returnToComposer();
+                    });
                     function giphyImage(value) {
                         try {const url = new URL(value); return url.protocol === 'https:' && /^(media[0-4]?|i)\.giphy\.com$/.test(url.hostname) && !url.username && !url.password && !url.port ? url.href : '';}
                         catch (failure) {return '';}
@@ -1697,7 +1968,7 @@ pub async fn page() -> Html {
                     async function send(event) {
                         event.preventDefault();
                         const text = draft.trim();
-                        if ((!text && !draftGif) || sending || (newChat && recipients.length === 0)) return;
+                        if ((!text && !draftGif && draftFiles.length === 0) || sending || uploads.length > 0 || (newChat && recipients.length === 0)) return;
                         const targetId = selected;
                         const targetLabel = groupName.trim() || recipients.join(", ");
                         const targetRecipients = [...recipients];
@@ -1705,14 +1976,14 @@ pub async fn page() -> Html {
                         setSending(true);
                         setError("");
                         try {
-                            const message = await pp.rpc("send_message", { text, gif_id: draftGif?.id || null });
+                            const message = await pp.rpc("send_message", { text, gif_id: draftGif?.id || null, file_ids: draftFiles.map(file => file.id) });
                             if (targetId === "new") {
                                 const id = "chat-" + crypto.randomUUID();
-                                setThreads(previous => [...previous, {id, label:targetLabel, recipients:targetRecipients, messages:[message], draft:"", gif:null}]);
-                                setSelected(id); setHasNewChat(false); setNewDraft(""); setNewGif(null);
+                                setThreads(previous => [...previous, {id, label:targetLabel, recipients:targetRecipients, messages:[message], draft:"", gif:null, files:[]}]);
+                                setSelected(id); setHasNewChat(false); setNewDraft(""); setNewGif(null); setNewFiles([]);
                                 setRecipients([]); setRecipientQuery(""); setGroupName(""); setGroupNameOpen(false);
                             } else {
-                                setThreads(previous => previous.map(thread => thread.id === targetId ? {...thread, messages:[...thread.messages, message], draft:"", gif:null} : thread));
+                                setThreads(previous => previous.map(thread => thread.id === targetId ? {...thread, messages:[...thread.messages, message], draft:"", gif:null, files:[]} : thread));
                             }
                         } catch (failure) {
                             setError(failure.message || "The message could not be sent.");
@@ -1735,6 +2006,7 @@ pub struct Message {
     pub time: String,
     pub text: String,
     pub gif_url: Option<String>,
+    pub attachments: Vec<Attachment>,
 }
 
 /// Accept a line the composer sent.
@@ -1744,15 +2016,25 @@ pub struct Message {
 /// comes from the application clock rather than from whatever the device
 /// believes the hour is.
 #[rpc(auth)]
-pub async fn send_message(text: String, gif_id: Option<String>) -> Result<Message> {
+pub async fn send_message(
+    text: String,
+    gif_id: Option<String>,
+    file_ids: Option<Vec<String>>,
+) -> Result<Message> {
     let text = text.trim().to_string();
+    let file_ids = file_ids.unwrap_or_default();
 
     let mut validator = Validator::new();
     validator
         .check(
             "text",
-            !text.is_empty() || gif_id.is_some(),
-            "Write a message or choose a GIF.",
+            !text.is_empty() || gif_id.is_some() || !file_ids.is_empty(),
+            "Write a message, choose a GIF or attach a file.",
+        )
+        .check(
+            "file_ids",
+            file_ids.len() <= chat_files::PER_MESSAGE,
+            "Attach up to 10 files to one message.",
         )
         .max_chars("text", &text, 2000);
     if let Some(id) = &gif_id {
@@ -1763,6 +2045,7 @@ pub async fn send_message(text: String, gif_id: Option<String>) -> Result<Messag
         );
     }
     validator.finish()?;
+    let attachments = chat_files::owned(&file_ids).await?;
 
     let now = time::now();
     let user = crate::auth::current().unwrap_or_default();
@@ -1775,7 +2058,20 @@ pub async fn send_message(text: String, gif_id: Option<String>) -> Result<Messag
         time: now.format("%-I:%M %p").to_string(),
         text,
         gif_url: gif_id.map(|id| format!("https://media.giphy.com/media/{id}/giphy.gif")),
+        attachments,
     })
+}
+
+/// Upload a file from this device for the composer to attach.
+#[rpc(auth)]
+pub async fn upload_chat_file(file: RpcFile) -> Result<Attachment> {
+    chat_files::store(file).await
+}
+
+/// The files this person uploaded before, for Attach cloud files.
+#[rpc(auth)]
+pub async fn chat_cloud_files() -> Result<Vec<Attachment>> {
+    chat_files::recent().await
 }
 
 /// Chat's Meet now action creates the same persistent link listed by Meet.

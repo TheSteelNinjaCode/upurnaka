@@ -44,6 +44,8 @@ mod p_settings;
 mod p_signin;
 #[path = "app/users/page.rs"]
 mod p_users;
+#[path = "app/chat/files/[id]/route.rs"]
+mod r_chat_files_id;
 #[path = "app/profile-picture/route.rs"]
 mod r_profilepicture;
 
@@ -51,6 +53,7 @@ mod r_profilepicture;
 /// a page's rpc belongs to that page's URL.
 const PAGE_RPCS: &[&str] = &[
     "append_meeting_recording",
+    "chat_cloud_files",
     "create_chat_meeting",
     "create_community",
     "create_meeting",
@@ -81,6 +84,7 @@ const PAGE_RPCS: &[&str] = &[
     "update_profile_name",
     "update_profile_picture",
     "update_user",
+    "upload_chat_file",
 ];
 
 /// The rpcs written beside a component, reached from whatever page
@@ -127,6 +131,8 @@ async fn rpc_p_chat(req: axum::extract::Request) -> axum::response::Response {
     };
     match name.as_str() {
         "send_message" => p_chat::__rahti_rpc_send_message(req).await,
+        "upload_chat_file" => p_chat::__rahti_rpc_upload_chat_file(req).await,
+        "chat_cloud_files" => p_chat::__rahti_rpc_chat_cloud_files(req).await,
         "create_chat_meeting" => p_chat::__rahti_rpc_create_chat_meeting(req).await,
         _ => component_rpc(&name, req).await,
     }
@@ -238,7 +244,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 ///
 /// - `/` [GET, POST] — src/app/page.rs (layouts: src/app/layout.rs)
 /// - `/apps` [GET, POST] — src/app/apps/page.rs (layouts: src/app/layout.rs)
-/// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, create_chat_meeting)
+/// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, upload_chat_file, chat_cloud_files, create_chat_meeting)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link)
 /// - `/users` [GET, POST] — src/app/users/page.rs (layouts: src/app/layout.rs; rpc: list_users, create_user, update_user, set_user_active, delete_user)
 /// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: update_profile_name, remove_profile_picture, update_profile_picture, invite_to_teams)
@@ -251,6 +257,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
 /// - `/profile-picture` [GET] — src/app/profile-picture/route.rs
 /// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
+/// - `/chat/files/{id}` [GET] — src/app/chat/files/[id]/route.rs
 ///
 /// Every page above also answers the component rpcs, because a
 /// component posts to the page it was rendered on: sign_out_account, save_usage_survey, register_account, start_signin, verify_signin, create_calendar_meeting_link.
@@ -380,6 +387,7 @@ pub fn router() -> Router {
             "/profile-picture",
             axum::routing::get(r_profilepicture::get),
         )
+        .route("/chat/files/{id}", axum::routing::get(r_chat_files_id::get))
         .layer(axum::middleware::from_fn_with_state(
             ::rahti::request_pipeline::state(),
             ::rahti::request_pipeline::middleware,

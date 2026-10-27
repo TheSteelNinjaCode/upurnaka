@@ -113,6 +113,12 @@
       "name": "clock"
     },
     {
+      "component": "Cloud",
+      "file": "src/components/rahti_icons/cloud.rs",
+      "module": "crate::components::rahti_icons::cloud",
+      "name": "cloud"
+    },
+    {
       "component": "Contact",
       "file": "src/components/rahti_icons/contact.rs",
       "module": "crate::components::rahti_icons::contact",
@@ -141,6 +147,12 @@
       "file": "src/components/rahti_icons/face_slightly_smiling.rs",
       "module": "crate::components::rahti_icons::face_slightly_smiling",
       "name": "face-slightly-smiling"
+    },
+    {
+      "component": "File",
+      "file": "src/components/rahti_icons/file.rs",
+      "module": "crate::components::rahti_icons::file",
+      "name": "file"
     },
     {
       "component": "Gem",

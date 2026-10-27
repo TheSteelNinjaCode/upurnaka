@@ -14,6 +14,8 @@ pub use rahti;
 pub mod auth;
 mod browser_policy;
 pub mod calendar;
+/// Files attached from the chat composer, kept in Dilnaka Storage.
+pub mod chat_files;
 mod middleware;
 pub mod seed;
 pub mod users;

@@ -342,9 +342,9 @@ async fn sweep() {
     }
 }
 
-struct StoredFile {
-    id: String,
-    key: String,
+pub(crate) struct StoredFile {
+    pub id: String,
+    pub key: String,
 }
 
 /// Join the pieces into one file and hand it to Dilnaka Storage.
@@ -413,8 +413,12 @@ async fn assemble(row: &recording::Model, path: &Path) -> std::io::Result<()> {
     output.flush().await
 }
 
+/// Shared with chat attachments, which go to the same bucket.
 #[cfg(not(test))]
-async fn upload(path: &Path, options: UploadOptions) -> std::result::Result<StoredFile, String> {
+pub(crate) async fn upload(
+    path: &Path,
+    options: UploadOptions,
+) -> std::result::Result<StoredFile, String> {
     let client = client().ok_or("DILNAKA_API_KEY is not configured")?;
     let file = client
         .upload_with_options(path, options)
@@ -428,7 +432,10 @@ async fn upload(path: &Path, options: UploadOptions) -> std::result::Result<Stor
 
 /// The suite's stand-in for the bucket: the file is checked, not sent.
 #[cfg(test)]
-async fn upload(path: &Path, options: UploadOptions) -> std::result::Result<StoredFile, String> {
+pub(crate) async fn upload(
+    path: &Path,
+    options: UploadOptions,
+) -> std::result::Result<StoredFile, String> {
     let size = tokio::fs::metadata(path)
         .await
         .map_err(|error| error.to_string())?
@@ -490,30 +497,30 @@ pub async fn access(id: String, recording_id: String) -> Result<String> {
     access_url(&file_id).await
 }
 
-#[cfg(not(test))]
 async fn access_url(file_id: &str) -> Result<String> {
-    let unavailable = || {
+    signed_url(file_id, ACCESS_SECONDS).await.map_err(|error| {
+        eprintln!("recordings: no access URL for {file_id}: {error}");
         Error::public(
             StatusCode::BAD_GATEWAY,
             "Recording storage could not be reached. Try again shortly.",
         )
-    };
-    let client = client().ok_or_else(unavailable)?;
-    match client
-        .get_file_access_url(file_id, Some(ACCESS_SECONDS))
+    })
+}
+
+/// A short-lived link to read one stored file. Shared with chat attachments.
+#[cfg(not(test))]
+pub(crate) async fn signed_url(file_id: &str, seconds: u64) -> std::result::Result<String, String> {
+    let client = client().ok_or("DILNAKA_API_KEY is not configured")?;
+    client
+        .get_file_access_url(file_id, Some(seconds))
         .await
-    {
-        Ok(access) => Ok(access.url),
-        Err(error) => {
-            eprintln!("recordings: no access URL for {file_id}: {error}");
-            Err(unavailable())
-        }
-    }
+        .map(|access| access.url)
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
-async fn access_url(file_id: &str) -> Result<String> {
+pub(crate) async fn signed_url(file_id: &str, seconds: u64) -> std::result::Result<String, String> {
     Ok(format!(
-        "https://storage.test/{file_id}?expiresIn={ACCESS_SECONDS}"
+        "https://storage.test/{file_id}?expiresIn={seconds}"
     ))
 }

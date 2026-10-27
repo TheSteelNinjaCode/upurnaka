@@ -15,11 +15,13 @@ use crate::components::rahti_icons::chevron_up::ChevronUp;
 use crate::components::rahti_icons::circle_check::CircleCheck;
 use crate::components::rahti_icons::circle_dot::CircleDot;
 use crate::components::rahti_icons::clock::Clock;
+use crate::components::rahti_icons::cloud::Cloud;
 use crate::components::rahti_icons::contact::Contact;
 use crate::components::rahti_icons::copy::Copy;
 use crate::components::rahti_icons::ellipsis::Ellipsis;
 use crate::components::rahti_icons::eye::Eye;
 use crate::components::rahti_icons::face_slightly_smiling::FaceSlightlySmiling;
+use crate::components::rahti_icons::file::File;
 use crate::components::rahti_icons::gem::Gem;
 use crate::components::rahti_icons::grid_2x2::Grid2x2;
 use crate::components::rahti_icons::hand::Hand;
@@ -270,6 +272,12 @@ pub fn Icon(name: &str, class: &str) -> Html {
         },
         "play" => html! {
             <Play class=@{class} stroke_width="1.6" />
+        },
+        "cloud" => html! {
+            <Cloud class=@{class} stroke_width="1.6" />
+        },
+        "file" => html! {
+            <File class=@{class} stroke_width="1.6" />
         },
         _ => Html::empty(),
     }

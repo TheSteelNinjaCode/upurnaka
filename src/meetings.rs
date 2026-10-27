@@ -394,7 +394,7 @@ fn created_label(created_at: DateTime<Utc>) -> String {
 /// Crockford-style base32, from the standard library's own randomness —
 /// `RandomState` is seeded per instance from the operating system, which is
 /// what keeps two codes minted in the same nanosecond apart.
-fn mint_id() -> String {
+pub(crate) fn mint_id() -> String {
     use std::hash::{BuildHasher, Hasher, RandomState};
 
     const ALPHABET: &[u8] = b"0123456789abcdefghjkmnpqrstvwxyz";
