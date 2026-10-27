@@ -1,6 +1,75 @@
 use super::*;
 
 #[tokio::test]
+async fn self_chat_menu_moves_hides_and_opens_the_conversation() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .click("button[popovertarget='dropdown-menu-chat-self-favorite']")
+        .await
+        .unwrap();
+    browser
+        .click("#dropdown-menu-chat-self-favorite .self-chat-favorite-action")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.chat-self-entry').hidden && !document.querySelectorAll('.chat-self-entry')[1].hidden").await.unwrap();
+    browser
+        .click("button[popovertarget='dropdown-menu-chat-self-regular']")
+        .await
+        .unwrap();
+    browser
+        .click("#dropdown-menu-chat-self-regular [role='menuitem']:last-child")
+        .await
+        .unwrap();
+    browser
+        .wait_for(
+            "Array.from(document.querySelectorAll('.chat-self-entry')).every(row => row.hidden)",
+        )
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Search chats']")
+        .await
+        .unwrap();
+    browser.type_text("You").await.unwrap();
+    browser
+        .wait_for("!document.querySelectorAll('.chat-self-entry')[1].hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[popovertarget='dropdown-menu-chat-self-regular']")
+        .await
+        .unwrap();
+    browser
+        .click("#dropdown-menu-chat-self-regular .self-chat-favorite-action")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.chat-self-entry').hidden")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("window.open = (url, target, features) => { window.selfChatPopup = {url, target, features}; return null; }; true").await.unwrap();
+    browser
+        .click("button[popovertarget='dropdown-menu-chat-self-favorite']")
+        .await
+        .unwrap();
+    browser
+        .click("#dropdown-menu-chat-self-favorite [role='menuitem']:first-child")
+        .await
+        .unwrap();
+    browser.wait_for("window.selfChatPopup?.url === '/chat' && window.selfChatPopup.features.includes('noopener')").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn opening_a_header_menu_closes_meet_popovers() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;

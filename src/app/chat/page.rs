@@ -11,7 +11,7 @@ use crate::components::rahti_ui::avatar::{Avatar as UiAvatar, AvatarFallback};
 use crate::components::rahti_ui::badge::Badge;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
 use crate::components::rahti_ui::dropdown_menu::{
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 };
 use crate::components::rahti_ui::input::{Input, input_variants};
 use crate::components::rahti_ui::input_group::{
@@ -302,12 +302,12 @@ pub async fn page() -> Html {
                             </Button>
                             <div hidden={!favoritesOpen}>
                                 <div
-                                    class={selected === "self" ? "chat-self-entry mt-0.5 rounded-md bg-raised" : "chat-self-entry mt-0.5 rounded-md"}
-                                    hidden={!selfMatches}
+                                    class={selected === "self" ? "chat-self-entry group mt-0.5 flex items-center rounded-md bg-raised pr-1" : "chat-self-entry group mt-0.5 flex items-center rounded-md pr-1 hover:bg-hover"}
+                                    hidden={!selfMatches || !selfFavorite}
                                 >
                                     <Button
                                         variant="ghost"
-                                        class=@{ROW_BUTTON}
+                                        class="h-auto! min-w-0 flex-1 justify-start! gap-3 px-3! py-2 text-left font-normal hover:bg-transparent!"
                                         onclick={selectThread("self")}
                                         disabled={sending}
                                     >
@@ -320,6 +320,72 @@ pub async fn page() -> Html {
                                             @{self_label.as_str()}
                                         </span>
                                     </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger
+                                            menu="chat-self-favorite"
+                                            class="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                                            attrs=@{labelled("Self chat options")}
+                                        >
+                                            <Icon name="more" class="size-4" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            menu="chat-self-favorite"
+                                            align="start"
+                                            class="w-48"
+                                            attrs=@{named("Self chat options")}
+                                        >
+                                            <DropdownMenuItem onclick={openSelfWindow()}>
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.5"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M14 3h7v7M21 3l-11 11M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"
+                                                    />
+                                                </svg>
+                                                "Open in new window"
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                class="self-chat-favorite-action"
+                                                onclick={setSelfFavorite(value => !value)}
+                                            >
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.5"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"
+                                                    />
+                                                    <path d="M3 3l18 18" hidden={!selfFavorite} />
+                                                </svg>
+                                                {selfFavorite ? "Unfavorite" : "Favorite"}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onclick={setSelfHidden(true)}>
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.5"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A11 11 0 0 1 12 5c7 0 10 7 10 7a17 17 0 0 1-3 4M6.2 6.2A18 18 0 0 0 2 12s3 7 10 7a12 12 0 0 0 5.8-1.8"
+                                                    />
+                                                </svg>
+                                                "Hide"
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                             </div>
                         </div>
@@ -336,6 +402,92 @@ pub async fn page() -> Html {
                                 "Chats"
                             </Button>
                             <div hidden={!chatsOpen}>
+                                <div
+                                    class={selected === "self" ? "chat-self-entry group mt-0.5 flex items-center rounded-md bg-raised pr-1" : "chat-self-entry group mt-0.5 flex items-center rounded-md pr-1 hover:bg-hover"}
+                                    hidden={!selfMatches || selfFavorite}
+                                >
+                                    <Button
+                                        variant="ghost"
+                                        class="h-auto! min-w-0 flex-1 justify-start! gap-3 px-3! py-2 text-left font-normal hover:bg-transparent!"
+                                        onclick={selectThread("self")}
+                                        disabled={sending}
+                                    >
+                                        <Avatar
+                                            initials=@{initials.as_str()}
+                                            size="md"
+                                            presence="online"
+                                        />
+                                        <span class="truncate text-[13px] font-semibold text-ink">
+                                            @{self_label.as_str()}
+                                        </span>
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger
+                                            menu="chat-self-regular"
+                                            class="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                                            attrs=@{labelled("Self chat options")}
+                                        >
+                                            <Icon name="more" class="size-4" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            menu="chat-self-regular"
+                                            align="start"
+                                            class="w-48"
+                                            attrs=@{named("Self chat options")}
+                                        >
+                                            <DropdownMenuItem onclick={openSelfWindow()}>
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.5"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M14 3h7v7M21 3l-11 11M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"
+                                                    />
+                                                </svg>
+                                                "Open in new window"
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                class="self-chat-favorite-action"
+                                                onclick={setSelfFavorite(value => !value)}
+                                            >
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.5"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"
+                                                    />
+                                                    <path d="M3 3l18 18" hidden={!selfFavorite} />
+                                                </svg>
+                                                {selfFavorite ? "Unfavorite" : "Favorite"}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onclick={setSelfHidden(true)}>
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.5"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A11 11 0 0 1 12 5c7 0 10 7 10 7a17 17 0 0 1-3 4M6.2 6.2A18 18 0 0 0 2 12s3 7 10 7a12 12 0 0 0 5.8-1.8"
+                                                    />
+                                                </svg>
+                                                "Hide"
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
                                 <div
                                     class={selected === "new" ? "flex items-center rounded-md bg-raised pr-1" : "flex items-center rounded-md pr-1 hover:bg-hover"}
                                     hidden={!newRowMatches}
@@ -411,7 +563,7 @@ pub async fn page() -> Html {
                                 </template>
                                 <p
                                     class="px-3 py-2 text-xs leading-relaxed text-subtle"
-                                    hidden={hasChatFilter || hasNewChat || threads.length > 1}
+                                    hidden={hasChatFilter || hasNewChat || threads.length > 1 || (!selfFavorite && !selfHidden)}
                                 >
                                     "Nobody has written to you yet. Start a chat and it will show up here."
                                 </p>
@@ -1072,6 +1224,8 @@ pub async fn page() -> Html {
                     const [conversationQuery, setConversationQuery] = pp.state("");
                     const [filters, setFilters] = pp.state({ unread: false, meetings: false, unmuted: false });
                     const [favoritesOpen, setFavoritesOpen] = pp.state(true);
+                    const [selfFavorite, setSelfFavorite] = pp.state(true);
+                    const [selfHidden, setSelfHidden] = pp.state(false);
                     const [chatsOpen, setChatsOpen] = pp.state(true);
                     const [selected, setSelected] = pp.state("self");
                     // Conversations currently live in this page, like the original
@@ -1111,7 +1265,7 @@ pub async fn page() -> Html {
                     const [sharedMeeting, setSharedMeeting] = pp.state(null);
                     const meetingNameInput = pp.ref(null);
                     const hasChatFilter = !!chatFilter.trim() || filters.unread || filters.meetings || filters.unmuted;
-                    const selfMatches = selfLabel.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
+                    const selfMatches = (!selfHidden || !!chatFilter.trim()) && selfLabel.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
 
                     const newRowMatches = hasNewChat && "new message".includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings;
                     const visibleThreads = threads.filter(thread => thread.id !== "self" && thread.label.toLocaleLowerCase().includes(chatFilter.trim().toLocaleLowerCase()) && !filters.unread && !filters.meetings);
@@ -1199,6 +1353,7 @@ pub async fn page() -> Html {
                     }, [draft]);
                     const selectThread = pp.event(function selectThread(id) {
                         if (sending) return;
+                        if (id === 'self') setSelfHidden(false);
                         closeEmoji();
                         setSelected(id); setConversationQuery(""); setConversationSearchOpen(false); setError("");
                     });
@@ -1216,6 +1371,9 @@ pub async fn page() -> Html {
                         setRecipientError(''); setGroupName(''); setGroupNameOpen(false);
                         if (newChat) selectThread('self');
                         setError(''); composerInput.current?.focus();
+                    }
+                    function openSelfWindow() {
+                        window.open('/chat', '_blank', 'noopener,noreferrer,popup,width=1000,height=760');
                     }
                     function openDraftWindow() {
                         if (sending) return;
