@@ -34,6 +34,7 @@
 
 pub mod chime;
 pub mod lobby;
+pub mod recording;
 
 use std::sync::{Mutex, OnceLock};
 

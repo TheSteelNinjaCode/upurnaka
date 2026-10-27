@@ -68,6 +68,9 @@ base64 = "0.23.1"
 rand = "0.10.3"
 sha2 = "0.11.1"
 totp-rs = { version = "6.0.0", default-features = false, features = ["std", "qr", "gen_secret"] }
+# Meeting recordings go to Dilnaka Storage (`src/meetings/recording.rs`).
+# It reads `DILNAKA_API_KEY` and brings its own rustls on ring.
+dilnaka = "0.0.1"
 
 # What `src/tests/support.rs` needs to drive the generated router in-process:
 # a request in, a response out, no port bound. See docs/conventions/testing.md.

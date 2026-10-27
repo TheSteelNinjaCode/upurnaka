@@ -22,8 +22,8 @@ use axum::http::StatusCode;
 
 use crate::components::avatar::Avatar;
 use crate::components::icon::Icon;
-use crate::meetings::{self, JoinInfo, chime};
-use crate::rahti::{Error, Html, Json, Metadata, Page, Result, Validator, html, rpc};
+use crate::meetings::{self, JoinInfo, chime, recording};
+use crate::rahti::{Error, Html, Json, Metadata, Page, Result, RpcUpload, Validator, html, rpc};
 
 pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
     let user = crate::auth::current().unwrap_or_default();
@@ -45,6 +45,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
     // something the browser could discover: with no provider configured the
     // button must not pretend there is a call to join.
     let provider_ready = chime::is_configured();
+    let recording_ready = recording::is_configured();
 
     let content = html! {
         <main
@@ -352,6 +353,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     >
                         <Icon name="shield" class="h-5 w-5" />
                         <span>{elapsedLabel}</span>
+                        <span
+                            class="room-recording-badge flex items-center gap-1.5 rounded-full bg-destructive/25 px-2.5 py-1 text-xs font-semibold text-danger-ink"
+                            role="status"
+                            hidden={!recordingLive}
+                        >
+                            <span class="h-2 w-2 animate-pulse rounded-full bg-danger-ink"></span>
+                            "Recording"
+                        </span>
                     </div>
                     <div
                         class="flex items-center gap-1.5 max-[1000px]:gap-0 max-[650px]:flex-wrap max-[650px]:justify-end"
@@ -359,12 +368,21 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         <button
                             type="button"
                             class={ROOM_TOOL}
-                            aria-label="Record"
-                            disabled
-                            title="Recording is not available in this workspace"
+                            aria-label={recordingId ? "Stop recording" : "Start recording"}
+                            aria-pressed={!!recordingId}
+                            disabled={!recordingAllowed || recordingBusy}
+                            title={recordTitle}
+                            onclick={toggleRecording()}
                         >
-                            <Icon name="record" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
-                            <span>"Record"</span>
+                            <span class={recordingId ? "text-danger-ink" : ""}>
+                                <Icon
+                                    name="record"
+                                    class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5"
+                                />
+                            </span>
+                            <span>
+                                {recordingBusy ? "Wait…" : recordingId ? "Stop" : "Record"}
+                            </span>
                         </button>
                         <button
                             type="button"
@@ -546,6 +564,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             "Background settings"
                         </button>
                         <button type="button" onclick={copyRoomLink()}>"Copy meeting link"</button>
+                        <button type="button" hidden={!isOrganizer} onclick={openRecordings()}>
+                            "Recordings"
+                        </button>
                         <button type="button" onclick={setHideSelf(!hideSelf)}>
                             {hideSelf ? "Show me in gallery" : "Hide me from gallery"}
                         </button>
@@ -881,7 +902,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             class="flex items-center justify-between px-5 py-[22px] text-[17px] font-semibold"
                         >
                             <h2>
-                                {roomPanel === "people" ? "People (" + people.length + ")" : "Meeting chat"}
+                                {roomPanel === "people" ? "People (" + people.length + ")" : roomPanel === "recordings" ? "Recordings" : "Meeting chat"}
                             </h2>
                             <button
                                 type="button"
@@ -958,6 +979,32 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             >
                                 "Copy invite link"
                             </button>
+                        </div>
+                        <div class="overflow-auto px-5" hidden={roomPanel !== "recordings"}>
+                            <p
+                                class="my-3 text-[13px] leading-relaxed text-muted"
+                                hidden={recordings.length > 0}
+                            >
+                                {recordingsLoading ? "Loading recordings…" : "Recordings of this meeting appear here. They are kept in Dilnaka Storage."}
+                            </p>
+                            <template pp-for="item in recordings">
+                                <div key={item.id} class="my-4 flex items-center gap-3 text-[13px]">
+                                    <div class="min-w-0 flex-1">
+                                        <strong class="block font-medium">{item.started}</strong>
+                                        <span class="text-xs text-muted">
+                                            {recordingSummary(item)}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="cursor-pointer text-link hover:underline"
+                                        hidden={item.state !== "stored"}
+                                        onclick={openRecording(item.id)}
+                                    >
+                                        "Download"
+                                    </button>
+                                </div>
+                            </template>
                         </div>
                         <div class="flex min-h-0 flex-1 flex-col" hidden={roomPanel !== "chat"}>
                             <div
@@ -1134,6 +1181,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const url = @{Json(&link.url)};
                     const code = @{Json(&code)};
                     const providerReady = @{Json(&provider_ready)};
+                    const recordingReady = @{Json(&recording_ready)};
 
                     // The SDK is a megabyte, so it is imported inside the join
                     // rather than on the page, and only the elements it is
@@ -1235,6 +1283,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const [tileFits, setTileFits] = pp.state({});
                     const [tileMenu, setTileMenu] = pp.state(null);
                     const [handNotice, setHandNotice] = pp.state("");
+                    const [recordingId, setRecordingId] = pp.state("");
+                    const [recordingBusy, setRecordingBusy] = pp.state(false);
+                    const [roomRecording, setRoomRecording] = pp.state(false);
+                    const [recordings, setRecordings] = pp.state([]);
+                    const [recordingsLoading, setRecordingsLoading] = pp.state(false);
+                    // The MediaRecorder, the screen capture it reads and the
+                    // audio graph mixing the call into it. A ref: none of it is
+                    // rendered, and a re-render must never restart a recording.
+                    const recorder = pp.ref(null);
                     const cameraChoice = pp.ref(0);
                     const connecting = pp.ref(false);
                     const tileMenuElement = pp.ref(null);
@@ -1259,6 +1316,13 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         hasVideo: tileDetails.some((tile, index) => remoteTiles[index] && tile && tile.id === person.id),
                     }));
                     const myInitials = initials(displayName);
+                    const recordingLive = !!recordingId || roomRecording;
+                    const recordingAllowed = !!recordingId || (recordingReady && isOrganizer && connectionStatus === "connected" && !roomRecording);
+                    const recordTitle = !recordingReady ? "Recording storage is not configured for this workspace"
+                        : !isOrganizer ? "Only the organizer can record this meeting"
+                        : recordingId ? "Stop recording and save it to storage"
+                        : roomRecording ? "This meeting is already being recorded"
+                        : "Record this meeting";
                     const elapsedLabel = Math.floor(elapsed / 60).toString().padStart(2, "0") + ":" + (elapsed % 60).toString().padStart(2, "0");
 
                     const onClockTick = pp.event(() => {
@@ -1307,6 +1371,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const applyRoomState = pp.event(async (result, ticket) => {
                         setLobbyRequests(result.waiting);
                         setSpotlightId(result.spotlight || '');
+                        setRoomRecording(!!result.recording);
                         if (result.muted_by_host && microphone && call.current) {
                             call.current.av.realtimeMuteLocalAudio(); setMicrophone(false);
                             setToast('The organizer muted your microphone. You can unmute when ready.');
@@ -1466,6 +1531,12 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 setPeople(current => current.map(person => person.id === sender ? { ...person, raised: payload.raised } : person));
                             } else if (payload.kind === "reaction" && ["👍", "❤️", "👏", "😄"].includes(payload.emoji)) {
                                 setReactionNotice(payload.emoji + " " + name);
+                            } else if (payload.kind === "recording" && typeof payload.on === "boolean") {
+                                // A hint for an immediate badge; the room state
+                                // poll is what decides, so a forged message
+                                // lasts five seconds at most.
+                                setRoomRecording(payload.on);
+                                setToast(payload.on ? name + " started recording this meeting." : "Recording stopped.");
                             }
                         } catch (failure) {
                             // Ignore messages from clients that use a different protocol.
@@ -1538,6 +1609,200 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             shareStream.current = null;
                             if (failure.name !== "NotAllowedError") setError(failure.message || "Screen sharing could not start.");
                         } finally { setStartingShare(false); }
+                    }
+
+                    // Recording. The browser captures this tab, which is the
+                    // meeting exactly as the organizer sees it, and mixes the
+                    // call's audio with their own microphone: the tab's own
+                    // audio would need a checkbox in the browser's picker that
+                    // is easy to miss. Pieces go to the server every few
+                    // seconds; the server hands the finished file to storage.
+                    const RECORDING_TYPES = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
+                    const RECORDING_SLICE = 5000;
+
+                    async function toggleRecording() {
+                        if (recordingBusy) return;
+                        if (recordingId) { await stopRecording(); return; }
+                        if (!recordingAllowed || !call.current) return;
+                        setRecordingBusy(true);
+                        setError("");
+                        let capture = null, mix = null;
+                        try {
+                            const type = window.MediaRecorder && RECORDING_TYPES.find(candidate => MediaRecorder.isTypeSupported(candidate));
+                            if (!type || !navigator.mediaDevices?.getDisplayMedia) throw new Error("This browser cannot record meetings.");
+                            // First, while the click still counts as one: the
+                            // browser asks for a gesture before showing its picker.
+                            capture = await navigator.mediaDevices.getDisplayMedia({
+                                video: { frameRate: 30 },
+                                audio: false,
+                                preferCurrentTab: true,
+                                selfBrowserSurface: "include",
+                                surfaceSwitching: "exclude",
+                            });
+                            if (disposed.current || !call.current) throw new Error("The meeting ended before recording started.");
+                            mix = await recordingAudio();
+                            const started = await pp.rpc("start_meeting_recording", { id: code, ticket: admission, content_type: type });
+                            const stream = new MediaStream([...capture.getVideoTracks(), ...mix.destination.stream.getAudioTracks()]);
+                            const media = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2500000, audioBitsPerSecond: 128000 });
+                            const live = { id: started.id, type, media, capture, mix, part: 0, sending: Promise.resolve(), failed: false, stopping: false };
+                            media.ondataavailable = pp.event(event => queueRecordingPiece(live, event.data));
+                            // "Stop sharing" in the browser's own bar ends the capture.
+                            capture.getVideoTracks()[0].onended = pp.event(() => stopRecording());
+                            recorder.current = live;
+                            media.start(RECORDING_SLICE);
+                            setRecordingId(started.id);
+                            setRoomRecording(true);
+                            setToast("Recording started. Everyone in the meeting can see it is being recorded.");
+                            try { sendMeetingEvent({ kind: "recording", on: true }); } catch (failure) { /* the room state poll tells them */ }
+                        } catch (failure) {
+                            releaseRecordingMedia({ capture, mix });
+                            if (failure.name !== "NotAllowedError") setError(failure.body?.error || failure.message || "Recording could not start.");
+                        } finally {
+                            setRecordingBusy(false);
+                        }
+                    }
+
+                    // The call's audio element already carries every remote
+                    // participant, mixed by Chime.
+                    async function recordingAudio() {
+                        const context = new AudioContext();
+                        const destination = context.createMediaStreamDestination();
+                        const remote = meetingAudio.current?.srcObject;
+                        if (remote instanceof MediaStream && remote.getAudioTracks().length > 0) {
+                            context.createMediaStreamSource(remote).connect(destination);
+                        }
+                        const gain = context.createGain();
+                        gain.gain.value = microphone ? 1 : 0;
+                        gain.connect(destination);
+                        let voice = null;
+                        if (audioMode === "computer") {
+                            try {
+                                voice = await navigator.mediaDevices.getUserMedia({ audio: microphoneDevice ? { deviceId: { exact: microphoneDevice } } : true });
+                                context.createMediaStreamSource(voice).connect(gain);
+                            } catch (failure) {
+                                setToast("Recording without your microphone: it could not be opened.");
+                            }
+                        }
+                        await context.resume();
+                        return { context, destination, gain, voice };
+                    }
+
+                    function releaseRecordingMedia(live) {
+                        if (live.capture) live.capture.getTracks().forEach(track => track.stop());
+                        if (live.mix) {
+                            if (live.mix.voice) live.mix.voice.getTracks().forEach(track => track.stop());
+                            live.mix.context.close().catch(() => {});
+                        }
+                    }
+
+                    // Muting yourself mutes you in the recording too.
+                    pp.effect(() => {
+                        const live = recorder.current;
+                        if (live) live.mix.gain.gain.value = microphone ? 1 : 0;
+                    }, [microphone, recordingId]);
+
+                    // One piece at a time and in order: the server joins
+                    // them into one file by number.
+                    function queueRecordingPiece(live, blob) {
+                        if (!blob || blob.size === 0 || live.failed) return;
+                        const part = live.part++;
+                        // The container alone: an unquoted codecs list does not
+                        // survive the multipart header.
+                        const chunk = new File([blob], "part-" + part, { type: live.type.split(";")[0] });
+                        live.sending = live.sending.then(() => sendRecordingPiece(live, part, chunk));
+                    }
+
+                    async function sendRecordingPiece(live, part, chunk) {
+                        if (live.failed) return;
+                        for (let attempt = 1; attempt <= 4; attempt++) {
+                            try {
+                                await pp.rpc("append_meeting_recording", { id: code, recording: live.id, part, chunk });
+                                return;
+                            } catch (failure) {
+                                const status = failure.status || 0;
+                                if (status >= 400 && status < 500 && status !== 408 && status !== 429) break;
+                                await new Promise(resolve => setTimeout(resolve, attempt * 1500));
+                            }
+                        }
+                        live.failed = true;
+                        onRecordingFailed();
+                    }
+
+                    const onRecordingFailed = pp.event(() => {
+                        setError("The recording could not reach the server. What was saved so far is being kept.");
+                        stopRecording();
+                    });
+
+                    const stopRecording = pp.event(async () => {
+                        const live = recorder.current;
+                        if (!live || live.stopping) return;
+                        live.stopping = true;
+                        setRecordingBusy(true);
+                        try {
+                            if (live.media.state !== "inactive") {
+                                // The last piece arrives before `stop` does.
+                                await new Promise(resolve => { live.media.onstop = resolve; live.media.stop(); });
+                            }
+                            releaseRecordingMedia(live);
+                            await live.sending;
+                            await pp.rpc("finish_meeting_recording", { id: code, recording: live.id });
+                            if (!live.failed) setToast("Recording stopped. It is being saved to storage.");
+                        } catch (failure) {
+                            setError(failure.body?.error || failure.message || "The recording could not be finished.");
+                        } finally {
+                            if (recorder.current === live) recorder.current = null;
+                            setRecordingId("");
+                            setRoomRecording(false);
+                            setRecordingBusy(false);
+                            try { sendMeetingEvent({ kind: "recording", on: false }); } catch (failure) { /* left already */ }
+                            if (roomPanel === "recordings") loadRecordings();
+                        }
+                    });
+
+                    async function loadRecordings() {
+                        setRecordingsLoading(true);
+                        try { setRecordings(await pp.rpc("meeting_recordings", { id: code })); }
+                        catch (failure) { setError(failure.body?.error || failure.message || "Recordings could not be listed."); }
+                        finally { setRecordingsLoading(false); }
+                    }
+
+                    function openRecordings() {
+                        dismissRoomMenus();
+                        setBackgroundsOpen(false);
+                        setRoomPanel("recordings");
+                    }
+
+                    // Refreshed while the panel is open, so "Saving…" turns
+                    // into a download without a click.
+                    pp.effect(() => {
+                        if (roomPanel !== "recordings") return;
+                        loadRecordings();
+                        const timer = setInterval(loadRecordings, 5000);
+                        return () => clearInterval(timer);
+                    }, [roomPanel]);
+
+                    function recordingSummary(item) {
+                        const minutes = Math.floor(item.seconds / 60), seconds = item.seconds % 60;
+                        const length = minutes + ":" + seconds.toString().padStart(2, "0");
+                        const size = item.bytes >= 1048576 ? (item.bytes / 1048576).toFixed(1) + " MB" : Math.ceil(item.bytes / 1024) + " KB";
+                        if (item.state === "recording") return "Recording now · " + length;
+                        if (item.state === "uploading") return "Saving to storage… · " + size;
+                        if (item.state === "failed") return "Could not be saved";
+                        return length + " · " + size;
+                    }
+
+                    async function openRecording(itemId) {
+                        // Opened before the await, while the click still allows a
+                        // new window; pointed at the short-lived link once it arrives.
+                        const tab = window.open("", "_blank");
+                        try {
+                            const link = await pp.rpc("meeting_recording_url", { id: code, recording: itemId });
+                            if (tab) { tab.opener = null; tab.location.href = link; }
+                            else location.assign(link);
+                        } catch (failure) {
+                            if (tab) tab.close();
+                            setError(failure.body?.error || failure.message || "The recording could not be opened.");
+                        }
                     }
 
                     // Read off the session for the panel, because a binding
@@ -1856,6 +2121,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     // when the component is going away and a throw there
                     // would leave the rest unreleased.
                     const teardown = pp.event(async () => {
+                        // Before the call goes: the last piece is still in the recorder.
+                        if (recorder.current) await stopRecording();
                         const live = call.current;
                         const ticket = admission;
                         setAdmission(''); setLobbyWaiting(false);
@@ -1875,6 +2142,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         handSpeech.current = { volume: 0, muted: true, since: 0 };
                         setHandNotice(''); setPinnedId(''); setSpotlightId(''); setHideSelf(false); setTileMenu(null);
                         setLobbyRequests([]);
+                        setRoomRecording(false); setRecordings([]);
                         setReactionNotice("");
                         setSharingScreen(false);
                         setChatMessages([]);
@@ -2254,4 +2522,37 @@ pub async fn mute_participant(id: String, attendee: String) -> Result<bool> {
 #[rpc(auth)]
 pub async fn resume_meeting_audio(id: String, ticket: String) -> Result<bool> {
     meetings::lobby::resume_audio(id, ticket).await
+}
+
+/// Start recording the meeting. The organizer only, from a seat in the call.
+#[rpc(auth)]
+pub async fn start_meeting_recording(
+    id: String,
+    ticket: String,
+    content_type: String,
+) -> Result<recording::Started> {
+    recording::start(id, ticket, content_type).await
+}
+/// One `MediaRecorder` timeslice. `chunk` streams to disk as it arrives.
+#[rpc(auth)]
+pub async fn append_meeting_recording(
+    id: String,
+    recording: String,
+    part: i32,
+    chunk: RpcUpload,
+) -> Result<bool> {
+    recording::append(id, recording, part, chunk).await
+}
+/// Stop taking pieces; the upload to Dilnaka Storage carries on without the page.
+#[rpc(auth)]
+pub async fn finish_meeting_recording(id: String, recording: String) -> Result<bool> {
+    recording::finish(id, recording).await
+}
+#[rpc(auth)]
+pub async fn meeting_recordings(id: String) -> Result<Vec<recording::Listed>> {
+    recording::list(id).await
+}
+#[rpc(auth)]
+pub async fn meeting_recording_url(id: String, recording: String) -> Result<String> {
+    recording::access(id, recording).await
 }

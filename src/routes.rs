@@ -46,6 +46,7 @@ mod p_users;
 /// The app's own page rpcs, which the registry fallback must not answer:
 /// a page's rpc belongs to that page's URL.
 const PAGE_RPCS: &[&str] = &[
+    "append_meeting_recording",
     "create_chat_meeting",
     "create_community",
     "create_meeting",
@@ -54,10 +55,13 @@ const PAGE_RPCS: &[&str] = &[
     "decide_meeting_entry",
     "delete_meeting_link",
     "delete_user",
+    "finish_meeting_recording",
     "invite_to_teams",
     "join_meeting",
     "leave_meeting_entry",
     "list_users",
+    "meeting_recording_url",
+    "meeting_recordings",
     "meeting_room_state",
     "mute_participant",
     "rename_meeting_link",
@@ -66,6 +70,7 @@ const PAGE_RPCS: &[&str] = &[
     "send_message",
     "set_user_active",
     "spotlight_participant",
+    "start_meeting_recording",
     "update_user",
 ];
 
@@ -143,6 +148,11 @@ async fn rpc_p_meet_j_id(req: axum::extract::Request) -> axum::response::Respons
         "spotlight_participant" => p_meet_j_id::__rahti_rpc_spotlight_participant(req).await,
         "mute_participant" => p_meet_j_id::__rahti_rpc_mute_participant(req).await,
         "resume_meeting_audio" => p_meet_j_id::__rahti_rpc_resume_meeting_audio(req).await,
+        "start_meeting_recording" => p_meet_j_id::__rahti_rpc_start_meeting_recording(req).await,
+        "append_meeting_recording" => p_meet_j_id::__rahti_rpc_append_meeting_recording(req).await,
+        "finish_meeting_recording" => p_meet_j_id::__rahti_rpc_finish_meeting_recording(req).await,
+        "meeting_recordings" => p_meet_j_id::__rahti_rpc_meeting_recordings(req).await,
+        "meeting_recording_url" => p_meet_j_id::__rahti_rpc_meeting_recording_url(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -222,7 +232,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
-/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio)
+/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url)
 ///
 /// Every page above also answers the component rpcs, because a
 /// component posts to the page it was rendered on: sign_out_account, save_usage_survey, register_account, start_signin, verify_signin.

@@ -12,4 +12,5 @@
 pub mod account;
 pub mod meeting_control;
 pub mod meeting_link;
+pub mod meeting_recording;
 pub mod meeting_visit;

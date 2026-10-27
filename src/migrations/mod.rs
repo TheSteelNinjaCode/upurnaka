@@ -13,6 +13,7 @@ pub mod m20261026_000001_create_account;
 pub mod m20261026_000002_meeting_ownership;
 pub mod m20261026_000003_account_access;
 pub mod m20261026_000004_meeting_lobby;
+pub mod m20261026_000005_meeting_recording;
 
 /// The application's migrations, in the order they are applied.
 pub struct Migrator;
@@ -26,6 +27,7 @@ impl ::sea_orm_migration::MigratorTrait for Migrator {
             Box::new(m20261026_000002_meeting_ownership::Migration),
             Box::new(m20261026_000003_account_access::Migration),
             Box::new(m20261026_000004_meeting_lobby::Migration),
+            Box::new(m20261026_000005_meeting_recording::Migration),
         ]
     }
 }

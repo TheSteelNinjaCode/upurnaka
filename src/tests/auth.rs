@@ -19,6 +19,56 @@ impl Client {
         path: &str,
         rpc: Option<(&str, Value)>,
     ) -> (StatusCode, axum::http::HeaderMap, String) {
+        let rpc = rpc.map(|(name, data)| {
+            (
+                name,
+                "application/json".to_string(),
+                data.to_string().into_bytes(),
+            )
+        });
+        self.send(path, rpc).await
+    }
+    /// An rpc carrying one file, on the multipart wire `pp.rpc` uses: every
+    /// ordinary field first, the file last.
+    pub(super) async fn upload(
+        &mut self,
+        path: &str,
+        name: &str,
+        fields: Value,
+        file: (&str, &str, &[u8]),
+    ) -> (StatusCode, String) {
+        let (field, content_type, bytes) = file;
+        let boundary = "upurnaka-test-boundary";
+        let mut body = Vec::new();
+        for (key, value) in fields.as_object().unwrap() {
+            let value = value
+                .as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| value.to_string());
+            body.extend(
+                format!(
+                    "--{boundary}\r\ncontent-disposition: form-data; name=\"{key}\"\r\n\r\n{value}\r\n"
+                )
+                .into_bytes(),
+            );
+        }
+        body.extend(
+            format!(
+                "--{boundary}\r\ncontent-disposition: form-data; name=\"{field}\"; filename=\"piece\"\r\ncontent-type: {content_type}\r\n\r\n"
+            )
+            .into_bytes(),
+        );
+        body.extend_from_slice(bytes);
+        body.extend(format!("\r\n--{boundary}--\r\n").into_bytes());
+        let content_type = format!("multipart/form-data; boundary={boundary}");
+        let (status, _, body) = self.send(path, Some((name, content_type, body))).await;
+        (status, body)
+    }
+    async fn send(
+        &mut self,
+        path: &str,
+        rpc: Option<(&str, String, Vec<u8>)>,
+    ) -> (StatusCode, axum::http::HeaderMap, String) {
         setup().await;
         let mut req = Request::builder()
             .uri(path)
@@ -31,7 +81,7 @@ impl Client {
                     .collect::<Vec<_>>()
                     .join("; "),
             );
-        let body = if let Some((name, data)) = rpc {
+        let body = if let Some((name, content_type, data)) = rpc {
             let csrf = self
                 .cookies
                 .iter()
@@ -42,8 +92,8 @@ impl Client {
                 .method("POST")
                 .header("x-pp-function", name)
                 .header("x-csrf-token", csrf)
-                .header("content-type", "application/json");
-            Body::from(data.to_string())
+                .header("content-type", content_type);
+            Body::from(data)
         } else {
             Body::empty()
         };

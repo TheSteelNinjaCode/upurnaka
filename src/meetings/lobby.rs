@@ -15,7 +15,7 @@ use serde::Serialize;
 fn now() -> i64 {
     crate::rahti::time::Utc::now().timestamp()
 }
-fn denied() -> Error {
+pub(super) fn denied() -> Error {
     Error::new(StatusCode::FORBIDDEN, "Meeting access denied.")
 }
 fn user() -> Result<auth::PublicUser> {
@@ -47,7 +47,7 @@ pub async fn is_host(id: &str) -> Result<bool> {
         Err(error) => Err(error),
     }
 }
-async fn host(id: &str) -> Result<()> {
+pub(super) async fn host(id: &str) -> Result<()> {
     let row = link(id).await?;
     if row.owner_id.is_none() {
         crate::users::require_admin().await?;
@@ -59,7 +59,7 @@ async fn host(id: &str) -> Result<()> {
     )?;
     Ok(())
 }
-async fn mine(id: &str, ticket: &str) -> Result<visit::Model> {
+pub(super) async fn mine(id: &str, ticket: &str) -> Result<visit::Model> {
     link(id).await?;
     visit::Entity::find_by_id(ticket)
         .filter(visit::Column::MeetingId.eq(id))
@@ -86,6 +86,8 @@ pub struct RoomState {
     pub waiting: Vec<Waiting>,
     pub spotlight: Option<String>,
     pub muted_by_host: bool,
+    /// Whether the organizer is recording, so every browser can say so.
+    pub recording: bool,
 }
 
 pub async fn request(id: String, name: String) -> Result<Admission> {
@@ -194,6 +196,7 @@ pub async fn snapshot(id: String, ticket: String) -> Result<RoomState> {
         waiting,
         spotlight,
         muted_by_host: row.muted_by_host,
+        recording: super::recording::active(&id).await?,
     })
 }
 pub async fn decide(id: String, ticket: String, admit: bool) -> Result<bool> {
