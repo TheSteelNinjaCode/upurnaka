@@ -586,7 +586,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     onclick={keepHandRaised()}
                                     class="text-muted"
                                 >
-                                    "×"
+                                    <Icon name="close" class="h-4 w-4" />
                                 </button>
                             </div>
                             <p class="my-3 text-muted">"We noticed you spoke."</p>
@@ -639,7 +639,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 onclick={setHandNotice("")}
                                 class="text-muted"
                             >
-                                "×"
+                                <Icon name="close" class="h-4 w-4" />
                             </button>
                         </div>
                         <div

@@ -77,6 +77,12 @@
       "name": "circle-check"
     },
     {
+      "component": "CircleDot",
+      "file": "src/components/rahti_icons/circle_dot.rs",
+      "module": "crate::components::rahti_icons::circle_dot",
+      "name": "circle-dot"
+    },
+    {
       "component": "Contact",
       "file": "src/components/rahti_icons/contact.rs",
       "module": "crate::components::rahti_icons::contact",
@@ -105,6 +111,18 @@
       "file": "src/components/rahti_icons/gem.rs",
       "module": "crate::components::rahti_icons::gem",
       "name": "gem"
+    },
+    {
+      "component": "Grid2x2",
+      "file": "src/components/rahti_icons/grid_2x2.rs",
+      "module": "crate::components::rahti_icons::grid_2x2",
+      "name": "grid-2x2"
+    },
+    {
+      "component": "Hand",
+      "file": "src/components/rahti_icons/hand.rs",
+      "module": "crate::components::rahti_icons::hand",
+      "name": "hand"
     },
     {
       "component": "Hash",
@@ -167,10 +185,28 @@
       "name": "paperclip"
     },
     {
+      "component": "Pencil",
+      "file": "src/components/rahti_icons/pencil.rs",
+      "module": "crate::components::rahti_icons::pencil",
+      "name": "pencil"
+    },
+    {
+      "component": "Phone",
+      "file": "src/components/rahti_icons/phone.rs",
+      "module": "crate::components::rahti_icons::phone",
+      "name": "phone"
+    },
+    {
       "component": "Plus",
       "file": "src/components/rahti_icons/plus.rs",
       "module": "crate::components::rahti_icons::plus",
       "name": "plus"
+    },
+    {
+      "component": "ScreenShare",
+      "file": "src/components/rahti_icons/screen_share.rs",
+      "module": "crate::components::rahti_icons::screen_share",
+      "name": "screen-share"
     },
     {
       "component": "Search",
@@ -189,6 +225,12 @@
       "file": "src/components/rahti_icons/settings.rs",
       "module": "crate::components::rahti_icons::settings",
       "name": "settings"
+    },
+    {
+      "component": "Shield",
+      "file": "src/components/rahti_icons/shield.rs",
+      "module": "crate::components::rahti_icons::shield",
+      "name": "shield"
     },
     {
       "component": "Sparkles",
@@ -219,6 +261,12 @@
       "file": "src/components/rahti_icons/type_icon.rs",
       "module": "crate::components::rahti_icons::type_icon",
       "name": "type"
+    },
+    {
+      "component": "Upload",
+      "file": "src/components/rahti_icons/upload.rs",
+      "module": "crate::components::rahti_icons::upload",
+      "name": "upload"
     },
     {
       "component": "UserPlus",

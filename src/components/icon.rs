@@ -9,11 +9,14 @@ use crate::components::rahti_icons::chevron_left::ChevronLeft;
 use crate::components::rahti_icons::chevron_right::ChevronRight;
 use crate::components::rahti_icons::chevron_up::ChevronUp;
 use crate::components::rahti_icons::circle_check::CircleCheck;
+use crate::components::rahti_icons::circle_dot::CircleDot;
 use crate::components::rahti_icons::contact::Contact;
 use crate::components::rahti_icons::copy::Copy;
 use crate::components::rahti_icons::ellipsis::Ellipsis;
 use crate::components::rahti_icons::face_slightly_smiling::FaceSlightlySmiling;
 use crate::components::rahti_icons::gem::Gem;
+use crate::components::rahti_icons::grid_2x2::Grid2x2;
+use crate::components::rahti_icons::hand::Hand;
 use crate::components::rahti_icons::hash::Hash;
 use crate::components::rahti_icons::image::Image;
 use crate::components::rahti_icons::link::Link;
@@ -24,15 +27,20 @@ use crate::components::rahti_icons::mic_off::MicOff;
 use crate::components::rahti_icons::minus::Minus;
 use crate::components::rahti_icons::panels_left_bottom::PanelsLeftBottom;
 use crate::components::rahti_icons::paperclip::Paperclip;
+use crate::components::rahti_icons::pencil::Pencil;
+use crate::components::rahti_icons::phone::Phone;
 use crate::components::rahti_icons::plus::Plus;
+use crate::components::rahti_icons::screen_share::ScreenShare;
 use crate::components::rahti_icons::search::Search;
 use crate::components::rahti_icons::send::Send;
 use crate::components::rahti_icons::settings::Settings;
+use crate::components::rahti_icons::shield::Shield;
 use crate::components::rahti_icons::sparkles::Sparkles;
 use crate::components::rahti_icons::square::Square;
 use crate::components::rahti_icons::square_pen::SquarePen;
 use crate::components::rahti_icons::trash_2::Trash2;
 use crate::components::rahti_icons::type_icon::Type;
+use crate::components::rahti_icons::upload::Upload;
 use crate::components::rahti_icons::user_plus::UserPlus;
 use crate::components::rahti_icons::users::Users;
 use crate::components::rahti_icons::video::Video;
@@ -43,6 +51,7 @@ use crate::rahti::{Html, component, html};
 
 #[component]
 pub fn Icon(name: &str, class: &str) -> Html {
+    let leave_class = format!("{class} rotate-[135deg]");
     match name {
         "chat" => html! {
             <MessageCircle class=@{class} stroke_width="1.6" />
@@ -108,17 +117,7 @@ pub fn Icon(name: &str, class: &str) -> Html {
             <SquarePen class=@{class} stroke_width="1.6" />
         },
         "edit" => html! {
-            <svg
-                class=@{class}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-                <path d="m16 3 5 5-12 12-6 1 1-6L16 3Zm-3 3 5 5" />
-            </svg>
+            <Pencil class=@{class} stroke_width="1.6" />
         },
         "emoji" => html! {
             <FaceSlightlySmiling class=@{class} stroke_width="1.6" />
@@ -181,81 +180,25 @@ pub fn Icon(name: &str, class: &str) -> Html {
             <Sparkles class=@{class} stroke_width="1.6" />
         },
         "shield" => html! {
-            <svg
-                class=@{class}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linejoin="round"
-            >
-                <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" />
-            </svg>
+            <Shield class=@{class} stroke_width="1.6" />
         },
         "hand" => html! {
-            <svg
-                class=@{class}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-                <path
-                    d="M8 12V5a1.5 1.5 0 0 1 3 0v6-8a1.5 1.5 0 0 1 3 0v8-6a1.5 1.5 0 0 1 3 0v7-3a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-13 4l-4-6a1.5 1.5 0 0 1 2-2l3 3"
-                />
-            </svg>
+            <Hand class=@{class} stroke_width="1.6" />
         },
         "share-screen" => html! {
-            <svg
-                class=@{class}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-                <path d="M8 16H4V4h16v12h-4M12 20V8m-4 4 4-4 4 4" />
-            </svg>
+            <ScreenShare class=@{class} stroke_width="1.6" />
         },
         "leave" => html! {
-            <svg
-                class=@{class}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-                <path d="M3 15v-4c5-5 13-5 18 0v4h-5v-4M8 11v4H3" />
-            </svg>
+            <Phone class=@{leave_class.as_str()} stroke_width="1.6" />
         },
         "grid" => html! {
-            <svg
-                class=@{class}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-            >
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M12 3v18M3 12h18" />
-            </svg>
+            <Grid2x2 class=@{class} stroke_width="1.6" />
         },
         "record" => html! {
-            <svg
-                class=@{class}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-            >
-                <circle cx="12" cy="12" r="9" />
-                <circle cx="12" cy="12" r="5" />
-            </svg>
+            <CircleDot class=@{class} stroke_width="1.6" />
+        },
+        "upload" => html! {
+            <Upload class=@{class} stroke_width="1.6" />
         },
         _ => Html::empty(),
     }

@@ -418,17 +418,7 @@ pub async fn page() -> Html {
                                     onclick={profilePictureInput.current?.click()}
                                     disabled={profileBusy}
                                 >
-                                    <svg
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.4"
-                                        aria-hidden="true"
-                                    >
-                                        <path d="M4 3h16M12 22V6m-7 7 7-7 7 7" />
-                                    </svg>
+                                    <Icon name="upload" class="h-6 w-6" />
                                     "Upload"
                                 </button>
                                 <button
