@@ -432,7 +432,7 @@ pub async fn page() -> Html {
                     <header class="flex h-14 shrink-0 items-center gap-3 px-5" hidden={newChat}>
                         <UiAvatar>
                             <AvatarFallback class=@{INITIALS}>
-                                {initials(currentThread.label)}
+                                {initials(currentThread.id === "self" ? selfName : currentThread.label)}
                             </AvatarFallback>
                         </UiAvatar>
                         <h2 class="truncate text-[15px] font-semibold text-ink">
