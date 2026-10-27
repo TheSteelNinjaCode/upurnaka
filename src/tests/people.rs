@@ -231,6 +231,11 @@ async fn people_profile_menu_edits_name_and_picture_and_restores_focus() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.people-profile-dialog').open && document.activeElement.textContent.includes('Upload') && document.querySelector('.people-profile-dialog button[type=submit]').disabled").await.unwrap();
+    let compact: bool = browser.eval("(() => {const dialog = document.querySelector('.picture-editor'); const frame = dialog.getBoundingClientRect(); const preview = dialog.querySelector('.picture-editor-preview').getBoundingClientRect(); return frame.width <= 640 && frame.height <= 504 && preview.width <= 196 && preview.height <= 196 && dialog.scrollWidth <= dialog.clientWidth && dialog.scrollHeight <= dialog.clientHeight;})()").await.unwrap();
+    assert!(
+        compact,
+        "the picture dialog must keep the compact Teams dimensions without overflowing"
+    );
     use base64::Engine;
     let encoded = base64::engine::general_purpose::STANDARD.encode(png());
     let _: bool = browser.eval(&format!("const transfer = new DataTransfer(); transfer.items.add(new File([Uint8Array.from(atob({}), c => c.charCodeAt(0))], 'portrait.png', {{type:'image/png'}})); const input = document.querySelector('input[name=picture]'); input.files = transfer.files; input.dispatchEvent(new Event('change', {{bubbles:true}})); true",json!(encoded))).await.unwrap();
