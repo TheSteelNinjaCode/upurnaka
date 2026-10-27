@@ -1261,7 +1261,7 @@ pub async fn page() -> Html {
                                     >
                                         <Icon name="plus" class="size-[18px]" />
                                     </Button>
-                                    <span class="mx-1 h-5 w-px bg-edge" aria-hidden="true"></span>
+                                    <span class="mx-1 h-5 w-px bg-ink/25" aria-hidden="true"></span>
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
