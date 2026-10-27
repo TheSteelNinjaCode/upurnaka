@@ -64,6 +64,19 @@ pub fn RailLink(icon: &str, label: &str, href: &str, selected: bool) -> Html {
 #[component]
 pub fn AppShell(active: &str, children: Html) -> Html {
     let user = crate::auth::current().unwrap_or_default();
+    let profile_photo = || {
+        if user.has_picture {
+            html! {
+                <img
+                    src="/profile-picture"
+                    alt=""
+                    class="absolute inset-0 h-full w-full rounded-full object-cover"
+                />
+            }
+        } else {
+            Html::empty()
+        }
+    };
     let initials: String = user
         .name
         .split_whitespace()
@@ -189,9 +202,10 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         onclick={toggleMenu("profile")}
                     >
                         <span
-                            class="flex h-8 w-8 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
+                            class="relative flex h-8 w-8 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
                         >
                             @{initials.as_str()}
+                            @{profile_photo()}
                         </span>
                         <span
                             class={"absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-chrome " + PRESENCE_COLORS[presence]}
@@ -255,9 +269,10 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     >
                         <div class="flex items-center gap-3 px-3 py-3">
                             <span
-                                class="flex h-11 w-11 items-center justify-center rounded-full bg-avatar text-sm font-semibold text-avatar-ink"
+                                class="relative flex h-11 w-11 items-center justify-center rounded-full bg-avatar text-sm font-semibold text-avatar-ink"
                             >
                                 @{initials.as_str()}
+                                @{profile_photo()}
                             </span>
                             <span class="min-w-0">
                                 <span class="block truncate text-[13px] font-semibold text-ink">

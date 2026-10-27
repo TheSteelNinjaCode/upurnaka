@@ -1,11 +1,102 @@
 //! People: the contact list, and the invitation that fills it.
 
+use axum::http::StatusCode;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, sea_query::Expr};
 use serde::Serialize;
 
 use crate::components::app_shell::AppShell;
-use crate::components::avatar::Avatar;
+use crate::components::avatar::ProfileAvatar;
 use crate::components::icon::Icon;
-use crate::rahti::{Html, Metadata, Result, Validator, html, rpc};
+use crate::rahti::{Error, Html, Metadata, Result, RpcFile, Validator, html, rpc};
+
+fn profile_owner() -> Result<String> {
+    let user = crate::auth::current()
+        .ok_or_else(|| Error::new(StatusCode::UNAUTHORIZED, "Authentication required"))?;
+    crate::rahti::authorization::authorize_resource("profile.update", &user.id)?;
+    crate::auth::ready()?;
+    Ok(user.id)
+}
+
+#[rpc(auth)]
+pub async fn update_profile_name(name: String) -> Result<bool> {
+    let name = name.trim().to_string();
+    let mut validator = Validator::new();
+    validator
+        .required("name", &name)
+        .max_chars("name", &name, 80)
+        .check(
+            "name",
+            !name.chars().any(char::is_control),
+            "Use a name without control characters.",
+        );
+    validator.finish()?;
+    let owner = profile_owner()?;
+    use crate::models::account::{Column, Entity};
+    Entity::update_many()
+        .col_expr(Column::Name, Expr::value(name))
+        .filter(Column::Id.eq(owner))
+        .exec(crate::db::db())
+        .await?;
+    Ok(true)
+}
+
+#[rpc(auth)]
+pub async fn update_profile_picture(picture: RpcFile) -> Result<bool> {
+    let owner = profile_owner()?;
+    let mut validator = Validator::new();
+    validator.check(
+        "picture",
+        !picture.is_empty() && picture.len() <= 2 * 1024 * 1024,
+        "Choose a PNG or JPEG picture up to 2 MB.",
+    );
+    validator.finish()?;
+    let bytes = picture.into_bytes().await?;
+    let normalized =
+        tokio::task::spawn_blocking(move || -> std::result::Result<Vec<u8>, String> {
+            let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes))
+                .with_guessed_format()
+                .map_err(|_| "Choose a valid PNG or JPEG picture.".to_string())?;
+            if !matches!(
+                reader.format(),
+                Some(image::ImageFormat::Png | image::ImageFormat::Jpeg)
+            ) {
+                return Err("Choose a PNG or JPEG picture.".into());
+            }
+            let mut limits = image::Limits::default();
+            limits.max_image_width = Some(4096);
+            limits.max_image_height = Some(4096);
+            limits.max_alloc = Some(64 * 1024 * 1024);
+            reader.limits(limits);
+            let decoded = reader.decode().map_err(|_| {
+                "Choose a valid picture no larger than 4096 × 4096 pixels.".to_string()
+            })?;
+            let thumbnail = decoded.resize_to_fill(256, 256, image::imageops::FilterType::Lanczos3);
+            let mut output = std::io::Cursor::new(Vec::new());
+            thumbnail
+                .write_to(&mut output, image::ImageFormat::Png)
+                .map_err(|_| "This picture could not be processed.".to_string())?;
+            Ok(output.into_inner())
+        })
+        .await?;
+    let mut validator = Validator::new();
+    validator.check(
+        "picture",
+        normalized.is_ok(),
+        normalized
+            .as_ref()
+            .err()
+            .map(String::as_str)
+            .unwrap_or("Choose a valid picture."),
+    );
+    validator.finish()?;
+    use crate::models::account::{Column, Entity};
+    Entity::update_many()
+        .col_expr(Column::Picture, Expr::value(normalized.unwrap()))
+        .filter(Column::Id.eq(owner))
+        .exec(crate::db::db())
+        .await?;
+    Ok(true)
+}
 
 pub fn metadata() -> Metadata {
     Metadata::new()
@@ -15,7 +106,6 @@ pub fn metadata() -> Metadata {
 
 pub async fn page() -> Html {
     let user = crate::auth::current().unwrap_or_default();
-    let initials = user.initials();
     html! {
         <AppShell active="people">
             <div class="flex min-h-0 flex-1">
@@ -54,7 +144,7 @@ pub async fn page() -> Html {
                         <div
                             class="flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-hover"
                         >
-                            <Avatar initials=@{initials.as_str()} size="md" presence="online" />
+                            <ProfileAvatar size="md" presence="online" />
                             <span class="min-w-0 flex-1">
                                 <span class="block truncate text-[13px] font-semibold text-ink">
                                     @{user.name.as_str()}
@@ -68,6 +158,11 @@ pub async fn page() -> Html {
                                 class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted transition-colors hover:bg-raised hover:text-ink"
                                 title="More options"
                                 aria-label="More options"
+                                aria-haspopup="menu"
+                                aria-expanded={profileMenuOpen}
+                                aria-controls={profileMenuId}
+                                pp-ref={profileTrigger}
+                                onclick={openProfileMenu()}
                             >
                                 <Icon name="more" class="h-[18px] w-[18px]" />
                             </button>
@@ -238,6 +333,105 @@ pub async fn page() -> Html {
                         </div>
                     </div>
                 </main>
+                <div
+                    id={profileMenuId}
+                    pp-ref={profileMenu}
+                    popover="auto"
+                    role="menu"
+                    aria-label="Profile options"
+                    class="people-profile-menu rounded-md border border-edge bg-raised p-1 text-sm text-ink shadow-xl"
+                    pp-style={profileMenuPosition}
+                    ontoggle={setProfileMenuOpen(event.newState === "open")}
+                    onkeydown={profileMenuKey(event)}
+                >
+                    <button
+                        type="button"
+                        role="menuitem"
+                        pp-ref={editNameAction}
+                        class="flex w-full items-center gap-3 rounded px-3 py-2 text-left hover:bg-hover focus-visible:outline-2 focus-visible:outline-brand-ink"
+                        onclick={editProfile("name")}
+                    >
+                        <Icon name="compose" class="h-4 w-4" />
+                        "Edit name"
+                    </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        pp-ref={editPictureAction}
+                        class="flex w-full items-center gap-3 rounded px-3 py-2 text-left hover:bg-hover focus-visible:outline-2 focus-visible:outline-brand-ink"
+                        onclick={editProfile("picture")}
+                    >
+                        <Icon name="image" class="h-4 w-4" />
+                        "Change profile picture"
+                    </button>
+                </div>
+                <dialog
+                    pp-ref={profileDialog}
+                    class="people-profile-dialog m-auto w-full max-w-[460px] rounded-lg border border-edge bg-raised p-7 text-ink shadow-2xl"
+                    aria-labelledby={profileTitleId}
+                    oncancel={cancelProfile(event)}
+                >
+                    <h2 id={profileTitleId} class="text-lg font-semibold">
+                        {profileMode === "name" ? "Edit name" : "Change profile picture"}
+                    </h2>
+                    <form class="mt-5 space-y-4" onsubmit={saveProfile(event)}>
+                        <label class="block text-sm" hidden={profileMode !== "name"}>
+                            "Display name"
+                            <input
+                                pp-ref={profileNameInput}
+                                name="name"
+                                value={profileName}
+                                oninput={setProfileName(target.value)}
+                                disabled={profileMode !== "name" || profileBusy}
+                                required
+                                maxlength="80"
+                                class="mt-2 h-10 w-full rounded border border-edge bg-surface px-3 outline-none focus:border-brand-ink"
+                            />
+                        </label>
+                        <div hidden={profileMode !== "picture"}>
+                            <ProfileAvatar size="xl" presence="none" />
+                            <label class="mt-4 block text-sm">
+                                "Choose a picture"
+                                <input
+                                    pp-ref={profilePictureInput}
+                                    name="picture"
+                                    type="file"
+                                    accept="image/png,image/jpeg"
+                                    disabled={profileMode !== "picture" || profileBusy}
+                                    required
+                                    class="mt-2 block w-full text-sm"
+                                />
+                            </label>
+                            <p class="mt-2 text-xs text-muted">
+                                "PNG or JPEG, up to 2 MB. Your picture will be cropped to a square."
+                            </p>
+                        </div>
+                        <p role="alert" hidden={!profileError} class="text-sm text-danger-ink">
+                            {profileError}
+                        </p>
+                        <div class="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onclick={closeProfile()}
+                                disabled={profileBusy}
+                                class="h-9 rounded border border-edge px-4 hover:bg-hover"
+                            >
+                                "Cancel"
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={profileBusy}
+                                class="h-9 rounded bg-brand px-4 font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
+                            >
+                                {profileBusy ? "Saving…" : "Save"}
+                            </button>
+                        </div>
+                    </form>
+                </dialog>
+                <style>r##"
+                    .people-profile-menu {position:fixed;inset:auto;margin:0;width:260px;max-width:calc(100vw - 16px);}
+                    .people-profile-dialog::backdrop {background:#0009;}
+                "##</style>
                 <script>r##"
                     const NAV_ON = "mt-1 flex h-9 w-full items-center gap-3 rounded-md bg-raised px-3 text-left text-[13px] font-semibold text-ink";
                     const NAV_OFF = "mt-1 flex h-9 w-full items-center gap-3 rounded-md px-3 text-left text-[13px] text-muted transition-colors hover:bg-hover hover:text-ink";
@@ -249,6 +443,64 @@ pub async fn page() -> Html {
                     const [email, setEmail] = pp.state("");
                     const [fieldError, setFieldError] = pp.state("");
                     const [sending, setSending] = pp.state(false);
+                    const profileMenu = pp.ref(null);
+                    const profileTrigger = pp.ref(null);
+                    const editNameAction = pp.ref(null);
+                    const editPictureAction = pp.ref(null);
+                    const profileDialog = pp.ref(null);
+                    const profileNameInput = pp.ref(null);
+                    const profilePictureInput = pp.ref(null);
+                    const profileMenuId = pp.id();
+                    const profileTitleId = pp.id();
+                    const [profileMenuOpen, setProfileMenuOpen] = pp.state(false);
+                    const [profileMenuPosition, setProfileMenuPosition] = pp.state('');
+                    const [profileMode, setProfileMode] = pp.state('name');
+                    const [profileName, setProfileName] = pp.state(@{user.name.as_str()});
+                    const [profileBusy, setProfileBusy] = pp.state(false);
+                    const [profileError, setProfileError] = pp.state('');
+                    function openProfileMenu() {
+                        if (profileMenu.current.matches(':popover-open')) {profileMenu.current.hidePopover(); return;}
+                        const anchor = profileTrigger.current.getBoundingClientRect();
+                        setProfileMenuPosition('left:' + Math.max(8, Math.min(anchor.left, innerWidth - 268)) + 'px;top:' + Math.max(8, Math.min(anchor.bottom + 4, innerHeight - 100)) + 'px');
+                        profileMenu.current.showPopover(); editNameAction.current?.focus();
+                    }
+                    function profileMenuKey(event) {
+                        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                            event.preventDefault();
+                            const first = event.key === 'Home' || (event.key !== 'End' && document.activeElement !== editNameAction.current);
+                            (first ? editNameAction : editPictureAction).current?.focus();
+                        } else if (event.key === 'Escape' || event.key === 'Tab') {
+                            if (event.key === 'Escape') event.preventDefault();
+                            profileMenu.current.hidePopover(); profileTrigger.current?.focus();
+                        }
+                    }
+                    function editProfile(mode) {
+                        profileMenu.current.hidePopover(); setProfileMode(mode); setProfileError('');
+                        setProfileName(@{user.name.as_str()});
+                        if (profilePictureInput.current) profilePictureInput.current.value = '';
+                        profileDialog.current.showModal();
+                    }
+                    pp.effect(() => {
+                        if (!profileDialog.current?.open) return;
+                        (profileMode === 'name' ? profileNameInput : profilePictureInput).current?.focus();
+                    }, [profileMode]);
+                    function closeProfile() {
+                        if (profileBusy) return;
+                        profileDialog.current.close(); profileTrigger.current?.focus();
+                    }
+                    function cancelProfile(event) {event.preventDefault(); closeProfile();}
+                    async function saveProfile(event) {
+                        event.preventDefault(); if (profileBusy) return;
+                        const data = Object.fromEntries(new FormData(event.currentTarget));
+                        setProfileBusy(true); setProfileError('');
+                        try {
+                            if (profileMode === 'name') await pp.rpc('update_profile_name', data);
+                            else await pp.rpc('update_profile_picture', data);
+                            location.reload();
+                        } catch (failure) {
+                            setProfileError(failure.errors?.name?.[0] || failure.errors?.picture?.[0] || failure.message || 'Your profile could not be saved.');
+                        } finally {setProfileBusy(false);}
+                    }
 
                     const needle = query.trim().toLowerCase();
                     const shown = people.filter((person) => {

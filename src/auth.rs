@@ -36,6 +36,8 @@ pub struct PublicUser {
     pub name: String,
     pub email: String,
     #[serde(default)]
+    pub has_picture: bool,
+    #[serde(default)]
     pub role: Role,
     #[serde(default)]
     pub session_version: i64,
@@ -55,6 +57,7 @@ impl From<&account::Model> for PublicUser {
             id: row.id.clone(),
             name: row.name.clone(),
             email: row.email.clone(),
+            has_picture: row.picture.is_some(),
             role: if row.role == "admin" {
                 Role::Admin
             } else {
@@ -92,6 +95,9 @@ pub fn authorization() -> rahti::authorization::Gate {
             && session.session_version == live.session_version
     });
     gate.define_resource::<PublicUser, String, _>("meetings.manage", |user, owner| {
+        user.id == *owner
+    });
+    gate.define_resource::<PublicUser, String, _>("profile.update", |user, owner| {
         user.id == *owner
     });
     gate
@@ -292,6 +298,7 @@ pub(crate) async fn create_account(
     let secret = Secret::generate();
     let row = account::ActiveModel {
         id: Set(random_token()), email: Set(email), name: Set(name),
+        picture: Set(None),
         password_hash: Set(hash_password(password).await?), otp_secret: Set(encrypt(secret.as_bytes())?),
         verified: Set(false), last_step: Set(-1), recovery_hashes: Set(String::new()),
         challenge_hash: Set(String::new()), challenge_expires: Set(0),

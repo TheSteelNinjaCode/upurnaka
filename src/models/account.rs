@@ -9,6 +9,7 @@ pub struct Model {
     #[sea_orm(unique)]
     pub email: String,
     pub name: String,
+    pub picture: Option<Vec<u8>>,
     pub password_hash: String,
     pub otp_secret: String,
     pub verified: bool,

@@ -42,6 +42,8 @@ mod p_root;
 mod p_signin;
 #[path = "app/users/page.rs"]
 mod p_users;
+#[path = "app/profile-picture/route.rs"]
+mod r_profilepicture;
 
 /// The app's own page rpcs, which the registry fallback must not answer:
 /// a page's rpc belongs to that page's URL.
@@ -72,6 +74,8 @@ const PAGE_RPCS: &[&str] = &[
     "set_user_active",
     "spotlight_participant",
     "start_meeting_recording",
+    "update_profile_name",
+    "update_profile_picture",
     "update_user",
 ];
 
@@ -180,6 +184,8 @@ async fn rpc_p_people(req: axum::extract::Request) -> axum::response::Response {
         Err(res) => return res,
     };
     match name.as_str() {
+        "update_profile_name" => p_people::__rahti_rpc_update_profile_name(req).await,
+        "update_profile_picture" => p_people::__rahti_rpc_update_profile_picture(req).await,
         "invite_to_teams" => p_people::__rahti_rpc_invite_to_teams(req).await,
         _ => component_rpc(&name, req).await,
     }
@@ -227,13 +233,14 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, create_chat_meeting)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link)
 /// - `/users` [GET, POST] — src/app/users/page.rs (layouts: src/app/layout.rs; rpc: list_users, create_user, update_user, set_user_active, delete_user)
-/// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: invite_to_teams)
+/// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: update_profile_name, update_profile_picture, invite_to_teams)
 /// - `/signin` [GET, POST] — src/app/signin/page.rs (layouts: src/app/layout.rs)
 /// - `/account` [GET, POST] — src/app/account/page.rs (layouts: src/app/layout.rs)
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
+/// - `/profile-picture` [GET] — src/app/profile-picture/route.rs
 /// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
 ///
 /// Every page above also answers the component rpcs, because a
@@ -352,6 +359,18 @@ pub fn router() -> Router {
         ))
         .layer(axum::middleware::from_fn(::rahti::auth_guard));
 
+    // No layout, no error boundary.
+    let group_2 = Router::new()
+        .route(
+            "/profile-picture",
+            axum::routing::get(r_profilepicture::get),
+        )
+        .layer(axum::middleware::from_fn_with_state(
+            ::rahti::request_pipeline::state(),
+            ::rahti::request_pipeline::middleware,
+        ))
+        .layer(axum::middleware::from_fn(::rahti::auth_guard));
+
     let rpc = Router::new()
         .route("/account", axum::routing::post(rpc_components))
         .route("/activity", axum::routing::post(rpc_components))
@@ -379,6 +398,7 @@ pub fn router() -> Router {
     Router::new()
         .merge(group_0)
         .merge(group_1)
+        .merge(group_2)
         .merge(rpc)
         // Optional authenticated Streamable HTTP MCP endpoint.
         .merge(::rahti::mcp::http_routes())

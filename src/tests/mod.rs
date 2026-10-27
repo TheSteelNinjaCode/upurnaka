@@ -12,6 +12,7 @@ mod database;
 mod meeting_controls;
 mod meetings;
 mod pages;
+mod people;
 mod recordings;
 mod rpc;
 mod users;
