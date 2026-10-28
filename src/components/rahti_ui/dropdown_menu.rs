@@ -1091,7 +1091,7 @@ pub fn DropdownMenu(
 
                     const rowsIn = (menu) =>
                         Array.from(menu.querySelectorAll(ROWS)).filter(
-                            (row) => !row.hasAttribute("data-disabled")
+                            (row) => !row.hasAttribute("data-disabled") && !row.hidden && row.getClientRects().length > 0
                         );
 
                     // The fallback placement: measure the trigger, put the menu

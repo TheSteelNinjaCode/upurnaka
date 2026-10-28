@@ -16,6 +16,7 @@ mod browser_policy;
 pub mod calendar;
 /// Files attached from the chat composer, kept in Dilnaka Storage.
 pub mod chat_files;
+pub mod chat_format;
 mod middleware;
 pub mod seed;
 pub mod users;

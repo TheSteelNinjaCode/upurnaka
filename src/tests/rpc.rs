@@ -1,6 +1,43 @@
 use super::*;
 
 #[tokio::test]
+async fn chat_formatting_and_importance_are_validated() {
+    use rahti::serde_json::{Value, json};
+    let payload = json!({"text":"Hello", "important":true, "formatting":[{"kind":"paragraph","runs":[{"text":"Hello","bold":true,"link":"https://example.com"}]}]});
+    let (status, body) = rpc("/chat", "send_message", &payload.to_string()).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let message: Value = rahti::serde_json::from_str(&body).unwrap();
+    assert_eq!(message["important"], true);
+    assert_eq!(message["formatting"][0]["runs"][0]["bold"], true);
+    for bad in [
+        json!({"text":"Hello","formatting":[{"kind":"paragraph","runs":[{"text":"Hello","link":"javascript:alert(1)"}]}]}),
+        json!({"text":"Hello","formatting":[{"kind":"paragraph","runs":[{"text":"Different"}]}]}),
+        json!({"text":"Hello","formatting":[{"kind":"paragraph","runs":[{"text":"Hello","color":"red;display:none"}]}]}),
+        json!({"text":"Hello","formatting":[{"kind":"html","runs":[{"text":"Hello"}]}]}),
+    ] {
+        assert_eq!(
+            rpc("/chat", "send_message", &bad.to_string()).await.0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    assert_eq!(
+        rpc(
+            "/chat",
+            "send_message",
+            r#"{"text":"Hello","important":{}}"#
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let (status, body) = rpc("/chat", "send_message", r#"{"text":"Plain"}"#).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let message: Value = rahti::serde_json::from_str(&body).unwrap();
+    assert_eq!(message["important"], false);
+    assert!(message["formatting"].is_null());
+}
+
+#[tokio::test]
 async fn calendar_meet_now_creates_validated_links_and_requires_a_session() {
     let (status, body) = rpc(
         "/calendar",

@@ -121,6 +121,8 @@ pub async fn page() -> Html {
     );
     // Composer tools read brighter than other muted chrome, as in Teams.
     let composer_button = button_variants(ButtonVariant::Ghost, ButtonSize::IconSm, "text-ink/85");
+    let actions_button =
+        button_variants(ButtonVariant::Ghost, ButtonSize::IconSm, "text-brand-ink");
     // The fields below are elements rather than `<Input>` tags because each one
     // is focused from a script — opening a search, starting a new chat — and a
     // ref is a binding a component tag cannot carry. They wear the same class
@@ -906,10 +908,54 @@ pub async fn page() -> Html {
                                             </span>
                                         </p>
                                         <p
+                                            class="mb-1 text-xs font-semibold text-danger-ink"
+                                            hidden={!message.important}
+                                        >
+                                            "! IMPORTANT"
+                                        </p>
+                                        <p
                                             class="mt-0.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-muted-foreground"
+                                            hidden={!!message.formatting}
                                         >
                                             {message.text}
                                         </p>
+                                        <div
+                                            class="chat-rich-message text-[13px] leading-relaxed"
+                                            hidden={!message.formatting}
+                                        >
+                                            <template
+                                                pp-for="(line, lineIndex) in message.formatting || []"
+                                            >
+                                                <div key={lineIndex} class={lineClass(line.kind)}>
+                                                    <span
+                                                        hidden={line.kind !== "bullet"}
+                                                        aria-hidden="true"
+                                                    >
+                                                        "• "
+                                                    </span>
+                                                    <span
+                                                        hidden={line.kind !== "ordered"}
+                                                        aria-hidden="true"
+                                                    >
+                                                        {listNumber(message.formatting, lineIndex)}
+                                                        ". "
+                                                    </span>
+                                                    <template pp-for="(run, runIndex) in line.runs">
+                                                        <a
+                                                            key={runIndex}
+                                                            href={run.link || null}
+                                                            target={run.link ? "_blank" : null}
+                                                            rel={run.link ? "noopener noreferrer" : null}
+                                                            class={runClass(run)}
+                                                            pp-style={runStyle(run)}
+                                                        >
+                                                            {run.text}
+                                                        </a>
+                                                    </template>
+                                                    <br hidden={line.runs.length > 0} />
+                                                </div>
+                                            </template>
+                                        </div>
                                         <template
                                             pp-for="url in settings.preferences.connectedExperiences && message.gif_url ? [message.gif_url] : []"
                                         >
@@ -1041,11 +1087,159 @@ pub async fn page() -> Html {
                             onchange={uploadFiles(event.currentTarget)}
                         />
                         <form onsubmit={send(event)} pp-ref={composerForm} novalidate>
-                            <InputGroup class="h-auto! bg-raised px-1 dark:bg-raised">
+                            <InputGroup
+                                class="chat-composer h-auto! flex-wrap bg-raised px-1 dark:bg-raised focus-within:shadow-[inset_0_-2px_var(--color-brand-ink)]"
+                            >
+                                <div
+                                    class="flex w-full items-center gap-2 border-b border-line px-3 py-2 text-xs font-semibold text-danger-ink"
+                                    hidden={!draftImportant}
+                                >
+                                    "! IMPORTANT"
+                                    <button
+                                        type="button"
+                                        class="ml-auto rounded p-1 hover:bg-hover"
+                                        aria-label="Remove importance"
+                                        onclick={setImportance(false)}
+                                    >
+                                        <Icon name="close" class="size-3.5" />
+                                    </button>
+                                </div>
+                                <div
+                                    class="chat-format-toolbar flex w-full flex-wrap items-center gap-0.5 px-1 py-2 text-muted-foreground"
+                                    role="toolbar"
+                                    aria-label="Formatting options"
+                                    hidden={!expandedCompose}
+                                >
+                                    <template pp-for="tool in formatTools">
+                                        <button
+                                            key={tool.id}
+                                            type="button"
+                                            class="flex size-8 items-center justify-center rounded hover:bg-hover aria-pressed:bg-hover aria-pressed:text-brand-ink"
+                                            aria-label={tool.label}
+                                            title={tool.label}
+                                            aria-pressed={!!activeFormats[tool.id]}
+                                            disabled={sending || !editorReady}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={formatText(tool.id)}
+                                        >
+                                            <span class={tool.className}>{tool.symbol}</span>
+                                        </button>
+                                    </template>
+                                    <label
+                                        class="flex size-8 cursor-pointer items-center justify-center rounded hover:bg-hover"
+                                        title="Text color"
+                                    >
+                                        <span class="border-b-2 border-brand-ink">"A"</span>
+                                        <input
+                                            type="color"
+                                            class="absolute size-px opacity-0"
+                                            aria-label="Text color"
+                                            value="#a8a4ff"
+                                            oninput={applyStyle("color", target.value)}
+                                            disabled={sending || !editorReady}
+                                        />
+                                    </label>
+                                    <label
+                                        class="flex size-8 cursor-pointer items-center justify-center rounded hover:bg-hover"
+                                        title="Highlight color"
+                                    >
+                                        <span class="bg-yellow-200 px-0.5 text-black">"H"</span>
+                                        <input
+                                            type="color"
+                                            class="absolute size-px opacity-0"
+                                            aria-label="Highlight color"
+                                            value="#fff59d"
+                                            oninput={applyStyle("highlight", target.value)}
+                                            disabled={sending || !editorReady}
+                                        />
+                                    </label>
+                                    <select
+                                        class="h-8 rounded bg-transparent px-1 text-xs"
+                                        aria-label="Font size"
+                                        onchange={applyStyle("size", target.value)}
+                                        disabled={sending || !editorReady}
+                                    >
+                                        <option value="normal">"Normal"</option>
+                                        <option value="small">"Small"</option>
+                                        <option value="large">"Large"</option>
+                                    </select>
+                                    <button
+                                        type="button"
+                                        class="flex size-8 items-center justify-center rounded hover:bg-hover"
+                                        aria-label="Insert link"
+                                        title="Insert link"
+                                        onmousedown={event.preventDefault()}
+                                        onclick={openLink()}
+                                        disabled={sending || !editorReady}
+                                    >
+                                        <Icon name="link" class="size-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="flex size-8 items-center justify-center rounded hover:bg-hover"
+                                        aria-label="Clear formatting"
+                                        title="Clear formatting"
+                                        onmousedown={event.preventDefault()}
+                                        onclick={formatText("clear")}
+                                        disabled={sending || !editorReady}
+                                    >
+                                        "Tx"
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="ml-auto flex size-8 items-center justify-center rounded hover:bg-hover"
+                                        aria-label="Discard message"
+                                        title="Discard message"
+                                        onclick={discardMessage()}
+                                        disabled={sending}
+                                    >
+                                        <Icon name="trash" class="size-4" />
+                                    </button>
+                                </div>
+                                <div
+                                    class="flex w-full items-center gap-2 px-2 pb-2"
+                                    hidden={!linkOpen || !expandedCompose}
+                                >
+                                    <input
+                                        type="url"
+                                        class="min-w-0 flex-1 rounded border border-edge bg-transparent px-2 py-1 text-sm"
+                                        aria-label="Link URL"
+                                        placeholder="https://example.com"
+                                        value={linkUrl}
+                                        oninput={setLinkUrl(target.value)}
+                                        onkeydown={handleLinkKey(event)}
+                                        pp-ref={linkInput}
+                                    />
+                                    <button
+                                        type="button"
+                                        class="rounded px-2 py-1 text-sm hover:bg-hover"
+                                        onclick={saveLink()}
+                                    >
+                                        "Apply"
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="rounded px-2 py-1 text-sm hover:bg-hover"
+                                        onclick={setLinkOpen(false)}
+                                    >
+                                        "Cancel"
+                                    </button>
+                                </div>
+                                <div
+                                    class="chat-rich-host w-full"
+                                    hidden={!expandedCompose}
+                                    onkeydown={handleComposerKey(event)}
+                                >
+                                    <div pp-ref={editorHost}></div>
+                                    <p class="px-3 py-2 text-xs text-subtle" hidden={editorReady}>
+                                        "Loading editor…"
+                                    </p>
+                                </div>
                                 <textarea
                                     name="text"
                                     data-slot="input-group-control"
                                     rows={expandedCompose ? 5 : 1}
+                                    hidden={expandedCompose}
                                     class=@{composer_field.as_str()}
                                     placeholder="Type a message"
                                     autocomplete="off"
@@ -1055,9 +1249,13 @@ pub async fn page() -> Html {
                                     onkeydown={handleComposerKey(event)}
                                     value={draft}
                                     oninput={setDraft(target.value)}
+                                    disabled={sending}
                                 >
                                 </textarea>
-                                <InputGroupAddon align="inline-end" class="gap-0.5 self-end py-1">
+                                <InputGroupAddon
+                                    align="inline-end"
+                                    class="ml-auto gap-0.5 self-end py-1"
+                                >
                                     <Popover>
                                         <PopoverTrigger
                                             name="chat-emoji"
@@ -1413,14 +1611,81 @@ pub async fn page() -> Html {
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        class="text-ink/85"
-                                        attrs=@{(labelled("More actions")).merge(&plain())}
-                                    >
-                                        <Icon name="plus" class="size-[18px]" />
-                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger
+                                            menu="chat-compose-actions"
+                                            class=@{actions_button.as_str()}
+                                            attrs=@{labelled("More actions")}
+                                            onclick={setDeliveryMenu(false)}
+                                            disabled={sending}
+                                        >
+                                            <Icon name="plus" class="size-[18px]" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            menu="chat-compose-actions"
+                                            side="top"
+                                            align="end"
+                                            class="chat-compose-menu w-[252px] rounded-sm border-0 bg-raised py-2 shadow-xl"
+                                            attrs=@{named("Message actions")}
+                                        >
+                                            <DropdownMenuItem
+                                                class="gap-3 px-4 py-2.5 text-[13px]"
+                                                hidden={deliveryMenu}
+                                                onclick={toggleCompose()}
+                                            >
+                                                <Icon name="format" class="size-[18px]" />
+                                                {expandedCompose ? "Hide Formatting options" : "Show Formatting options"}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                class="gap-3 px-4 py-2.5 text-[13px]"
+                                                hidden={deliveryMenu}
+                                                onclick={showDeliveryOptions(event)}
+                                            >
+                                                <span class="w-[18px] text-center text-lg">
+                                                    "!"
+                                                </span>
+                                                "Set delivery options"
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                class="gap-3 px-3 py-2 text-[13px]"
+                                                hidden={!deliveryMenu}
+                                                onclick={setImportance(false)}
+                                            >
+                                                <span pp-ref={standardOption}>
+                                                    <Icon name="chat" class="size-[18px]" />
+                                                </span>
+                                                <span class="flex-1">
+                                                    <span class="block">"Standard"</span>
+                                                    <span class="block text-[11px]">
+                                                        "Message will be sent as usual"
+                                                    </span>
+                                                </span>
+                                                <span hidden={draftImportant}>
+                                                    <Icon name="check" class="size-4" />
+                                                </span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                class="gap-3 px-3 py-2 text-[13px]"
+                                                hidden={!deliveryMenu}
+                                                onclick={setImportance(true)}
+                                            >
+                                                <span
+                                                    class="w-[18px] text-center text-xl font-bold text-danger-ink"
+                                                >
+                                                    "!"
+                                                </span>
+                                                <span class="flex-1">
+                                                    <span class="block">"Important"</span>
+                                                    <span class="block text-[11px]">
+                                                        "Message will be marked as important"
+                                                    </span>
+                                                </span>
+                                                <span hidden={!draftImportant}>
+                                                    <Icon name="check" class="size-4" />
+                                                </span>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                     <span class="mx-1 h-5 w-px bg-ink/25" aria-hidden="true"></span>
                                     <Button
                                         variant="ghost"
@@ -1755,6 +2020,19 @@ pub async fn page() -> Html {
                         </section>
                     </DialogContent>
                 </Dialog>
+                <style>r##"
+                    .chat-rich-host .ProseMirror { min-height:120px; max-height:300px; overflow-y:auto; padding:4px 12px 16px; outline:none; font-size:13px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+                    .chat-rich-host .ProseMirror p { margin:0; min-height:1.6em; }
+                    .chat-rich-host .ProseMirror:has(> p:only-child > br:only-child)::before { content:'Type a message'; position:absolute; color:var(--color-muted-foreground); pointer-events:none; }
+                    .chat-rich-host .ProseMirror ul { list-style:disc; padding-left:24px; }
+                    .chat-rich-host .ProseMirror ol { list-style:decimal; padding-left:24px; }
+                    .chat-rich-host .ProseMirror blockquote { border-left:2px solid var(--color-edge); padding-left:12px; }
+                    .chat-rich-host .ProseMirror pre { background:var(--color-sunken); padding:8px; font-family:monospace; }
+                    .chat-rich-host .ProseMirror a { color:var(--color-link); text-decoration:underline; }
+                    .chat-rich-host .ProseMirror code { background:var(--color-sunken); font-family:monospace; }
+                    .chat-composer:has(.chat-rich-host:not([hidden])) { background:var(--color-surface); }
+                    .chat-compose-menu [role=menuitem] { cursor:pointer; }
+                "##</style>
                 <script>r##"
                     const shortcuts = pp.context(window.UpurnakaShortcutContext);
                     const settings = pp.context(window.UpurnakaSettingsContext);
@@ -1822,6 +2100,28 @@ pub async fn page() -> Html {
                     const messagePane = pp.ref(null);
                     const conversationSearchInput = pp.ref(null);
                     const [expandedCompose, setExpandedCompose] = pp.state(false);
+                    const [deliveryMenu, setDeliveryMenu] = pp.state(false);
+                    const standardOption = pp.ref(null);
+                    const editorHost = pp.ref(null);
+                    const editor = pp.ref(null);
+                    const editorLibrary = pp.ref(null);
+                    const [editorReady, setEditorReady] = pp.state(false);
+                    const [activeFormats, setActiveFormats] = pp.state({});
+                    const [newOptions, setNewOptions] = pp.state({rich:null, important:false});
+                    const [linkOpen, setLinkOpen] = pp.state(false);
+                    const [linkUrl, setLinkUrl] = pp.state('');
+                    const linkInput = pp.ref(null);
+                    const linkSelection = pp.ref(null);
+                    const formatTools = [
+                        {id:'strong',label:'Bold',symbol:'B',className:'font-bold'},
+                        {id:'em',label:'Italic',symbol:'I',className:'italic'},
+                        {id:'underline',label:'Underline',symbol:'U',className:'underline'},
+                        {id:'strike',label:'Strikethrough',symbol:'S',className:'line-through'},
+                        {id:'bullet_list',label:'Bulleted list',symbol:'☷',className:'text-lg'},
+                        {id:'ordered_list',label:'Numbered list',symbol:'1≡',className:'text-sm'},
+                        {id:'blockquote',label:'Quote',symbol:'❞',className:'text-lg'},
+                        {id:'code_block',label:'Code block',symbol:'‹/›',className:'font-mono'}
+                    ];
                     const [conversationSearchOpen, setConversationSearchOpen] = pp.state(false);
                     const [conversationQuery, setConversationQuery] = pp.state("");
                     const [filters, setFilters] = pp.state({ unread: false, meetings: false, unmuted: false });
@@ -1852,6 +2152,8 @@ pub async fn page() -> Html {
                     const currentThread = threads.find(thread => thread.id === selected) || threads[0];
                     const messages = newChat ? [] : currentThread.messages;
                     const draft = newChat ? newDraft : currentThread.draft;
+                    const draftRich = newChat ? newOptions.rich : currentThread.rich;
+                    const draftImportant = newChat ? newOptions.important : !!currentThread.important;
                     const draftGif = settings.preferences.connectedExperiences ? (newChat ? newGif : currentThread.gif) : null;
                     const draftFiles = newChat ? newFiles : (currentThread.files || []);
                     const suggestSelf = !recipients.includes(selfLabel) && recipientQuery.trim().length > 0 && (selfLabel + ' ' + selfEmail).toLocaleLowerCase().includes(recipientQuery.toLocaleLowerCase());
@@ -1896,9 +2198,164 @@ pub async fn page() -> Html {
                     }
                     function initials(label) {return label.trim().split(/\s+/).slice(0,2).map(word => word[0] || "").join("").toUpperCase();}
                     function setDraft(value) {
-                        if (newChat) setNewDraft(value);
-                        else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread, draft:value} : thread));
+                        if (newChat) { setNewDraft(value); setNewOptions(current => ({...current,rich:null})); }
+                        else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread, draft:value, rich:null} : thread));
                     }
+                    function updateOptions(fields) {
+                        if (newChat) setNewOptions(current => ({...current,...fields}));
+                        else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread,...fields} : thread));
+                    }
+                    function setImportance(important) { updateOptions({important}); returnToComposer(); }
+                    function showDeliveryOptions(event) {
+                        event.stopPropagation();
+                        setDeliveryMenu(true);
+                        setTimeout(() => standardOption.current?.closest('[role=menuitem]')?.focus(), 0);
+                    }
+                    // ProseMirror owns only the empty host. All controls, state and
+                    // message rendering remain in this PulsePoint block.
+                    function formattedLines(doc) {
+                        const lines = [];
+                        function visit(node, kind) {
+                            const type = node.type;
+                            if (type === 'paragraph' || type === 'code_block') {
+                                let runs = [];
+                                const emit = () => { lines.push({kind:type === 'code_block' ? 'code' : kind || 'paragraph',runs}); runs = []; };
+                                for (const child of node.content || []) {
+                                    if (child.type === 'hard_break') {emit(); continue;}
+                                    const marks = Object.fromEntries((child.marks || []).map(mark => [mark.type,mark.attrs || true]));
+                                    const parts = (child.text || '').split('\n');
+                                    parts.forEach((text,index) => {
+                                        if (index) emit();
+                                        if (text) runs.push({text,bold:!!marks.strong,italic:!!marks.em,underline:!!marks.underline,strike:!!marks.strike,code:!!marks.code,link:marks.link?.href || null,color:marks.color?.value || null,highlight:marks.highlight?.value || null,size:marks.size?.value || null});
+                                    });
+                                }
+                                emit(); return;
+                            }
+                            const next = {bullet_list:'bullet',ordered_list:'ordered',blockquote:'quote'}[type] || kind;
+                            (node.content || []).forEach(child => visit(child,next));
+                        }
+                        visit(doc,'paragraph'); return lines;
+                    }
+                    function plainDocument(text) { return {type:'doc',content:text.split('\n').map(line => ({type:'paragraph',...(line ? {content:[{type:'text',text:line}]} : {})}))}; }
+                    const editorChanged = pp.event(function editorChanged(view) {
+                        const rich = view.state.doc.toJSON();
+                        const text = formattedLines(rich).map(line => line.runs.map(run => run.text).join('')).join('\n');
+                        if (newChat) {setNewDraft(text); setNewOptions(current => ({...current,rich}));}
+                        else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread,draft:text,rich} : thread));
+                    });
+                    function updateActiveFormats() {
+                        const view = editor.current;
+                        if (!view) return;
+                        const {state} = view, {$from,empty,from,to} = state.selection;
+                        const marks = state.storedMarks || $from.marks();
+                        const active = {};
+                        for (const name of ['strong','em','underline','strike']) active[name] = empty ? marks.some(mark => mark.type.name === name) : state.doc.rangeHasMark(from,to,state.schema.marks[name]);
+                        for (let depth = $from.depth; depth > 0; depth--) active[$from.node(depth).type.name] = true;
+                        setActiveFormats(active);
+                    }
+                    const editorDispatch = pp.event(transaction => {
+                        if (!editor.current) return;
+                        editor.current.updateState(editor.current.state.apply(transaction));
+                        if (transaction.docChanged) editorChanged(editor.current);
+                        updateActiveFormats();
+                    });
+                    const pasteEditorText = pp.event((view,event) => {
+                        event.preventDefault();
+                        const text = event.clipboardData?.getData('text/plain') || '';
+                        if (!sending && text) view.dispatch(view.state.tr.insertText(text));
+                        return true;
+                    });
+                    pp.effect(() => {
+                        let disposed = false;
+                        import('/js/vendor/chat-editor.js').then(lib => {
+                            if (disposed) return;
+                            editorLibrary.current = lib;
+                            const simple = name => ({parseDOM:[{tag:name === 'underline' ? 'u' : 's'}],toDOM:() => [name === 'underline' ? 'u' : 's',0]});
+                            let marks = lib.schema.spec.marks.addToEnd('underline',simple('underline')).addToEnd('strike',simple('strike'));
+                            for (const name of ['color','highlight','size']) marks = marks.addToEnd(name,{attrs:{value:{}},toDOM:mark => ['span',{style:name === 'color' ? 'color:'+mark.attrs.value : name === 'highlight' ? 'background-color:'+mark.attrs.value : 'font-size:'+({small:'11px',normal:'13px',large:'18px'}[mark.attrs.value] || '13px')},0]});
+                            const nodes = lib.addListNodes(lib.schema.spec.nodes,'paragraph block*','block').remove('image').remove('horizontal_rule').remove('heading');
+                            const schema = new lib.Schema({nodes,marks});
+                            const view = new lib.EditorView(editorHost.current,{
+                                state:lib.EditorState.create({schema,plugins:[lib.history(),lib.keymap({'Mod-z':lib.undo,'Mod-y':lib.redo,'Mod-Shift-z':lib.redo,'Mod-b':lib.toggleMark(schema.marks.strong),'Mod-i':lib.toggleMark(schema.marks.em),'Mod-u':lib.toggleMark(schema.marks.underline),'Enter':lib.splitListItem(schema.nodes.list_item),'Tab':lib.sinkListItem(schema.nodes.list_item),'Shift-Tab':lib.liftListItem(schema.nodes.list_item)}),lib.keymap(lib.baseKeymap)]}),
+                                attributes:{'aria-label':'Formatted message',role:'textbox','aria-multiline':'true','data-placeholder':'Type a message'},
+                                dispatchTransaction:editorDispatch,
+                                handleDOMEvents:{paste:pasteEditorText,drop:(_view,event) => {event.preventDefault(); return true;}}
+                            });
+                            editor.current = view; setEditorReady(true);
+                        }).catch(() => {if (!disposed) {setExpandedCompose(false); setError('The formatting editor could not be loaded. Try again.');}});
+                        return () => {disposed = true; editor.current?.destroy(); editor.current = null;};
+                    }, []);
+                    pp.effect(() => {
+                        const view = editor.current;
+                        if (!view || !editorReady) return;
+                        const json = draftRich || plainDocument(draft);
+                        if (JSON.stringify(view.state.doc.toJSON()) !== JSON.stringify(json)) {
+                            try {
+                                const doc = view.state.schema.nodeFromJSON(json);
+                                const restored = editorLibrary.current.EditorState.create({schema:view.state.schema,doc,plugins:view.state.plugins});
+                                view.updateState(restored.apply(restored.tr.setSelection(editorLibrary.current.TextSelection.atEnd(doc))));
+                            } catch (_) {setError('The formatted draft could not be restored.');}
+                        }
+                        view.setProps({editable:() => !sending});
+                        updateActiveFormats();
+                    }, [editorReady,selected,draft,draftRich,sending]);
+                    function formatText(name) {
+                        const view = editor.current, lib = editorLibrary.current;
+                        if (!view || sending) return;
+                        const {state} = view;
+                        let command;
+                        if (state.schema.marks[name]) command = lib.toggleMark(state.schema.marks[name]);
+                        else if (name === 'bullet_list' || name === 'ordered_list') command = activeFormats[name] ? lib.liftListItem(state.schema.nodes.list_item) : lib.wrapInList(state.schema.nodes[name]);
+                        else if (name === 'blockquote') command = activeFormats.blockquote ? lib.lift : lib.wrapIn(state.schema.nodes.blockquote);
+                        else if (name === 'code_block') command = lib.setBlockType(activeFormats.code_block ? state.schema.nodes.paragraph : state.schema.nodes.code_block);
+                        else if (name === 'clear') {
+                            const {from,to,empty} = state.selection;
+                            if (empty) view.dispatch(state.tr.setStoredMarks([]));
+                            else view.dispatch(state.tr.removeMark(from,to));
+                        }
+                        if (command) command(state,view.dispatch);
+                        view.focus(); updateActiveFormats();
+                    }
+                    function applyStyle(name,value) {
+                        const view = editor.current;
+                        if (!view || sending) return;
+                        const {from,to,empty} = view.state.selection, mark = view.state.schema.marks[name].create({value});
+                        view.dispatch(empty ? view.state.tr.addStoredMark(mark) : view.state.tr.addMark(from,to,mark));
+                        view.focus();
+                    }
+                    function openLink() {
+                        const view = editor.current;
+                        if (!view || sending) return;
+                        linkSelection.current = view.state.selection;
+                        const mark = view.state.selection.$from.marks().find(mark => mark.type.name === 'link');
+                        setLinkUrl(mark?.attrs.href || ''); setLinkOpen(true);
+                        setTimeout(() => linkInput.current?.focus(),0);
+                    }
+                    function handleLinkKey(event) {
+                        if (event.key === 'Enter') {event.preventDefault(); saveLink();}
+                        if (event.key === 'Escape') {event.preventDefault(); event.stopPropagation(); setLinkOpen(false); editor.current?.focus();}
+                    }
+                    function saveLink() {
+                        const view = editor.current, href = linkUrl.trim();
+                        if (!view || !linkSelection.current) return;
+                        if (href && !/^https?:\/\/[^\s]+$/i.test(href)) {setError('Enter a full http:// or https:// link.'); return;}
+                        const {from,to,empty} = linkSelection.current;
+                        let tr = view.state.tr;
+                        if (!href) tr = tr.removeMark(from,to,view.state.schema.marks.link);
+                        else if (empty) tr = tr.insertText(href,from).addMark(from,from+href.length,view.state.schema.marks.link.create({href}));
+                        else tr = tr.addMark(from,to,view.state.schema.marks.link.create({href}));
+                        view.dispatch(tr); setLinkOpen(false); setError(''); view.focus();
+                    }
+                    function discardMessage() {
+                        setDraft(''); setDraftGif(null); updateOptions({rich:null,important:false});
+                        if (newChat) setNewFiles([]);
+                        else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread,files:[]} : thread));
+                        setLinkOpen(false); setExpandedCompose(false); setError(''); returnToComposer();
+                    }
+                    function lineClass(kind) {return 'min-h-[1.5em] whitespace-pre-wrap break-words ' + ({bullet:'pl-3',ordered:'pl-3',quote:'border-l-2 border-edge pl-3 italic',code:'bg-sunken px-2 font-mono'}[kind] || '');}
+                    function listNumber(lines,index) {let start=index; while(start > 0 && lines[start-1].kind === 'ordered') start--; return index-start+1;}
+                    function runClass(run) {return [run.bold?'font-bold':'',run.italic?'italic':'',run.underline?'underline':'',run.strike?'line-through':'',run.code?'rounded bg-sunken px-1 font-mono':'',run.link?'text-link underline':''].join(' ');}
+                    function runStyle(run) {return (run.color?'color:'+run.color+';':'')+(run.highlight?'background-color:'+run.highlight+';':'')+(run.size?'font-size:'+({small:'11px',normal:'13px',large:'18px'}[run.size] || '13px')+';':'');}
                     function setDraftGif(gif) {
                         if (newChat) setNewGif(gif);
                         else setThreads(previous => previous.map(thread => thread.id === selected ? {...thread, gif} : thread));
@@ -2106,7 +2563,8 @@ pub async fn page() -> Html {
                     // The picker is rahti-ui's Popover, which hands focus back to
                     // its trigger as it closes; the composer takes it after that.
                     function closeEmoji() {if (emojiOpen) emojiCloser.current?.click();}
-                    function returnToComposer() {setTimeout(() => composerInput.current?.focus(), 0);}
+                    const focusComposer = pp.event(() => {if (expandedCompose && editor.current) editor.current.focus(); else composerInput.current?.focus();});
+                    function returnToComposer() {setTimeout(focusComposer, 0);}
                     pp.effect(() => {
                         if (!emojiOpen || emojiTab === 'emoji') return;
                         if (!settings.preferences.connectedExperiences) {setGifs([]); setGifMore(false); setGifLoading(false); setGifError('Optional connected experiences are off. Enable them in Settings > Privacy to use GIFs.'); return;}
@@ -2158,9 +2616,14 @@ pub async fn page() -> Html {
                     }
                     const insertEmoji = pp.event(function insertEmoji(symbol) {
                         if (sending) return;
-                        const {start,end} = emojiSelection.current;
-                        emojiCaret.current = start + symbol.length;
-                        setDraft(draft.slice(0,start) + symbol + draft.slice(end));
+                        if (expandedCompose && editor.current) {
+                            const view = editor.current;
+                            view.dispatch(view.state.tr.insertText(symbol));
+                        } else {
+                            const {start,end} = emojiSelection.current;
+                            emojiCaret.current = start + symbol.length;
+                            setDraft(draft.slice(0,start) + symbol + draft.slice(end));
+                        }
                         const recent = [symbol, ...recentEmojis.filter(item => item !== symbol)].slice(0, 18);
                         setRecentEmojis(recent);
                         try { localStorage.setItem(recentEmojiKey, JSON.stringify(recent)); } catch (_) {}
@@ -2187,7 +2650,7 @@ pub async fn page() -> Html {
                     }
                     function discardNewChat() {
                         if (sending) return;
-                        setHasNewChat(false); setNewDraft(''); setNewGif(null); setRecipients([]); setRecipientQuery('');
+                        setHasNewChat(false); setNewDraft(''); setNewGif(null); setNewFiles([]); setNewOptions({rich:null,important:false}); setRecipients([]); setRecipientQuery('');
                         setRecipientError(''); setGroupName(''); setGroupNameOpen(false);
                         if (newChat) selectThread('self');
                         setError(''); composerInput.current?.focus();
@@ -2200,7 +2663,7 @@ pub async fn page() -> Html {
                         const popup = window.open('about:blank', '_blank', 'popup,width=1000,height=760');
                         if (!popup) {setError('Allow pop-ups to open this draft in a new window.'); return;}
                         try {
-                            popup.sessionStorage.setItem('upurnaka.chat.compose', JSON.stringify({owner:selfEmail, draft:newDraft, gif:newGif, recipients, recipientQuery, groupName, groupNameOpen}));
+                            popup.sessionStorage.setItem('upurnaka.chat.compose', JSON.stringify({owner:selfEmail, draft:newDraft, gif:newGif, options:newOptions, expandedCompose, recipients, recipientQuery, groupName, groupNameOpen}));
                             popup.opener = null;
                             popup.location.replace('/chat?compose=1');
                         } catch (failure) {
@@ -2217,6 +2680,8 @@ pub async fn page() -> Html {
                             const saved = raw ? JSON.parse(raw) : null;
                             if (saved?.owner === selfEmail) {
                                 setNewDraft(typeof saved.draft === 'string' ? saved.draft : '');
+                                setNewOptions({rich:saved.options?.rich || null,important:saved.options?.important === true});
+                                setExpandedCompose(saved.expandedCompose === true);
                                 if (saved.gif && /^[A-Za-z0-9]{1,80}$/.test(saved.gif.id)) setNewGif({id:saved.gif.id, title:String(saved.gif.title || 'GIF from GIPHY'), url:'https://media.giphy.com/media/' + saved.gif.id + '/giphy.gif'});
                                 setRecipients(Array.isArray(saved.recipients) ? saved.recipients.filter(value => typeof value === 'string').slice(0, 20) : []);
                                 setRecipientQuery(typeof saved.recipientQuery === 'string' ? saved.recipientQuery : '');
@@ -2296,7 +2761,7 @@ pub async fn page() -> Html {
                     }
                     function toggleCompose() {
                         setExpandedCompose(open => !open);
-                        composerInput.current?.focus();
+                        setLinkOpen(false); returnToComposer();
                     }
                     function handleComposerKey(event) {
                         if (event.isComposing || event.repeat) return;
@@ -2401,7 +2866,8 @@ pub async fn page() -> Html {
 
                     async function send(event) {
                         event.preventDefault();
-                        const text = draft.trim();
+                        const fields = Object.fromEntries(new FormData(event.currentTarget));
+                        const text = String(fields.text || '').trim();
                         if ((!text && !draftGif && draftFiles.length === 0) || sending || uploads.length > 0 || (newChat && recipients.length === 0)) return;
                         const targetId = selected;
                         const targetLabel = groupName.trim() || recipients.join(", ");
@@ -2410,14 +2876,14 @@ pub async fn page() -> Html {
                         setSending(true);
                         setError("");
                         try {
-                            const message = await pp.rpc("send_message", { text, gif_id: draftGif?.id || null, file_ids: draftFiles.map(file => file.id) });
+                            const message = await pp.rpc("send_message", { text, gif_id: draftGif?.id || null, file_ids: draftFiles.map(file => file.id), important: draftImportant, formatting: draftRich ? formattedLines(draftRich) : null });
                             if (targetId === "new") {
                                 const id = "chat-" + crypto.randomUUID();
                                 setThreads(previous => [...previous, {id, label:targetLabel, recipients:targetRecipients, messages:[message], draft:"", gif:null, files:[]}]);
-                                setSelected(id); setHasNewChat(false); setNewDraft(""); setNewGif(null); setNewFiles([]);
+                                setSelected(id); setHasNewChat(false); setNewDraft(""); setNewGif(null); setNewFiles([]); setNewOptions({rich:null,important:false});
                                 setRecipients([]); setRecipientQuery(""); setGroupName(""); setGroupNameOpen(false);
                             } else {
-                                setThreads(previous => previous.map(thread => thread.id === targetId ? {...thread, messages:[...thread.messages, message], draft:"", gif:null, files:[]} : thread));
+                                setThreads(previous => previous.map(thread => thread.id === targetId ? {...thread, messages:[...thread.messages, message], draft:"", gif:null, files:[], rich:null, important:false} : thread));
                             }
                         } catch (failure) {
                             setError(failure.message || "The message could not be sent.");
@@ -2441,6 +2907,8 @@ pub struct Message {
     pub text: String,
     pub gif_url: Option<String>,
     pub attachments: Vec<Attachment>,
+    pub important: bool,
+    pub formatting: Option<Vec<crate::chat_format::Line>>,
 }
 
 /// Accept a line the composer sent.
@@ -2454,6 +2922,8 @@ pub async fn send_message(
     text: String,
     gif_id: Option<String>,
     file_ids: Option<Vec<String>>,
+    important: Option<bool>,
+    formatting: Option<Vec<crate::chat_format::Line>>,
 ) -> Result<Message> {
     let text = text.trim().to_string();
     let file_ids = file_ids.unwrap_or_default();
@@ -2479,6 +2949,9 @@ pub async fn send_message(
         );
     }
     validator.finish()?;
+    if let Some(lines) = &formatting {
+        crate::chat_format::validate(lines, &text)?;
+    }
     let attachments = chat_files::owned(&file_ids).await?;
 
     let now = time::now();
@@ -2493,6 +2966,8 @@ pub async fn send_message(
         text,
         gif_url: gif_id.map(|id| format!("https://media.giphy.com/media/{id}/giphy.gif")),
         attachments,
+        important: important.unwrap_or(false),
+        formatting,
     })
 }
 

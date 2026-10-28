@@ -1,6 +1,156 @@
 use super::*;
 
 #[tokio::test]
+async fn composer_rich_controls_links_lists_clipboard_and_discard() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='More actions']")
+        .await
+        .unwrap();
+    browser
+        .click(".chat-compose-menu [role=menuitem]:nth-child(1)")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.activeElement.classList.contains('ProseMirror')")
+        .await
+        .unwrap();
+    browser.type_text("Styled text").await.unwrap();
+    let _: bool = browser.eval("const selection=window.getSelection(); selection.selectAllChildren(document.querySelector('.ProseMirror')); true").await.unwrap();
+    for label in ["Bold", "Italic", "Underline", "Strikethrough"] {
+        browser
+            .click(&format!("button[aria-label='{label}']"))
+            .await
+            .unwrap();
+    }
+    browser.wait_for("['strong','em','u','s'].every(tag => document.querySelector('.ProseMirror '+tag)?.textContent === 'Styled text')").await.unwrap();
+    browser
+        .click("button[aria-label='Insert link']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.activeElement.getAttribute('aria-label') === 'Link URL'")
+        .await
+        .unwrap();
+    browser.type_text("https://example.com/path").await.unwrap();
+    // Enter in the URL field applies the link without submitting the composer.
+    let _: bool = browser.eval("document.querySelector('[aria-label=\"Link URL\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})); true").await.unwrap();
+    browser.wait_for("document.querySelector('.ProseMirror a')?.getAttribute('href') === 'https://example.com/path'").await.unwrap();
+    browser
+        .click("button[aria-label='Bulleted list']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.ProseMirror ul li')?.textContent === 'Styled text'")
+        .await
+        .unwrap();
+    browser.click("button[aria-label='Send']").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-rich-message a[href=\"https://example.com/path\"]')?.textContent === 'Styled text'").await.unwrap();
+    browser.click(".ProseMirror").await.unwrap();
+    let _: bool = browser.eval("const data=new DataTransfer(); data.setData('text/plain','<b>Safe text</b>'); data.setData('text/html','<img src=x onerror=alert(1)>'); document.querySelector('.ProseMirror').dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true})); true").await.unwrap();
+    browser.wait_for("document.querySelector('.ProseMirror').textContent === '<b>Safe text</b>' && !document.querySelector('.ProseMirror img')").await.unwrap();
+    browser
+        .click("button[aria-label='Discard message']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.chat-rich-host').hidden && document.querySelector('textarea').value === '' && document.querySelector('button[aria-label=Send]').disabled").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
+async fn composer_actions_format_send_and_preserve_drafts() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='More actions']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.chat-compose-menu').matches(':popover-open')")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.chat-compose-menu').getAnimations().every(animation => animation.playState === 'finished')").await.unwrap();
+    let fits: bool = browser.eval("(() => {const box=document.querySelector('.chat-compose-menu').getBoundingClientRect();const trigger=document.querySelector('button[aria-label=\"More actions\"]').getBoundingClientRect();return box.bottom <= trigger.top && box.left >= 0 && box.right <= innerWidth;})()").await.unwrap();
+    assert!(fits, "{}", browser.eval::<String>("JSON.stringify({menu:document.querySelector('.chat-compose-menu').getBoundingClientRect().toJSON(),trigger:document.querySelector('button[aria-label=\"More actions\"]').getBoundingClientRect().toJSON(),viewport:[innerWidth,innerHeight]})").await.unwrap());
+    browser
+        .click(".chat-compose-menu [role=menuitem]:nth-child(1)")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.chat-rich-host').hidden && document.activeElement.classList.contains('ProseMirror')").await.unwrap();
+    browser.click("button[aria-label='Bold']").await.unwrap();
+    browser.type_text("Formatted draft").await.unwrap();
+    browser
+        .wait_for(
+            "document.querySelector('.ProseMirror strong')?.textContent === 'Formatted draft'",
+        )
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='More actions']")
+        .await
+        .unwrap();
+    browser
+        .click(".chat-compose-menu [role=menuitem]:nth-child(2)")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.chat-compose-menu').matches(':popover-open') && !document.querySelector('.chat-compose-menu [role=menuitem]:nth-child(4)').hidden").await.unwrap();
+    browser.press("ArrowDown").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("!document.querySelector('.chat-composer > div').hidden && document.activeElement.classList.contains('ProseMirror')").await.unwrap();
+    browser
+        .click("button[aria-label='New chat']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.ProseMirror').textContent === ''")
+        .await
+        .unwrap();
+    browser
+        .click("aside .chat-self-entry button")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.ProseMirror strong')?.textContent === 'Formatted draft' && !document.querySelector('.chat-composer > div').hidden").await.unwrap();
+    browser.click("button[aria-label='Send']").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-rich-message .font-bold')?.textContent === 'Formatted draft' && document.querySelector('[aria-label=Messages]').textContent.includes('IMPORTANT') && document.querySelector('.ProseMirror').textContent === ''").await.unwrap();
+    browser
+        .click("button[aria-label='More actions']")
+        .await
+        .unwrap();
+    browser
+        .click(".chat-compose-menu [role=menuitem]:nth-child(1)")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.chat-rich-host').hidden && document.activeElement.tagName === 'TEXTAREA'").await.unwrap();
+    browser.type_text("Plain after rich").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("document.querySelector('[aria-label=Messages]').textContent.includes('Plain after rich') && document.querySelector('textarea').value === ''").await.unwrap();
+    browser
+        .click("button[aria-label='More actions']")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("!document.querySelector('.chat-compose-menu').matches(':popover-open') && document.activeElement.getAttribute('aria-label') === 'More actions'").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn self_chat_menu_moves_hides_and_opens_the_conversation() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
