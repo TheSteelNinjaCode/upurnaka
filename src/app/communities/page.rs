@@ -167,23 +167,28 @@ pub async fn page() -> Html {
                     </div>
                     <div class="mt-7 grid grid-cols-3 gap-5">
                         <template pp-for="community in communities">
-                            <Card
+                            <div
                                 key={community.id}
-                                class="gap-4 overflow-hidden bg-raised pt-0 pb-5"
+                                tabindex="-1"
+                                pp-ref={element => communityElements.current[community.id] = element}
+                                class={selectedCommunity === community.id ? "rounded-xl outline-2 outline-brand-ink" : ""}
                             >
-                                <div class="h-24 bg-linear-to-br from-[#6f63d8] to-[#3a3270]"></div>
-                                <CardHeader class="gap-1 px-5">
-                                    <CardTitle class="truncate text-[15px]">
-                                        {community.name}
-                                    </CardTitle>
-                                    <CardDescription class="text-xs">
-                                        {community.category}
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardFooter class="px-5 text-xs text-subtle">
-                                    "1 member · you are the owner"
-                                </CardFooter>
-                            </Card>
+                                <Card class="gap-4 overflow-hidden bg-raised pt-0 pb-5">
+                                    <div class="h-24 bg-linear-to-br from-[#6f63d8] to-[#3a3270]">
+                                    </div>
+                                    <CardHeader class="gap-1 px-5">
+                                        <CardTitle class="truncate text-[15px]">
+                                            {community.name}
+                                        </CardTitle>
+                                        <CardDescription class="text-xs">
+                                            {community.category}
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardFooter class="px-5 text-xs text-subtle">
+                                        "1 member · you are the owner"
+                                    </CardFooter>
+                                </Card>
+                            </div>
                         </template>
                     </div>
                 </div>
@@ -267,6 +272,20 @@ pub async fn page() -> Html {
                 </Dialog>
                 <script>r##"
                     const [communities, setCommunities] = pp.state([]);
+                    const searchStore = pp.context(window.UpurnakaSearchContext);
+                    const communityElements = pp.ref({});
+                    const [selectedCommunity, setSelectedCommunity] = pp.state('');
+                    const openSearchCommunity = pp.event(row => {
+                        setSelectedCommunity(row.id);
+                        requestAnimationFrame(() => {
+                            const card = communityElements.current[row.id];
+                            card?.focus({preventScroll:true}); card?.scrollIntoView({block:'center'});
+                        });
+                    });
+                    pp.effect(() => {
+                        searchStore?.publish('communities',communities.map(community => ({key:'community:'+community.id,id:community.id,kind:'communities',title:community.name,subtitle:community.category})),openSearchCommunity);
+                    },[communities,searchStore,openSearchCommunity]);
+                    pp.effect(() => () => searchStore?.remove('communities'),[]);
                     const createOpener = pp.ref(null);
                     const createCloser = pp.ref(null);
                     const CATEGORIES = [

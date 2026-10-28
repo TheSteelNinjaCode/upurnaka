@@ -772,7 +772,7 @@ async fn shortcuts_control_chat_from_body_and_composer() {
         .await
         .unwrap();
     browser.type_text("calendar").await.unwrap();
-    browser.press("Enter").await.unwrap();
+    browser.click("button[value='/calendar']").await.unwrap();
     browser
         .wait_for("location.pathname === '/calendar'")
         .await

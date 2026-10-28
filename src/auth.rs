@@ -89,6 +89,8 @@ pub fn current() -> Option<PublicUser> {
 
 pub fn authorization() -> rahti::authorization::Gate {
     let mut gate = rahti::authorization::Gate::new();
+    // The collaboration directory exposes display names, not account management data.
+    gate.define::<PublicUser, _>("directory.search", |user| !user.id.is_empty());
     gate.define_resource::<PublicUser, PublicUser, _>("users.manage", |session, live| {
         session.id == live.id
             && live.role == Role::Admin

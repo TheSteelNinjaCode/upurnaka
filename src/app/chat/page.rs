@@ -2056,6 +2056,7 @@ pub async fn page() -> Html {
                 "##</style>
                 <script>r##"
                     const shortcuts = pp.context(window.UpurnakaShortcutContext);
+                    const globalSearchStore = pp.context(window.UpurnakaSearchContext);
                     const settings = pp.context(window.UpurnakaSettingsContext);
                     const composerInput = pp.ref(null);
                     const emojiCloser = pp.ref(null);
@@ -2179,6 +2180,26 @@ pub async fn page() -> Html {
                     const draftFiles = newChat ? newFiles : (currentThread.files || []);
                     const suggestSelf = !recipients.includes(selfLabel) && recipientQuery.trim().length > 0 && (selfLabel + ' ' + selfEmail).toLocaleLowerCase().includes(recipientQuery.toLocaleLowerCase());
                     const [sending, setSending] = pp.state(false);
+                    const openGlobalSearchItem = pp.event(row => {
+                        if (row.kind === 'people') {
+                            if (row.is_self || row.id === @{user.id.as_str()}) {selectThread('self'); returnToComposer(); return;}
+                            const id = 'person-'+row.id;
+                            if (!threads.some(thread => thread.id === id)) setThreads(previous => [...previous,{id,label:row.title,recipients:[row.title],messages:[],draft:'',gif:null,files:[]}]);
+                            setSelected(id); setHasNewChat(false); setConversationSearchOpen(false); returnToComposer();
+                        } else if (row.kind === 'messages') {
+                            selectThread(row.threadId);
+                            setConversationQuery(row.text || ''); setConversationSearchOpen(true);
+                        }
+                    });
+                    pp.effect(() => {
+                        const rows = threads.flatMap(thread => thread.messages.map(message => ({key:'message:'+thread.id+':'+message.id,kind:'messages',title:message.text || (message.gif_url ? 'GIF' : message.attachments?.map(file=>file.name).join(', ') || 'Message'),text:message.text,subtitle:thread.label+' · '+message.time,initials:message.initials,threadId:thread.id})));
+                        globalSearchStore?.publish('chat',rows,openGlobalSearchItem);
+                    },[threads,globalSearchStore,openGlobalSearchItem]);
+                    pp.effect(() => {
+                        const params = new URLSearchParams(location.search);
+                        if (params.get('person') && params.get('name')) openGlobalSearchItem({kind:'people',id:params.get('person'),title:params.get('name').slice(0,80)});
+                        return () => globalSearchStore?.remove('chat');
+                    },[]);
                     const [error, setError] = pp.state("");
                     const [searchOpen, setSearchOpen] = pp.state(false);
                     const [chatFilter, setChatFilter] = pp.state("");

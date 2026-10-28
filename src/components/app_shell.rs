@@ -43,6 +43,96 @@ pub async fn sign_out_account() -> bool {
     true
 }
 
+#[derive(Serialize)]
+pub struct SearchPerson {
+    pub id: String,
+    pub title: String,
+    pub initials: String,
+    pub is_self: bool,
+}
+
+#[derive(Serialize)]
+pub struct SearchResponse {
+    pub people: Vec<SearchPerson>,
+    pub files: Vec<crate::chat_files::Attachment>,
+}
+
+/// Search public directory names and the caller's own uploaded files only.
+#[rpc(auth)]
+pub async fn search_workspace(query: String) -> Result<SearchResponse> {
+    use crate::models::{account, chat_file};
+    use sea_orm::{
+        ColumnTrait, EntityTrait, ExprTrait, QueryFilter, QueryOrder, QuerySelect,
+        sea_query::{Expr, Func, LikeExpr},
+    };
+    let query = query.trim().to_lowercase();
+    let mut validator = Validator::new();
+    validator
+        .required("query", &query)
+        .max_chars("query", &query, 120);
+    validator.finish()?;
+    crate::auth::ready()?;
+    rahti::authorization::authorize("directory.search")?;
+    let user = crate::auth::current().ok_or_else(|| {
+        crate::rahti::Error::new(
+            axum::http::StatusCode::UNAUTHORIZED,
+            "Authentication required",
+        )
+    })?;
+    let pattern = format!(
+        "%{}%",
+        query
+            .replace('!', "!!")
+            .replace('%', "!%")
+            .replace('_', "!_")
+    );
+    let people = account::Entity::find()
+        .filter(account::Column::Active.eq(true))
+        .filter(account::Column::Verified.eq(true))
+        .filter(
+            Expr::expr(Func::lower(Expr::col(account::Column::Name)))
+                .like(LikeExpr::new(&pattern).escape('!')),
+        )
+        .order_by_asc(account::Column::Name)
+        .limit(50)
+        .select_only()
+        .column(account::Column::Id)
+        .column(account::Column::Name)
+        .into_tuple::<(String, String)>()
+        .all(crate::db::db())
+        .await?
+        .into_iter()
+        .map(|(id, name)| {
+            let initials = name
+                .split_whitespace()
+                .take(2)
+                .filter_map(|part| part.chars().next())
+                .collect::<String>()
+                .to_uppercase();
+            SearchPerson {
+                is_self: id == user.id,
+                id,
+                title: name,
+                initials,
+            }
+        })
+        .collect();
+    let files = chat_file::Entity::find()
+        .filter(chat_file::Column::OwnerId.eq(user.id))
+        .filter(
+            Expr::expr(Func::lower(Expr::col(chat_file::Column::Name)))
+                .like(LikeExpr::new(&pattern).escape('!')),
+        )
+        .order_by_desc(chat_file::Column::CreatedAt)
+        .limit(50)
+        .all(crate::db::db())
+        .await?
+        .into_iter()
+        .map(crate::chat_files::Attachment::from)
+        .collect();
+    Ok(SearchResponse { people, files })
+}
+
 /// Which icon each rail destination draws.
 fn rail_icon(key: &str) -> &'static str {
     match key {
@@ -142,8 +232,13 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     >
                         <Icon name="chevron-right" class="size-4" />
                     </Button>
-                    <div class="relative ml-2 w-full max-w-[720px]">
-                        <InputGroup class="h-8! border-transparent bg-raised dark:bg-raised">
+                    <div
+                        class="relative ml-2 w-full max-w-[720px]"
+                        onfocusout={globalSearchBlur(event)}
+                    >
+                        <InputGroup
+                            class="global-search-input h-8! border-transparent bg-raised dark:bg-raised"
+                        >
                             <InputGroupAddon>
                                 <Icon name="search" class="size-4" />
                             </InputGroupAddon>
@@ -153,17 +248,43 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                 class=@{search_input.as_str()}
                                 placeholder="Press Ctrl+G to go right to a chat or channel"
                                 aria-label="Search"
+                                aria-expanded={suggestionsOpen && !!query.trim() && !searchView}
+                                aria-controls="global-search-suggestions"
+                                autocomplete="off"
+                                maxlength="120"
                                 pp-ref={globalSearch}
                                 value={query}
-                                oninput={setQuery(target.value)}
+                                oninput={changeGlobalQuery(target.value)}
+                                onfocus={setSuggestionsOpen(true)}
                                 onkeydown={handleGlobalSearchKey(event)}
                             />
+                            <InputGroupAddon align="inline-end">
+                                <button
+                                    type="button"
+                                    class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-ink focus-visible:outline-2 focus-visible:outline-ring"
+                                    aria-label="Clear search"
+                                    hidden={!query && !searchView}
+                                    onclick={clearGlobalSearch()}
+                                >
+                                    <Icon name="close" class="size-4" />
+                                </button>
+                            </InputGroupAddon>
                         </InputGroup>
                         <div
+                            id="global-search-suggestions"
                             class="absolute left-0 right-0 top-10 rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl"
-                            hidden={!query.trim()}
-                            aria-label="Search results"
+                            hidden={!suggestionsOpen || !query.trim() || searchView}
+                            aria-label="Search suggestions"
                         >
+                            <button
+                                type="button"
+                                class="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-[13px] hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+                                onclick={submitGlobalSearch()}
+                                pp-ref={searchSubmit}
+                            >
+                                <Icon name="search" class="size-4" />
+                                <span>"Search for “"{query.trim()}"”"</span>
+                            </button>
                             <template pp-for="result in searchResults">
                                 <Button
                                     key={result.href}
@@ -176,12 +297,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                     {result.label}
                                 </Button>
                             </template>
-                            <p
-                                class="px-3 py-2 text-sm text-muted-foreground"
-                                hidden={searchResults.length > 0}
-                            >
-                                "No matching chats or apps."
-                            </p>
                         </div>
                     </div>
                 </div>
@@ -303,11 +418,148 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         <Icon name="apps" class="h-[22px] w-[22px]" />
                     </a>
                 </nav>
-                <shortcutcontext.provider value={pageShortcuts}>
-                    <UserPreferences user_id=@{user.id.as_str()}>
-                        <slot />
-                    </UserPreferences>
-                </shortcutcontext.provider>
+                <div class="shell-page flex min-h-0 min-w-0 flex-1" hidden={searchView}>
+                    <shortcutcontext.provider value={pageShortcuts}>
+                        <searchcontext.provider value={searchStore}>
+                            <UserPreferences user_id=@{user.id.as_str()}>
+                                <slot />
+                            </UserPreferences>
+                        </searchcontext.provider>
+                    </shortcutcontext.provider>
+                </div>
+                <section
+                    class="global-search-view flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-tl-xl border-l border-t border-line bg-surface"
+                    hidden={!searchView}
+                    aria-label="Search results"
+                >
+                    <header class="shrink-0 border-b border-line px-5 py-3.5">
+                        <div
+                            class="mx-auto flex w-full max-w-[760px] gap-3"
+                            role="tablist"
+                            aria-label="Search categories"
+                        >
+                            <template pp-for="tab in searchTabs">
+                                <button
+                                    type="button"
+                                    key={tab.id}
+                                    role="tab"
+                                    id={"global-search-tab-" + tab.id}
+                                    aria-selected={searchTab === tab.id}
+                                    aria-controls="global-search-panel"
+                                    tabindex={searchTab === tab.id ? 0 : -1}
+                                    pp-ref={element => searchTabRefs.current[tab.id] = element}
+                                    class="global-search-tab shrink-0 rounded-full border-2 border-transparent bg-sunken px-3.5 py-1.5 text-[13px] font-semibold hover:bg-hover aria-selected:border-brand-ink aria-selected:bg-brand-soft aria-selected:text-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                    onclick={setSearchTab(tab.id)}
+                                    onkeydown={searchTabKey(event)}
+                                >
+                                    {tab.label}
+                                </button>
+                            </template>
+                        </div>
+                    </header>
+                    <div
+                        id="global-search-panel"
+                        class="scroll-thin min-h-0 flex-1 overflow-y-auto px-5 py-5"
+                        role="tabpanel"
+                        aria-labelledby={"global-search-tab-" + searchTab}
+                        tabindex="0"
+                        aria-busy={searchLoading}
+                    >
+                        <div class="mx-auto w-full max-w-[760px]">
+                            <p class="sr-only" role="status">
+                                {searchLoading ? "Searching" : visibleSearchRows.length + " " + searchTab + " results"}
+                            </p>
+                            <div class="space-y-4" hidden={searchLoading}>
+                                <template pp-for="row in visibleSearchRows">
+                                    <button
+                                        type="button"
+                                        key={row.key}
+                                        class="global-search-card flex min-h-[72px] w-full items-center gap-3 rounded-lg border border-line bg-raised px-4 py-3 text-left hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+                                        onclick={openSearchRow(row)}
+                                    >
+                                        <span
+                                            class="flex size-8 shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
+                                            hidden={row.kind === "files" || row.kind === "communities"}
+                                        >
+                                            {row.initials}
+                                        </span>
+                                        <span
+                                            class="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand-ink"
+                                            hidden={row.kind !== "files"}
+                                        >
+                                            <Icon name="file" class="size-5" />
+                                        </span>
+                                        <span
+                                            class="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand-ink"
+                                            hidden={row.kind !== "communities"}
+                                        >
+                                            <Icon name="communities" class="size-5" />
+                                        </span>
+                                        <span class="min-w-0 flex-1">
+                                            <span
+                                                class="block truncate text-[13px] font-semibold text-ink"
+                                            >
+                                                {row.title}
+                                            </span>
+                                            <span
+                                                class="mt-1 block truncate text-xs text-muted-foreground"
+                                                hidden={!row.subtitle}
+                                            >
+                                                {row.subtitle}
+                                            </span>
+                                        </span>
+                                    </button>
+                                </template>
+                            </div>
+                            <p
+                                class="py-10 text-center text-sm text-muted-foreground"
+                                hidden={!searchLoading}
+                            >
+                                "Searching…"
+                            </p>
+                            <div
+                                class="py-16 text-center"
+                                hidden={searchLoading || visibleSearchRows.length > 0 || !!workspaceSearchError}
+                            >
+                                <span class="mb-4 inline-flex text-subtle">
+                                    <Icon name="search" class="size-10" />
+                                </span>
+                                <h1 class="text-lg font-semibold">
+                                    {"No " + searchTab + " found"}
+                                </h1>
+                                <p class="mt-2 text-sm text-muted-foreground">
+                                    "Try another name or keyword."
+                                </p>
+                            </div>
+                            <div
+                                class="rounded-lg border border-line bg-raised px-5 py-4 text-sm"
+                                hidden={!workspaceSearchError}
+                                role="alert"
+                            >
+                                <p>{workspaceSearchError}</p>
+                                <button
+                                    type="button"
+                                    class="mt-3 rounded px-3 py-1.5 text-link hover:bg-hover"
+                                    onclick={setSearchRetry(value => value + 1)}
+                                >
+                                    "Try again"
+                                </button>
+                            </div>
+                            <p
+                                class="mt-5 text-center text-xs text-subtle"
+                                hidden={searchTab !== "messages" && searchTab !== "communities"}
+                            >
+                                "Results include conversations and communities on the current page."
+                            </p>
+                            <p
+                                class="mt-5 text-center text-xs text-subtle"
+                                hidden={searchLoading || visibleSearchRows.length < 50 || (searchTab !== "people" && searchTab !== "files")}
+                            >
+                                "Showing the first 50 matches. Refine your search to find more."
+                            </p>
+                        </div>
+                    </div>
+                </section>
             </div>
             <Dialog>
                 <DialogTrigger attrs=@{hidden()}>
@@ -394,10 +646,20 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     <KeyboardShortcuts />
                 </DialogContent>
             </Dialog>
+            <style>r##"
+                .global-search-input[data-slot=input-group] { box-shadow:none; }
+                .dark .global-search-input[data-slot=input-group] { background:#292929; border-color:#3d3d3d; }
+                .dark .global-search-view { background:#1f1f1f; }
+                .dark .global-search-card { background:#292929; border-color:#171717; }
+                .dark .global-search-card:hover { background:#333; }
+                .global-search-view [role=tablist] { overflow-x:auto; padding:2px; }
+            "##</style>
             <script>r##"
                 const ShortcutContext = window.UpurnakaShortcutContext ||= pp.createContext(null);
+                const SearchContext = window.UpurnakaSearchContext ||= pp.createContext(null);
                 const pageShortcuts = pp.ref(null);
                 const globalSearch = pp.ref(null);
+                const searchSubmit = pp.ref(null);
                 const appRail = pp.ref(null);
                 const moreBadge = pp.ref(null);
                 const shortcutsOpener = pp.ref(null);
@@ -448,7 +710,8 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         pp.redirect("/settings");
                         return;
                     }
-                    pageShortcuts.current?.handleKey?.(event);
+                    if (searchView && event.key === 'Escape') {event.preventDefault(); clearGlobalSearch(); return;}
+                    if (!searchView) pageShortcuts.current?.handleKey?.(event);
                     if (event.defaultPrevented) return;
                     if (control && !event.shiftKey && ["e", "g", "/"].includes(key)) {
                         event.preventDefault();
@@ -477,7 +740,80 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     return () => { if (document.onkeydown === handler) document.onkeydown = previous; };
                 }, [handleGlobalKey]);
                 const [query, setQuery] = pp.state("");
+                const [suggestionsOpen, setSuggestionsOpen] = pp.state(false);
+                const [searchView, setSearchView] = pp.state(false);
+                const [searchTab, setSearchTab] = pp.state('people');
+                const [remoteSearchRows, setRemoteSearchRows] = pp.state([]);
+                const [remoteSearchLoading, setRemoteSearchLoading] = pp.state(false);
+                const [remoteSearchError, setRemoteSearchError] = pp.state('');
+                const [searchRetry, setSearchRetry] = pp.state(0);
+                const [localSearchItems, setLocalSearchItems] = pp.state({});
+                const searchHandlers = pp.ref({});
+                const searchTabRefs = pp.ref({});
+                const searchTabs = [{id:'people',label:'People'},{id:'messages',label:'Messages'},{id:'files',label:'Files'},{id:'communities',label:'Communities'}];
+                const publishSearch = pp.event((source,rows,open) => {
+                    searchHandlers.current[source] = open;
+                    setLocalSearchItems(previous => ({...previous,[source]:rows.map(row => ({...row,source}))}));
+                });
+                const removeSearch = pp.event(source => {
+                    delete searchHandlers.current[source];
+                    setLocalSearchItems(previous => {const next={...previous}; delete next[source]; return next;});
+                });
+                const searchStore = pp.memo(() => ({publish:publishSearch,remove:removeSearch}),[publishSearch,removeSearch]);
                 const searchTerm = query.trim().replace(/^\//, "").toLocaleLowerCase();
+                const searchLoading = searchView && ['people','files'].includes(searchTab) && remoteSearchLoading;
+                const workspaceSearchError = ['people','files'].includes(searchTab) ? remoteSearchError : '';
+                const localRows = Object.values(localSearchItems).flat().filter(row => (row.title+' '+(row.subtitle || '')).toLocaleLowerCase().includes(searchTerm));
+                const visibleSearchRows = [...remoteSearchRows,...localRows].filter(row => row.kind === searchTab);
+                function changeGlobalQuery(value) {
+                    setQuery(value); setSuggestionsOpen(true);
+                    if (!value.trim()) {setSearchView(false); setRemoteSearchRows([]); setRemoteSearchError('');}
+                    else if (searchView) {setRemoteSearchLoading(true); setRemoteSearchRows([]);}
+                }
+                function submitGlobalSearch() {
+                    if (!query.trim()) return;
+                    pageShortcuts.current?.dismissPopovers?.();
+                    setQuery(query.trim()); setSearchTab('people'); setRemoteSearchLoading(true);
+                    setSearchView(true); setSuggestionsOpen(false);
+                    globalSearch.current?.focus();
+                }
+                function clearGlobalSearch() {
+                    setQuery(''); setSearchView(false); setSuggestionsOpen(false); setRemoteSearchRows([]); setRemoteSearchError('');
+                    globalSearch.current?.focus();
+                }
+                function globalSearchBlur(event) {
+                    if (!event.currentTarget.contains(event.relatedTarget)) setSuggestionsOpen(false);
+                }
+                function searchTabKey(event) {
+                    const index = searchTabs.findIndex(tab => tab.id === searchTab);
+                    const next = event.key === 'Home' ? 0 : event.key === 'End' ? searchTabs.length-1 : event.key === 'ArrowRight' ? (index+1)%searchTabs.length : event.key === 'ArrowLeft' ? (index+searchTabs.length-1)%searchTabs.length : -1;
+                    if (next < 0) return;
+                    event.preventDefault(); const id = searchTabs[next].id;
+                    setSearchTab(id); searchTabRefs.current[id]?.focus();
+                }
+                pp.effect(() => {
+                    if (!searchView || !searchTerm) return;
+                    let active = true;
+                    setRemoteSearchLoading(true); setRemoteSearchRows([]); setRemoteSearchError('');
+                    const timer = setTimeout(async () => {
+                        try {
+                            const response = await pp.rpc('search_workspace',{query:searchTerm});
+                            if (!active) return;
+                            const people = response.people.map(person => ({...person,key:'person:'+person.id,kind:'people',subtitle:person.is_self ? 'You' : ''}));
+                            const files = response.files.map(file => ({key:'file:'+file.id,id:file.id,kind:'files',title:file.name,subtitle:file.uploaded}));
+                            setRemoteSearchRows([...people,...files]);
+                        } catch (failure) {if (active) setRemoteSearchError(failure.message || 'Search is unavailable. Please try again.');}
+                        finally {if (active) setRemoteSearchLoading(false);}
+                    },200);
+                    return () => {active=false; clearTimeout(timer);};
+                },[searchView,searchTerm,searchRetry]);
+                const openSearchRow = pp.event(row => {
+                    setSearchView(false); setQuery(''); setSuggestionsOpen(false);
+                    if (row.kind === 'files') {window.open('/chat/files/'+encodeURIComponent(row.id),'_blank','noopener,noreferrer'); return;}
+                    const handler = searchHandlers.current[row.source || (row.kind === 'people' ? 'chat' : '')];
+                    if (handler) {handler(row); return;}
+                    if (row.kind === 'people') pp.redirect('/chat?person='+encodeURIComponent(row.id)+'&name='+encodeURIComponent(row.title));
+                });
                 const searchResults = [
                     {label: @{user.name.as_str()} + " (You)", href:"/chat"},
                     {label:"Meet", href:"/meet"}, {label:"People", href:"/people"},
@@ -485,12 +821,13 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     {label:"Activity", href:"/activity"}, {label:"Apps", href:"/apps"},
                     {label:"Settings", href:"/settings"}
                 ].filter(result => result.label.toLocaleLowerCase().includes(searchTerm) || result.href.slice(1).includes(searchTerm));
-                const visitSearchResult = pp.event(function visitSearchResult(href) {setQuery(""); pp.redirect(href);});
+                const visitSearchResult = pp.event(function visitSearchResult(href) {setQuery(""); setSuggestionsOpen(false); pp.redirect(href);});
                 function handleGlobalSearchKey(event) {
                     if (event.isComposing) return;
-                    if (event.key === "Escape") {event.preventDefault(); setQuery("");}
-                    else if (event.key === "Enter" && searchResults.length && query.trim()) {
-                        event.preventDefault(); visitSearchResult(searchResults[0].href);
+                    if (event.key === "Escape") {event.preventDefault(); clearGlobalSearch();}
+                    else if (event.key === 'ArrowDown' && query.trim() && !searchView) {event.preventDefault(); searchSubmit.current?.focus();}
+                    else if (event.key === "Enter" && query.trim()) {
+                        event.preventDefault(); submitGlobalSearch();
                     }
                 }
                 const [paneOpen, setPaneOpen] = pp.state(true);
@@ -532,6 +869,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 }
 
                 function goBack() {
+                    if (searchView) {clearGlobalSearch(); return;}
                     window.history.back();
                 }
 
