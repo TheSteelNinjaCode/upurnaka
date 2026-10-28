@@ -431,6 +431,9 @@
   .bottom-1 {
     bottom: var(--spacing);
   }
+  .bottom-2 {
+    bottom: calc(var(--spacing) * 2);
+  }
   .bottom-2\.5 {
     bottom: calc(var(--spacing) * 2.5);
   }
@@ -1092,6 +1095,9 @@
   .max-h-\(--radix-dropdown-menu-content-available-height\) {
     max-height: var(--radix-dropdown-menu-content-available-height);
   }
+  .max-h-52 {
+    max-height: calc(var(--spacing) * 52);
+  }
   .max-h-96 {
     max-height: calc(var(--spacing) * 96);
   }
@@ -1296,6 +1302,9 @@
   .w-\[360px\]\! {
     width: 360px !important;
   }
+  .w-\[400px\] {
+    width: 400px;
+  }
   .w-\[420px\] {
     width: 420px;
   }
@@ -1406,6 +1415,12 @@
   }
   .max-w-\[calc\(100vw-16px\)\] {
     max-width: calc(100vw - 16px);
+  }
+  .max-w-\[calc\(100vw-24px\)\] {
+    max-width: calc(100vw - 24px);
+  }
+  .max-w-\[calc\(100vw-32px\)\] {
+    max-width: calc(100vw - 32px);
   }
   .max-w-\[calc\(100vw-100px\)\] {
     max-width: calc(100vw - 100px);
@@ -1731,6 +1746,9 @@
   .gap-6 {
     gap: calc(var(--spacing) * 6);
   }
+  .gap-7 {
+    gap: calc(var(--spacing) * 7);
+  }
   .gap-12 {
     gap: calc(var(--spacing) * 12);
   }
@@ -1753,6 +1771,11 @@
     --tw-space-y-reverse: 0;
     margin-block-start: calc(calc(var(--spacing) * 2) * var(--tw-space-y-reverse));
     margin-block-end: calc(calc(var(--spacing) * 2) * calc(1 - var(--tw-space-y-reverse)));
+  }
+  :where(.space-y-3 > :not(:last-child)) {
+    --tw-space-y-reverse: 0;
+    margin-block-start: calc(calc(var(--spacing) * 3) * var(--tw-space-y-reverse));
+    margin-block-end: calc(calc(var(--spacing) * 3) * calc(1 - var(--tw-space-y-reverse)));
   }
   :where(.space-y-4 > :not(:last-child)) {
     --tw-space-y-reverse: 0;
@@ -3270,6 +3293,9 @@
   }
   .underline-offset-4 {
     text-underline-offset: 4px;
+  }
+  .accent-brand-ink {
+    accent-color: var(--color-brand-ink);
   }
   .opacity-0 {
     opacity: 0%;
@@ -5118,6 +5144,9 @@
     }
     .sm\:max-w-\[380px\]\! {
       max-width: 380px !important;
+    }
+    .sm\:max-w-\[400px\] {
+      max-width: 400px;
     }
     .sm\:max-w-\[460px\]\! {
       max-width: 460px !important;

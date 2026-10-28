@@ -92,6 +92,7 @@ const PAGE_RPCS: &[&str] = &[
 /// rendered it.
 ///
 /// - `sign_out_account` — src/components/app_shell.rs
+/// - `message_search_dates` — src/components/app_shell.rs
 /// - `search_workspace` — src/components/app_shell.rs
 /// - `save_usage_survey` — src/components/app_shell.rs
 /// - `register_account` — src/components/auth_form.rs
@@ -263,7 +264,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/chat/files/{id}` [GET] — src/app/chat/files/[id]/route.rs
 ///
 /// Every page above also answers the component rpcs, because a
-/// component posts to the page it was rendered on: sign_out_account, search_workspace, save_usage_survey, register_account, start_signin, verify_signin, create_calendar_meeting_link.
+/// component posts to the page it was rendered on: sign_out_account, message_search_dates, search_workspace, save_usage_survey, register_account, start_signin, verify_signin, create_calendar_meeting_link.
 ///
 /// Anything the routes above do not claim falls through to `public/`.
 pub fn router() -> Router {

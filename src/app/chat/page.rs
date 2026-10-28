@@ -2192,9 +2192,20 @@ pub async fn page() -> Html {
                         }
                     });
                     pp.effect(() => {
-                        const rows = threads.flatMap(thread => thread.messages.map(message => ({key:'message:'+thread.id+':'+message.id,kind:'messages',title:message.text || (message.gif_url ? 'GIF' : message.attachments?.map(file=>file.name).join(', ') || 'Message'),text:message.text,subtitle:thread.label+' · '+message.time,initials:message.initials,threadId:thread.id,authorId:message.author_id,author:message.author,sentAt:message.sent_at,hasAttachments:!!message.attachments?.length,important:!!message.important})));
+                        const rows = threads.flatMap(thread => thread.messages.map(message => ({key:'message:'+thread.id+':'+message.id,kind:'messages',title:message.text || (message.gif_url ? 'GIF' : message.attachments?.map(file=>file.name).join(', ') || 'Message'),text:message.text,subtitle:thread.label+' · '+message.time,initials:message.initials,threadId:thread.id,authorId:message.author_id,author:message.author,sentAt:message.sent_at,hasAttachments:!!message.attachments?.length,mentionsMe:messageMentionsMe(message.text)})));
                         globalSearchStore?.publish('chat',rows,openGlobalSearchItem);
                     },[threads,globalSearchStore,openGlobalSearchItem]);
+                    function messageMentionsMe(value) {
+                        const text = String(value || '').toLocaleLowerCase();
+                        return [selfName,selfEmail,selfName.replace(/\s+/g,'')].filter(Boolean).some(name => {
+                            const handle = '@'+name.toLocaleLowerCase();
+                            let position = -1;
+                            while ((position = text.indexOf(handle,position+1)) !== -1) {
+                                if (!/[\p{L}\p{N}_@]/u.test(text[position-1] || '') && !/[\p{L}\p{N}_]/u.test(text[position+handle.length] || '')) return true;
+                            }
+                            return false;
+                        });
+                    }
                     pp.effect(() => {
                         const params = new URLSearchParams(location.search);
                         if (params.get('person') && params.get('name')) openGlobalSearchItem({kind:'people',id:params.get('person'),title:params.get('name').slice(0,80)});

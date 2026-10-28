@@ -58,6 +58,92 @@ pub struct SearchResponse {
     pub files: Vec<crate::chat_files::Attachment>,
 }
 
+#[derive(Serialize)]
+pub struct MessageSearchDates {
+    pub preset: String,
+    pub label: String,
+    pub from: String,
+    pub to: String,
+    pub start: i64,
+    pub end: i64,
+}
+
+/// Interpret calendar dates in the configured application timezone, including DST.
+#[rpc(auth)]
+pub fn message_search_dates(
+    preset: String,
+    from: Option<String>,
+    to: Option<String>,
+) -> Result<MessageSearchDates> {
+    use crate::rahti::time;
+    use chrono::{Datelike, Duration};
+    let mut validator = Validator::new();
+    validator.one_of(
+        "preset",
+        &preset.as_str(),
+        &["today", "yesterday", "week", "month", "custom"],
+    );
+    validator.finish()?;
+    let today = time::today();
+    let invalid = || {
+        crate::rahti::Error::new(
+            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+            "Choose valid From and To dates, with From on or before To.",
+        )
+    };
+    let (first, last, label) = match preset.as_str() {
+        "today" => (today, today, "Today".to_string()),
+        "yesterday" => {
+            let day = today
+                .checked_sub_signed(Duration::days(1))
+                .ok_or_else(invalid)?;
+            (day, day, "Yesterday".into())
+        }
+        "week" => (
+            today
+                .checked_sub_signed(Duration::days(
+                    today.weekday().num_days_from_monday().into(),
+                ))
+                .ok_or_else(invalid)?,
+            today,
+            "This week".into(),
+        ),
+        "month" => (
+            today.with_day(1).ok_or_else(invalid)?,
+            today,
+            "This month".into(),
+        ),
+        _ => {
+            let first = time::NaiveDate::parse_from_str(from.as_deref().unwrap_or(""), "%Y-%m-%d")
+                .map_err(|_| invalid())?;
+            let last = time::NaiveDate::parse_from_str(to.as_deref().unwrap_or(""), "%Y-%m-%d")
+                .map_err(|_| invalid())?;
+            if first > last {
+                return Err(invalid());
+            }
+            (
+                first,
+                last,
+                format!(
+                    "{} – {}",
+                    first.format("%b %-d, %Y"),
+                    last.format("%b %-d, %Y")
+                ),
+            )
+        }
+    };
+    let (start, _) = time::day_bounds_utc(first).map_err(|_| invalid())?;
+    let (_, end) = time::day_bounds_utc(last).map_err(|_| invalid())?;
+    Ok(MessageSearchDates {
+        preset,
+        label,
+        from: first.to_string(),
+        to: last.to_string(),
+        start: start.timestamp(),
+        end: end.timestamp(),
+    })
+}
+
 /// Search public directory names and the caller's own uploaded files only.
 #[rpc(auth)]
 pub async fn search_workspace(
@@ -530,9 +616,9 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             class="mx-auto flex h-10 w-full max-w-[760px] items-center gap-2"
                             hidden={searchTab !== "messages"}
                         >
-                            <DropdownMenu>
-                                <DropdownMenuTrigger
-                                    menu="search-from"
+                            <Popover>
+                                <PopoverTrigger
+                                    name="search-from"
                                     class="global-search-filter-trigger"
                                     attrs=@{labelled("Filter messages by sender")}
                                 >
@@ -540,101 +626,223 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                         {messageFilters.from === "all" ? "From" : "From: " + senderLabel(messageFilters.from)}
                                     </span>
                                     <Icon name="chevron-down" class="size-3" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    menu="search-from"
-                                    align="start"
-                                    class="w-60"
-                                    ontoggle={searchFilterToggled("from", event.newState)}
-                                >
-                                    <template pp-for="sender in messageSenders">
-                                        <DropdownMenuItem
-                                            key={sender.id}
-                                            onclick={setMessageFilter("from", sender.id)}
-                                        >
-                                            <span class="flex-1">{sender.label}</span>
-                                            <span hidden={messageFilters.from !== sender.id}>
-                                                <Icon name="check" class="size-4" />
-                                            </span>
-                                        </DropdownMenuItem>
-                                    </template>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger
-                                    menu="search-message-date"
-                                    class="global-search-filter-trigger"
-                                    attrs=@{labelled("Filter messages by date")}
-                                >
-                                    <span>
-                                        {messageFilters.date === "any" ? "Date" : dateLabel(messageFilters.date)}
-                                    </span>
-                                    <Icon name="chevron-down" class="size-3" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    menu="search-message-date"
-                                    align="start"
-                                    class="w-52"
-                                    ontoggle={searchFilterToggled("message-date", event.newState)}
-                                >
-                                    <template pp-for="option in searchDateOptions">
-                                        <DropdownMenuItem
-                                            key={option.id}
-                                            onclick={setMessageFilter("date", option.id)}
-                                        >
-                                            <span class="flex-1">{option.label}</span>
-                                            <span hidden={messageFilters.date !== option.id}>
-                                                <Icon name="check" class="size-4" />
-                                            </span>
-                                        </DropdownMenuItem>
-                                    </template>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            <Popover>
-                                <PopoverTrigger
-                                    name="search-message-more"
-                                    class="global-search-filter-trigger"
-                                    attrs=@{labelled("More message filters")}
-                                >
-                                    {messageFilters.attachments || messageFilters.important ? "More · " + (Number(messageFilters.attachments) + Number(messageFilters.important)) : "More"}
                                 </PopoverTrigger>
                                 <PopoverContent
-                                    name="search-message-more"
-                                    side="bottom"
+                                    name="search-from"
                                     align="start"
-                                    class="w-60 p-2"
-                                    attrs=@{named("More message filters")}
-                                    ontoggle={searchFilterToggled("more", event.newState)}
+                                    class="message-from-picker w-[350px] max-w-[calc(100vw-24px)] p-3"
+                                    ontoggle={searchFilterToggled("from", event.newState)}
                                 >
-                                    <label
-                                        class="flex cursor-pointer items-center gap-3 rounded px-3 py-2 text-[13px] hover:bg-hover"
+                                    <input
+                                        type="search"
+                                        class="message-filter-input w-full"
+                                        placeholder="Enter name, email or phone number"
+                                        aria-label="Find message sender"
+                                        value={senderQuery}
+                                        oninput={setSenderQuery(target.value)}
+                                        autocomplete="off"
+                                    />
+                                    <div
+                                        class="mt-2 max-h-52 overflow-y-auto"
+                                        hidden={!senderQuery.trim()}
                                     >
-                                        <input
-                                            type="checkbox"
-                                            checked={messageFilters.attachments}
-                                            onchange={setMessageFilter("attachments", target.checked)}
-                                        />
-                                        "Has attachments"
-                                    </label>
-                                    <label
-                                        class="flex cursor-pointer items-center gap-3 rounded px-3 py-2 text-[13px] hover:bg-hover"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={messageFilters.important}
-                                            onchange={setMessageFilter("important", target.checked)}
-                                        />
-                                        "Important"
-                                    </label>
+                                        <template pp-for="sender in filteredMessageSenders">
+                                            <button
+                                                type="button"
+                                                key={sender.id}
+                                                class="message-sender-option flex w-full items-center gap-2 rounded px-2 py-2 text-left text-[13px] hover:bg-hover"
+                                                onclick={chooseMessageSender(sender.id)}
+                                            >
+                                                <span class="flex-1">{sender.label}</span>
+                                                <span hidden={messageFilters.from !== sender.id}>
+                                                    <Icon name="check" class="size-4" />
+                                                </span>
+                                            </button>
+                                        </template>
+                                        <p
+                                            class="px-2 py-2 text-xs text-muted-foreground"
+                                            hidden={filteredMessageSenders.length > 0}
+                                        >
+                                            "No matching senders."
+                                        </p>
+                                    </div>
                                     <button
                                         type="button"
-                                        class="mt-1 w-full rounded px-3 py-2 text-left text-[13px] text-link hover:bg-hover"
-                                        onclick={resetMessageFilters()}
+                                        class="mt-2 rounded px-2 py-1 text-[13px] text-link hover:bg-hover"
+                                        hidden={messageFilters.from === "all"}
+                                        onclick={chooseMessageSender("all")}
                                     >
-                                        "Reset message filters"
+                                        "Clear sender"
+                                    </button>
+                                    <button
+                                        type="button"
+                                        hidden
+                                        popovertarget="popover-search-from"
+                                        popovertargetaction="hide"
+                                        pp-ref={messageFromCloser}
+                                    >
                                     </button>
                                 </PopoverContent>
                             </Popover>
+                            <Popover>
+                                <PopoverTrigger
+                                    name="search-message-date"
+                                    class="global-search-filter-trigger"
+                                    attrs=@{labelled("Filter messages by date")}
+                                    onclick={prepareMessageDates()}
+                                >
+                                    <span>{messageFilters.dateLabel}</span>
+                                    <Icon name="chevron-down" class="size-3" />
+                                </PopoverTrigger>
+                                <PopoverContent
+                                    name="search-message-date"
+                                    align="start"
+                                    class="message-date-picker w-[300px] max-w-[calc(100vw-24px)] p-0"
+                                    ontoggle={searchFilterToggled("message-date", event.newState)}
+                                >
+                                    <div class="px-4 pb-3 pt-4">
+                                        <h2 class="mb-1 text-[13px] font-semibold">"Date"</h2>
+                                        <template pp-for="option in messageDatePresets">
+                                            <button
+                                                type="button"
+                                                key={option.id}
+                                                class="message-date-preset block h-8 w-full rounded text-left text-[13px] hover:bg-hover"
+                                                onclick={applyMessageDates(option.id)}
+                                                disabled={messageDateBusy}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <div class="space-y-3 border-t border-line px-4 pb-3 pt-4">
+                                        <label class="message-date-field relative block text-xs">
+                                            "From"
+                                            <input
+                                                type="date"
+                                                class={messageDateFrom ? "message-filter-input mt-1 w-full" : "message-filter-input message-date-empty mt-1 w-full"}
+                                                aria-label="Message date from"
+                                                value={messageDateFrom}
+                                                oninput={changeMessageDateFrom(event)}
+                                                onchange={changeMessageDateFrom(event)}
+                                                max={messageDateTo || null}
+                                            />
+                                            <span
+                                                class="message-date-placeholder pointer-events-none absolute bottom-2 left-2 text-[13px]"
+                                                hidden={!!messageDateFrom}
+                                            >
+                                                "Select a Date"
+                                            </span>
+                                        </label>
+                                        <label class="block text-xs">
+                                            "To"
+                                            <input
+                                                type="date"
+                                                class="message-filter-input mt-1 w-full"
+                                                aria-label="Message date to"
+                                                value={messageDateTo}
+                                                oninput={changeMessageDateTo(event)}
+                                                onchange={changeMessageDateTo(event)}
+                                                min={messageDateFrom || null}
+                                            />
+                                        </label>
+                                        <p
+                                            class="text-xs text-danger-ink"
+                                            role="alert"
+                                            hidden={!messageDateError}
+                                        >
+                                            {messageDateError}
+                                        </p>
+                                        <div class="flex justify-end gap-3">
+                                            <button
+                                                type="button"
+                                                class="rounded px-3 py-1.5 text-[13px] hover:bg-hover disabled:opacity-40"
+                                                aria-label="Clear message date"
+                                                onclick={clearMessageDates()}
+                                                disabled={messageFilters.date === "any" && !messageDateFrom}
+                                            >
+                                                "Clear"
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="rounded bg-sunken px-6 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+                                                aria-label="Apply message date"
+                                                onclick={applyMessageDates("custom")}
+                                                disabled={!messageDateRangeValid || messageDateBusy}
+                                            >
+                                                "Apply"
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        hidden
+                                        popovertarget="popover-search-message-date"
+                                        popovertargetaction="hide"
+                                        pp-ref={messageDateCloser}
+                                    >
+                                    </button>
+                                </PopoverContent>
+                            </Popover>
+                            <Dialog>
+                                <DialogTrigger
+                                    class="global-search-filter-trigger"
+                                    attrs=@{labelled("More message filters")}
+                                    onclick={prepareMoreMessageFilters()}
+                                >
+                                    {messageFilters.attachments || messageFilters.mentions ? "More · " + (Number(messageFilters.attachments) + Number(messageFilters.mentions)) : "More"}
+                                </DialogTrigger>
+                                <DialogContent
+                                    class="message-more-dialog w-[400px] max-w-[calc(100vw-32px)] gap-7 rounded-sm p-8 sm:max-w-[400px]"
+                                    onclose={setMoreMessageFiltersOpen(false)}
+                                >
+                                    <DialogHeader>
+                                        <DialogTitle class="text-lg">"More filters"</DialogTitle>
+                                    </DialogHeader>
+                                    <div
+                                        class="grid grid-cols-2 gap-4 text-[13px] text-muted-foreground"
+                                    >
+                                        <label class="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                class="size-4 accent-brand-ink"
+                                                aria-label="Mentions me"
+                                                checked={moreMentionsDraft}
+                                                onchange={setMoreMentionsDraft(target.checked)}
+                                            />
+                                            "@mentions me"
+                                        </label>
+                                        <label class="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                class="size-4 accent-brand-ink"
+                                                aria-label="Has attachment"
+                                                checked={moreAttachmentsDraft}
+                                                onchange={setMoreAttachmentsDraft(target.checked)}
+                                            />
+                                            "Has attachment"
+                                        </label>
+                                    </div>
+                                    <DialogFooter class="mt-2 gap-2">
+                                        <button
+                                            type="button"
+                                            class="h-8 w-24 rounded-sm border border-edge text-[13px] disabled:opacity-40"
+                                            aria-label="Clear message filters"
+                                            onclick={clearMoreMessageDraft()}
+                                            disabled={!moreMentionsDraft && !moreAttachmentsDraft}
+                                        >
+                                            "Clear"
+                                        </button>
+                                        <DialogClose
+                                            class="h-8 w-24 rounded-sm border border-edge text-[13px] disabled:opacity-40"
+                                            attrs=@{named("Apply message filters")}
+                                            onclick={applyMoreMessageFilters()}
+                                            disabled={moreMentionsDraft === messageFilters.mentions && moreAttachmentsDraft === messageFilters.attachments}
+                                        >
+                                            "Apply"
+                                        </DialogClose>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                             <button
                                 type="button"
                                 class="global-search-filter-trigger text-link"
@@ -955,6 +1163,15 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 .dark .global-search-tab { background:#141414; color:#f5f5f5; }
                 .dark .global-search-tab:hover { background:#2f2f2f; }
                 .dark .global-search-tab[aria-selected=true] { background:#3e3d6c; border-color:#deddea; color:#b7b6f5; }
+                .message-filter-input { height:34px; border:1px solid transparent; border-radius:3px; padding:0 8px; background:var(--color-sunken); font-size:13px; outline:none; }
+                .message-filter-input:focus-visible { border-color:var(--color-brand-ink); }
+                .dark :is(.message-from-picker, .message-date-picker, .message-more-dialog) { background:#292929; color:#f5f5f5; }
+                .dark .message-from-picker .message-filter-input { background:#141414; }
+                .dark .message-date-picker { border-color:#666; border-radius:3px; }
+                .dark .message-date-picker .message-filter-input { background:#202020; color-scheme:dark; }
+                .message-date-empty:not(:focus)::-webkit-datetime-edit { color:transparent; }
+                .message-date-field:focus-within .message-date-placeholder { display:none; }
+                .message-more-dialog > [data-slot=dialog-close] { top:24px; right:24px; }
             "##</style>
             <script>r##"
                 const ShortcutContext = window.UpurnakaShortcutContext ||= pp.createContext(null);
@@ -997,6 +1214,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 // the body has focus. Keep ordinary controls in their markup.
                 const handleGlobalKey = pp.event(event => {
                     if (event.defaultPrevented || event.isComposing) return;
+                    if (moreMessageFiltersOpen) return;
                     const control = (event.ctrlKey || event.metaKey) && !event.altKey;
                     const key = event.key.toLowerCase();
                     if (control && !event.shiftKey && (key === "." || event.code === "Period")) {
@@ -1045,12 +1263,26 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const [suggestionsOpen, setSuggestionsOpen] = pp.state(false);
                 const [searchView, setSearchView] = pp.state(false);
                 const [searchTab, setSearchTab] = pp.state('people');
-                const [messageFilters, setMessageFilters] = pp.state({from:'all',date:'any',attachments:false,important:false});
+                const [messageFilters, setMessageFilters] = pp.state({from:'all',date:'any',dateLabel:'Date',dateStart:null,dateEnd:null,dateFrom:'',dateTo:'',attachments:false,mentions:false});
+                const [senderQuery, setSenderQuery] = pp.state('');
+                const messageFromCloser = pp.ref(null);
+                const messageDateCloser = pp.ref(null);
+                const applicationToday = @{crate::rahti::time::today().to_string()};
+                const [messageDateFrom, setMessageDateFrom] = pp.state('');
+                const [messageDateTo, setMessageDateTo] = pp.state(applicationToday);
+                const [messageDateBusy, setMessageDateBusy] = pp.state(false);
+                const [messageDateError, setMessageDateError] = pp.state('');
+                const messageDateRangeValid = Boolean(messageDateFrom && messageDateTo && messageDateFrom <= messageDateTo);
+                const messageDateTicket = pp.ref(0);
+                const messageDatePresets = [{id:'today',label:'Today'},{id:'yesterday',label:'Yesterday'},{id:'week',label:'This week'},{id:'month',label:'This month'}];
+                const [moreMessageFiltersOpen, setMoreMessageFiltersOpen] = pp.state(false);
+                const [moreMentionsDraft, setMoreMentionsDraft] = pp.state(false);
+                const [moreAttachmentsDraft, setMoreAttachmentsDraft] = pp.state(false);
                 const [fileFilters, setFileFilters] = pp.state({type:'all',owner:'all',date:'any'});
                 const [openSearchFilters, setOpenSearchFilters] = pp.state({});
                 const searchDateOptions = [{id:'any',label:'Any time'},{id:'day',label:'Past 24 hours'},{id:'week',label:'Past 7 days'},{id:'month',label:'Past 30 days'}];
                 const searchFileTypes = [{id:'all',label:'All types'},{id:'images',label:'Images'},{id:'pdf',label:'PDF'},{id:'word',label:'Word'},{id:'excel',label:'Excel'},{id:'powerpoint',label:'PowerPoint'},{id:'text',label:'Text'}];
-                const messageFiltersActive = messageFilters.from !== 'all' || messageFilters.date !== 'any' || messageFilters.attachments || messageFilters.important;
+                const messageFiltersActive = messageFilters.from !== 'all' || messageFilters.date !== 'any' || messageFilters.attachments || messageFilters.mentions;
                 const fileFiltersActive = fileFilters.type !== 'all' || fileFilters.owner !== 'all' || fileFilters.date !== 'any';
                 const [remoteSearchRows, setRemoteSearchRows] = pp.state([]);
                 const [remoteSearchLoading, setRemoteSearchLoading] = pp.state(false);
@@ -1074,23 +1306,51 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const workspaceSearchError = ['people','files'].includes(searchTab) ? remoteSearchError : '';
                 const localRows = Object.values(localSearchItems).flat().filter(row => (row.title+' '+(row.subtitle || '')).toLocaleLowerCase().includes(searchTerm));
                 const messageSenders = [{id:'all',label:'Anyone'},...Array.from(new Map(Object.values(localSearchItems).flat().filter(row=>row.kind === 'messages' && row.authorId).map(row=>[row.authorId,{id:row.authorId,label:row.authorId === @{user.id.as_str()} ? 'You' : row.author}])).values())];
+                const filteredMessageSenders = messageSenders.filter(sender=>sender.id !== 'all' && (sender.label+' '+(sender.id === @{user.id.as_str()} ? @{user.name.as_str()}+' '+@{user.email.as_str()} : '')).toLocaleLowerCase().includes(senderQuery.trim().toLocaleLowerCase()));
                 const visibleSearchRows = [...remoteSearchRows,...localRows].filter(row => {
                     if (row.kind !== searchTab) return false;
-                    if (row.kind === 'messages') return (messageFilters.from === 'all' || row.authorId === messageFilters.from) && matchesSearchDate(row.sentAt,messageFilters.date) && (!messageFilters.attachments || row.hasAttachments) && (!messageFilters.important || row.important);
+                    if (row.kind === 'messages') return (messageFilters.from === 'all' || row.authorId === messageFilters.from) && (messageFilters.dateStart === null || (row.sentAt >= messageFilters.dateStart && row.sentAt < messageFilters.dateEnd)) && (!messageFilters.attachments || row.hasAttachments) && (!messageFilters.mentions || row.mentionsMe);
                     if (row.kind === 'files') return fileFilters.owner === 'all' || row.owner === 'self';
                     return true;
                 });
-                function matchesSearchDate(timestamp,period) {const days={day:1,week:7,month:30}[period]; return !days || (Number.isFinite(timestamp) && timestamp >= Date.now()/1000-days*86400);}
                 function senderLabel(id) {return messageSenders.find(sender=>sender.id===id)?.label || 'Selected person';}
                 function dateLabel(id) {return searchDateOptions.find(option=>option.id===id)?.label || 'Date';}
                 function fileTypeLabel(id) {return searchFileTypes.find(option=>option.id===id)?.label || 'File Type';}
                 function searchFilterToggled(id,state) {setOpenSearchFilters(previous=>({...previous,[id]:state==='open'}));}
                 function setMessageFilter(key,value) {setMessageFilters(previous=>({...previous,[key]:value}));}
+                function chooseMessageSender(id) {setMessageFilter('from',id); setSenderQuery(''); messageFromCloser.current?.click();}
+                function prepareMessageDates() {setMessageDateFrom(messageFilters.dateFrom); setMessageDateTo(messageFilters.dateTo || applicationToday); setMessageDateError('');}
+                function changeMessageDateFrom(event) {setMessageDateFrom(event.currentTarget.value); setMessageDateError('');}
+                function changeMessageDateTo(event) {setMessageDateTo(event.currentTarget.value); setMessageDateError('');}
+                const applyMessageDates = pp.event(async preset => {
+                    if (messageDateBusy) return;
+                    const ticket = ++messageDateTicket.current;
+                    setMessageDateBusy(true); setMessageDateError('');
+                    try {
+                        const range = await pp.rpc('message_search_dates',{preset,from:messageDateFrom || null,to:messageDateTo || null});
+                        if (ticket !== messageDateTicket.current) return;
+                        setMessageFilters(previous=>({...previous,date:range.preset,dateLabel:range.label,dateStart:range.start,dateEnd:range.end,dateFrom:range.from,dateTo:range.to}));
+                        messageDateCloser.current?.click();
+                    } catch (failure) {if (ticket === messageDateTicket.current) setMessageDateError(failure.message || 'The date filter could not be applied.');}
+                    finally {if (ticket === messageDateTicket.current) setMessageDateBusy(false);}
+                });
+                function clearMessageDates() {
+                    messageDateTicket.current++; setMessageDateBusy(false); setMessageDateError('');
+                    setMessageDateFrom(''); setMessageDateTo(applicationToday);
+                    setMessageFilters(previous=>({...previous,date:'any',dateLabel:'Date',dateStart:null,dateEnd:null,dateFrom:'',dateTo:''}));
+                    messageDateCloser.current?.click();
+                }
+                function prepareMoreMessageFilters() {setMoreMentionsDraft(messageFilters.mentions); setMoreAttachmentsDraft(messageFilters.attachments); setMoreMessageFiltersOpen(true);}
+                function clearMoreMessageDraft() {setMoreMentionsDraft(false); setMoreAttachmentsDraft(false);}
+                function applyMoreMessageFilters() {setMessageFilters(previous=>({...previous,mentions:moreMentionsDraft,attachments:moreAttachmentsDraft}));}
                 function setFileFilter(key,value) {
                     setFileFilters(previous=>({...previous,[key]:value}));
                     if (key !== 'owner') {setRemoteSearchLoading(true); setRemoteSearchRows(previous=>previous.filter(row=>row.kind!=='files'));}
                 }
-                function resetMessageFilters() {setMessageFilters({from:'all',date:'any',attachments:false,important:false});}
+                function resetMessageFilters() {
+                    messageDateTicket.current++; setMessageDateBusy(false); setMessageDateError(''); setSenderQuery('');
+                    setMessageFilters({from:'all',date:'any',dateLabel:'Date',dateStart:null,dateEnd:null,dateFrom:'',dateTo:'',attachments:false,mentions:false});
+                }
                 function resetFileFilters() {setFileFilters({type:'all',owner:'all',date:'any'});}
                 function changeGlobalQuery(value) {
                     setQuery(value); setSuggestionsOpen(true);

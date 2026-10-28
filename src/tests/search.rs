@@ -2,6 +2,79 @@ use super::*;
 use rahti::serde_json::{Value, json};
 
 #[tokio::test]
+async fn message_search_calendar_presets_and_custom_ranges_are_validated() {
+    use crate::rahti::time;
+    use chrono::{Datelike, Duration};
+    for preset in ["today", "yesterday", "week", "month"] {
+        let (status, body) = rpc(
+            "/chat",
+            "message_search_dates",
+            &json!({"preset":preset}).to_string(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let range: Value = rahti::serde_json::from_str(&body).unwrap();
+        let today = time::today();
+        let first = match preset {
+            "yesterday" => today - Duration::days(1),
+            "week" => today - Duration::days(today.weekday().num_days_from_monday().into()),
+            "month" => today.with_day(1).unwrap(),
+            _ => today,
+        };
+        let last = if preset == "yesterday" { first } else { today };
+        assert_eq!(
+            range["start"],
+            time::day_bounds_utc(first).unwrap().0.timestamp()
+        );
+        assert_eq!(
+            range["end"],
+            time::day_bounds_utc(last).unwrap().1.timestamp()
+        );
+    }
+    let (status, body) = rpc(
+        "/chat",
+        "message_search_dates",
+        r#"{"preset":"custom","from":"2026-03-08","to":"2026-03-09"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let range: Value = rahti::serde_json::from_str(&body).unwrap();
+    assert_eq!(range["from"], "2026-03-08");
+    assert_eq!(range["to"], "2026-03-09");
+    assert_eq!(
+        range["end"],
+        time::day_bounds_utc(time::NaiveDate::from_ymd_opt(2026, 3, 9).unwrap())
+            .unwrap()
+            .1
+            .timestamp()
+    );
+    for payload in [
+        json!({"preset":"custom","from":"invalid","to":"2026-03-09"}),
+        json!({"preset":"custom","from":"2026-03-10","to":"2026-03-09"}),
+        json!({"preset":"custom"}),
+        json!({"preset":"last-century"}),
+    ] {
+        assert_eq!(
+            rpc("/chat", "message_search_dates", &payload.to_string())
+                .await
+                .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    let mut anonymous = super::auth::Client::new().await;
+    assert_eq!(
+        anonymous
+            .request(
+                "/signin",
+                Some(("message_search_dates", json!({"preset":"today"})))
+            )
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+#[tokio::test]
 async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
@@ -36,9 +109,12 @@ async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
         .click("textarea[aria-label='Type a message']")
         .await
         .unwrap();
-    browser.type_text("filter message important").await.unwrap();
+    browser
+        .type_text("filter message @Jefferson Abraham")
+        .await
+        .unwrap();
     browser.press("Enter").await.unwrap();
-    browser.wait_for("document.querySelector('textarea').value === '' && document.querySelector('[aria-label=Messages]').textContent.includes('filter message important')").await.unwrap();
+    browser.wait_for("document.querySelector('textarea').value === '' && document.querySelector('[aria-label=Messages]').textContent.includes('filter message @Jefferson Abraham')").await.unwrap();
     browser.click("input[aria-label=Search]").await.unwrap();
     browser.type_text("filter message").await.unwrap();
     browser.press("Enter").await.unwrap();
@@ -54,15 +130,89 @@ async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
         .await
         .unwrap();
     browser
-        .click("#dropdown-menu-search-from [role=menuitem]:nth-child(2)")
+        .wait_for("document.activeElement.getAttribute('aria-label') === 'Find message sender'")
         .await
         .unwrap();
+    browser.type_text("fixture@example.com").await.unwrap();
+    browser.click(".message-sender-option").await.unwrap();
+    browser
+        .click("button[aria-label='Filter messages by date']")
+        .await
+        .unwrap();
+    browser.click(".message-date-preset").await.unwrap();
+    browser.wait_for("!document.querySelector('.message-date-picker').matches(':popover-open') && document.querySelector('button[aria-label=\"Filter messages by date\"]').textContent.includes('Today')").await.unwrap();
+    browser
+        .click("button[aria-label='Filter messages by date']")
+        .await
+        .unwrap();
+    // Exercise the native date field with trusted keyboard input. Its min/max
+    // constraints prevent choosing an inverted range; the RPC also checks it.
+    let previous_date: String = browser
+        .eval("document.querySelector('input[aria-label=\"Message date to\"]').value")
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Message date to']")
+        .await
+        .unwrap();
+    browser.press("ArrowUp").await.unwrap();
+    browser.press("Tab").await.unwrap();
+    assert_ne!(
+        browser
+            .eval::<String>("document.querySelector('input[aria-label=\"Message date to\"]').value")
+            .await
+            .unwrap(),
+        previous_date,
+        "native date entry must change the selected date"
+    );
+    browser.wait_for("document.querySelector('input[aria-label=\"Message date from\"]').max === document.querySelector('input[aria-label=\"Message date to\"]').value && !document.querySelector('button[aria-label=\"Apply message date\"]').disabled").await.unwrap();
+    browser
+        .click("button[aria-label='Apply message date']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.message-date-picker').matches(':popover-open') && document.querySelectorAll('.global-search-card').length === 2").await.unwrap();
     browser
         .click("button[aria-label='Filter messages by date']")
         .await
         .unwrap();
     browser
-        .click("#dropdown-menu-search-message-date [role=menuitem]:nth-child(2)")
+        .click("button[aria-label='Clear message date']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.message-date-picker').matches(':popover-open') && document.querySelector('button[aria-label=\"Filter messages by date\"]').textContent.trim() === 'Date'").await.unwrap();
+    browser
+        .click("button[aria-label='More message filters']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.message-more-dialog').open && document.querySelector('button[aria-label=\"Apply message filters\"]').disabled").await.unwrap();
+    browser
+        .click("input[aria-label='Has attachment']")
+        .await
+        .unwrap();
+    assert_eq!(
+        browser
+            .eval::<usize>("document.querySelectorAll('.global-search-card').length")
+            .await
+            .unwrap(),
+        2,
+        "draft filters must wait for Apply"
+    );
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("!document.querySelector('.message-more-dialog').open && !document.querySelector('.global-search-view').hidden").await.unwrap();
+    browser
+        .click("button[aria-label='More message filters']")
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Has attachment']")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Apply message filters']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelectorAll('.global-search-card').length === 0")
         .await
         .unwrap();
     browser
@@ -70,22 +220,18 @@ async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
         .await
         .unwrap();
     browser
-        .click("#popover-search-message-more label:nth-of-type(1) input")
+        .click("button[aria-label='Clear message filters']")
         .await
         .unwrap();
     browser
-        .wait_for("document.querySelectorAll('.global-search-card').length === 0")
+        .click("input[aria-label='Mentions me']")
         .await
         .unwrap();
-    // The More panel has two labelled checkboxes; reset before selecting Important.
-    let _: bool = browser.eval("Array.from(document.querySelectorAll('#popover-search-message-more button')).find(button=>button.textContent.trim()==='Reset message filters').click(); true").await.unwrap();
     browser
-        .click("#popover-search-message-more label:nth-of-type(2) input")
+        .click("button[aria-label='Apply message filters']")
         .await
         .unwrap();
-    browser.wait_for("document.querySelectorAll('.global-search-card').length === 1 && document.querySelector('.global-search-card').textContent.includes('filter message important')").await.unwrap();
-    browser.press("Escape").await.unwrap();
-    browser.wait_for("!document.querySelector('#popover-search-message-more').matches(':popover-open') && !document.querySelector('.global-search-view').hidden").await.unwrap();
+    browser.wait_for("document.querySelectorAll('.global-search-card').length === 1 && document.querySelector('.global-search-card').textContent.includes('@Jefferson Abraham') && !document.querySelector('.message-more-dialog').open").await.unwrap();
     browser.click("input[aria-label=Search]").await.unwrap();
     browser.press("Enter").await.unwrap();
     browser.wait_for("document.querySelector('#global-search-tab-messages').getAttribute('aria-selected') === 'true' && document.querySelectorAll('.global-search-card').length === 1").await.unwrap();
