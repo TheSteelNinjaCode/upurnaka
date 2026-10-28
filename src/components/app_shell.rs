@@ -150,6 +150,8 @@ pub async fn search_workspace(
     query: String,
     file_type: Option<String>,
     file_date: Option<String>,
+    file_from: Option<String>,
+    file_to: Option<String>,
 ) -> Result<SearchResponse> {
     use crate::models::{account, chat_file};
     use sea_orm::{
@@ -174,12 +176,22 @@ pub async fn search_workspace(
                 "excel",
                 "powerpoint",
                 "text",
+                "loop",
+                "onenote",
             ],
         )
         .one_of(
             "file_date",
             &file_date.as_str(),
-            &["any", "day", "week", "month"],
+            &[
+                "any",
+                "day",
+                "today",
+                "yesterday",
+                "week",
+                "month",
+                "custom",
+            ],
         );
     validator.finish()?;
     crate::auth::ready()?;
@@ -241,6 +253,8 @@ pub async fn search_workspace(
             "word" => &["doc", "docx", "odt", "rtf"],
             "excel" => &["xls", "xlsx", "ods", "csv"],
             "powerpoint" => &["ppt", "pptx", "odp"],
+            "loop" => &["loop", "fluid"],
+            "onenote" => &["one", "onepkg", "onetoc2"],
             _ => &["txt", "md", "log"],
         };
         let mut types = Condition::any();
@@ -258,17 +272,15 @@ pub async fn search_workspace(
         }
         file_query = file_query.filter(types);
     }
-    let days = match file_date.as_str() {
-        "day" => 1,
-        "week" => 7,
-        "month" => 30,
-        _ => 0,
-    };
-    if days > 0 {
+    if file_date == "day" {
         file_query = file_query.filter(
-            chat_file::Column::CreatedAt
-                .gte(crate::rahti::time::Utc::now().timestamp() - days * 86400),
+            chat_file::Column::CreatedAt.gte(crate::rahti::time::Utc::now().timestamp() - 86400),
         );
+    } else if file_date != "any" {
+        let range = message_search_dates(file_date, file_from, file_to)?;
+        file_query = file_query
+            .filter(chat_file::Column::CreatedAt.gte(range.start))
+            .filter(chat_file::Column::CreatedAt.lt(range.end));
     }
     let files = file_query
         .order_by_desc(chat_file::Column::CreatedAt)
@@ -870,14 +882,58 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                 <DropdownMenuContent
                                     menu="search-file-type"
                                     align="start"
-                                    class="w-52"
+                                    class="search-file-type-menu w-40 rounded-sm border-0 p-1"
                                     ontoggle={searchFilterToggled("file-type", event.newState)}
                                 >
                                     <template pp-for="option in searchFileTypes">
                                         <DropdownMenuItem
                                             key={option.id}
-                                            onclick={setFileFilter("type", option.id)}
+                                            class="search-file-type-option gap-2"
+                                            onclick={setFileFilter("type", fileFilters.type === option.id ? "all" : option.id)}
                                         >
+                                            <span
+                                                class="flex size-4 shrink-0 items-center justify-center"
+                                                aria-hidden="true"
+                                                pp-style={"--file-kind-color: " + option.color}
+                                            >
+                                                <span hidden={option.id !== "images"}>
+                                                    <Icon name="image" class="size-3.5" />
+                                                </span>
+                                                <svg
+                                                    hidden={option.id === "images"}
+                                                    class="size-4"
+                                                    viewBox="0 0 20 20"
+                                                    fill="none"
+                                                >
+                                                    <path d="M6 2h8l4 4v12H6V2Z" fill="#f5f5f5" />
+                                                    <path d="M14 2v5h4" fill="#bdbdbd" />
+                                                    <path
+                                                        d="M9 9h6M9 12h6M9 15h6"
+                                                        stroke="var(--file-kind-color)"
+                                                        stroke-width="1"
+                                                    />
+                                                    <rect
+                                                        class="file-kind-badge"
+                                                        x="1"
+                                                        y="7"
+                                                        width="11"
+                                                        height="11"
+                                                        rx="1"
+                                                        fill="var(--file-kind-color)"
+                                                    />
+                                                    <text
+                                                        x="6.5"
+                                                        y="15.3"
+                                                        text-anchor="middle"
+                                                        fill="white"
+                                                        font-family="Arial,sans-serif"
+                                                        pp-style={option.id === "pdf" ? "font-size:4.5px" : "font-size:8px"}
+                                                        font-weight="700"
+                                                    >
+                                                        {option.glyph}
+                                                    </text>
+                                                </svg>
+                                            </span>
                                             <span class="flex-1">{option.label}</span>
                                             <span hidden={fileFilters.type !== option.id}>
                                                 <Icon name="check" class="size-4" />
@@ -886,9 +942,9 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                     </template>
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger
-                                    menu="search-file-owner"
+                            <Popover>
+                                <PopoverTrigger
+                                    name="search-file-owner"
                                     class="global-search-filter-trigger"
                                     attrs=@{labelled("Filter files by sender")}
                                 >
@@ -896,57 +952,163 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                         {fileFilters.owner === "all" ? "Shared by" : "Shared by: You"}
                                     </span>
                                     <Icon name="chevron-down" class="size-3" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    menu="search-file-owner"
+                                </PopoverTrigger>
+                                <PopoverContent
+                                    name="search-file-owner"
                                     align="start"
-                                    class="w-52"
+                                    class="message-from-picker file-owner-picker w-[350px] max-w-[calc(100vw-24px)] px-3 py-4"
                                     ontoggle={searchFilterToggled("file-owner", event.newState)}
                                 >
-                                    <DropdownMenuItem onclick={setFileFilter("owner", "all")}>
-                                        <span class="flex-1">"Anyone"</span>
-                                        <span hidden={fileFilters.owner !== "all"}>
-                                            <Icon name="check" class="size-4" />
-                                        </span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onclick={setFileFilter("owner", "self")}>
-                                        <span class="flex-1">"You"</span>
-                                        <span hidden={fileFilters.owner !== "self"}>
-                                            <Icon name="check" class="size-4" />
-                                        </span>
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger
-                                    menu="search-file-date"
-                                    class="global-search-filter-trigger"
-                                    attrs=@{labelled("Filter files by date")}
-                                >
-                                    <span>
-                                        {fileFilters.date === "any" ? "Date" : dateLabel(fileFilters.date)}
-                                    </span>
-                                    <Icon name="chevron-down" class="size-3" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    menu="search-file-date"
-                                    align="start"
-                                    class="w-52"
-                                    ontoggle={searchFilterToggled("file-date", event.newState)}
-                                >
-                                    <template pp-for="option in searchDateOptions">
-                                        <DropdownMenuItem
-                                            key={option.id}
-                                            onclick={setFileFilter("date", option.id)}
+                                    <input
+                                        type="search"
+                                        class="message-filter-input w-full"
+                                        placeholder="Enter name, email or phone number"
+                                        aria-label="Find file sender"
+                                        autocomplete="off"
+                                        value={fileOwnerQuery}
+                                        oninput={setFileOwnerQuery(target.value)}
+                                    />
+                                    <div class="mt-2" hidden={!fileOwnerQuery.trim()}>
+                                        <button
+                                            type="button"
+                                            class="file-owner-option flex w-full items-center justify-between rounded px-2 py-2 text-left text-[13px] hover:bg-hover"
+                                            hidden={!fileOwnerMatches}
+                                            onclick={chooseFileOwner("self")}
                                         >
-                                            <span class="flex-1">{option.label}</span>
-                                            <span hidden={fileFilters.date !== option.id}>
+                                            "You"
+                                            <span hidden={fileFilters.owner !== "self"}>
                                                 <Icon name="check" class="size-4" />
                                             </span>
-                                        </DropdownMenuItem>
-                                    </template>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                        </button>
+                                        <p
+                                            class="px-2 py-2 text-xs text-muted-foreground"
+                                            hidden={fileOwnerMatches}
+                                        >
+                                            "No matching people."
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="mt-2 rounded px-2 py-1 text-[13px] text-link hover:bg-hover"
+                                        hidden={fileFilters.owner === "all"}
+                                        onclick={chooseFileOwner("all")}
+                                    >
+                                        "Clear sender"
+                                    </button>
+                                    <button
+                                        type="button"
+                                        hidden
+                                        popovertarget="popover-search-file-owner"
+                                        popovertargetaction="hide"
+                                        pp-ref={fileOwnerCloser}
+                                    >
+                                    </button>
+                                </PopoverContent>
+                            </Popover>
+                            <Popover>
+                                <PopoverTrigger
+                                    name="search-file-date"
+                                    class="global-search-filter-trigger"
+                                    attrs=@{labelled("Filter files by date")}
+                                    onclick={prepareFileDates()}
+                                >
+                                    <span>{fileFilters.dateLabel}</span>
+                                    <Icon name="chevron-down" class="size-3" />
+                                </PopoverTrigger>
+                                <PopoverContent
+                                    name="search-file-date"
+                                    align="start"
+                                    class="message-date-picker file-date-picker w-[300px] max-w-[calc(100vw-24px)] p-0"
+                                    ontoggle={searchFilterToggled("file-date", event.newState)}
+                                >
+                                    <div class="px-4 pb-3 pt-4">
+                                        <h2 class="mb-1 text-[13px] font-semibold">"Date"</h2>
+                                        <template pp-for="option in messageDatePresets">
+                                            <button
+                                                type="button"
+                                                key={option.id}
+                                                class="file-date-preset block h-8 w-full rounded text-left text-[13px] hover:bg-hover"
+                                                onclick={applyFileDates(option.id)}
+                                                disabled={fileDateBusy}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <div class="space-y-3 border-t border-line px-4 pb-3 pt-4">
+                                        <label class="message-date-field relative block text-xs">
+                                            "From"
+                                            <input
+                                                type="date"
+                                                class={fileDateFrom ? "message-filter-input mt-1 w-full" : "message-filter-input message-date-empty mt-1 w-full"}
+                                                aria-label="File date from"
+                                                value={fileDateFrom}
+                                                oninput={changeFileDateFrom(event)}
+                                                onchange={changeFileDateFrom(event)}
+                                                max={fileDateTo || null}
+                                            />
+                                            <span
+                                                class="message-date-placeholder pointer-events-none absolute bottom-2 left-2 text-[13px]"
+                                                hidden={!!fileDateFrom}
+                                            >
+                                                "Select a Date"
+                                            </span>
+                                        </label>
+                                        <label class="message-date-field relative block text-xs">
+                                            "To"
+                                            <input
+                                                type="date"
+                                                class="message-filter-input calendar-date-pretty mt-1 w-full"
+                                                aria-label="File date to"
+                                                value={fileDateTo}
+                                                oninput={changeFileDateTo(event)}
+                                                onchange={changeFileDateTo(event)}
+                                                min={fileDateFrom || null}
+                                            />
+                                            <span
+                                                class="calendar-date-display pointer-events-none absolute bottom-2 left-2 right-8 truncate text-[13px]"
+                                            >
+                                                {fileDateTo ? formatCalendarDate(fileDateTo) : "Select a Date"}
+                                            </span>
+                                        </label>
+                                        <p
+                                            class="text-xs text-danger-ink"
+                                            role="alert"
+                                            hidden={!fileDateError}
+                                        >
+                                            {fileDateError}
+                                        </p>
+                                        <div class="flex justify-end gap-3">
+                                            <button
+                                                type="button"
+                                                class="rounded px-3 py-1.5 text-[13px] hover:bg-hover disabled:opacity-40"
+                                                aria-label="Clear file date"
+                                                onclick={clearFileDates()}
+                                                disabled={fileFilters.date === "any" && !fileDateFrom}
+                                            >
+                                                "Clear"
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="rounded bg-sunken px-6 py-1.5 text-[13px] font-semibold disabled:opacity-40"
+                                                aria-label="Apply file date"
+                                                onclick={applyFileDates("custom")}
+                                                disabled={!fileDateRangeValid || fileDateBusy}
+                                            >
+                                                "Apply"
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        hidden
+                                        popovertarget="popover-search-file-date"
+                                        popovertargetaction="hide"
+                                        pp-ref={fileDateCloser}
+                                    >
+                                    </button>
+                                </PopoverContent>
+                            </Popover>
                             <button
                                 type="button"
                                 class="global-search-filter-trigger text-link"
@@ -1171,6 +1333,12 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 .dark .message-date-picker .message-filter-input { background:#202020; color-scheme:dark; }
                 .message-date-empty:not(:focus)::-webkit-datetime-edit { color:transparent; }
                 .message-date-field:focus-within .message-date-placeholder { display:none; }
+                .calendar-date-pretty:not(:focus)::-webkit-datetime-edit { color:transparent; }
+                .message-date-field:focus-within .calendar-date-display { display:none; }
+                .message-from-picker .message-filter-input:focus-visible { border-color:transparent; box-shadow:inset 0 -2px var(--color-brand-ink); }
+                .dark .search-file-type-menu { background:#292929; }
+                .search-file-type-option { min-height:38px; padding:8px 10px; font-size:13px; }
+                .dark .search-file-type-option:focus { background:#292929; outline:2px solid #f5f5f5; outline-offset:-2px; border-radius:3px; }
                 .message-more-dialog > [data-slot=dialog-close] { top:24px; right:24px; }
             "##</style>
             <script>r##"
@@ -1278,10 +1446,19 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const [moreMessageFiltersOpen, setMoreMessageFiltersOpen] = pp.state(false);
                 const [moreMentionsDraft, setMoreMentionsDraft] = pp.state(false);
                 const [moreAttachmentsDraft, setMoreAttachmentsDraft] = pp.state(false);
-                const [fileFilters, setFileFilters] = pp.state({type:'all',owner:'all',date:'any'});
+                const [fileFilters, setFileFilters] = pp.state({type:'all',owner:'all',date:'any',dateLabel:'Date',dateFrom:'',dateTo:''});
+                const [fileOwnerQuery, setFileOwnerQuery] = pp.state('');
+                const fileOwnerCloser = pp.ref(null);
+                const fileDateCloser = pp.ref(null);
+                const [fileDateFrom, setFileDateFrom] = pp.state('');
+                const [fileDateTo, setFileDateTo] = pp.state(applicationToday);
+                const [fileDateBusy, setFileDateBusy] = pp.state(false);
+                const [fileDateError, setFileDateError] = pp.state('');
+                const fileDateTicket = pp.ref(0);
+                const fileDateRangeValid = Boolean(fileDateFrom && fileDateTo && fileDateFrom <= fileDateTo);
+                const fileOwnerMatches = ('You '+@{user.name.as_str()}+' '+@{user.email.as_str()}).toLocaleLowerCase().includes(fileOwnerQuery.trim().toLocaleLowerCase());
                 const [openSearchFilters, setOpenSearchFilters] = pp.state({});
-                const searchDateOptions = [{id:'any',label:'Any time'},{id:'day',label:'Past 24 hours'},{id:'week',label:'Past 7 days'},{id:'month',label:'Past 30 days'}];
-                const searchFileTypes = [{id:'all',label:'All types'},{id:'images',label:'Images'},{id:'pdf',label:'PDF'},{id:'word',label:'Word'},{id:'excel',label:'Excel'},{id:'powerpoint',label:'PowerPoint'},{id:'text',label:'Text'}];
+                const searchFileTypes = [{id:'excel',label:'Excel',color:'#107c41',glyph:'X'},{id:'images',label:'Images',color:'#c8c8c8',glyph:''},{id:'loop',label:'Loop',color:'#8661c5',glyph:'L'},{id:'onenote',label:'OneNote',color:'#8033a5',glyph:'N'},{id:'pdf',label:'PDF',color:'#d44830',glyph:'PDF'},{id:'powerpoint',label:'PowerPoint',color:'#d35230',glyph:'P'},{id:'text',label:'Text file',color:'#747474',glyph:'T'},{id:'word',label:'Word',color:'#185abd',glyph:'W'}];
                 const messageFiltersActive = messageFilters.from !== 'all' || messageFilters.date !== 'any' || messageFilters.attachments || messageFilters.mentions;
                 const fileFiltersActive = fileFilters.type !== 'all' || fileFilters.owner !== 'all' || fileFilters.date !== 'any';
                 const [remoteSearchRows, setRemoteSearchRows] = pp.state([]);
@@ -1314,7 +1491,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     return true;
                 });
                 function senderLabel(id) {return messageSenders.find(sender=>sender.id===id)?.label || 'Selected person';}
-                function dateLabel(id) {return searchDateOptions.find(option=>option.id===id)?.label || 'Date';}
                 function fileTypeLabel(id) {return searchFileTypes.find(option=>option.id===id)?.label || 'File Type';}
                 function searchFilterToggled(id,state) {setOpenSearchFilters(previous=>({...previous,[id]:state==='open'}));}
                 function setMessageFilter(key,value) {setMessageFilters(previous=>({...previous,[key]:value}));}
@@ -1347,11 +1523,40 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     setFileFilters(previous=>({...previous,[key]:value}));
                     if (key !== 'owner') {setRemoteSearchLoading(true); setRemoteSearchRows(previous=>previous.filter(row=>row.kind!=='files'));}
                 }
+                function chooseFileOwner(owner) {setFileFilter('owner',owner); setFileOwnerQuery(''); fileOwnerCloser.current?.click();}
+                function formatCalendarDate(value) {
+                    try {return new Intl.DateTimeFormat(navigator.language,{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(value+'T12:00:00Z'));}
+                    catch (_) {return value;}
+                }
+                function prepareFileDates() {setFileDateFrom(fileFilters.dateFrom); setFileDateTo(fileFilters.dateTo || applicationToday); setFileDateError('');}
+                function changeFileDateFrom(event) {setFileDateFrom(event.currentTarget.value); setFileDateError('');}
+                function changeFileDateTo(event) {setFileDateTo(event.currentTarget.value); setFileDateError('');}
+                const applyFileDates = pp.event(async preset => {
+                    if (fileDateBusy) return;
+                    const ticket = ++fileDateTicket.current;
+                    setFileDateBusy(true); setFileDateError('');
+                    try {
+                        const range = await pp.rpc('message_search_dates',{preset,from:fileDateFrom || null,to:fileDateTo || null});
+                        if (ticket !== fileDateTicket.current) return;
+                        setFileFilters(previous=>({...previous,date:range.preset,dateLabel:range.label,dateFrom:range.from,dateTo:range.to}));
+                        setRemoteSearchLoading(true); setRemoteSearchRows(previous=>previous.filter(row=>row.kind!=='files'));
+                        fileDateCloser.current?.click();
+                    } catch (failure) {if (ticket === fileDateTicket.current) setFileDateError(failure.message || 'The date filter could not be applied.');}
+                    finally {if (ticket === fileDateTicket.current) setFileDateBusy(false);}
+                });
+                function clearFileDates() {
+                    fileDateTicket.current++; setFileDateBusy(false); setFileDateError(''); setFileDateFrom(''); setFileDateTo(applicationToday);
+                    setFileFilters(previous=>({...previous,date:'any',dateLabel:'Date',dateFrom:'',dateTo:''}));
+                    fileDateCloser.current?.click();
+                }
                 function resetMessageFilters() {
                     messageDateTicket.current++; setMessageDateBusy(false); setMessageDateError(''); setSenderQuery('');
                     setMessageFilters({from:'all',date:'any',dateLabel:'Date',dateStart:null,dateEnd:null,dateFrom:'',dateTo:'',attachments:false,mentions:false});
                 }
-                function resetFileFilters() {setFileFilters({type:'all',owner:'all',date:'any'});}
+                function resetFileFilters() {
+                    fileDateTicket.current++; setFileDateBusy(false); setFileDateError(''); setFileOwnerQuery('');
+                    setFileFilters({type:'all',owner:'all',date:'any',dateLabel:'Date',dateFrom:'',dateTo:''});
+                }
                 function changeGlobalQuery(value) {
                     setQuery(value); setSuggestionsOpen(true);
                     if (!value.trim()) {setSearchView(false); setRemoteSearchRows([]); setRemoteSearchError('');}
@@ -1386,7 +1591,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     setRemoteSearchLoading(true); setRemoteSearchRows([]); setRemoteSearchError('');
                     const timer = setTimeout(async () => {
                         try {
-                            const response = await pp.rpc('search_workspace',{query:searchTerm,file_type:fileFilters.type,file_date:fileFilters.date});
+                            const response = await pp.rpc('search_workspace',{query:searchTerm,file_type:fileFilters.type,file_date:fileFilters.date,file_from:fileFilters.dateFrom || null,file_to:fileFilters.dateTo || null});
                             if (!active) return;
                             const people = response.people.map(person => ({...person,key:'person:'+person.id,kind:'people',subtitle:person.is_self ? 'You' : ''}));
                             const files = response.files.map(file => ({key:'file:'+file.id,id:file.id,kind:'files',title:file.name,subtitle:file.uploaded,owner:'self'}));
@@ -1395,7 +1600,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         finally {if (active) setRemoteSearchLoading(false);}
                     },200);
                     return () => {active=false; clearTimeout(timer);};
-                },[searchView,searchTerm,searchRetry,fileFilters.type,fileFilters.date]);
+                },[searchView,searchTerm,searchRetry,fileFilters.type,fileFilters.date,fileFilters.dateFrom,fileFilters.dateTo]);
                 const openSearchRow = pp.event(row => {
                     setSearchView(false); setQuery(''); setSuggestionsOpen(false);
                     if (row.kind === 'files') {window.open('/chat/files/'+encodeURIComponent(row.id),'_blank','noopener,noreferrer'); return;}

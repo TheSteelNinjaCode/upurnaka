@@ -2,6 +2,159 @@ use super::*;
 use rahti::serde_json::{Value, json};
 
 #[tokio::test]
+async fn workspace_file_filters_match_teams_and_apply_calendar_ranges() {
+    use crate::models::chat_file;
+    use sea_orm::{ActiveModelTrait, Set};
+    setup().await;
+    for (id, owner, name, kind, at) in [
+        (
+            "teams-file-pdf",
+            "legacy-test-user",
+            "teams-file-report.pdf",
+            "application/pdf",
+            crate::rahti::time::Utc::now().timestamp(),
+        ),
+        (
+            "teams-file-excel",
+            "legacy-test-user",
+            "teams-file-budget.xlsx",
+            "application/octet-stream",
+            1,
+        ),
+        (
+            "teams-file-other",
+            "other-user",
+            "teams-file-private.pdf",
+            "application/pdf",
+            crate::rahti::time::Utc::now().timestamp(),
+        ),
+    ] {
+        chat_file::ActiveModel {
+            id: Set(id.into()),
+            owner_id: Set(owner.into()),
+            name: Set(name.into()),
+            content_type: Set(kind.into()),
+            bytes: Set(10),
+            file_id: Set("test-storage-object".into()),
+            file_key: Set("private-storage-key".into()),
+            created_at: Set(at),
+            folder_id: Set(None),
+        }
+        .insert(crate::db::db())
+        .await
+        .unwrap();
+    }
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser.click("input[aria-label=Search]").await.unwrap();
+    browser.type_text("teams-file").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.click("#global-search-tab-files").await.unwrap();
+    browser.wait_for("document.querySelectorAll('.global-search-card').length === 2 && document.querySelector('#global-search-panel').getAttribute('aria-busy') === 'false'").await.unwrap();
+    browser
+        .click("button[aria-label='Filter files by type']")
+        .await
+        .unwrap();
+    let labels: Vec<String> = browser.eval("Array.from(document.querySelectorAll('.search-file-type-option')).map(row=>row.querySelector('span.flex-1').textContent)").await.unwrap();
+    assert_eq!(
+        labels,
+        [
+            "Excel",
+            "Images",
+            "Loop",
+            "OneNote",
+            "PDF",
+            "PowerPoint",
+            "Text file",
+            "Word"
+        ]
+    );
+    assert_eq!(
+        browser
+            .eval::<String>("getComputedStyle(document.querySelector('.file-kind-badge')).fill")
+            .await
+            .unwrap(),
+        "rgb(16, 124, 65)"
+    );
+    browser
+        .click(".search-file-type-option:nth-child(5)")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelectorAll('.global-search-card').length === 1 && document.querySelector('.global-search-card').textContent.includes('teams-file-report.pdf') && document.querySelector('#global-search-panel').getAttribute('aria-busy') === 'false'").await.unwrap();
+    browser
+        .click("button[aria-label='Filter files by sender']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.activeElement.getAttribute('aria-label') === 'Find file sender'")
+        .await
+        .unwrap();
+    browser.type_text("fixture@example.com").await.unwrap();
+    browser.click(".file-owner-option").await.unwrap();
+    browser.wait_for("!document.querySelector('.file-owner-picker').matches(':popover-open') && document.querySelector('button[aria-label=\"Filter files by sender\"]').textContent.includes('You')").await.unwrap();
+    browser
+        .click("button[aria-label='Filter files by date']")
+        .await
+        .unwrap();
+    assert_eq!(browser.eval::<Vec<String>>("Array.from(document.querySelectorAll('.file-date-preset')).map(button=>button.textContent)").await.unwrap(),["Today","Yesterday","This week","This month"]);
+    assert!(browser.eval::<bool>("document.querySelector('button[aria-label=\"Apply file date\"]').disabled && document.querySelector('input[aria-label=\"File date from\"]').value === ''").await.unwrap());
+    browser
+        .click(".file-date-preset:nth-of-type(2)")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.file-date-picker').matches(':popover-open') && document.querySelector('#global-search-panel').getAttribute('aria-busy') === 'false' && document.querySelectorAll('.global-search-card').length === 0").await.unwrap();
+    browser
+        .click("button[aria-label='Filter files by date']")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Clear file date']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('#global-search-panel').getAttribute('aria-busy') === 'false' && document.querySelectorAll('.global-search-card').length === 1").await.unwrap();
+    browser
+        .click("button[aria-label='Filter files by date']")
+        .await
+        .unwrap();
+    browser.click(".file-date-preset").await.unwrap();
+    browser.wait_for("!document.querySelector('.file-date-picker').matches(':popover-open') && document.querySelector('#global-search-panel').getAttribute('aria-busy') === 'false'").await.unwrap();
+    browser
+        .click("button[aria-label='Filter files by date']")
+        .await
+        .unwrap();
+    let previous: String = browser
+        .eval("document.querySelector('input[aria-label=\"File date to\"]').value")
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='File date to']")
+        .await
+        .unwrap();
+    browser.press("ArrowUp").await.unwrap();
+    browser.press("Tab").await.unwrap();
+    assert_ne!(
+        browser
+            .eval::<String>("document.querySelector('input[aria-label=\"File date to\"]').value")
+            .await
+            .unwrap(),
+        previous
+    );
+    browser
+        .click("button[aria-label='Apply file date']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.file-date-picker').matches(':popover-open') && document.querySelector('#global-search-panel').getAttribute('aria-busy') === 'false' && document.querySelectorAll('.global-search-card').length === 1").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn message_search_calendar_presets_and_custom_ranges_are_validated() {
     use crate::rahti::time;
     use chrono::{Datelike, Duration};
@@ -241,7 +394,7 @@ async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
         .await
         .unwrap();
     browser
-        .click("#dropdown-menu-search-file-type [role=menuitem]:nth-child(3)")
+        .click("#dropdown-menu-search-file-type [role=menuitem]:nth-child(5)")
         .await
         .unwrap();
     browser.wait_for("document.querySelector('#global-search-panel').getAttribute('aria-busy') === 'false' && document.querySelector('button[aria-label=\"Filter files by type\"]').textContent.includes('PDF')").await.unwrap();
@@ -397,12 +550,37 @@ async fn workspace_search_limits_directory_fields_and_scopes_files() {
     .insert(crate::db::db())
     .await
     .unwrap();
+    for (id, name) in [
+        ("search-loop", "search-notes.loop"),
+        ("search-onenote", "search-notes.ONE"),
+    ] {
+        chat_file::ActiveModel {
+            id: Set(id.into()),
+            owner_id: Set(owner.id.clone()),
+            name: Set(name.into()),
+            content_type: Set("application/octet-stream".into()),
+            bytes: Set(10),
+            file_id: Set("test-storage-note".into()),
+            file_key: Set("private-storage-key".into()),
+            created_at: Set(crate::rahti::time::Utc::now().timestamp()),
+            folder_id: Set(None),
+        }
+        .insert(crate::db::db())
+        .await
+        .unwrap();
+    }
     for (kind, date, expected) in [
         ("pdf", "day", 1),
         ("pdf", "any", 1),
         ("text", "any", 2),
         ("text", "day", 0),
         ("images", "any", 0),
+        ("loop", "today", 1),
+        ("onenote", "today", 1),
+        ("pdf", "today", 1),
+        ("pdf", "yesterday", 0),
+        ("pdf", "week", 1),
+        ("pdf", "month", 1),
     ] {
         let (status, _, body) = client
             .request(
@@ -424,6 +602,8 @@ async fn workspace_search_limits_directory_fields_and_scopes_files() {
     for payload in [
         json!({"query":"search","file_type":"executable"}),
         json!({"query":"search","file_date":"forever"}),
+        json!({"query":"search","file_date":"custom","file_from":"invalid","file_to":"2026-10-28"}),
+        json!({"query":"search","file_date":"custom","file_from":"2026-10-29","file_to":"2026-10-28"}),
     ] {
         assert_eq!(
             client
