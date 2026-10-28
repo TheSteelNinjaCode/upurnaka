@@ -2192,7 +2192,7 @@ pub async fn page() -> Html {
                         }
                     });
                     pp.effect(() => {
-                        const rows = threads.flatMap(thread => thread.messages.map(message => ({key:'message:'+thread.id+':'+message.id,kind:'messages',title:message.text || (message.gif_url ? 'GIF' : message.attachments?.map(file=>file.name).join(', ') || 'Message'),text:message.text,subtitle:thread.label+' · '+message.time,initials:message.initials,threadId:thread.id})));
+                        const rows = threads.flatMap(thread => thread.messages.map(message => ({key:'message:'+thread.id+':'+message.id,kind:'messages',title:message.text || (message.gif_url ? 'GIF' : message.attachments?.map(file=>file.name).join(', ') || 'Message'),text:message.text,subtitle:thread.label+' · '+message.time,initials:message.initials,threadId:thread.id,authorId:message.author_id,author:message.author,sentAt:message.sent_at,hasAttachments:!!message.attachments?.length,important:!!message.important})));
                         globalSearchStore?.publish('chat',rows,openGlobalSearchItem);
                     },[threads,globalSearchStore,openGlobalSearchItem]);
                     pp.effect(() => {
@@ -2946,6 +2946,8 @@ pub struct Message {
     pub author: String,
     pub initials: String,
     pub time: String,
+    pub sent_at: i64,
+    pub author_id: String,
     pub text: String,
     pub gif_url: Option<String>,
     pub attachments: Vec<Attachment>,
@@ -3005,6 +3007,8 @@ pub async fn send_message(
         author: user.name,
         initials,
         time: now.format("%-I:%M %p").to_string(),
+        sent_at: now.timestamp(),
+        author_id: user.id,
         text,
         gif_url: gif_id.map(|id| format!("https://media.giphy.com/media/{id}/giphy.gif")),
         attachments,

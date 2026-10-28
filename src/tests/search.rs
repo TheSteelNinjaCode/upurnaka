@@ -2,6 +2,117 @@ use super::*;
 use rahti::serde_json::{Value, json};
 
 #[tokio::test]
+async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser
+        .click("textarea[aria-label='Type a message']")
+        .await
+        .unwrap();
+    browser.type_text("filter message ordinary").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("document.querySelector('textarea').value === '' && document.querySelector('[aria-label=Messages]').textContent.includes('filter message ordinary')").await.unwrap();
+    browser
+        .click("button[aria-label='More actions']")
+        .await
+        .unwrap();
+    browser
+        .click(".chat-compose-menu [role=menuitem]:nth-child(2)")
+        .await
+        .unwrap();
+    browser
+        .click(".chat-compose-menu [role=menuitem]:nth-child(4)")
+        .await
+        .unwrap();
+    browser
+        .click("textarea[aria-label='Type a message']")
+        .await
+        .unwrap();
+    browser.type_text("filter message important").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("document.querySelector('textarea').value === '' && document.querySelector('[aria-label=Messages]').textContent.includes('filter message important')").await.unwrap();
+    browser.click("input[aria-label=Search]").await.unwrap();
+    browser.type_text("filter message").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.click("#global-search-tab-messages").await.unwrap();
+    browser.wait_for("document.querySelectorAll('.global-search-card').length === 2 && !document.querySelector('.global-search-filters').hidden").await.unwrap();
+    let matches: bool = browser.eval("(() => {const header=document.querySelector('.global-search-header').getBoundingClientRect(); const row=document.querySelector('.global-search-filters').getBoundingClientRect();const tab=document.querySelector('#global-search-tab-messages');const style=getComputedStyle(tab);return header.height===60 && row.height===41 && row.top===header.bottom && style.borderColor==='rgb(222, 221, 234)' && style.backgroundColor==='rgb(62, 61, 108)';})()").await.unwrap();
+    assert!(
+        matches,
+        "search tabs and filter strip must match the Teams layout"
+    );
+    browser
+        .click("button[aria-label='Filter messages by sender']")
+        .await
+        .unwrap();
+    browser
+        .click("#dropdown-menu-search-from [role=menuitem]:nth-child(2)")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Filter messages by date']")
+        .await
+        .unwrap();
+    browser
+        .click("#dropdown-menu-search-message-date [role=menuitem]:nth-child(2)")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='More message filters']")
+        .await
+        .unwrap();
+    browser
+        .click("#popover-search-message-more label:nth-of-type(1) input")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelectorAll('.global-search-card').length === 0")
+        .await
+        .unwrap();
+    // The More panel has two labelled checkboxes; reset before selecting Important.
+    let _: bool = browser.eval("Array.from(document.querySelectorAll('#popover-search-message-more button')).find(button=>button.textContent.trim()==='Reset message filters').click(); true").await.unwrap();
+    browser
+        .click("#popover-search-message-more label:nth-of-type(2) input")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelectorAll('.global-search-card').length === 1 && document.querySelector('.global-search-card').textContent.includes('filter message important')").await.unwrap();
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("!document.querySelector('#popover-search-message-more').matches(':popover-open') && !document.querySelector('.global-search-view').hidden").await.unwrap();
+    browser.click("input[aria-label=Search]").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("document.querySelector('#global-search-tab-messages').getAttribute('aria-selected') === 'true' && document.querySelectorAll('.global-search-card').length === 1").await.unwrap();
+    browser.click("#global-search-tab-files").await.unwrap();
+    browser
+        .click("button[aria-label='Filter files by type']")
+        .await
+        .unwrap();
+    browser
+        .click("#dropdown-menu-search-file-type [role=menuitem]:nth-child(3)")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('#global-search-panel').getAttribute('aria-busy') === 'false' && document.querySelector('button[aria-label=\"Filter files by type\"]').textContent.includes('PDF')").await.unwrap();
+    browser
+        .click("#global-search-tab-communities")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.global-search-filters').hidden")
+        .await
+        .unwrap();
+    browser.click("#global-search-tab-messages").await.unwrap();
+    browser.wait_for("!document.querySelector('.global-search-filters').hidden && document.querySelectorAll('.global-search-card').length === 1").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn workspace_search_finds_current_communities_and_focuses_the_result() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
@@ -126,6 +237,56 @@ async fn workspace_search_limits_directory_fields_and_scopes_files() {
     let response: Value = rahti::serde_json::from_str(&body).unwrap();
     assert_eq!(response["files"].as_array().unwrap().len(), 1);
     assert_eq!(response["files"][0]["id"], "search-own-percent");
+    chat_file::ActiveModel {
+        id: Set("search-recent-pdf".into()),
+        owner_id: Set(owner.id.clone()),
+        name: Set("search-recent.PDF".into()),
+        content_type: Set("application/pdf".into()),
+        bytes: Set(10),
+        file_id: Set("test-storage-pdf".into()),
+        file_key: Set("private-storage-key".into()),
+        created_at: Set(crate::rahti::time::Utc::now().timestamp()),
+        folder_id: Set(None),
+    }
+    .insert(crate::db::db())
+    .await
+    .unwrap();
+    for (kind, date, expected) in [
+        ("pdf", "day", 1),
+        ("pdf", "any", 1),
+        ("text", "any", 2),
+        ("text", "day", 0),
+        ("images", "any", 0),
+    ] {
+        let (status, _, body) = client
+            .request(
+                "/chat",
+                Some((
+                    "search_workspace",
+                    json!({"query":"search","file_type":kind,"file_date":date}),
+                )),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let response: Value = rahti::serde_json::from_str(&body).unwrap();
+        assert_eq!(
+            response["files"].as_array().unwrap().len(),
+            expected,
+            "{kind}/{date}"
+        );
+    }
+    for payload in [
+        json!({"query":"search","file_type":"executable"}),
+        json!({"query":"search","file_date":"forever"}),
+    ] {
+        assert_eq!(
+            client
+                .request("/chat", Some(("search_workspace", payload)))
+                .await
+                .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
     for query in [" ".to_string(), "a".repeat(121)] {
         assert_eq!(
             client
