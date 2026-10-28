@@ -121,8 +121,6 @@ pub async fn page() -> Html {
     );
     // Composer tools read brighter than other muted chrome, as in Teams.
     let composer_button = button_variants(ButtonVariant::Ghost, ButtonSize::IconSm, "text-ink/85");
-    let actions_button =
-        button_variants(ButtonVariant::Ghost, ButtonSize::IconSm, "text-brand-ink");
     // The fields below are elements rather than `<Input>` tags because each one
     // is focused from a script — opening a search, starting a new chat — and a
     // ref is a binding a component tag cannot carry. They wear the same class
@@ -1087,9 +1085,7 @@ pub async fn page() -> Html {
                             onchange={uploadFiles(event.currentTarget)}
                         />
                         <form onsubmit={send(event)} pp-ref={composerForm} novalidate>
-                            <InputGroup
-                                class="chat-composer h-auto! flex-wrap bg-raised px-1 dark:bg-raised focus-within:shadow-[inset_0_-2px_var(--color-brand-ink)]"
-                            >
+                            <InputGroup class="chat-composer h-auto! flex-wrap px-1">
                                 <div
                                     class="flex w-full items-center gap-2 border-b border-line px-3 py-2 text-xs font-semibold text-danger-ink"
                                     hidden={!draftImportant}
@@ -1254,7 +1250,7 @@ pub async fn page() -> Html {
                                 </textarea>
                                 <InputGroupAddon
                                     align="inline-end"
-                                    class="ml-auto gap-0.5 self-end py-1"
+                                    class="chat-composer-tools ml-auto shrink-0 gap-0 self-end py-0"
                                 >
                                     <Popover>
                                         <PopoverTrigger
@@ -1263,7 +1259,7 @@ pub async fn page() -> Html {
                                             attrs=@{labelled("Emoji")}
                                             onclick={rememberSelection()}
                                         >
-                                            <Icon name="emoji" class="size-[18px]" />
+                                            <Icon name="emoji" class="size-4" />
                                         </PopoverTrigger>
                                         <PopoverContent
                                             name="chat-emoji"
@@ -1592,7 +1588,7 @@ pub async fn page() -> Html {
                                             attrs=@{labelled("Attach a file")}
                                             disabled={sending}
                                         >
-                                            <Icon name="attach" class="size-[18px]" />
+                                            <Icon name="attach" class="size-4" />
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent
                                             menu="chat-attach"
@@ -1614,12 +1610,12 @@ pub async fn page() -> Html {
                                     <DropdownMenu>
                                         <DropdownMenuTrigger
                                             menu="chat-compose-actions"
-                                            class=@{actions_button.as_str()}
+                                            class=@{composer_button.as_str()}
                                             attrs=@{labelled("More actions")}
                                             onclick={setDeliveryMenu(false)}
                                             disabled={sending}
                                         >
-                                            <Icon name="plus" class="size-[18px]" />
+                                            <Icon name="plus" class="size-4" />
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent
                                             menu="chat-compose-actions"
@@ -1690,11 +1686,11 @@ pub async fn page() -> Html {
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
-                                        class="text-ink/85 enabled:text-brand-ink disabled:opacity-100!"
+                                        class="text-ink/85 disabled:opacity-100!"
                                         attrs=@{labelled("Send").merge(&submit())}
                                         disabled={(!draft.trim() && !draftGif && draftFiles.length === 0) || sending || uploads.length > 0 || (newChat && recipients.length === 0)}
                                     >
-                                        <Icon name="send" class="size-[18px]" />
+                                        <Icon name="send" class="size-4" />
                                     </Button>
                                 </InputGroupAddon>
                             </InputGroup>
@@ -2021,6 +2017,14 @@ pub async fn page() -> Html {
                     </DialogContent>
                 </Dialog>
                 <style>r##"
+                    .chat-composer[data-slot=input-group] { min-height:44px; border-radius:5px; border-color:var(--color-edge); background:var(--color-surface); box-shadow:none; opacity:1; }
+                    .chat-composer[data-slot=input-group]:focus-within { box-shadow:inset 0 -2px var(--color-brand-ink); }
+                    .chat-composer > textarea { width:0; min-width:0; min-height:42px; height:42px; flex:1 1 0; resize:none; padding:11px 12px; line-height:20px; }
+                    .chat-composer > .chat-composer-tools { height:42px; align-items:center; padding-top:0; padding-bottom:0; }
+                    .dark .chat-composer[data-slot=input-group] { background:#292929; border-color:#525252; }
+                    .dark .chat-composer > textarea { color:#f5f5f5; }
+                    .dark .chat-composer > textarea::placeholder { color:#bdbdbd; opacity:1; }
+                    .dark .chat-composer-tools > button, .dark .chat-composer-tools [data-slot=dropdown-menu-trigger], .dark .chat-composer-tools [data-slot=popover-trigger] { color:#c8c8c8; }
                     .chat-rich-host .ProseMirror { min-height:120px; max-height:300px; overflow-y:auto; padding:4px 12px 16px; outline:none; font-size:13px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
                     .chat-rich-host .ProseMirror p { margin:0; min-height:1.6em; }
                     .chat-rich-host .ProseMirror:has(> p:only-child > br:only-child)::before { content:'Type a message'; position:absolute; color:var(--color-muted-foreground); pointer-events:none; }
@@ -2030,7 +2034,6 @@ pub async fn page() -> Html {
                     .chat-rich-host .ProseMirror pre { background:var(--color-sunken); padding:8px; font-family:monospace; }
                     .chat-rich-host .ProseMirror a { color:var(--color-link); text-decoration:underline; }
                     .chat-rich-host .ProseMirror code { background:var(--color-sunken); font-family:monospace; }
-                    .chat-composer:has(.chat-rich-host:not([hidden])) { background:var(--color-surface); }
                     .chat-compose-menu [role=menuitem] { cursor:pointer; }
                 "##</style>
                 <script>r##"

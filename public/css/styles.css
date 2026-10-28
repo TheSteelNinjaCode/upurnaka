@@ -2718,6 +2718,9 @@
   .px-\[30px\] {
     padding-inline: 30px;
   }
+  .py-0 {
+    padding-block: 0px;
+  }
   .py-0\.5 {
     padding-block: calc(var(--spacing) * 0.5);
   }
@@ -4085,9 +4088,6 @@
   }
   :is(.\*\*\:focus-visible\:outline-ring *):focus-visible {
     outline-color: var(--color-ring);
-  }
-  .enabled\:text-brand-ink:enabled {
-    color: var(--color-brand-ink);
   }
   .disabled\:pointer-events-none:disabled {
     pointer-events: none;

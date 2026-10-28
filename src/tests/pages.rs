@@ -78,6 +78,11 @@ async fn composer_actions_format_send_and_preserve_drafts() {
         .goto(&format!("http://{address}/chat"))
         .await
         .unwrap();
+    let single_row: bool = browser.eval("(() => {const composer=document.querySelector('.chat-composer'); const field=composer.querySelector('textarea').getBoundingClientRect(); const tools=composer.querySelector('.chat-composer-tools').getBoundingClientRect(); const colors=['Emoji','Attach a file','More actions','Send'].map(label=>getComputedStyle(composer.querySelector('button[aria-label=\"'+label+'\"]')).color); return composer.getBoundingClientRect().height <= 48 && Math.abs(field.top-tools.top) <= 1 && Math.abs(field.bottom-tools.bottom) <= 1 && field.right <= tools.left+1 && colors.every(color=>color===colors[0]);})()").await.unwrap();
+    assert!(
+        single_row,
+        "collapsed composer must keep text and neutral icons aligned in one row"
+    );
     browser
         .click("button[aria-label='More actions']")
         .await
