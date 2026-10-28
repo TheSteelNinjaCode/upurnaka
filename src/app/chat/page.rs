@@ -1417,27 +1417,6 @@ pub async fn page() -> Html {
                                         variant="ghost"
                                         size="icon-sm"
                                         class="text-ink/85"
-                                        attrs=@{(labelled("Send an image")).merge(&plain())}
-                                    >
-                                        <Icon name="image" class="size-[18px]" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        class="text-ink/85"
-                                        attrs=@{(labelled("Format")).merge(&plain())}
-                                        onclick={toggleCompose()}
-                                    >
-                                        <span
-                                            class={expandedCompose ? "contents text-brand-ink" : "contents"}
-                                        >
-                                            <Icon name="format" class="size-[18px]" />
-                                        </span>
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        class="text-ink/85"
                                         attrs=@{(labelled("More actions")).merge(&plain())}
                                     >
                                         <Icon name="plus" class="size-[18px]" />
