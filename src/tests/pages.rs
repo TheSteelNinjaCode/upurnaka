@@ -83,6 +83,14 @@ async fn composer_actions_format_send_and_preserve_drafts() {
         single_row,
         "collapsed composer must keep text and neutral icons aligned in one row"
     );
+    let emoji_center: Vec<f64> = browser.eval("(() => {const rect=document.querySelector('button[aria-label=Emoji]').getBoundingClientRect();return [rect.x+rect.width/2,rect.y+rect.height/2];})()").await.unwrap();
+    browser
+        .move_mouse(emoji_center[0], emoji_center[1])
+        .await
+        .unwrap();
+    browser.wait_for("(() => {const button=document.querySelector('button[aria-label=Emoji]'); const style=getComputedStyle(button); return style.color === 'rgb(139, 143, 240)' && style.backgroundColor === 'rgba(0, 0, 0, 0)' && getComputedStyle(button.querySelector('circle')).fill === style.color && getComputedStyle(button.querySelector('path')).stroke === 'rgb(41, 41, 41)';})()").await.unwrap();
+    browser.move_mouse(0.0, 0.0).await.unwrap();
+    browser.wait_for("getComputedStyle(document.querySelector('button[aria-label=Emoji]')).color === 'rgb(200, 200, 200)' && getComputedStyle(document.querySelector('button[aria-label=Emoji] circle')).fill === 'none'").await.unwrap();
     browser
         .click("button[aria-label='More actions']")
         .await

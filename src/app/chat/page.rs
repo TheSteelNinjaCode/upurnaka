@@ -1259,7 +1259,21 @@ pub async fn page() -> Html {
                                             attrs=@{labelled("Emoji")}
                                             onclick={rememberSelection()}
                                         >
-                                            <Icon name="emoji" class="size-4" />
+                                            <svg
+                                                class="size-4"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.6"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                aria-hidden="true"
+                                            >
+                                                <circle cx="12" cy="12" r="10" />
+                                                <path
+                                                    d="M9 10V9M15 10V9M16.472 15a6 6 0 0 1-8.943 0"
+                                                />
+                                            </svg>
                                         </PopoverTrigger>
                                         <PopoverContent
                                             name="chat-emoji"
@@ -2025,6 +2039,10 @@ pub async fn page() -> Html {
                     .dark .chat-composer > textarea { color:#f5f5f5; }
                     .dark .chat-composer > textarea::placeholder { color:#bdbdbd; opacity:1; }
                     .dark .chat-composer-tools > button, .dark .chat-composer-tools [data-slot=dropdown-menu-trigger], .dark .chat-composer-tools [data-slot=popover-trigger] { color:#c8c8c8; }
+                    .chat-composer-tools :is([data-slot=popover-trigger], [data-slot=dropdown-menu-trigger], button[aria-label=Send]):not(:disabled):is(:hover, :focus-visible, [aria-expanded=true]) { color:var(--color-brand-ink); background:transparent; }
+                    .chat-composer-tools button[aria-label=Emoji]:is(:hover, :focus-visible, [aria-expanded=true]) svg circle { fill:currentColor; }
+                    .chat-composer-tools button[aria-label=Emoji]:is(:hover, :focus-visible, [aria-expanded=true]) svg path { stroke:var(--color-surface); }
+                    .dark .chat-composer-tools button[aria-label=Emoji]:is(:hover, :focus-visible, [aria-expanded=true]) svg path { stroke:#292929; }
                     .chat-rich-host .ProseMirror { min-height:120px; max-height:300px; overflow-y:auto; padding:4px 12px 16px; outline:none; font-size:13px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
                     .chat-rich-host .ProseMirror p { margin:0; min-height:1.6em; }
                     .chat-rich-host .ProseMirror:has(> p:only-child > br:only-child)::before { content:'Type a message'; position:absolute; color:var(--color-muted-foreground); pointer-events:none; }
