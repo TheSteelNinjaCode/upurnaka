@@ -6,7 +6,9 @@
 
 #![allow(dead_code, unused_imports)]
 
+pub mod arrow_down;
 pub mod arrow_right;
+pub mod arrow_up;
 pub mod at_sign;
 pub mod bell;
 pub mod bell_off;
@@ -28,6 +30,9 @@ pub mod ellipsis;
 pub mod eye;
 pub mod face_slightly_smiling;
 pub mod file;
+pub mod file_text;
+pub mod folder;
+pub mod folder_plus;
 pub mod gem;
 pub mod grid_2x2;
 pub mod hand;

@@ -1,6 +1,8 @@
 //! Application icon names backed by installed rahti-icons components.
 
+use crate::components::rahti_icons::arrow_down::ArrowDown;
 use crate::components::rahti_icons::arrow_right::ArrowRight;
+use crate::components::rahti_icons::arrow_up::ArrowUp;
 use crate::components::rahti_icons::at_sign::AtSign;
 use crate::components::rahti_icons::bell::Bell;
 use crate::components::rahti_icons::bell_off::BellOff;
@@ -22,6 +24,9 @@ use crate::components::rahti_icons::ellipsis::Ellipsis;
 use crate::components::rahti_icons::eye::Eye;
 use crate::components::rahti_icons::face_slightly_smiling::FaceSlightlySmiling;
 use crate::components::rahti_icons::file::File;
+use crate::components::rahti_icons::file_text::FileText;
+use crate::components::rahti_icons::folder::Folder;
+use crate::components::rahti_icons::folder_plus::FolderPlus;
 use crate::components::rahti_icons::gem::Gem;
 use crate::components::rahti_icons::grid_2x2::Grid2x2;
 use crate::components::rahti_icons::hand::Hand;
@@ -290,6 +295,21 @@ pub fn Icon(name: &str, class: &str) -> Html {
         },
         "volleyball" => html! {
             <Volleyball class=@{class} stroke_width="1.6" />
+        },
+        "file-text" => html! {
+            <FileText class=@{class} stroke_width="1.6" />
+        },
+        "folder" => html! {
+            <Folder class=@{class} stroke_width="1.6" />
+        },
+        "folder-plus" => html! {
+            <FolderPlus class=@{class} stroke_width="1.6" />
+        },
+        "arrow-up" => html! {
+            <ArrowUp class=@{class} stroke_width="1.6" />
+        },
+        "arrow-down" => html! {
+            <ArrowDown class=@{class} stroke_width="1.6" />
         },
         _ => Html::empty(),
     }

@@ -12,6 +12,7 @@
 pub mod account;
 pub mod calendar_event;
 pub mod chat_file;
+pub mod chat_folder;
 pub mod meeting_control;
 pub mod meeting_link;
 pub mod meeting_recording;

@@ -13,6 +13,8 @@ pub struct Model {
     pub file_id: String,
     pub file_key: String,
     pub created_at: i64,
+    /// The picker folder it sits in; none is the top of "My files".
+    pub folder_id: Option<String>,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}

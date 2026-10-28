@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use crate::chat_files::{self, Attachment};
+use crate::chat_files::{self, Attachment, Folder, Listing};
 use crate::components::app_shell::AppShell;
 use crate::components::aria::{bound, hidden, labelled, named, plain, submit};
 use crate::components::avatar::Avatar;
@@ -12,8 +12,7 @@ use crate::components::rahti_ui::avatar::{Avatar as UiAvatar, AvatarFallback};
 use crate::components::rahti_ui::badge::Badge;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
 use crate::components::rahti_ui::dialog::{
-    Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-    DialogTrigger,
+    Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger,
 };
 use crate::components::rahti_ui::dropdown_menu::{
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -43,6 +42,18 @@ const HEADING: &str = "mb-2.5 mt-3 flex items-center justify-between text-sm";
 
 /// A picker's empty, loading or failure line.
 const EMPTY: &str = "chat-emoji-empty py-4 text-[13px] leading-normal text-muted-foreground";
+
+// The cloud file picker, laid out like a drive: places on the left, the
+// folder being shown on the right, one grid shared by its header and rows.
+const CLOUD_DIALOG: &str = "chat-cloud-dialog h-[min(640px,calc(100dvh-32px))] grid-rows-[auto_minmax(0,1fr)] gap-0! overflow-hidden bg-surface! p-0! sm:max-w-[960px]! sm:grid-cols-[216px_minmax(0,1fr)] sm:grid-rows-1";
+const CLOUD_NAV: &str = "flex gap-1 overflow-x-auto border-b border-line bg-pane px-3 py-2 sm:flex-col sm:overflow-visible sm:border-b-0 sm:border-r sm:px-3 sm:py-6";
+const CLOUD_NAV_ITEM: &str = "relative flex shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm text-ink/85 hover:bg-hover before:absolute before:inset-y-2 before:-left-3 before:w-[3px] before:rounded-full before:content-[''] max-sm:before:hidden data-[active=true]:bg-hover data-[active=true]:font-semibold data-[active=true]:text-ink data-[active=true]:before:bg-brand-ink [&[data-active=true]_svg]:text-brand-ink";
+const CLOUD_HEAD: &str = "grid grid-cols-[28px_40px_minmax(0,1fr)_110px] items-center border-b border-line px-2 py-1.5 text-xs font-medium text-ink/85 sm:grid-cols-[28px_44px_minmax(0,1fr)_150px_180px] sm:text-[13px]";
+const CLOUD_ROW: &str = "group grid w-full grid-cols-[28px_40px_minmax(0,1fr)_110px] items-center border-b border-line px-2 py-2.5 text-left hover:bg-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[selected=true]:bg-brand-soft/70 sm:grid-cols-[28px_44px_minmax(0,1fr)_150px_180px]";
+const CLOUD_CHECK: &str = "flex size-[18px] items-center justify-center justify-self-center rounded-full border border-edge text-white opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-data-[selected=true]:border-brand group-data-[selected=true]:bg-brand group-data-[selected=true]:opacity-100 max-sm:opacity-100";
+const CLOUD_NOTE: &str = "px-3 py-3 text-sm text-muted-foreground";
+/// A folder drawn filled, as drives draw them.
+const FOLDER_ICON: &str = "size-7 fill-[#f5c451] text-[#e3a72f]";
 /// An attachment waiting in the composer.
 const FILE_CHIP: &str = "chat-draft-file flex w-[240px] max-w-full items-center gap-2.5 rounded-md border border-edge bg-raised py-2 pl-3 pr-1.5";
 /// An attachment on a sent message; opens the file.
@@ -118,6 +129,8 @@ pub async fn page() -> Html {
     let inline_field = input_group_input_variants("text-sm");
     let conversation_search = input_variants("text-sm");
     let meeting_name = input_variants("h-10! text-sm");
+    let folder_field = input_variants("h-8! text-sm");
+    let cancel_button = button_variants(ButtonVariant::Outline, ButtonSize::Default, "");
     let emoji_search = input_group_input_variants("text-sm");
     let composer_field = input_group_textarea_variants("min-h-9 py-2 text-[13px]");
     let share_button = button_variants(
@@ -1453,75 +1466,314 @@ pub async fn page() -> Html {
                         <span pp-ref={cloudOpener}></span>
                     </DialogTrigger>
                     <DialogContent
-                        class="chat-cloud-dialog max-h-[calc(100dvh-32px)] sm:max-w-[520px]!"
+                        class=@{CLOUD_DIALOG}
+                        hide_close=@{true}
                         attrs=@{named("Attach cloud files")}
                     >
-                        <DialogHeader>
-                            <DialogTitle>"Attach cloud files"</DialogTitle>
-                            <DialogDescription>
-                                "Files you uploaded to Dilnaka storage from Chat."
+                        <nav class=@{CLOUD_NAV} aria-label="Storage">
+                            <DialogTitle class="mb-4 hidden px-2 text-xl! font-semibold sm:block">
+                                "Dilnaka Storage"
+                            </DialogTitle>
+                            <DialogDescription class="sr-only">
+                                "Choose files from your Dilnaka Storage to attach to this message."
                             </DialogDescription>
-                        </DialogHeader>
-                        <p
-                            class="text-sm text-muted-foreground"
-                            role="status"
-                            hidden={!cloudLoading}
-                        >
-                            "Loading your files…"
-                        </p>
-                        <p class="text-sm text-danger-ink" role="alert" hidden={!cloudError}>
-                            {cloudError}
-                        </p>
-                        <p
-                            class="text-sm text-muted-foreground"
-                            hidden={cloudLoading || !!cloudError || cloudFiles.length > 0}
-                        >
-                            "No cloud files yet. Files you upload from this device appear here."
-                        </p>
-                        <div
-                            class="chat-cloud-files scroll-thin -mx-2 max-h-[340px] overflow-y-auto"
-                            role="group"
-                            aria-label="Cloud files"
-                            hidden={cloudLoading || cloudFiles.length === 0}
-                        >
-                            <template pp-for="file in cloudFiles">
-                                <label
-                                    key={file.id}
-                                    class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-hover"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        class="size-4 accent-brand-ink"
-                                        value={file.id}
-                                        checked={cloudPicked.includes(file.id)}
-                                        onchange={toggleCloudFile(event.currentTarget.value, event.currentTarget.checked)}
-                                    />
-                                    <Icon name="file" class="size-5 shrink-0 text-brand-ink" />
-                                    <span class="min-w-0 flex-1">
-                                        <span class="block truncate text-[13px] text-ink">
-                                            {file.name}
-                                        </span>
-                                        <span class="block text-[11px] text-subtle">
-                                            {fileSize(file.bytes) + " · " + file.uploaded}
-                                        </span>
-                                    </span>
-                                </label>
-                            </template>
-                        </div>
-                        <DialogFooter>
-                            <DialogClose class="settings-secondary">
-                                <span pp-ref={cloudCloser}></span>
-                                "Cancel"
-                            </DialogClose>
-                            <Button
-                                attrs=@{plain()}
-                                class="chat-cloud-attach"
-                                disabled={cloudPicked.length === 0}
-                                onclick={attachCloudFiles()}
+                            <button
+                                type="button"
+                                class=@{CLOUD_NAV_ITEM}
+                                data-active={cloudView === "files"}
+                                onclick={showCloudView("files")}
                             >
-                                {cloudPicked.length > 1 ? "Attach " + cloudPicked.length + " files" : "Attach"}
-                            </Button>
-                        </DialogFooter>
+                                <Icon name="folder" class="size-[18px] shrink-0" />
+                                "My files"
+                            </button>
+                            <button
+                                type="button"
+                                class=@{CLOUD_NAV_ITEM}
+                                data-active={cloudView === "recent"}
+                                onclick={showCloudView("recent")}
+                            >
+                                <Icon name="clock" class="size-[18px] shrink-0" />
+                                "Recent"
+                            </button>
+                            <button
+                                type="button"
+                                class=@{CLOUD_NAV_ITEM}
+                                data-active={cloudView === "photos"}
+                                onclick={showCloudView("photos")}
+                            >
+                                <Icon name="image" class="size-[18px] shrink-0" />
+                                "Photos"
+                            </button>
+                            <button
+                                type="button"
+                                class=@{CLOUD_NAV_ITEM}
+                                data-active={cloudView === "shared"}
+                                onclick={showCloudView("shared")}
+                            >
+                                <Icon name="people" class="size-[18px] shrink-0" />
+                                "Shared"
+                            </button>
+                        </nav>
+                        <section class="flex min-h-0 min-w-0 flex-col">
+                            <header
+                                class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pb-3 pt-4 sm:px-6 sm:pt-6"
+                            >
+                                <h3
+                                    class="chat-cloud-path flex min-w-0 flex-1 items-center gap-1 text-lg font-semibold sm:text-xl"
+                                >
+                                    <button
+                                        type="button"
+                                        class="truncate rounded px-1 text-subtle hover:bg-hover hover:text-ink"
+                                        hidden={cloudView !== "files" || !cloudFolder}
+                                        onclick={openCloudFolder("")}
+                                    >
+                                        "My files"
+                                    </button>
+                                    <template pp-for="crumb in cloudPath.slice(0, -1)">
+                                        <span
+                                            key={crumb.id}
+                                            class="flex min-w-0 items-center gap-1"
+                                        >
+                                            <Icon
+                                                name="chevron-right"
+                                                class="size-4 shrink-0 text-subtle"
+                                            />
+                                            <button
+                                                type="button"
+                                                class="truncate rounded px-1 text-subtle hover:bg-hover hover:text-ink"
+                                                value={crumb.id}
+                                                onclick={openCloudFolder(event.currentTarget.value)}
+                                            >
+                                                {crumb.name}
+                                            </button>
+                                        </span>
+                                    </template>
+                                    <span
+                                        class="flex min-w-0 items-center gap-1"
+                                        hidden={cloudView !== "files" || !cloudFolder}
+                                    >
+                                        <Icon
+                                            name="chevron-right"
+                                            class="size-4 shrink-0 text-subtle"
+                                        />
+                                    </span>
+                                    <span class="truncate px-1">{cloudHeading}</span>
+                                </h3>
+                                <div class="flex items-center gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        class="chat-cloud-new-folder text-ink/85"
+                                        attrs=@{plain()}
+                                        disabled={cloudView !== "files" || cloudLoading}
+                                        onclick={startCloudFolder()}
+                                    >
+                                        <Icon
+                                            name="folder-plus"
+                                            class="size-[18px] text-brand-ink"
+                                        />
+                                        "New folder"
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        class="chat-cloud-upload text-ink/85"
+                                        attrs=@{plain()}
+                                        disabled={cloudUploading > 0}
+                                        onclick={chooseCloudUploads()}
+                                    >
+                                        <Icon name="upload" class="size-[18px] text-brand-ink" />
+                                        "Upload"
+                                    </Button>
+                                    <input
+                                        type="file"
+                                        multiple
+                                        hidden
+                                        tabindex="-1"
+                                        pp-ref={cloudUploadInput}
+                                        onchange={uploadToCloud(event.currentTarget)}
+                                    />
+                                </div>
+                            </header>
+                            <div
+                                class="min-h-0 flex-1 overflow-y-auto px-2 scroll-thin sm:px-4"
+                                role="group"
+                                aria-label="Cloud files"
+                            >
+                                <div class=@{CLOUD_HEAD} role="presentation">
+                                    <Icon name="file" class="col-start-2 size-4 text-subtle" />
+                                    <button
+                                        type="button"
+                                        class="flex items-center gap-1 justify-self-start rounded px-1 py-1 hover:bg-hover"
+                                        onclick={sortCloud("name")}
+                                    >
+                                        "Name"
+                                        <span hidden={cloudSort.key !== "name" || !cloudSort.asc}>
+                                            <Icon name="arrow-up" class="size-3.5" />
+                                        </span>
+                                        <span hidden={cloudSort.key !== "name" || cloudSort.asc}>
+                                            <Icon name="arrow-down" class="size-3.5" />
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="flex items-center gap-1 justify-self-start rounded px-1 py-1 hover:bg-hover"
+                                        onclick={sortCloud("modified")}
+                                    >
+                                        "Modified"
+                                        <span
+                                            hidden={cloudSort.key !== "modified" || !cloudSort.asc}
+                                        >
+                                            <Icon name="arrow-up" class="size-3.5" />
+                                        </span>
+                                        <span
+                                            hidden={cloudSort.key !== "modified" || cloudSort.asc}
+                                        >
+                                            <Icon name="arrow-down" class="size-3.5" />
+                                        </span>
+                                    </button>
+                                    <span class="hidden px-1 sm:block">"Modified by"</span>
+                                </div>
+                                <form
+                                    class=@{CLOUD_ROW}
+                                    hidden={!cloudNaming}
+                                    onsubmit={createCloudFolder(event)}
+                                >
+                                    <span></span>
+                                    <Icon name="folder" class=@{FOLDER_ICON} />
+                                    <span
+                                        class="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-3"
+                                    >
+                                        <input
+                                            class=@{folder_field.as_str()}
+                                            name="name"
+                                            maxlength="100"
+                                            autocomplete="off"
+                                            placeholder="Folder name"
+                                            aria-label="Folder name"
+                                            pp-ref={cloudFolderInput}
+                                            onkeydown={cancelCloudFolder(event)}
+                                        />
+                                        <button type="submit" class="settings-primary shrink-0">
+                                            "Create"
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="settings-secondary shrink-0"
+                                            onclick={setCloudNaming(false)}
+                                        >
+                                            "Cancel"
+                                        </button>
+                                    </span>
+                                </form>
+                                <p
+                                    class="px-3 py-1 text-xs text-danger-ink"
+                                    role="alert"
+                                    hidden={!cloudError}
+                                >
+                                    {cloudError}
+                                </p>
+                                <p class=@{CLOUD_NOTE} role="status" hidden={!cloudLoading}>
+                                    "Loading your files…"
+                                </p>
+                                <p class=@{CLOUD_NOTE} role="status" hidden={cloudUploading === 0}>
+                                    {cloudUploading > 1 ? "Uploading " + cloudUploading + " files…" : "Uploading 1 file…"}
+                                </p>
+                                <div
+                                    class="chat-cloud-empty flex flex-col items-center gap-2 px-6 py-16 text-center"
+                                    hidden={cloudLoading || cloudRows.length > 0 || cloudNaming}
+                                >
+                                    <Icon name="cloud" class="size-10 text-subtle" />
+                                    <p class="text-sm text-ink">{cloudEmpty}</p>
+                                </div>
+                                <div class="chat-cloud-files" role="list" hidden={cloudLoading}>
+                                    <template pp-for="row in cloudRows">
+                                        <button
+                                            key={row.key}
+                                            type="button"
+                                            role="listitem"
+                                            class=@{CLOUD_ROW}
+                                            value={row.key}
+                                            data-selected={cloudPicked.includes(row.id)}
+                                            aria-label={row.kind === "folder" ? "Open folder " + row.name : (cloudPicked.includes(row.id) ? "Deselect " : "Select ") + row.name}
+                                            onclick={pickCloudRow(event.currentTarget.value)}
+                                        >
+                                            <span
+                                                class=@{CLOUD_CHECK}
+                                                hidden={row.kind === "folder"}
+                                            >
+                                                <span hidden={!cloudPicked.includes(row.id)}>
+                                                    <Icon name="check" class="size-3" />
+                                                </span>
+                                            </span>
+                                            <span hidden={row.kind !== "folder"}></span>
+                                            <span
+                                                class="flex justify-center"
+                                                hidden={row.icon !== "folder"}
+                                            >
+                                                <Icon name="folder" class=@{FOLDER_ICON} />
+                                            </span>
+                                            <span
+                                                class="flex justify-center"
+                                                hidden={row.icon !== "image"}
+                                            >
+                                                <Icon name="image" class="size-6 text-[#4aa3df]" />
+                                            </span>
+                                            <span
+                                                class="flex justify-center"
+                                                hidden={row.icon !== "doc"}
+                                            >
+                                                <Icon
+                                                    name="file-text"
+                                                    class="size-6 text-[#d9544a]"
+                                                />
+                                            </span>
+                                            <span
+                                                class="flex justify-center"
+                                                hidden={row.icon !== "file"}
+                                            >
+                                                <Icon name="file" class="size-6 text-brand-ink" />
+                                            </span>
+                                            <span class="min-w-0 px-1">
+                                                <span class="block truncate text-sm text-ink">
+                                                    {row.name}
+                                                </span>
+                                                <span class="block truncate text-xs text-subtle">
+                                                    {row.detail}
+                                                </span>
+                                            </span>
+                                            <span class="truncate px-1 text-sm text-ink/85">
+                                                {row.modified}
+                                            </span>
+                                            <span
+                                                class="hidden truncate px-1 text-sm text-ink/85 sm:block"
+                                            >
+                                                {myName}
+                                            </span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                            <footer
+                                class="flex items-center gap-3 border-t border-line px-4 py-3 sm:px-6 sm:py-4"
+                            >
+                                <p class="min-w-0 flex-1 truncate text-xs text-subtle">
+                                    {cloudPicked.length === 0 ? "" : cloudPicked.length + " selected"}
+                                </p>
+                                <Button
+                                    attrs=@{plain()}
+                                    class="chat-cloud-attach"
+                                    disabled={cloudPicked.length === 0}
+                                    onclick={attachCloudFiles()}
+                                >
+                                    {cloudPicked.length > 1 ? "Attach " + cloudPicked.length + " files" : "Attach"}
+                                </Button>
+                                <DialogClose class=@{cancel_button.as_str()}>
+                                    <span pp-ref={cloudCloser}></span>
+                                    "Cancel"
+                                </DialogClose>
+                            </footer>
+                        </section>
                     </DialogContent>
                 </Dialog>
                 <script>r##"
@@ -1680,9 +1932,23 @@ pub async fn page() -> Html {
                     const cloudOpener = pp.ref(null);
                     const cloudCloser = pp.ref(null);
                     const [uploads, setUploads] = pp.state([]);
-                    const [cloudFiles, setCloudFiles] = pp.state([]);
+                    // The cloud file picker: which place and folder it shows, what
+                    // is ticked there, and every file it has listed, so a pick made
+                    // in one folder survives moving to another.
+                    const cloudUploadInput = pp.ref(null);
+                    const cloudFolderInput = pp.ref(null);
+                    const cloudTicket = pp.ref(0);
+                    const cloudKnown = pp.ref({});
+                    const myName = @{user.name.as_str()};
+                    const [cloudView, setCloudView] = pp.state('files');
+                    const [cloudFolder, setCloudFolder] = pp.state('');
+                    const [cloudPath, setCloudPath] = pp.state([]);
+                    const [cloudListing, setCloudListing] = pp.state({folders:[], files:[]});
+                    const [cloudSort, setCloudSort] = pp.state({key:'name', asc:true});
                     const [cloudPicked, setCloudPicked] = pp.state([]);
                     const [cloudLoading, setCloudLoading] = pp.state(false);
+                    const [cloudUploading, setCloudUploading] = pp.state(0);
+                    const [cloudNaming, setCloudNaming] = pp.state(false);
                     const [cloudError, setCloudError] = pp.state('');
                     const FILE_LIMIT = @{crate::chat_files::FILE_LIMIT};
                     const PER_MESSAGE = @{crate::chat_files::PER_MESSAGE};
@@ -1735,19 +2001,114 @@ pub async fn page() -> Html {
                         }));
                         returnToComposer();
                     });
-                    const openCloudFiles = pp.event(async function openCloudFiles() {
+                    const openCloudFiles = pp.event(function openCloudFiles() {
                         if (sending) return;
-                        setCloudPicked([]); setCloudError(''); setCloudLoading(true);
+                        setCloudPicked([]); setCloudNaming(false);
                         setTimeout(() => cloudOpener.current?.click(), 0);
-                        try { setCloudFiles(await pp.rpc('chat_cloud_files', {})); }
-                        catch (failure) { setCloudError(failure.message || 'Your cloud files could not be loaded.'); }
-                        finally { setCloudLoading(false); }
+                        loadCloud('files', '');
                     });
-                    function toggleCloudFile(id, on) {
-                        setCloudPicked(current => on ? (current.includes(id) ? current : [...current, id]) : current.filter(item => item !== id));
+                    // Only the newest request may fill the list, so a slow folder
+                    // never replaces the one the person moved on to.
+                    const loadCloud = pp.event(async function loadCloud(view, folder) {
+                        const ticket = ++cloudTicket.current;
+                        if (view !== cloudView || folder !== cloudFolder) { setCloudListing({folders:[], files:[]}); setCloudPath([]); }
+                        setCloudView(view); setCloudFolder(folder); setCloudError(''); setCloudLoading(true);
+                        try {
+                            const listing = await pp.rpc('chat_cloud_files', { view, folder: folder || null });
+                            if (ticket !== cloudTicket.current) return;
+                            listing.files.forEach(file => { cloudKnown.current[file.id] = file; });
+                            setCloudListing(listing); setCloudPath(listing.path);
+                        } catch (failure) {
+                            if (ticket === cloudTicket.current) setCloudError(failure.message || 'Your cloud files could not be loaded.');
+                        } finally {
+                            if (ticket === cloudTicket.current) setCloudLoading(false);
+                        }
+                    });
+                    function showCloudView(view) { setCloudNaming(false); loadCloud(view, ''); }
+                    function openCloudFolder(id) { setCloudNaming(false); loadCloud('files', id); }
+                    function sortCloud(key) {
+                        setCloudSort(current => current.key === key ? {key, asc:!current.asc} : {key, asc:key === 'name'});
                     }
+                    function cloudIcon(file) {
+                        const type = file.content_type || '';
+                        if (type.startsWith('image/')) return 'image';
+                        if (type === 'application/pdf' || type.startsWith('text/') || /word|document|sheet|presentation/.test(type)) return 'doc';
+                        return 'file';
+                    }
+                    // Folders first, as drives list them; then the chosen order.
+                    const cloudRows = pp.memo(() => {
+                        const folders = cloudListing.folders.map(folder => ({kind:'folder', key:'d:' + folder.id, id:folder.id, name:folder.name, icon:'folder', at:folder.modified_at, modified:folder.modified, detail:folder.items === 0 ? 'Empty' : fileSize(folder.bytes)}));
+                        const files = cloudListing.files.map(file => ({kind:'file', key:'f:' + file.id, id:file.id, name:file.name, icon:cloudIcon(file), at:file.uploaded_at, modified:file.uploaded, detail:fileSize(file.bytes)}));
+                        const order = (a, b) => {
+                            const by = cloudSort.key === 'name' ? a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}) : a.at - b.at;
+                            return cloudSort.asc ? by : -by;
+                        };
+                        return [...folders.sort(order), ...files.sort(order)];
+                    }, [cloudListing, cloudSort]);
+                    const cloudHeading = cloudView === 'files' ? (cloudPath.length ? cloudPath[cloudPath.length - 1].name : 'My files') : {recent:'Recent', photos:'Photos', shared:'Shared'}[cloudView];
+                    const cloudEmpty = cloudError ? '' : {
+                        files: cloudFolder ? 'This folder is empty. Upload files to add them here.' : 'Nothing here yet. Upload files or create a folder to get started.',
+                        recent: 'Files you upload to Dilnaka Storage will show up here.',
+                        photos: 'Images you upload to Dilnaka Storage will show up here.',
+                        shared: 'Files people share with you in Chat will show up here.',
+                    }[cloudView];
+                    const pickCloudRow = pp.event(function pickCloudRow(key) {
+                        const row = cloudRows.find(item => item.key === key);
+                        if (!row) return;
+                        if (row.kind === 'folder') { openCloudFolder(row.id); return; }
+                        if (cloudPicked.includes(row.id)) { setCloudPicked(cloudPicked.filter(id => id !== row.id)); setCloudError(''); return; }
+                        if (draftFiles.length + cloudPicked.length >= PER_MESSAGE) { setCloudError('Attach up to ' + PER_MESSAGE + ' files to one message.'); return; }
+                        setCloudPicked([...cloudPicked, row.id]);
+                    });
+                    function startCloudFolder() {
+                        setCloudNaming(true); setCloudError('');
+                        setTimeout(() => { const input = cloudFolderInput.current; if (input) { input.value = 'New folder'; input.focus(); input.select(); } }, 0);
+                    }
+                    // Escape leaves the name, not the whole picker.
+                    function cancelCloudFolder(event) {
+                        if (event.key !== 'Escape') return;
+                        event.preventDefault(); event.stopPropagation();
+                        setCloudNaming(false);
+                    }
+                    const createCloudFolder = pp.event(async function createCloudFolder(event) {
+                        event.preventDefault();
+                        const name = cloudFolderInput.current?.value.trim() || '';
+                        if (!name) return;
+                        try {
+                            await pp.rpc('create_chat_folder', { parent: cloudFolder || null, name });
+                            setCloudNaming(false);
+                            loadCloud('files', cloudFolder);
+                        } catch (failure) {
+                            setCloudError(failure.errors?.name?.[0] || failure.message || 'The folder could not be created.');
+                        }
+                    });
+                    function chooseCloudUploads() { setTimeout(() => cloudUploadInput.current?.click(), 0); }
+                    // Uploads land in the folder being shown (the top of My files
+                    // from any other view) and come back already selected.
+                    const uploadToCloud = pp.event(async function uploadToCloud(input) {
+                        const chosen = Array.from(input.files || []);
+                        input.value = '';
+                        if (!chosen.length) return;
+                        const tooBig = chosen.find(file => file.size > FILE_LIMIT);
+                        const empty = chosen.find(file => file.size === 0);
+                        setCloudError(tooBig ? tooBig.name + ' is larger than 100 MB.' : empty ? 'Empty files cannot be uploaded.' : '');
+                        const sendable = chosen.filter(file => file.size > 0 && file.size <= FILE_LIMIT);
+                        if (!sendable.length) return;
+                        const view = cloudView === 'shared' ? 'files' : cloudView;
+                        const folder = view === 'files' ? cloudFolder : '';
+                        setCloudUploading(count => count + sendable.length);
+                        const stored = [];
+                        await Promise.all(sendable.map(async file => {
+                            try { stored.push(await pp.rpc('upload_chat_file', { file, folder: folder || null })); }
+                            catch (failure) { setCloudError(failure.message || (file.name + ' could not be uploaded.')); }
+                            finally { setCloudUploading(count => count - 1); }
+                        }));
+                        stored.forEach(file => { cloudKnown.current[file.id] = file; });
+                        setCloudPicked(current => [...current, ...stored.map(file => file.id).filter(id => !current.includes(id))].slice(0, Math.max(PER_MESSAGE - draftFiles.length, 0)));
+                        loadCloud(view, folder);
+                    });
                     const attachCloudFiles = pp.event(function attachCloudFiles() {
-                        const picked = cloudFiles.filter(file => cloudPicked.includes(file.id));
+                        const picked = cloudPicked.map(id => cloudKnown.current[id]).filter(Boolean);
                         if (draftFiles.length + picked.length > PER_MESSAGE) setError('Attach up to ' + PER_MESSAGE + ' files to one message.');
                         addFiles(selected, picked);
                         cloudCloser.current?.click();
@@ -2156,16 +2517,24 @@ pub async fn send_message(
     })
 }
 
-/// Upload a file from this device for the composer to attach.
+/// Upload a file for the composer to attach: from the composer it lands at the
+/// top of My files, from the cloud file picker in the folder being shown.
 #[rpc(auth)]
-pub async fn upload_chat_file(file: RpcFile) -> Result<Attachment> {
-    chat_files::store(file).await
+pub async fn upload_chat_file(file: RpcFile, folder: Option<String>) -> Result<Attachment> {
+    chat_files::store(file, folder).await
 }
 
-/// The files this person uploaded before, for Attach cloud files.
+/// One view of the cloud file picker: My files (a folder), Recent, Photos or
+/// Shared.
 #[rpc(auth)]
-pub async fn chat_cloud_files() -> Result<Vec<Attachment>> {
-    chat_files::recent().await
+pub async fn chat_cloud_files(view: String, folder: Option<String>) -> Result<Listing> {
+    chat_files::browse(&view, folder).await
+}
+
+/// New folder, in the folder the cloud file picker shows.
+#[rpc(auth)]
+pub async fn create_chat_folder(parent: Option<String>, name: String) -> Result<Folder> {
+    chat_files::create_folder(parent, name).await
 }
 
 /// Chat's Meet now action creates the same persistent link listed by Meet.

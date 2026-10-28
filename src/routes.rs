@@ -54,6 +54,7 @@ mod r_profilepicture;
 const PAGE_RPCS: &[&str] = &[
     "append_meeting_recording",
     "chat_cloud_files",
+    "create_chat_folder",
     "create_chat_meeting",
     "create_community",
     "create_meeting",
@@ -133,6 +134,7 @@ async fn rpc_p_chat(req: axum::extract::Request) -> axum::response::Response {
         "send_message" => p_chat::__rahti_rpc_send_message(req).await,
         "upload_chat_file" => p_chat::__rahti_rpc_upload_chat_file(req).await,
         "chat_cloud_files" => p_chat::__rahti_rpc_chat_cloud_files(req).await,
+        "create_chat_folder" => p_chat::__rahti_rpc_create_chat_folder(req).await,
         "create_chat_meeting" => p_chat::__rahti_rpc_create_chat_meeting(req).await,
         _ => component_rpc(&name, req).await,
     }
@@ -244,7 +246,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 ///
 /// - `/` [GET, POST] — src/app/page.rs (layouts: src/app/layout.rs)
 /// - `/apps` [GET, POST] — src/app/apps/page.rs (layouts: src/app/layout.rs)
-/// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, upload_chat_file, chat_cloud_files, create_chat_meeting)
+/// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, upload_chat_file, chat_cloud_files, create_chat_folder, create_chat_meeting)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link)
 /// - `/users` [GET, POST] — src/app/users/page.rs (layouts: src/app/layout.rs; rpc: list_users, create_user, update_user, set_user_active, delete_user)
 /// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: update_profile_name, remove_profile_picture, update_profile_picture, invite_to_teams)

@@ -64,11 +64,11 @@ async fn chat_files_upload_attach_and_download_only_for_their_owner() {
     assert_eq!(stored["content_type"], "text/plain");
 
     let (_, _, listed) = owner
-        .request("/chat", Some(("chat_cloud_files", json!({}))))
+        .request("/chat", Some(("chat_cloud_files", json!({"view":"files"}))))
         .await;
     assert!(listed.contains(&id), "{listed}");
     let (_, _, foreign) = other
-        .request("/chat", Some(("chat_cloud_files", json!({}))))
+        .request("/chat", Some(("chat_cloud_files", json!({"view":"files"}))))
         .await;
     assert!(
         !foreign.contains(&id),
@@ -123,6 +123,114 @@ async fn chat_files_upload_attach_and_download_only_for_their_owner() {
 }
 
 #[tokio::test]
+async fn cloud_picker_browses_folders_and_views_of_its_owner_only() {
+    let mut owner = chatter("chat-folder-owner@example.com").await;
+    let mut other = chatter("chat-folder-other@example.com").await;
+    let browse = |view: &str, folder: Option<&str>| {
+        Some(("chat_cloud_files", json!({"view": view, "folder": folder})))
+    };
+
+    let (status, _, _) = owner.request("/chat", browse("trash", None)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let (status, _, body) = owner
+        .request(
+            "/chat",
+            Some(("create_chat_folder", json!({"parent":null, "name":"  "}))),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let (status, _, body) = owner
+        .request(
+            "/chat",
+            Some((
+                "create_chat_folder",
+                json!({"parent":null, "name":"Documentos"}),
+            )),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let folder: Value = rahti::serde_json::from_str(&body).unwrap();
+    let folder_id = folder["id"].as_str().unwrap().to_string();
+    let (status, _, body) = owner
+        .request(
+            "/chat",
+            Some((
+                "create_chat_folder",
+                json!({"parent":null, "name":"documentos"}),
+            )),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(body.contains("already here"), "{body}");
+    let (status, _, body) = owner
+        .request(
+            "/chat",
+            Some((
+                "create_chat_folder",
+                json!({"parent":folder_id, "name":"Facturas"}),
+            )),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let nested: Value = rahti::serde_json::from_str(&body).unwrap();
+
+    let (status, body) = owner
+        .upload(
+            "/chat",
+            "upload_chat_file",
+            json!({"folder": folder_id}),
+            ("file", "image/png", b"not really a png"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let photo: Value = rahti::serde_json::from_str(&body).unwrap();
+    let (status, body) = other
+        .upload(
+            "/chat",
+            "upload_chat_file",
+            json!({"folder": folder_id}),
+            ("file", "text/plain", b"into a stranger's folder"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    let (status, _, body) = owner.request("/chat", browse("files", None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let top: Value = rahti::serde_json::from_str(&body).unwrap();
+    assert_eq!(top["folders"][0]["name"], "Documentos");
+    assert_eq!(top["folders"][0]["bytes"], 16);
+    assert_eq!(top["folders"][0]["items"], 2);
+    assert!(
+        top["files"].as_array().unwrap().is_empty(),
+        "a file in a folder showed at the top: {body}"
+    );
+
+    let (_, _, body) = owner
+        .request("/chat", browse("files", Some(&folder_id)))
+        .await;
+    let inside: Value = rahti::serde_json::from_str(&body).unwrap();
+    assert_eq!(inside["path"][0]["name"], "Documentos");
+    assert_eq!(inside["folders"][0]["id"], nested["id"]);
+    assert_eq!(inside["files"][0]["id"], photo["id"]);
+
+    let (_, _, body) = owner.request("/chat", browse("photos", None)).await;
+    assert!(body.contains(photo["id"].as_str().unwrap()), "{body}");
+    let (_, _, body) = owner.request("/chat", browse("shared", None)).await;
+    let shared: Value = rahti::serde_json::from_str(&body).unwrap();
+    assert!(shared["files"].as_array().unwrap().is_empty());
+
+    let (status, _, _) = other
+        .request("/chat", browse("files", Some(&folder_id)))
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, _, body) = other.request("/chat", browse("files", None)).await;
+    assert!(
+        !body.contains("Documentos"),
+        "another person's folders leaked"
+    );
+}
+
+#[tokio::test]
 async fn composer_uploads_attaches_cloud_files_and_sends_them() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
@@ -153,9 +261,9 @@ async fn composer_uploads_attaches_cloud_files_and_sends_them() {
         .click(".chat-attach-menu [role=menuitem]:first-child")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('.chat-cloud-dialog').open && document.querySelector('.chat-cloud-files input[type=checkbox]') && document.querySelector('.chat-cloud-attach').disabled").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-cloud-dialog').open && document.querySelector('.chat-cloud-files button[aria-label=\"Select Agenda.txt\"]') && document.querySelector('.chat-cloud-attach').disabled").await.unwrap();
     browser
-        .click(".chat-cloud-files input[type=checkbox]")
+        .click(".chat-cloud-files button[aria-label='Select Agenda.txt']")
         .await
         .unwrap();
     browser.click(".chat-cloud-attach").await.unwrap();

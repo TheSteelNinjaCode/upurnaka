@@ -23,10 +23,22 @@
   "generatedWith": "0.0.27",
   "icons": [
     {
+      "component": "ArrowDown",
+      "file": "src/components/rahti_icons/arrow_down.rs",
+      "module": "crate::components::rahti_icons::arrow_down",
+      "name": "arrow-down"
+    },
+    {
       "component": "ArrowRight",
       "file": "src/components/rahti_icons/arrow_right.rs",
       "module": "crate::components::rahti_icons::arrow_right",
       "name": "arrow-right"
+    },
+    {
+      "component": "ArrowUp",
+      "file": "src/components/rahti_icons/arrow_up.rs",
+      "module": "crate::components::rahti_icons::arrow_up",
+      "name": "arrow-up"
     },
     {
       "component": "AtSign",
@@ -153,6 +165,24 @@
       "file": "src/components/rahti_icons/file.rs",
       "module": "crate::components::rahti_icons::file",
       "name": "file"
+    },
+    {
+      "component": "FileText",
+      "file": "src/components/rahti_icons/file_text.rs",
+      "module": "crate::components::rahti_icons::file_text",
+      "name": "file-text"
+    },
+    {
+      "component": "Folder",
+      "file": "src/components/rahti_icons/folder.rs",
+      "module": "crate::components::rahti_icons::folder",
+      "name": "folder"
+    },
+    {
+      "component": "FolderPlus",
+      "file": "src/components/rahti_icons/folder_plus.rs",
+      "module": "crate::components::rahti_icons::folder_plus",
+      "name": "folder-plus"
     },
     {
       "component": "Gem",
