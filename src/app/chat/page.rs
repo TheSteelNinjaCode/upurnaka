@@ -2032,7 +2032,7 @@ pub async fn page() -> Html {
                 </Dialog>
                 <style>r##"
                     .chat-composer[data-slot=input-group] { min-height:44px; border-radius:5px; border-color:var(--color-edge); background:var(--color-surface); box-shadow:none; opacity:1; }
-                    .chat-composer[data-slot=input-group]:focus-within { box-shadow:inset 0 -2px var(--color-brand-ink); }
+                    .chat-composer[data-slot=input-group]:has(> textarea:focus, .chat-rich-host .ProseMirror:focus) { box-shadow:inset 0 -2px var(--color-brand-ink); }
                     .chat-composer > textarea { width:0; min-width:0; min-height:42px; height:42px; flex:1 1 0; resize:none; padding:11px 12px; line-height:20px; }
                     .chat-composer > .chat-composer-tools { height:42px; align-items:center; padding-top:0; padding-bottom:0; }
                     .dark .chat-composer[data-slot=input-group] { background:#292929; border-color:#525252; }

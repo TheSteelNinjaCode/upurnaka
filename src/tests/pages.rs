@@ -1,6 +1,67 @@
 use super::*;
 
 #[tokio::test]
+async fn composer_popovers_do_not_flash_the_input_border() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    for (label, panel) in [
+        ("Emoji", ".chat-emoji-picker"),
+        ("Attach a file", ".chat-attach-menu"),
+        ("More actions", ".chat-compose-menu"),
+    ] {
+        // Sample rendered frames through the native focus handoff, rather than
+        // checking only the settled state after the popover is already open.
+        let _: bool = browser.eval("(() => {window.composerFrames=[]; let count=0; const sample=()=>{const style=getComputedStyle(document.querySelector('.chat-composer')); window.composerFrames.push({shadow:style.boxShadow,border:style.borderColor}); if(++count < 12) requestAnimationFrame(sample);}; requestAnimationFrame(sample); return true;})()").await.unwrap();
+        browser
+            .click(&format!("button[aria-label='{label}']"))
+            .await
+            .unwrap();
+        browser
+            .wait_for(&format!(
+                "document.querySelector('{panel}').matches(':popover-open')"
+            ))
+            .await
+            .unwrap();
+        browser
+            .wait_for("window.composerFrames.length >= 12")
+            .await
+            .unwrap();
+        let stable: bool = browser.eval("window.composerFrames.every(frame => frame.shadow === 'none' && frame.border === 'rgb(82, 82, 82)')").await.unwrap();
+        assert!(
+            stable,
+            "{label} must not flash the message field's focus border"
+        );
+        browser.press("Escape").await.unwrap();
+        browser
+            .wait_for(&format!(
+                "!document.querySelector('{panel}').matches(':popover-open')"
+            ))
+            .await
+            .unwrap();
+    }
+    browser
+        .click("textarea[aria-label='Type a message']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("getComputedStyle(document.querySelector('.chat-composer')).boxShadow !== 'none'")
+        .await
+        .unwrap();
+    browser.click("button[aria-label=Emoji]").await.unwrap();
+    browser.wait_for("document.activeElement.getAttribute('aria-label') === 'Find something fun' && getComputedStyle(document.querySelector('.chat-composer')).boxShadow === 'none'").await.unwrap();
+    browser.press("Escape").await.unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn composer_rich_controls_links_lists_clipboard_and_discard() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
