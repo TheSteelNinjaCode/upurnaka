@@ -293,7 +293,7 @@ async fn shell_dropdowns_stay_above_meet_actions() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('button[aria-label=\"Settings and more\"]').getAttribute('aria-expanded') === 'true'").await.unwrap();
-    let unobscured: bool = browser.eval("(() => { const action = document.querySelector('button[aria-controls=\"popover-meeting-join\"]').getBoundingClientRect(); const menu = Array.from(document.querySelectorAll('[role=menuitem]')).find(el => el.textContent.includes('Tell us how you use Teams')); const rect = menu.getBoundingClientRect(); const x = Math.max(rect.left, action.left) + 5; const y = Math.max(rect.top, action.top) + 5; return x < Math.min(rect.right, action.right) && y < Math.min(rect.bottom, action.bottom) && menu.contains(document.elementFromPoint(x, y)); })()").await.unwrap();
+    let unobscured: bool = browser.eval("(() => { const action = document.querySelector('button[aria-controls=\"popover-meeting-join\"]').getBoundingClientRect(); const menu = Array.from(document.querySelectorAll('[role=menuitem]')).find(el => el.textContent.trim() === 'About'); const rect = menu.getBoundingClientRect(); const x = Math.max(rect.left, action.left) + 5; const y = Math.max(rect.top, action.top) + 5; return x < Math.min(rect.right, action.right) && y < Math.min(rect.bottom, action.bottom) && menu.contains(document.elementFromPoint(x, y)); })()").await.unwrap();
     assert!(
         unobscured,
         "header dropdown must cover the overlapping Meet action"

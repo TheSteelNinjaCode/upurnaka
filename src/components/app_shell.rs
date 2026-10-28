@@ -218,10 +218,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                 <span class=@{SHORTCUT} aria-hidden="true">"Ctrl+."</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onclick={openSurvey()}>
-                                <Icon name="sparkle" class="size-4 text-brand-ink" />
-                                "Tell us how you use Teams"
-                            </DropdownMenuItem>
                             <DropdownMenuItem>
                                 <Icon name="check-circle" class="size-4 text-muted-foreground" />
                                 "About"
