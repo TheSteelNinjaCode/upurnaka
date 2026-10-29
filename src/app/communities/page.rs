@@ -14,7 +14,7 @@ use crate::components::rahti_ui::dialog::{
 use crate::components::rahti_ui::field::{Field, FieldLabel};
 use crate::components::rahti_ui::input::Input;
 use crate::components::rahti_ui::textarea::Textarea;
-use crate::rahti::{Html, Metadata, Result, Validator, html, rpc};
+use crate::rahti::{Html, Metadata, Result, RpcFile, Validator, html, rpc};
 
 pub fn metadata() -> Metadata {
     Metadata::new()
@@ -173,7 +173,13 @@ pub async fn page() -> Html {
                                         class="flex h-24 items-center justify-center bg-linear-to-br from-[#6f63d8] to-[#3a3270] text-5xl"
                                         aria-hidden="true"
                                     >
-                                        {community.avatar}
+                                        <img
+                                            src={community.picture || "/images/upurnaka-logo.png"}
+                                            alt=""
+                                            class="h-full w-full object-cover"
+                                            hidden={!community.picture}
+                                        />
+                                        <span hidden={!!community.picture}>{community.avatar}</span>
                                     </div>
                                     <CardHeader class="gap-1 px-5">
                                         <CardTitle class="truncate text-[15px]">
@@ -231,14 +237,34 @@ pub async fn page() -> Html {
                                     type="button"
                                     class="community-avatar"
                                     aria-label="Edit community image"
-                                    aria-expanded={editingImage}
-                                    onclick={setEditingImage(!editingImage)}
+                                    aria-describedby="community-image-help"
+                                    disabled={saving}
+                                    onclick={openImagePicker()}
                                 >
-                                    <span class="community-avatar-emoji" aria-hidden="true">
+                                    <img
+                                        src={picturePreview || "/images/upurnaka-logo.png"}
+                                        alt=""
+                                        class="community-avatar-photo"
+                                        hidden={!picturePreview}
+                                        onerror={rejectPicture()}
+                                    />
+                                    <span
+                                        class="community-avatar-emoji"
+                                        aria-hidden="true"
+                                        hidden={!!picturePreview}
+                                    >
                                         {avatar}
                                     </span>
                                     <span class="community-avatar-edit">"Edit"</span>
                                 </button>
+                                <input
+                                    id="community-picture"
+                                    type="file"
+                                    accept="image/png,image/jpeg"
+                                    pp-ref={pictureInput}
+                                    onchange={choosePicture(event)}
+                                    hidden
+                                />
                                 <Field class="min-w-0 flex-1 gap-1">
                                     <FieldLabel
                                         r#for="community-name"
@@ -265,25 +291,16 @@ pub async fn page() -> Html {
                                     </p>
                                 </Field>
                             </div>
-                            <div class="community-image-picker" hidden={!editingImage}>
-                                <p class="mb-2 text-sm text-muted-foreground">
-                                    "Choose a community image"
-                                </p>
-                                <div class="flex flex-wrap gap-2">
-                                    <template pp-for="image in COMMUNITY_IMAGES">
-                                        <button
-                                            key={image}
-                                            type="button"
-                                            class="community-image-choice"
-                                            aria-label={"Use " + image + " as community image"}
-                                            aria-pressed={avatar === image}
-                                            onclick={chooseImage(image)}
-                                        >
-                                            {image}
-                                        </button>
-                                    </template>
-                                </div>
-                            </div>
+                            <p id="community-image-help" class="mt-2 text-xs text-muted-foreground">
+                                "PNG or JPEG, up to 2 MB."
+                            </p>
+                            <p
+                                class="mt-2 text-sm text-busy"
+                                role="alert"
+                                hidden={!pictureError && !fieldErrors.picture}
+                            >
+                                {pictureError || fieldErrors.picture?.join(" ")}
+                            </p>
                             <Field class="mt-8 gap-2">
                                 <FieldLabel
                                     r#for="community-description"
@@ -355,7 +372,7 @@ pub async fn page() -> Html {
                                 <Button
                                     class="min-w-32 text-[15px] font-semibold"
                                     attrs=@{submit()}
-                                    disabled={saving || name.trim().length < 2}
+                                    disabled={saving || name.trim().length < 2 || (picture && !picturePreview)}
                                 >
                                     {saving ? "Creating…" : template ? "Create" : "Next"}
                                 </Button>
@@ -407,6 +424,7 @@ pub async fn page() -> Html {
                     .community-identity { display: flex; align-items: center; gap: 26px; }
                     .community-avatar { position: relative; flex-shrink: 0; width: 118px; height: 118px; overflow: hidden; border: 1px solid #777; border-radius: 5px; background: linear-gradient(140deg, #faedcf, #eccc83); }
                     .community-avatar-emoji { display: grid; place-items: center; height: 100%; padding-bottom: 12px; font-size: 65px; }
+                    .community-avatar-photo { width: 100%; height: 100%; object-fit: cover; }
                     .community-avatar-edit { position: absolute; bottom: 0; inset-inline: 0; background: #625332cc; padding: 3px; color: white; font-size: 16px; }
                     .community-name-input { height: 58px; border: 0; border-bottom: 1px solid #939393; border-radius: 0; background: transparent; padding: 4px 12px; font-size: 30px; font-weight: 700; box-shadow: none; }
                     .community-name-input:focus-visible { border-color: #a6a0ff; outline: 2px solid #a6a0ff; outline-offset: 2px; }
@@ -416,9 +434,6 @@ pub async fn page() -> Html {
                     .community-guidelines-edit { color: #ccc; padding: 4px; border-radius: 4px; font-size: 13px; }
                     .community-guidelines-edit:hover { background: #3d3d3d; }
                     .community-create-footer { margin-top: auto; padding-top: 40px; }
-                    .community-image-picker { margin-top: 16px; padding: 12px; border: 1px solid #555; border-radius: 5px; }
-                    .community-image-choice { padding: 8px; font-size: 28px; border-radius: 4px; border: 2px solid transparent; }
-                    .community-image-choice:hover, .community-image-choice[aria-pressed=true] { border-color: #a6a0ff; background: #3d3d3d; }
                     @media (max-width: 540px) {
                         .community-create-dialog { padding: 22px; gap: 26px; }
                         .community-identity { gap: 16px; }
@@ -450,12 +465,24 @@ pub async fn page() -> Html {
                         "Hobbies", "Events", "Gaming or recreation",
                     ];
                     const DEFAULT_GUIDELINES = "Be kind and respectful to your fellow community members. Don't be rude or cruel. Participate as yourself and don't post anything that violates community guidelines.";
-                    const COMMUNITY_IMAGES = ["🎓", "🏪", "🏅", "👥", "🌱", "⚽", "🎨", "💡"];
+                    const pictureInput = pp.ref(null);
+                    const [picture, setPicture] = pp.state(null);
+                    const [picturePreview, setPicturePreview] = pp.state("");
+                    const [pictureError, setPictureError] = pp.state("");
+                    const pictureLoaded = pp.event(event => setPicturePreview(String(event.target.result || "")));
+                    const pictureFailed = pp.event(() => rejectPicture());
+                    pp.effect(() => {
+                        if (!picture) return;
+                        const reader = new FileReader();
+                        reader.onload = pictureLoaded;
+                        reader.onerror = pictureFailed;
+                        reader.readAsDataURL(picture);
+                        return () => { reader.onload = null; reader.onerror = null; if (reader.readyState === 1) reader.abort(); };
+                    }, [picture]);
                     const guidelinesInput = pp.ref(null);
                     const [description, setDescription] = pp.state("");
                     const [guidelines, setGuidelines] = pp.state(DEFAULT_GUIDELINES);
                     const [avatar, setAvatar] = pp.state("👥");
-                    const [editingImage, setEditingImage] = pp.state(false);
                     const [editingGuidelines, setEditingGuidelines] = pp.state(false);
                     pp.effect(() => {
                         if (editingGuidelines) guidelinesInput.current?.focus();
@@ -473,7 +500,10 @@ pub async fn page() -> Html {
                         setDescription("");
                         setGuidelines(DEFAULT_GUIDELINES);
                         setAvatar({School:"🎓",Business:"🏪",Life:"🏅"}[fromTemplate] || "👥");
-                        setEditingImage(false);
+                        setPicture(null);
+                        setPicturePreview("");
+                        setPictureError("");
+                        if (pictureInput.current) pictureInput.current.value = "";
                         setEditingGuidelines(false);
                         setFieldErrors({});
                         setError("");
@@ -481,9 +511,29 @@ pub async fn page() -> Html {
                         createOpener.current?.click();
                     }
 
-                    function chooseImage(image) {
-                        setAvatar(image);
-                        setEditingImage(false);
+                    function openImagePicker() {
+                        if (saving || !pictureInput.current) return;
+                        pictureInput.current.value = "";
+                        pictureInput.current.click();
+                    }
+
+                    function choosePicture(event) {
+                        const file = event.currentTarget.files[0];
+                        if (!file) return;
+                        if (!['image/png', 'image/jpeg'].includes(file.type) || file.size === 0 || file.size > 2 * 1024 * 1024) {
+                            setPictureError("Choose a PNG or JPEG picture up to 2 MB.");
+                            return;
+                        }
+                        setPictureError("");
+                        setFieldErrors({...fieldErrors, picture: undefined});
+                        setPicturePreview("");
+                        setPicture(file);
+                    }
+
+                    function rejectPicture() {
+                        setPicture(null);
+                        setPicturePreview("");
+                        setPictureError("This picture could not be read. Choose a valid PNG or JPEG.");
                     }
 
                     function toggleGuidelines() {
@@ -493,7 +543,7 @@ pub async fn page() -> Html {
 
                     function goToCategory(event) {
                         event.preventDefault();
-                        if (saving || name.trim().length < 2) return;
+                        if (saving || name.trim().length < 2 || (picture && !picturePreview)) return;
                         if (template) create(template);
                         else setStep(2);
                     }
@@ -509,6 +559,7 @@ pub async fn page() -> Html {
                                 description: description.trim(),
                                 guidelines: guidelines.trim(),
                                 avatar: avatar,
+                                picture: picture,
                             });
                             setCommunities((current) => current.concat([community]));
                             createCloser.current?.click();
@@ -535,6 +586,7 @@ pub struct Community {
     pub description: String,
     pub guidelines: String,
     pub avatar: String,
+    pub picture: Option<String>,
 }
 
 /// The categories the create flow offers. A value outside this list is a 422,
@@ -558,6 +610,7 @@ pub async fn create_community(
     description: Option<String>,
     guidelines: Option<String>,
     avatar: Option<String>,
+    picture: Option<RpcFile>,
 ) -> Result<Community> {
     let name = name.trim().to_string();
     let category = category.trim().to_string();
@@ -581,6 +634,11 @@ pub async fn create_community(
         .one_of("avatar", &avatar, &allowed_images);
     validator.finish()?;
 
+    let picture = match picture {
+        Some(file) => Some(community_picture(file).await?),
+        None => None,
+    };
+
     let id = format!("{:x}", crate::rahti::time::now().timestamp_micros());
 
     Ok(Community {
@@ -590,5 +648,63 @@ pub async fn create_community(
         description,
         guidelines,
         avatar,
+        picture,
     })
+}
+
+/// Decode the content rather than trusting the upload's name or MIME type.
+/// Return only a bounded, re-encoded thumbnail to the community card.
+async fn community_picture(picture: RpcFile) -> Result<String> {
+    use base64::Engine;
+
+    let mut validator = Validator::new();
+    validator.check(
+        "picture",
+        !picture.is_empty() && picture.len() <= 2 * 1024 * 1024,
+        "Choose a PNG or JPEG picture up to 2 MB.",
+    );
+    validator.finish()?;
+    let bytes = picture.into_bytes().await?;
+    let normalized =
+        tokio::task::spawn_blocking(move || -> std::result::Result<Vec<u8>, String> {
+            let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes))
+                .with_guessed_format()
+                .map_err(|_| "Choose a valid PNG or JPEG picture.".to_string())?;
+            if !matches!(
+                reader.format(),
+                Some(image::ImageFormat::Png | image::ImageFormat::Jpeg)
+            ) {
+                return Err("Choose a PNG or JPEG picture.".into());
+            }
+            let mut limits = image::Limits::default();
+            limits.max_image_width = Some(4096);
+            limits.max_image_height = Some(4096);
+            limits.max_alloc = Some(64 * 1024 * 1024);
+            reader.limits(limits);
+            let decoded = reader.decode().map_err(|_| {
+                "Choose a valid picture no larger than 4096 × 4096 pixels.".to_string()
+            })?;
+            let thumbnail = decoded.resize_to_fill(256, 256, image::imageops::FilterType::Lanczos3);
+            let mut output = std::io::Cursor::new(Vec::new());
+            thumbnail
+                .write_to(&mut output, image::ImageFormat::Png)
+                .map_err(|_| "This picture could not be processed.".to_string())?;
+            Ok(output.into_inner())
+        })
+        .await?;
+    let mut validator = Validator::new();
+    validator.check(
+        "picture",
+        normalized.is_ok(),
+        normalized
+            .as_ref()
+            .err()
+            .map(String::as_str)
+            .unwrap_or("Choose a valid picture."),
+    );
+    validator.finish()?;
+    Ok(format!(
+        "data:image/png;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(normalized.unwrap())
+    ))
 }
