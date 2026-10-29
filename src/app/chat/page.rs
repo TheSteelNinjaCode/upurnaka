@@ -6,6 +6,7 @@ use crate::chat_files::{self, Attachment, Folder, Listing};
 use crate::components::app_shell::AppShell;
 use crate::components::aria::{bound, hidden, labelled, named, plain, submit};
 use crate::components::avatar::Avatar;
+use crate::components::fluent_emoji_grid::FluentEmojiGrid;
 use crate::components::icon::Icon;
 use crate::components::rahti_ui::attrs::{Attrs, ui_expr};
 use crate::components::rahti_ui::avatar::{Avatar as UiAvatar, AvatarFallback};
@@ -29,7 +30,7 @@ use crate::components::rahti_ui::toggle::Toggle;
 use crate::components::rahti_ui::toggle_group::{ToggleGroup, ToggleGroupItem};
 use crate::meetings::{self, MeetingLink};
 use crate::rahti::time;
-use crate::rahti::{Html, Metadata, Result, RpcFile, Validator, html, rpc};
+use crate::rahti::{Html, Json, Metadata, Result, RpcFile, Validator, html, rpc};
 
 /// Initials on a disc, for a conversation or a message author.
 const INITIALS: &str = "bg-avatar! text-xs font-semibold text-avatar-ink!";
@@ -1297,6 +1298,7 @@ pub async fn page() -> Html {
                                                     placeholder="Find something fun"
                                                     value={emojiQuery}
                                                     oninput={searchMedia(target.value)}
+                                                    onkeydown={emojiSearchKey(event)}
                                                 />
                                                 <InputGroupAddon align="inline-end">
                                                     <Icon name="search" class="size-[18px]" />
@@ -1366,25 +1368,15 @@ pub async fn page() -> Html {
                                                         </Button>
                                                     </div>
                                                     <div
-                                                        class="chat-emoji-grid grid grid-cols-6"
+                                                        class="chat-emoji-grid"
                                                         aria-label="Emoji choices"
                                                         hidden={browsingEmoji}
+                                                        pp-ref={emojiResultGrid}
                                                     >
-                                                        <template pp-for="item in shownEmojis">
-                                                            <button
-                                                                type="button"
-                                                                key={item.symbol}
-                                                                class="chat-emoji-cell"
-                                                                title={item.name}
-                                                                value={item.symbol}
-                                                                onclick={insertEmoji(event.currentTarget.value)}
-                                                            >
-                                                                {item.symbol}
-                                                                <span class="sr-only">
-                                                                    {item.name}
-                                                                </span>
-                                                            </button>
-                                                        </template>
+                                                        <FluentEmojiGrid
+                                                            items={shownEmojis}
+                                                            select={insertEmoji}
+                                                        />
                                                     </div>
                                                     <div
                                                         class="chat-emoji-sections"
@@ -1404,25 +1396,10 @@ pub async fn page() -> Html {
                                                                 >
                                                                     {section.name}
                                                                 </h3>
-                                                                <div class="grid grid-cols-6">
-                                                                    <template
-                                                                        pp-for="item in section.items"
-                                                                    >
-                                                                        <button
-                                                                            type="button"
-                                                                            key={item.symbol}
-                                                                            class="chat-emoji-cell"
-                                                                            title={item.name}
-                                                                            value={item.symbol}
-                                                                            onclick={insertEmoji(event.currentTarget.value)}
-                                                                        >
-                                                                            {item.symbol}
-                                                                            <span class="sr-only">
-                                                                                {item.name}
-                                                                            </span>
-                                                                        </button>
-                                                                    </template>
-                                                                </div>
+                                                                <FluentEmojiGrid
+                                                                    items={section.items}
+                                                                    select={insertEmoji}
+                                                                />
                                                             </section>
                                                         </template>
                                                     </div>
@@ -1523,6 +1500,7 @@ pub async fn page() -> Html {
                                                 class="chat-emoji-nav flex shrink-0 items-center justify-around border-t border-line bg-sunken px-2 py-1.5"
                                                 aria-label="Emoji categories"
                                                 hidden={!browsingEmoji}
+                                                onkeydown={emojiCategoryKey(event)}
                                             >
                                                 <template pp-for="section in emojiSectionList">
                                                     <button
@@ -1538,13 +1516,16 @@ pub async fn page() -> Html {
                                                         <span hidden={section.id !== "recent"}>
                                                             <Icon name="clock" class="size-5" />
                                                         </span>
-                                                        <span hidden={section.id !== "faces"}>
+                                                        <span hidden={section.id !== "smileys"}>
                                                             <Icon name="emoji" class="size-5" />
                                                         </span>
-                                                        <span hidden={section.id !== "hands"}>
+                                                        <span hidden={section.id !== "gestures"}>
                                                             <Icon name="hand" class="size-5" />
                                                         </span>
-                                                        <span hidden={section.id !== "nature"}>
+                                                        <span hidden={section.id !== "people"}>
+                                                            <Icon name="people" class="size-5" />
+                                                        </span>
+                                                        <span hidden={section.id !== "animals"}>
                                                             <Icon name="paw" class="size-5" />
                                                         </span>
                                                         <span hidden={section.id !== "food"}>
@@ -1553,6 +1534,15 @@ pub async fn page() -> Html {
                                                         <span hidden={section.id !== "activities"}>
                                                             <Icon
                                                                 name="volleyball"
+                                                                class="size-5"
+                                                            />
+                                                        </span>
+                                                        <span hidden={section.id !== "travel"}>
+                                                            <Icon name="location" class="size-5" />
+                                                        </span>
+                                                        <span hidden={section.id !== "objects"}>
+                                                            <Icon
+                                                                name="light-bulb"
                                                                 class="size-5"
                                                             />
                                                         </span>
@@ -2069,13 +2059,18 @@ pub async fn page() -> Html {
                     const [activeEmojiSection, setActiveEmojiSection] = pp.state('');
                     const emojiContent = pp.ref(null);
                     const emojiSections = pp.ref(null);
+                    const emojiResultGrid = pp.ref(null);
+                    const emojiItems = pp.memo(() => @{Json(&crate::emoji::catalog())}.map(item=>({...item,symbol:item.glyph})), []);
+                    function normalizeEmoji(value) { return String(value || '').replace(/\uFE0F/g,''); }
+                    const emojiLookup = pp.memo(()=>new Map(emojiItems.map(item=>[normalizeEmoji(item.symbol),item])),[emojiItems]);
+                    function validRecentEmojis(values) { return [...new Set(values.filter(value=>typeof value==='string').map(value=>emojiLookup.get(normalizeEmoji(value))?.symbol).filter(Boolean))].slice(0,24); }
                     // Recently used emoji, per account on this browser, as Teams
                     // keeps them at the top of the Emoji tab.
                     const recentEmojiKey = 'upurnaka.emoji.recent.' + @{user.id.as_str()};
                     const savedRecentEmojis = pp.memo(() => {
-                        try { const saved = JSON.parse(localStorage.getItem(recentEmojiKey) || '[]'); return Array.isArray(saved) ? saved.filter(item => typeof item === 'string').slice(0, 18) : []; }
+                        try { const saved = JSON.parse(localStorage.getItem(recentEmojiKey) || '[]'); return Array.isArray(saved) ? validRecentEmojis(saved) : []; }
                         catch (_) { return []; }
-                    }, [recentEmojiKey]);
+                    }, [recentEmojiKey,emojiLookup]);
                     const [recentEmojis, setRecentEmojis] = pp.state(savedRecentEmojis);
                     const giphyKey = @{giphy_key};
                     const [gifs, setGifs] = pp.state([]);
@@ -2085,23 +2080,48 @@ pub async fn page() -> Html {
                     const [gifMore, setGifMore] = pp.state(false);
                     const [gifRetry, setGifRetry] = pp.state(0);
                     const visibleGifs = settings.preferences.connectedExperiences ? (emojiTab === 'all' ? gifs.slice(0,6) : gifs) : [];
-                    const emojiCategories = [
-                        {id:'faces', name:'Smileys and emotions', icon:'😀', entries:[['😮','Surprised wow'],['😰','Anxious worried'],['😠','Angry'],['😍','Heart eyes love'],['😎','Cool sunglasses'],['🙌','Raised hands hooray'],['🫶','Heart hands'],['🔥','Fire lit'],['🎉','Party celebration'],['👀','Eyes looking'],['💯','Hundred perfect'],['💡','Light bulb idea'],['😀','Grinning smile happy'],['😂','Tears of joy laugh'],['😊','Smiling blush'],['🥰','Smiling hearts'],['🤔','Thinking'],['😭','Crying sad'],['🥳','Party face'],['😴','Sleeping tired'],['🤩','Star struck'],['😅','Sweat smile'],['😉','Wink'],['🤗','Hug']]},
-                        {id:'hands', name:'People and gestures', icon:'👋', entries:[['👋','Wave hello goodbye'],['👍','Thumbs up yes'],['👎','Thumbs down no'],['👏','Clap applause'],['🙏','Thanks prayer please'],['🤝','Handshake agreement'],['✌️','Victory peace'],['💪','Flex muscle strong'],['🤞','Fingers crossed luck'],['👌','Okay hand'],['🫡','Salute'],['🤷','Shrug']]},
-                        {id:'nature', name:'Animals and nature', icon:'🐻', entries:[['🐶','Dog puppy'],['🐱','Cat kitten'],['🐻','Bear'],['🦊','Fox'],['🦋','Butterfly'],['🐝','Bee'],['🌻','Sunflower flower'],['🌱','Seedling plant'],['🌳','Tree'],['🌈','Rainbow'],['☀️','Sun sunny'],['🌙','Moon night']]},
-                        {id:'food', name:'Food and drink', icon:'🍔', entries:[['☕','Coffee hot drink'],['🍕','Pizza'],['🍔','Burger'],['🍟','French fries'],['🎂','Birthday cake'],['🍰','Cake slice'],['🍎','Apple fruit'],['🥑','Avocado'],['🌮','Taco'],['🍿','Popcorn'],['🍩','Doughnut donut'],['🧃','Juice']]},
-                        {id:'activities', name:'Activities and travel', icon:'⚽', entries:[['⚽','Soccer football'],['🏀','Basketball'],['🏆','Trophy winner'],['🎮','Video game controller'],['🎵','Music note'],['🎨','Art palette'],['🚗','Car'],['✈️','Airplane travel'],['🚀','Rocket launch'],['🏠','House home'],['🏖️','Beach holiday'],['🌍','Earth world']]},
-                        {id:'symbols', name:'Objects and symbols', icon:'❤️', entries:[['❤️','Red heart love'],['💜','Purple heart'],['✅','Check done yes'],['❌','Cross no'],['⭐','Star'],['✨','Sparkles'],['🎁','Gift present'],['📅','Calendar date'],['📌','Pin'],['💻','Laptop computer'],['🔔','Bell notification'],['⚠️','Warning']]}
-                    ];
+                    const emojiCategories = pp.memo(()=>[
+                        {id:'smileys',name:'Smileys and emotions'},
+                        {id:'gestures',name:'Hands and gestures'},
+                        {id:'people',name:'People'},
+                        {id:'animals',name:'Animals and nature'},
+                        {id:'food',name:'Food and drink'},
+                        {id:'travel',name:'Travel and places'},
+                        {id:'objects',name:'Objects'},
+                        {id:'activities',name:'Activities'},
+                        {id:'symbols',name:'Symbols'}
+                    ].map(category=>({...category,items:emojiItems.filter(item=>item.category===category.id)})),[emojiItems]);
                     const emojiNeedle = emojiQuery.trim().toLocaleLowerCase();
-                    const emojiItems = emojiCategories.flatMap(category => category.entries.map(([symbol,name]) => ({symbol,name,category:category.id})));
                     const browsingEmoji = emojiTab === 'emoji' && !emojiNeedle;
-                    const shownEmojis = emojiNeedle ? emojiItems.filter(item => item.name.toLocaleLowerCase().includes(emojiNeedle) || item.symbol === emojiNeedle).slice(0, 120) : emojiItems.slice(0, 12);
-                    const emojiSectionList = [
-                        ...(recentEmojis.length ? [{id:'recent', name:'Recent', items:recentEmojis.map(symbol => emojiItems.find(item => item.symbol === symbol) || {symbol, name:symbol})}] : []),
-                        ...emojiCategories.map(category => ({id:category.id, name:category.name, items:category.entries.map(([symbol,name]) => ({symbol,name}))}))
-                    ];
+                    const shownEmojis = (()=>{
+                        if (!emojiOpen || emojiTab === 'gifs') return [];
+                        if (!emojiNeedle) return [...recentEmojis.map(symbol=>emojiLookup.get(normalizeEmoji(symbol))),...emojiItems].filter((item,index,all)=>all.findIndex(other=>other.symbol===item.symbol)===index).slice(0,12);
+                        const words=emojiNeedle.split(/\s+/).filter(Boolean);
+                        const exact=item=>normalizeEmoji(item.symbol)===normalizeEmoji(emojiNeedle)||item.name.toLocaleLowerCase()===emojiNeedle;
+                        return emojiItems.filter(item=>words.every(word=>[item.symbol,item.name,...item.keywords].join(' ').toLocaleLowerCase().includes(word))).sort((a,b)=>Number(exact(b))-Number(exact(a)));
+                    })();
+                    const emojiSectionList = pp.memo(()=>[
+                        ...(recentEmojis.length ? [{id:'recent',name:'Recent',items:recentEmojis.map(symbol=>emojiLookup.get(normalizeEmoji(symbol))).filter(Boolean)}] : []),
+                        ...emojiCategories
+                    ],[recentEmojis,emojiLookup,emojiCategories]);
                     const currentEmojiSection = activeEmojiSection || emojiSectionList[0].id;
+                    function emojiSearchKey(event) {
+                        if(emojiTab==='gifs'||!emojiNeedle||!['Enter','ArrowDown'].includes(event.key))return;
+                        event.preventDefault();
+                        const first=Array.from(emojiResultGrid.current?.firstElementChild?.children||[]).find(element=>element.tagName==='BUTTON');
+                        if(event.key==='Enter')first?.click();else first?.focus();
+                    }
+                    function emojiCategoryKey(event) {
+                        const buttons=Array.from(event.currentTarget.children).filter(element=>element.tagName==='BUTTON');
+                        let index=buttons.indexOf(document.activeElement);
+                        if(index<0)return;
+                        if(event.key==='ArrowRight')index=(index+1)%buttons.length;
+                        else if(event.key==='ArrowLeft')index=(index+buttons.length-1)%buttons.length;
+                        else if(event.key==='Home')index=0;
+                        else if(event.key==='End')index=buttons.length-1;
+                        else return;
+                        event.preventDefault();buttons[index].focus();jumpToEmojiSection(buttons[index].value);
+                    }
                     function emojiSectionElements() { return Array.from(emojiSections.current?.children || []).filter(element => element.tagName === 'SECTION'); }
                     function trackEmojiSection(box) {
                         if (!browsingEmoji) return;
@@ -2677,7 +2697,7 @@ pub async fn page() -> Html {
                             emojiCaret.current = start + symbol.length;
                             setDraft(draft.slice(0,start) + symbol + draft.slice(end));
                         }
-                        const recent = [symbol, ...recentEmojis.filter(item => item !== symbol)].slice(0, 18);
+                        const recent = validRecentEmojis([symbol,...recentEmojis]);
                         setRecentEmojis(recent);
                         try { localStorage.setItem(recentEmojiKey, JSON.stringify(recent)); } catch (_) {}
                         closeEmoji(); returnToComposer();

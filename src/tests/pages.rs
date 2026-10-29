@@ -1106,17 +1106,17 @@ async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
     browser.press("Backspace").await.unwrap();
     // Browsing the Emoji tab is one list: what was used recently first, then
     // every category, with a bar along the bottom that jumps between them.
-    browser.wait_for("!document.querySelector('.chat-emoji-sections').hidden && document.querySelector('.chat-emoji-section').getAttribute('aria-label') === 'Recent' && document.querySelector('.chat-emoji-section').textContent.includes('☕') && document.querySelectorAll('.chat-emoji-section').length === 7 && document.querySelector('.chat-emoji-nav button[aria-label=Recent]').getAttribute('aria-pressed') === 'true'").await.unwrap();
+    browser.wait_for("!document.querySelector('.chat-emoji-sections').hidden && document.querySelector('.chat-emoji-section').getAttribute('aria-label') === 'Recent' && document.querySelector('.chat-emoji-section').textContent.includes('☕') && document.querySelectorAll('.chat-emoji-section').length === 10 && document.querySelector('.chat-emoji-nav button[aria-label=Recent]').getAttribute('aria-pressed') === 'true'").await.unwrap();
     browser
         .click(".chat-emoji-nav button[aria-label='Food and drink']")
         .await
         .unwrap();
     browser.wait_for("(() => { const box = document.querySelector('.chat-emoji-content'); const food = document.querySelector('.chat-emoji-section[aria-label=\"Food and drink\"]'); return box.scrollTop > 0 && Math.abs(food.offsetTop - box.scrollTop) < 12 && food.textContent.includes('🍕') && document.querySelector('.chat-emoji-nav button[aria-label=\"Food and drink\"]').getAttribute('aria-pressed') === 'true'; })()").await.unwrap();
     browser
-        .click(".chat-emoji-nav button[aria-label='Objects and symbols']")
+        .click(".chat-emoji-nav button[aria-label='Objects']")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('.chat-emoji-nav button[aria-label=\"Objects and symbols\"]').getAttribute('aria-pressed') === 'true'").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-emoji-nav button[aria-label=\"Objects\"]').getAttribute('aria-pressed') === 'true'").await.unwrap();
     browser
         .click(".chat-emoji-tabs label:nth-of-type(2)")
         .await
@@ -1139,6 +1139,49 @@ async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
         .unwrap();
     browser.click("button[aria-label=Send]").await.unwrap();
     browser.wait_for("document.querySelector('[aria-label=Messages]').textContent.includes('Hello ☕ time') && document.querySelector('textarea').value === ''").await.unwrap();
+    browser.click("button[aria-label=Emoji]").await.unwrap();
+    browser
+        .click(".chat-emoji-tabs label:nth-of-type(2)")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelectorAll('.chat-emoji-section').length === 10")
+        .await
+        .unwrap();
+    assert!(browser.eval::<bool>("Array.from(document.querySelectorAll('.chat-emoji-section:not([aria-label=Recent]) .chat-emoji-cell')).length === 499 && Array.from(document.querySelectorAll('.chat-emoji-section .chat-emoji-cell img')).every(img=>img.getAttribute('src').startsWith('/images/fluent-emoji/'))").await.unwrap());
+    browser
+        .click(".chat-emoji-nav button[aria-label='Hands and gestures']")
+        .await
+        .unwrap();
+    browser.press("ArrowRight").await.unwrap();
+    browser.wait_for("document.querySelector('.chat-emoji-nav button[aria-label=People]').getAttribute('aria-pressed') === 'true'").await.unwrap();
+    browser.click(".chat-emoji-search input").await.unwrap();
+    browser.type_text("telescope").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.chat-emoji-grid button')?.value === '🔭'")
+        .await
+        .unwrap();
+    browser.press("ArrowDown").await.unwrap();
+    browser
+        .wait_for("document.activeElement.value === '🔭'")
+        .await
+        .unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("document.querySelector('textarea').value === '🔭' && !document.querySelector('.chat-emoji-picker').matches(':popover-open') && document.activeElement.selectionStart === 2").await.unwrap();
+    browser
+        .goto(&format!("http://{address}/chat"))
+        .await
+        .unwrap();
+    browser.click("button[aria-label=Emoji]").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.chat-emoji-grid button')?.value === '🔭'")
+        .await
+        .unwrap();
+    browser
+        .click(".chat-emoji-tabs label:nth-of-type(2)")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.chat-emoji-section[aria-label=Recent] .chat-emoji-cell')?.value === '🔭'").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
 

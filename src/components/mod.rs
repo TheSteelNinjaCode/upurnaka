@@ -13,6 +13,7 @@ pub mod avatar;
 pub mod calendar_meet_now;
 pub mod channel_emoji_picker;
 pub mod device_settings;
+pub mod fluent_emoji_grid;
 pub mod icon;
 pub mod join_meeting_by_id;
 pub mod keyboard_shortcuts;
