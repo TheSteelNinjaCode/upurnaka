@@ -2,6 +2,68 @@ use super::*;
 use rahti::serde_json::{Value, json};
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 
+#[tokio::test]
+async fn calendar_time_marker_and_half_hour_selection_follow_the_visible_days() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/calendar"))
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelectorAll('.calendar-grid-slot').length === 240 && document.querySelectorAll('.calendar-slot-selected').length === 1").await.unwrap();
+    let aligned: bool = browser.eval("(() => { const line = document.querySelector('.calendar-now'); if (line.hidden) return true; const segment = document.querySelector('.calendar-now-today').getBoundingClientRect(); const grid = line.parentElement.getBoundingClientRect(); const slot = document.querySelector('.calendar-slot-selected'); const half = Number(slot.value.split('@')[1]); return Math.abs(segment.width - grid.width / 5) < 1 && Math.floor(parseFloat(line.style.top) / 28) === half && getComputedStyle(slot).outlineWidth === '2px'; })()").await.unwrap();
+    assert!(
+        aligned,
+        "the current-time segment and outlined half-hour align to today's column"
+    );
+    let _: bool = browser
+        .eval("document.querySelector('main button[aria-label=Next]').click(); true")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.calendar-now').hidden")
+        .await
+        .unwrap();
+    let selected: String = browser.eval("(() => { const slot = document.querySelector('.calendar-grid-slot[value$=\"@18\"]'); slot.scrollIntoView({block:'center'}); return slot.value; })()").await.unwrap();
+    browser
+        .click(".calendar-grid-slot[value$='@18']")
+        .await
+        .unwrap();
+    let date = selected.split('@').next().unwrap();
+    browser.wait_for(&format!("document.activeElement.value === '{selected}' && document.activeElement.getAttribute('aria-pressed') === 'true'")).await.unwrap();
+    browser.press("ArrowDown").await.unwrap();
+    browser.wait_for(&format!("document.activeElement.value === '{date}@19' && document.activeElement.getAttribute('aria-pressed') === 'true'")).await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("!document.querySelector('.calendar-editor').hidden && document.activeElement.name === 'title'").await.unwrap();
+    let correct: bool = browser.eval(&format!("document.querySelector('input[name=start_date]').value === '{date}' && document.querySelector('input[name=start_time]').value === '09:30' && document.querySelector('input[name=end_time]').value === '10:00'")).await.unwrap();
+    assert!(correct, "the meeting editor uses the selected half-hour");
+    browser.press("Escape").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.calendar-editor').hidden")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("document.querySelector('button[aria-label=\"Calendar view\"]').click(); true")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('#dropdown-menu-calendar-view').matches(':popover-open')")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("Array.from(document.querySelectorAll('#dropdown-menu-calendar-view [role=menuitem]')).find(item => item.textContent.trim() === 'Day').click(); true").await.unwrap();
+    browser.wait_for("document.querySelectorAll('.calendar-grid-slot').length === 48 && !document.querySelector('.calendar-now').hidden").await.unwrap();
+    let full_day: bool = browser.eval("(() => { const segment = document.querySelector('.calendar-now-today').getBoundingClientRect(); const grid = document.querySelector('.calendar-now').parentElement.getBoundingClientRect(); return Math.abs(segment.width - grid.width) < 1 && Math.abs(segment.left - grid.left) < 1; })()").await.unwrap();
+    assert!(
+        full_day,
+        "Day view keeps the time marker within its single column"
+    );
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
 fn input(title: &str) -> Value {
     json!({"title":title,"attendees":"Ada, grace@example.com","start_date":"2026-10-27","start_time":"11:00","end_date":"2026-10-27","end_time":"11:30","timezone":"America/Managua","all_day":false,"recurrence":"none","occurrences":1,"location":"Room 2","details":"Agenda and notes"})
 }

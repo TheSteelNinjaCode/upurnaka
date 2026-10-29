@@ -116,7 +116,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                 size="icon-sm"
                                 class="ml-1 text-muted-foreground"
                                 attrs=@{labelled("Previous")}
-                                onclick={setOffset(value => value - 1)}
+                                onclick={shiftRange(-1)}
                             >
                                 <Icon name="chevron-left" class="size-4" />
                             </Button>
@@ -125,7 +125,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                 size="icon-sm"
                                 class="text-muted-foreground"
                                 attrs=@{labelled("Next")}
-                                onclick={setOffset(value => value + 1)}
+                                onclick={shiftRange(1)}
                             >
                                 <Icon name="chevron-right" class="size-4" />
                             </Button>
@@ -204,13 +204,21 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                             <div class="relative flex-1">
                                 <div class={"grid " + gridColumns}>
                                     <template pp-for="cell in cells">
-                                        <div
+                                        <button
                                             key={cell.key}
-                                            class="h-14 border-b border-l border-line"
+                                            type="button"
+                                            value={cell.key}
+                                            class={"calendar-grid-slot" + (cell.half % 2 ? " calendar-hour-end" : "") + (selectedSlot === cell.key ? " calendar-slot-selected" : "")}
+                                            tabindex={selectedSlot === cell.key ? "0" : "-1"}
+                                            aria-label={cell.label}
+                                            aria-pressed={selectedSlot === cell.key}
+                                            pp-ref={element => slotElements.current[cell.key] = element}
+                                            onfocus={setSelection(cell.key)}
+                                            onclick={setSelection(cell.key)}
+                                            ondblclick={openCompose(cell)}
+                                            onkeydown={slotKey(event, cell)}
                                         >
-                                            <div class="h-1/2 border-b border-dotted border-line">
-                                            </div>
-                                        </div>
+                                        </button>
                                     </template>
                                 </div>
                                 <template pp-for="meeting in placed">
@@ -236,12 +244,13 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                     </div>
                                 </template>
                                 <div
-                                    class="pointer-events-none absolute inset-x-0 z-10"
+                                    class="calendar-now pointer-events-none absolute inset-x-0 z-10"
                                     pp-style={nowStyle}
                                     hidden={!showNow}
                                 >
-                                    <div class="border-t border-dashed border-now"></div>
-                                    <div class="absolute -left-1 -top-1 size-2 rounded-full bg-now">
+                                    <div class="calendar-now-guide" pp-style={nowGuideStyle}></div>
+                                    <div class="calendar-now-today" pp-style={nowTodayStyle}>
+                                        <span class="calendar-now-dot"></span>
                                     </div>
                                 </div>
                             </div>
@@ -581,6 +590,16 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+                <style>r##"
+                    .calendar-grid-slot { position: relative; height: 28px; min-width: 0; padding: 0; border-left: 1px solid var(--color-line); border-bottom: 1px dotted var(--color-line); cursor: default; }
+                    .calendar-grid-slot.calendar-hour-end { border-bottom-style: solid; }
+                    .calendar-grid-slot:hover { background: rgb(255 255 255 / 7%); }
+                    .calendar-grid-slot.calendar-slot-selected { z-index: 1; outline: 2px solid #f5f5f5; outline-offset: -2px; border-radius: 2px; }
+                    .calendar-grid-slot:focus-visible { outline: 2px solid #fff; outline-offset: -2px; z-index: 1; }
+                    .calendar-now-guide { position: absolute; left: 0; border-top: 1px dashed #d65a38; }
+                    .calendar-now-today { position: absolute; border-top: 2px solid #d65a38; }
+                    .calendar-now-dot { position: absolute; left: -2px; top: -3px; width: 4px; height: 4px; border-radius: 50%; background: #d65a38; }
+                "##</style>
                 <script>r##"
                     const HEAD_ON = "flex flex-col border-l border-l-line border-t-2 border-t-brand px-3 py-2.5 text-brand-ink";
                     const HEAD_OFF = "flex flex-col border-l border-l-line px-3 py-2.5 text-muted-foreground";
@@ -625,7 +644,17 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     const durationLabel = Number.isFinite(durationMinutes) && durationMinutes > 0 ? (durationMinutes < 60 ? durationMinutes + 'm' : Math.round(durationMinutes / 6) / 10 + 'h') : '';
 
                     const scroller = pp.ref(null);
-                    const now = new Date(@{app_date} + 'T' + @{app_clock});
+                    const slotElements = pp.ref({});
+                    const [selection, setSelection] = pp.state(null);
+                    const clockStarted = pp.ref(Date.now());
+                    const [clockInstant, setClockInstant] = pp.state(@{app_now.timestamp_millis()});
+                    const updateClock = pp.event(() => setClockInstant(@{app_now.timestamp_millis()} + Date.now() - clockStarted.current));
+                    pp.effect(() => {
+                        const timer = setInterval(updateClock, 30000);
+                        return () => clearInterval(timer);
+                    }, []);
+                    const clockParts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone:@{app_zone},year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(clockInstant)).map(part => [part.type, part.value]));
+                    const now = new Date(clockParts.year + '-' + clockParts.month + '-' + clockParts.day + 'T' + clockParts.hour + ':' + clockParts.minute);
                     const gridAnchor = new Date(anchorDate + 'T12:00');
 
                     function pad(value) {
@@ -665,7 +694,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     // The details dialog is rahti-ui's, which opens from a trigger;
                     // an event on the grid reaches it through the hidden one.
                     const showEvent = pp.event(function showEvent(id) {const meeting = placed.find(item => item.id === id); if (!meeting) return; setSelectedEvent(meeting); eventOpener.current?.click();});
-                    function goToday() {setAnchorDate(@{app_date}); setOffset(0);}
+                    function goToday() {setAnchorDate(todayKey); setOffset(0); setSelection(null);}
 
                     function describe(date) {
                         const key = dayKey(date);
@@ -717,15 +746,40 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     }
 
                     const cells = [];
-                    for (let hour = 0; hour < 24; hour += 1) {
+                    for (let half = 0; half < 48; half += 1) {
                         for (let index = 0; index < days.length; index += 1) {
-                            cells.push({ key: days[index].key + "@" + hour });
+                            const minute = half * 30;
+                            cells.push({
+                                key: days[index].key + "@" + half,
+                                day: days[index].key, half, column:index, minute,
+                                time: pad(Math.floor(minute / 60)) + ':' + pad(minute % 60),
+                                label: days[index].name + ', ' + days[index].key + ', ' + hourLabel(Math.floor(minute / 60)).replace(' ', ':' + pad(minute % 60) + ' '),
+                            });
                         }
                     }
 
                     const minutesNow = now.getHours() * 60 + now.getMinutes();
                     const nowStyle = "top: " + ((minutesNow / 60) * HOUR_HEIGHT) + "px";
                     const showNow = days.some((day) => day.today);
+                    const todayColumn = days.findIndex(day => day.today);
+                    const nowGuideStyle = 'width:' + Math.max(0, todayColumn * 100 / days.length) + '%';
+                    const nowTodayStyle = 'left:' + Math.max(0, todayColumn * 100 / days.length) + '%;width:' + (100 / days.length) + '%';
+                    const selectedSlot = selection || (showNow ? todayKey + '@' + Math.floor(minutesNow / 30) : days[0].key + '@18');
+                    pp.effect(() => {
+                        if (selection) slotElements.current[selection]?.focus();
+                    }, [selection]);
+
+                    function slotKey(event, cell) {
+                        if (event.key === 'Enter') { event.preventDefault(); openCompose(cell); return; }
+                        const moves = {ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1]};
+                        const move = moves[event.key];
+                        if (!move) return;
+                        event.preventDefault();
+                        const half = Math.max(0, Math.min(47, cell.half + move[0]));
+                        const column = Math.max(0, Math.min(days.length - 1, cell.column + move[1]));
+                        const next = cells[half * days.length + column];
+                        setSelection(next.key);
+                    }
 
                     function clockLabel(start, length) {
                         const startHour = Math.floor(start);
@@ -760,11 +814,25 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     }, []);
 
                     function pickView(value) {
+                        setSelection(null);
                         setView(value);
                         setOffset(0);
                     }
 
-                    function openCompose() {
+                    function shiftRange(direction) {
+                        setSelection(null);
+                        setOffset(value => value + direction);
+                    }
+
+                    function openCompose(cell) {
+                        const slot = cell || cells.find(item => item.key === selectedSlot);
+                        if (slot) {
+                            const end = new Date(slot.day + 'T' + slot.time);
+                            end.setMinutes(end.getMinutes() + 30);
+                            setStartDate(slot.day); setStartTime(slot.time);
+                            setEndDate(dayKey(end)); setEndTime(clockValue(end));
+                            setEditorZone(@{app_zone}); setAllDay(false);
+                        }
                         setErrors({});
                         setFormError("");
                         setComposeOpen(true);
