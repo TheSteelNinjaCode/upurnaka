@@ -41,8 +41,21 @@ and the collapsed composer stay pinned. Under each post, members can react with
 the six Teams quick reactions (choosing one again takes it back; a unique index
 keeps one of each kind per person) and reply in plain text (up to 2000
 characters, Enter sends, Shift+Enter adds a line). "View conversation" expands
-the replies, oldest first. Replies and reactions require membership and cannot
-be edited or deleted yet; replies have no reactions of their own.
+the replies, oldest first. Replies and reactions require membership; replies
+cannot be edited or deleted yet and have no reactions of their own.
+
+Hovering (or focusing) a post shows the Teams toolbar: four quick reactions,
+More reactions (the shared Fluent emoji panel, `src/components/emoji_panel.rs`,
+also used by the channel icon picker; any bundled emoji is accepted and stored
+in the catalog's spelling), Edit for the author, and a "…" menu. The menu has
+Copy link (`/communities?community=…&post=…` opens the post's channel, expands
+its conversation and highlights it), Delete (author or community owner; `Del`),
+Pin for everyone (owner only; `P`; pinned posts sort first) and Open
+conversation in new window. Translate is not offered because no translation
+service is configured. Edit reopens the composer with the post's subject,
+headline and formatting; a post stays a post or an announcement, and saved edits
+show "Edited". Delete is soft: content is withheld and the card says the post
+was deleted, with Undo for whoever may delete it; deleting also unpins.
 
 The community's three-dot menu follows Teams Free's action order. Edits retain
 the existing image unless a replacement is uploaded or removal is selected.

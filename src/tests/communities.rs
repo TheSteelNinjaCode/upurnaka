@@ -65,16 +65,16 @@ async fn community_emoji_picker_search_categories_keyboard_and_recents() {
         .wait_for("document.activeElement.getAttribute('aria-label') === 'Search emoji'")
         .await
         .unwrap();
-    assert!(browser.eval::<bool>("document.querySelectorAll('.channel-emoji-categories [role=tab]').length === 10 && document.querySelectorAll('.community-channel-icon-grid button').length === 24").await.unwrap());
+    assert!(browser.eval::<bool>("document.querySelectorAll('#popover-channel-icon .channel-emoji-categories [role=tab]').length === 10 && document.querySelectorAll('#popover-channel-icon .community-channel-icon-grid button').length === 24").await.unwrap());
     browser
         .click("button[aria-label='Animals and nature']")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('.channel-emoji-heading').textContent === 'Animals and nature' && document.querySelector('button[data-emoji=\"🐶\"]') !== null").await.unwrap();
+    browser.wait_for("document.querySelector('#popover-channel-icon .channel-emoji-heading').textContent === 'Animals and nature' && document.querySelector('button[data-emoji=\"🐶\"]') !== null").await.unwrap();
     browser.press("ArrowRight").await.unwrap();
     browser
         .wait_for(
-            "document.querySelector('.channel-emoji-heading').textContent === 'Food and drink'",
+            "document.querySelector('#popover-channel-icon .channel-emoji-heading').textContent === 'Food and drink'",
         )
         .await
         .unwrap();
@@ -83,7 +83,7 @@ async fn community_emoji_picker_search_categories_keyboard_and_recents() {
         .await
         .unwrap();
     browser.type_text("no-such-emoji-result").await.unwrap();
-    browser.wait_for("!document.querySelector('.channel-emoji-empty').hidden && !document.querySelector('.community-channel-icon-grid button')").await.unwrap();
+    browser.wait_for("!document.querySelector('#popover-channel-icon .channel-emoji-empty').hidden && !document.querySelector('#popover-channel-icon .community-channel-icon-grid button')").await.unwrap();
     browser
         .eval::<bool>("document.activeElement.select();true")
         .await
@@ -97,7 +97,7 @@ async fn community_emoji_picker_search_categories_keyboard_and_recents() {
     let focused = browser
         .wait_for("document.activeElement.dataset.emoji === '🚀'")
         .await;
-    assert!(focused.is_ok(), "{focused:?}; {:?}; {}", browser.errors(), browser.eval::<String>("JSON.stringify({active:document.activeElement.outerHTML,first:document.querySelector('.community-channel-icon-grid button')?.outerHTML})").await.unwrap());
+    assert!(focused.is_ok(), "{focused:?}; {:?}; {}", browser.errors(), browser.eval::<String>("JSON.stringify({active:document.activeElement.outerHTML,first:document.querySelector('#popover-channel-icon .community-channel-icon-grid button')?.outerHTML})").await.unwrap());
     browser.press("Enter").await.unwrap();
     browser.wait_for("!document.querySelector('#popover-channel-icon').matches(':popover-open') && document.querySelector('.community-channel-icon-trigger').textContent.includes('🚀')").await.unwrap();
     browser
@@ -106,7 +106,7 @@ async fn community_emoji_picker_search_categories_keyboard_and_recents() {
         .unwrap();
     browser
         .wait_for(
-            "document.querySelector('.community-channel-icon-grid button').dataset.emoji === '🚀'",
+            "document.querySelector('#popover-channel-icon .community-channel-icon-grid button').dataset.emoji === '🚀'",
         )
         .await
         .unwrap();
@@ -136,11 +136,11 @@ async fn community_emoji_picker_search_categories_keyboard_and_recents() {
         .unwrap();
     browser
         .wait_for(
-            "document.querySelector('.community-channel-icon-grid button').dataset.emoji === '🔭'",
+            "document.querySelector('#popover-channel-icon .community-channel-icon-grid button').dataset.emoji === '🔭'",
         )
         .await
         .unwrap();
-    assert!(browser.eval::<bool>("Array.from(document.querySelectorAll('.community-channel-icon-grid button')).filter(b=>b.dataset.emoji==='🔭').length===1 && document.querySelectorAll('.community-channel-icon-grid button').length===24").await.unwrap());
+    assert!(browser.eval::<bool>("Array.from(document.querySelectorAll('#popover-channel-icon .community-channel-icon-grid button')).filter(b=>b.dataset.emoji==='🔭').length===1 && document.querySelectorAll('#popover-channel-icon .community-channel-icon-grid button').length===24").await.unwrap());
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
 
@@ -265,7 +265,7 @@ async fn post_reactions_toggle_and_replies_persist_for_members_only() {
     for (name, payload) in [
         (
             "react_to_community_post",
-            json!({"id":id,"post":post_id,"emoji":"🦄"}),
+            json!({"id":id,"post":post_id,"emoji":"not an emoji"}),
         ),
         (
             "reply_to_community_post",
@@ -321,6 +321,191 @@ async fn post_reactions_toggle_and_replies_persist_for_members_only() {
         assert_eq!(
             community_call(&mut owner, name, json!({"id":id})).await.0,
             StatusCode::BAD_REQUEST
+        );
+    }
+}
+
+#[tokio::test]
+async fn post_edit_delete_and_pin_respect_authors_and_owners() {
+    setup().await;
+    let mut owner = super::auth::Client::new().await;
+    owner.with_cookie(test_cookie());
+    owner.request("/communities", None).await;
+    let mut member = super::auth::Client::new().await;
+    member.with_cookie(super::support::cookie_for(
+        "other-user",
+        "Other User",
+        "other@example.com",
+    ));
+    member.request("/communities", None).await;
+    let (_, created) = community_call(
+        &mut owner,
+        "create_community",
+        json!({"name":"Moderated school","category":"School"}),
+    )
+    .await;
+    let id = created["id"].as_str().unwrap();
+    let (_, link) = community_call(
+        &mut owner,
+        "community_join_link",
+        json!({"id":id,"reset":false}),
+    )
+    .await;
+    let token = link.as_str().unwrap().split("join=").nth(1).unwrap();
+    community_call(
+        &mut member,
+        "join_community",
+        json!({"id":id,"token":token}),
+    )
+    .await;
+    let (_, announcement) = community_call(
+        &mut owner,
+        "publish_community_post",
+        json!({"id":id,"channel":"","body":"Old","announcement":true,"headline":"Old headline"}),
+    )
+    .await;
+    let owner_post = announcement["id"].as_str().unwrap();
+    assert_eq!(announcement["is_mine"], true);
+    let (_, member_post) = community_call(
+        &mut member,
+        "publish_community_post",
+        json!({"id":id,"channel":"","body":"Member words","announcement":false}),
+    )
+    .await;
+    let member_post = member_post["id"].as_str().unwrap();
+
+    // Only the author edits, and an announcement stays one.
+    for (client, post) in [(&mut member, owner_post), (&mut owner, member_post)] {
+        assert_eq!(
+            community_call(
+                client,
+                "edit_community_post",
+                json!({"id":id,"post":post,"body":"Hijacked"})
+            )
+            .await
+            .0,
+            StatusCode::FORBIDDEN
+        );
+    }
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "edit_community_post",
+            json!({"id":id,"post":owner_post,"body":"No headline"})
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let (status, edited) = community_call(
+        &mut owner,
+        "edit_community_post",
+        json!({"id":id,"post":owner_post,"body":"New","headline":"New headline","accent":"teal","formatting":[{"kind":"paragraph","runs":[{"text":"New","italic":true}]}]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{edited}");
+    assert_eq!(edited["edited"], true);
+    assert_eq!(edited["announcement"], true);
+    assert_eq!(edited["headline"], "New headline");
+    assert_eq!(edited["formatting"][0]["runs"][0]["italic"], true);
+
+    // Pinning is owner-only.
+    assert_eq!(
+        community_call(
+            &mut member,
+            "pin_community_post",
+            json!({"id":id,"post":member_post,"pinned":true})
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    let (_, pinned) = community_call(
+        &mut owner,
+        "pin_community_post",
+        json!({"id":id,"post":member_post,"pinned":true}),
+    )
+    .await;
+    assert_eq!(pinned["pinned"], true);
+    assert_eq!(pinned["is_mine"], false);
+
+    // A member cannot delete the owner's post; the owner may delete theirs.
+    assert_eq!(
+        community_call(
+            &mut member,
+            "delete_community_post",
+            json!({"id":id,"post":owner_post})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, deleted) = community_call(
+        &mut owner,
+        "delete_community_post",
+        json!({"id":id,"post":member_post}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(deleted["deleted"], true);
+    assert_eq!(deleted["body"], "");
+    assert_eq!(deleted["pinned"], false);
+    let (_, _, page) = member
+        .request(&format!("/communities?community={id}"), None)
+        .await;
+    assert!(
+        !page.contains("Member words"),
+        "Deleted content is withheld"
+    );
+    for (name, payload) in [
+        (
+            "react_to_community_post",
+            json!({"id":id,"post":member_post,"emoji":"👍"}),
+        ),
+        (
+            "reply_to_community_post",
+            json!({"id":id,"post":member_post,"body":"Late"}),
+        ),
+        (
+            "edit_community_post",
+            json!({"id":id,"post":member_post,"body":"Revive"}),
+        ),
+    ] {
+        assert_eq!(
+            community_call(&mut member, name, payload).await.0,
+            StatusCode::NOT_FOUND
+        );
+    }
+    let (_, restored) = community_call(
+        &mut member,
+        "delete_community_post",
+        json!({"id":id,"post":member_post,"restore":true}),
+    )
+    .await;
+    assert_eq!(restored["deleted"], false);
+    assert_eq!(restored["body"], "Member words");
+    for name in [
+        "edit_community_post",
+        "delete_community_post",
+        "pin_community_post",
+    ] {
+        assert_eq!(
+            community_call(&mut owner, name, json!({"id":id})).await.0,
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            super::auth::Client::new()
+                .await
+                .request(
+                    "/communities",
+                    Some((
+                        name,
+                        json!({"id":id,"post":member_post,"body":"x","pinned":true})
+                    ))
+                )
+                .await
+                .0,
+            StatusCode::UNAUTHORIZED
         );
     }
 }
@@ -1511,16 +1696,42 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .unwrap();
     let posted = browser.wait_for("document.querySelector('.community-post .community-rich-message')?.innerText.trim() === 'Our first saved class project.' && document.querySelector('.community-post .community-rich-message .font-bold')?.innerText === 'saved' && document.querySelector('.community-post-subject').textContent.trim() === 'Projects' && document.querySelector('.community-composer').dataset.mode === 'collapsed'").await;
     assert!(posted.is_ok(),"{:?}; {}",posted,browser.eval::<String>("JSON.stringify({error:document.querySelector('.community-compose-error').textContent,html:document.querySelector('.community-post .community-rich-message')?.innerHTML,hidden:document.querySelector('.community-post .community-rich-message')?.hidden,mode:document.querySelector('.community-composer').dataset.mode,posts:Array.from(document.querySelectorAll('.community-post')).map(p=>p.innerText)})").await.unwrap());
+    // Hovering a post shows the Teams toolbar: quick reactions, more
+    // reactions, edit and more options.
+    let toolbar: [f64; 2] = browser
+        .eval("(() => { const r = document.querySelector('.community-post').getBoundingClientRect(); return [r.x + r.width / 2, r.y + 40]; })()")
+        .await
+        .unwrap();
+    assert!(browser.eval::<bool>("getComputedStyle(document.querySelector('.community-post .community-post-actions')).opacity === '0'").await.unwrap());
+    browser.move_mouse(toolbar[0], toolbar[1]).await.unwrap();
     browser
-        .click(".community-post .community-reaction-add > button")
+        .wait_for("getComputedStyle(document.querySelector('.community-post .community-post-actions')).opacity === '1' && document.querySelectorAll('.community-post .community-quick-reaction img[src*=fluent-emoji]').length === 4")
         .await
         .unwrap();
     browser
-        .click(".community-post .community-reaction-picker button[aria-label='React with 👍']")
+        .click(".community-post .community-post-actions button[aria-label='React with Like']")
         .await
         .unwrap();
     browser
-        .wait_for("document.querySelector('.community-post .community-reaction[aria-pressed=true]')?.innerText.replace(/\\s+/g, '') === '👍1' && document.querySelector('.community-post .community-reaction-picker').hidden")
+        .wait_for("document.querySelector('.community-post .community-reaction[aria-pressed=true]')?.getAttribute('aria-label') === 'Like: 1, including you'")
+        .await
+        .unwrap();
+    browser
+        .click(".community-post .community-reaction-add")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('#community-reaction-picker').matches(':popover-open') && document.activeElement.placeholder === 'Find something fun'")
+        .await
+        .unwrap();
+    browser.type_text("party").await.unwrap();
+    browser
+        .wait_for("document.querySelector('#community-reaction-picker button[aria-label=\\'React with 🥳\\']') !== null")
+        .await
+        .unwrap();
+    browser.press("Enter").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('#community-reaction-picker').matches(':popover-open') && Array.from(document.querySelectorAll('.community-post .community-reaction')).map(chip => chip.getAttribute('aria-label')).join('|') === 'Like: 1, including you|🥳: 1, including you'")
         .await
         .unwrap();
     browser
@@ -1563,6 +1774,88 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .wait_for("document.querySelector('.community-post .community-post-banner h3')?.textContent === 'Science fair' && document.querySelector('.community-post .community-post-banner').dataset.accent === 'green'")
         .await
         .unwrap();
+    // Edit the earlier post from its toolbar; the composer reopens with its
+    // subject and formatting and saves in place.
+    let projects = "Array.from(document.querySelectorAll('.community-post')).find(post => post.querySelector('.community-post-subject')?.textContent.trim().startsWith('Projects'))";
+    let _: bool = browser
+        .eval(&format!("{projects}.querySelector('.community-post-actions button[aria-label=Edit]').click(), true"))
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-composer-editing').hidden && document.querySelector('input[aria-label=Subject]').value === 'Projects' && document.querySelector('.community-rich-host .ProseMirror strong')?.textContent === 'saved' && document.querySelector('.community-composer-footer button[type=submit]').textContent.trim() === 'Save'")
+        .await
+        .unwrap();
+    browser.click("input[aria-label=Subject]").await.unwrap();
+    let _: bool = browser
+        .eval("(() => { const input = document.querySelector('input[aria-label=Subject]'); input.setSelectionRange(input.value.length, input.value.length); return true; })()")
+        .await
+        .unwrap();
+    browser.type_text(" update").await.unwrap();
+    browser
+        .click(".community-composer-footer button[type=submit]")
+        .await
+        .unwrap();
+    browser
+        .wait_for(&format!("{projects}?.querySelector('.community-post-subject').textContent.trim() === 'Projects update' && !{projects}.querySelector('.community-post-edited').hidden && {projects}.querySelector('.community-rich-message .font-bold')?.innerText === 'saved' && document.querySelector('.community-composer').dataset.mode === 'collapsed'"))
+        .await
+        .unwrap();
+    // Pin from the more-options menu: it moves to the top for everyone.
+    let _: bool = browser
+        .eval(&format!("{projects}.querySelector('.community-post-actions button[aria-label=\\'More options\\']').click(), true"))
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('#community-post-menu').matches(':popover-open') && document.activeElement.textContent.trim() === 'Copy link'")
+        .await
+        .unwrap();
+    assert_eq!(
+        browser.eval::<String>("Array.from(document.querySelectorAll('#community-post-menu [role=menuitem]')).filter(item => !item.hidden).map(item => item.innerText.replace(/\\s+/g, ' ').trim()).join('|')").await.unwrap(),
+        "Copy link|Delete Del|Pin for everyone P|Open conversation in new window"
+    );
+    browser.press("p").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-post .community-post-pinned').hidden && document.querySelector('.community-post .community-post-subject').textContent.trim() === 'Projects update'")
+        .await
+        .unwrap();
+    // Delete leaves a placeholder with Undo, which restores the post.
+    let _: bool = browser
+        .eval(&format!("{projects}.querySelector('.community-post-actions button[aria-label=\\'More options\\']').click(), true"))
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('#community-post-menu').matches(':popover-open')")
+        .await
+        .unwrap();
+    // The driver has no Delete key; send the menu the same keydown.
+    let _: bool = browser
+        .eval("document.querySelector('#community-post-menu').dispatchEvent(new KeyboardEvent('keydown', {key: 'Delete', bubbles: true}))")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.community-post[data-deleted=true] .community-post-deleted')?.innerText.startsWith('This post has been deleted.')")
+        .await
+        .unwrap();
+    browser
+        .click(".community-post[data-deleted=true] .community-post-deleted button")
+        .await
+        .unwrap();
+    browser
+        .wait_for(&format!(
+            "{projects} && !document.querySelector('.community-post[data-deleted=true]')"
+        ))
+        .await
+        .unwrap();
+    // A copied link opens the post with its conversation expanded.
+    let link: String = browser
+        .eval(&format!("location.origin + '/communities?community=' + new URLSearchParams(location.search).get('community') + '&post=' + {projects}.dataset.post"))
+        .await
+        .unwrap();
+    browser.goto(&link).await.unwrap();
+    browser
+        .wait_for("document.querySelector('.community-post[data-focused=true] .community-post-subject')?.textContent.trim() === 'Projects update' && document.querySelector('.community-post[data-focused=true] .community-conversation-toggle').getAttribute('aria-expanded') === 'true'")
+        .await
+        .unwrap();
+    browser.goto(&url).await.unwrap();
     browser.click(".community-cover-edit").await.unwrap();
     browser
         .wait_for("document.querySelector('.community-banner-dialog[open]') && document.querySelectorAll('.community-banner-choice:not([hidden])').length === 11")
