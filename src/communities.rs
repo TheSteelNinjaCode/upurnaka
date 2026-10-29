@@ -30,6 +30,7 @@ pub struct Post {
     pub announcement: bool,
     pub created_at: i64,
     pub author_name: String,
+    pub author_is_owner: bool,
     pub subject: String,
     pub headline: String,
     pub subheading: String,
@@ -51,7 +52,7 @@ pub struct PostDraft {
 pub const ACCENTS: &[&str] = &[
     "blue", "teal", "green", "purple", "magenta", "red", "orange", "slate",
 ];
-fn shown_post(p: post::Model, author_name: String) -> Post {
+fn shown_post(p: post::Model, author_name: String, author_is_owner: bool) -> Post {
     Post {
         id: p.id,
         channel_id: p.channel_id,
@@ -59,6 +60,7 @@ fn shown_post(p: post::Model, author_name: String) -> Post {
         announcement: p.announcement,
         created_at: p.created_at,
         author_name,
+        author_is_owner,
         subject: p.subject,
         headline: p.headline,
         subheading: p.subheading,
@@ -176,7 +178,8 @@ async fn shown(row: row::Model) -> Result<Community> {
             &p.author_id
         };
         let name = author_name(author).await?;
-        posts.push(shown_post(p, name));
+        let is_owner = *author == row.owner_id;
+        posts.push(shown_post(p, name, is_owner));
     }
     let is_owner = row.owner_id == user;
     Ok(Community {
@@ -367,7 +370,7 @@ pub async fn publish(
         Some(lines) => rahti::serde_json::to_string(lines)?,
         None => String::new(),
     };
-    accessible(&community).await?;
+    let community_row = accessible(&community).await?;
     if !channel_id.is_empty()
         && channel::Entity::find_by_id(&channel_id)
             .filter(channel::Column::CommunityId.eq(&community))
@@ -394,7 +397,8 @@ pub async fn publish(
     .insert(db::db())
     .await?;
     let name = author_name(&row.author_id).await?;
-    Ok(shown_post(row, name))
+    let is_owner = row.author_id == community_row.owner_id;
+    Ok(shown_post(row, name, is_owner))
 }
 
 #[derive(Serialize)]

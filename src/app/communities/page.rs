@@ -96,7 +96,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
     Ok(html! {
         <AppShell active="communities">
             <main
-                class="ambient-strong scroll-thin relative min-h-0 flex-1 overflow-y-auto rounded-tl-xl border-l border-t border-line"
+                class="ambient-strong scroll-thin relative flex min-h-0 flex-1 flex-col overflow-y-auto rounded-tl-xl border-l border-t border-line"
             >
                 <section
                     class="community-invites"
@@ -327,7 +327,11 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             "Add channel"
                         </button>
                     </aside>
-                    <section class="community-detail" aria-label="Selected community">
+                    <section
+                        class="community-detail scroll-thin"
+                        aria-label="Selected community"
+                        pp-style={"--community-header:" + headerHeight + "px"}
+                    >
                         <div class="community-cover" data-cover={activeCommunity?.cover || "mint"}>
                             <img
                                 class="community-cover-image"
@@ -344,7 +348,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 <Icon name="edit" class="size-5" />
                             </button>
                         </div>
-                        <header class="community-detail-header">
+                        <header class="community-detail-header" pp-ref={detailHeader}>
                             <div class="community-identity-title">
                                 <span class="community-small-avatar">
                                     <img
@@ -870,12 +874,21 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             </section>
                             <template pp-for="post in activePosts">
                                 <article key={post.id} class="community-post">
-                                    <header>
+                                    <header class="community-post-author">
                                         <span class="community-author-avatar">
                                             {authorInitials(post.author_name)}
                                         </span>
                                         <strong>{post.author_name}</strong>
-                                        <time>{new Date(post.created_at).toLocaleString()}</time>
+                                        <span
+                                            class="community-owner-badge"
+                                            hidden={!post.author_is_owner}
+                                        >
+                                            <Icon name="shield" class="size-3" />
+                                            "Owner"
+                                        </span>
+                                        <time title={new Date(post.created_at).toLocaleString()}>
+                                            {postTime(post.created_at)}
+                                        </time>
                                     </header>
                                     <div
                                         class="community-post-banner"
@@ -1600,8 +1613,9 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-invites { padding:20px;background:#242033;display:grid;gap:16px; }
                     .community-invites h2 { font-weight:600;margin-bottom:8px; }
                     .community-invites p { margin-bottom:12px; }
-                    .community-workspace { display: grid; grid-template-columns: 300px minmax(0,1fr); min-height: 100%; color: #f2f2f2; background: linear-gradient(135deg,#18121f,#241415 60%,#16141c); }
-                    .community-sidebar { padding: 24px 16px; }
+                    .community-workspace { display: grid; grid-template-columns: 300px minmax(0,1fr); flex: 1 1 auto; min-height: 0; color: #f2f2f2; background: linear-gradient(135deg,#18121f,#241415 60%,#16141c); }
+                    .community-sidebar { padding: 24px 16px; min-height:0; overflow-y:auto; }
+                    .community-invites { flex:none; }
                     .community-sidebar-heading { display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px; }
                     .community-sidebar-heading h1 { font-size:23px;font-weight:700; }
                     .community-nav-group { margin-bottom:8px; }
@@ -1634,7 +1648,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-channel-footer button[type=submit]:disabled { background:#171717;color:#777;opacity:1; }
                     .community-channel-error { color:#ffbaba;font-size:13px;line-height:1.5;margin-top:8px; }
                     @media(max-width:540px) { .community-channel-dialog { padding:22px; } .community-channel-dialog [data-slot=dialog-title] { font-size:20px; } .community-channel-footer { align-items:stretch;flex-direction:column; } .community-channel-footer > div { justify-content:flex-end; } }
-                    .community-detail { min-width:0;background:#262626;border-radius:12px 0 0 0;margin:10px 0 0;overflow:hidden; }
+                    .community-detail { position:relative;min-width:0;min-height:0;background:#262626;border-radius:12px 0 0 0;margin:10px 0 0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain; }
                     .community-cover { position:relative;height:clamp(160px,22vw,280px);margin:12px 12px 0;overflow:hidden;border-radius:8px;background:#bfe9d0; }
                     .community-cover-image { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
                     .community-cover-edit { position:absolute;right:10px;bottom:10px;display:grid;place-items:center;border-radius:4px;padding:8px;background:#262626;color:white;box-shadow:0 2px 8px #0005; }
@@ -1654,7 +1668,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-banner-footer > button:last-child { min-width:144px;background:#5b5fc7;color:#fff; }
                     .community-banner-footer > button:last-child:hover:not(:disabled) { background:#4f52b2; }
                     .community-banner-footer > button:last-child:disabled { background:#1f1f1f;color:#5c5c5c;opacity:1; }
-                    .community-detail-header { display:flex;align-items:center;gap:22px;min-height:72px;padding:0 22px;border-bottom:1px solid #ffffff12;flex-wrap:wrap; }
+                    .community-detail-header { position:sticky;top:0;z-index:20;background:#262626;display:flex;align-items:center;gap:22px;min-height:72px;padding:0 22px;border-bottom:1px solid #ffffff12;flex-wrap:wrap; }
                     .community-identity-title { display:flex;align-items:center;gap:12px;min-width:0; }
                     .community-identity-title h2 { font-size:20px;font-weight:700;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
                     .community-tabs { display:flex;gap:20px;align-self:stretch; }
@@ -1724,10 +1738,21 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-composer-footer { display:flex;align-items:center;gap:4px;color:#d6d6d6;padding-top:6px; }
                     .community-composer-footer > button[data-slot=button] { margin-left:auto;min-width:96px;background:#5b5fc7;color:#fff; }
                     .community-composer-footer > button[data-slot=button]:hover:not(:disabled) { background:#4f52b2; }
-                    .community-post-banner { margin:14px -18px 0;padding:44px 24px;text-align:center; }
-                    .community-post .community-post-banner h3 { margin:0;color:#fff;font-size:clamp(20px,2.6vw,28px);overflow-wrap:anywhere; }
-                    .community-post-subheading { margin-top:14px;font-size:16px;color:#d6d6d6;overflow-wrap:anywhere; }
-                    .community-post .community-post-subject { color:#fff;font-size:16px;margin-top:12px; }
+                    .community-composer[data-mode=collapsed] { position:sticky;top:calc(var(--community-header,72px) + 12px);z-index:10; }
+                    .community-composer[data-mode=collapsed]::before { content:"";position:absolute;left:-12px;right:-12px;bottom:100%;height:13px;background:#262626; }
+                    .community-composer[data-mode=collapsed]::after { content:"";position:absolute;left:-12px;right:-12px;top:100%;height:12px;background:linear-gradient(#262626,#26262600);pointer-events:none; }
+                    .community-post { padding:0 0 16px;border-color:#1f1f1f;border-radius:6px;overflow:hidden; }
+                    .community-post > :not(.community-post-author):not(.community-post-banner) { margin-left:18px;margin-right:18px; }
+                    .community-post .community-post-author { position:relative;display:flex;align-items:center;gap:8px;padding:16px 18px 0;font-size:14px;flex-wrap:wrap; }
+                    .community-post-author::before { content:"";position:absolute;left:0;top:16px;width:4px;height:32px;border-radius:0 3px 3px 0;background:#7f85f5; }
+                    .community-post-author .community-author-avatar { width:32px;height:32px;font-size:12px; }
+                    .community-post-author strong { font-weight:400;color:#fff; }
+                    .community-owner-badge { display:inline-flex;align-items:center;gap:3px;height:18px;padding:0 5px;border:1px solid #5b5fc7;border-radius:4px;background:#2f2f4a;color:#a7acf4;font-size:10px;font-weight:600; }
+                    .community-post .community-post-author time { margin-left:4px;color:#adadad;font-size:12px; }
+                    .community-post-banner { display:grid;place-items:center;min-height:clamp(150px,22vw,244px);margin:16px 18px 0;padding:24px;border-radius:4px;text-align:center; }
+                    .community-post .community-post-banner h3 { margin:0;color:#a6d8ff;font-size:clamp(24px,3vw,36px);font-weight:700;line-height:1.2;overflow-wrap:anywhere; }
+                    .community-post-subheading { margin-top:16px;font-size:18px;font-weight:700;color:#fff;overflow-wrap:anywhere; }
+                    .community-post .community-post-subject { color:#fff;font-size:18px;font-weight:700;margin-top:14px; }
                     .community-rich-message { margin-top:12px;font-size:14px;line-height:1.6; }
                     .community-post-line { min-height:1.6em;white-space:pre-wrap;overflow-wrap:anywhere; }
                     .community-post-line.is-bullet,.community-post-line.is-ordered { padding-left:12px; }
@@ -1742,8 +1767,6 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-quick-actions > * { display:flex;align-items:center;gap:16px;text-align:left;padding:18px;border:1px solid #555;border-radius:5px;font-size:16px;font-weight:600; }
                     .community-quick-actions span { font-size:32px; }
                     .community-post { margin-top:20px; }
-                    .community-post header { display:flex;align-items:center;gap:10px;font-size:13px;flex-wrap:wrap; }
-                    .community-post time { color:#aaa;font-size:11px;margin-left:auto; }
                     .community-post > p,.community-details-panel p { white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-size:14px;margin-top:14px; }
                     .community-post h3 { color:#b6b0ff;font-weight:700;margin-top:16px; }
                     .community-details-panel { padding:22px;border-bottom:1px solid #444;background:#202020; }
@@ -2154,6 +2177,23 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             setComposeError(Object.values(fields).flat()[0] || failure.message || 'Your post could not be saved.');
                         }
                         finally { setWorking(false); }
+                    }
+                    // The pane scrolls under a sticky header; the collapsed composer
+                    // sticks just below it, so the header's height becomes a CSS variable.
+                    const detailHeader = pp.ref(null);
+                    const [headerHeight, setHeaderHeight] = pp.state(72);
+                    const measureHeader = pp.event(() => setHeaderHeight(Math.round(detailHeader.current?.getBoundingClientRect().height || 72)));
+                    pp.effect(() => {
+                        if (!detailHeader.current) return;
+                        const observer = new ResizeObserver(measureHeader);
+                        observer.observe(detailHeader.current);
+                        return () => observer.disconnect();
+                    }, []);
+                    function postTime(value) {
+                        const date = new Date(value), now = new Date();
+                        const time = date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                        if (date.toDateString() === now.toDateString()) return time;
+                        return date.toLocaleDateString([], {month:'numeric', day:'numeric', ...(date.getFullYear() === now.getFullYear() ? {} : {year:'numeric'})}) + ' ' + time;
                     }
                     function postLineClass(kind) { return 'community-post-line' + (kind && kind !== 'paragraph' ? ' is-' + kind : ''); }
                     function postListNumber(lines,index) { let start = index; while (start > 0 && lines[start-1].kind === 'ordered') start--; return index - start + 1; }

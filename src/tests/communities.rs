@@ -1412,5 +1412,16 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .await
         .unwrap();
     assert!(browser.eval::<bool>("document.querySelector('.community-detail').getBoundingClientRect().right <= innerWidth + 1").await.unwrap());
+    // Like Teams, the posts pane scrolls on its own: the banner leaves, while
+    // the header and the collapsed composer stay pinned.
+    browser
+        .click("button[role=tab][aria-controls=community-posts]")
+        .await
+        .unwrap();
+    let pinned = browser.eval::<String>("(async () => { const pane = document.querySelector('.community-detail'), main = document.querySelector('main'); pane.style.height = '420px'; pane.scrollTop = pane.scrollHeight; await new Promise(r => setTimeout(r, 100)); const top = pane.getBoundingClientRect().top, header = document.querySelector('.community-detail-header').getBoundingClientRect(), composer = document.querySelector('.community-composer').getBoundingClientRect(); const result = JSON.stringify({scrolled: pane.scrollTop > 0, header: Math.round(header.top - top), composer: Math.round(composer.top - header.bottom), mainScrolls: main.scrollHeight > main.clientHeight + 1}); pane.style.height = ''; pane.scrollTop = 0; return result; })()").await.unwrap();
+    assert_eq!(
+        pinned,
+        r#"{"scrolled":true,"header":0,"composer":12,"mainScrolls":false}"#
+    );
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
