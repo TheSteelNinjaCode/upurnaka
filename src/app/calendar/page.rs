@@ -139,9 +139,6 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                             </Button>
                         </div>
                         <div class="flex items-center gap-4">
-                            <span class="text-[13px] text-muted-foreground">
-                                "You're up to date!"
-                            </span>
                             <DropdownMenu>
                                 <DropdownMenuTrigger
                                     menu="calendar-view"
