@@ -52,6 +52,203 @@ async fn entry(client: &mut Client, id: &str, name: &str) -> Value {
     b
 }
 
+async fn joined(ticket: &Value) {
+    visit::Entity::update_many()
+        .col_expr(visit::Column::State, Expr::value("joined"))
+        .filter(visit::Column::Id.eq(ticket.as_str().unwrap()))
+        .exec(crate::db::db())
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn anonymous_guests_use_expiring_tickets_without_an_account() {
+    let id = meeting().await;
+    let path = format!("/meet/j/{id}");
+    let mut anon = Client::new().await;
+    let (status, headers, body) = anon.request(&path, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Continue in this browser"));
+    assert!(
+        headers["cache-control"]
+            .to_str()
+            .unwrap()
+            .contains("no-store")
+    );
+    assert!(!headers.get_all("set-cookie").iter().any(|h| {
+        h.to_str()
+            .unwrap()
+            .starts_with(&format!("{}=", rahti::auth::settings().cookie))
+    }));
+    assert_eq!(
+        anon.request("/calendar", None).await.0,
+        StatusCode::SEE_OTHER
+    );
+    assert_eq!(
+        anon.request("/meet/j/unknown-guest-link", None).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(
+            &mut anon,
+            &id,
+            "request_meeting_entry",
+            json!({"id":id,"name":"  "})
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let guest = entry(&mut anon, &id, "Anonymous visitor").await;
+    assert_eq!(guest["state"], "waiting");
+    assert_eq!(guest["host"], false);
+    let ticket = &guest["id"];
+    assert_eq!(ticket.as_str().unwrap().len(), 43);
+    assert_eq!(
+        call(
+            &mut anon,
+            &id,
+            "join_meeting",
+            json!({"id":id,"display_name":"Guest","admission":ticket})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &mut anon,
+            &id,
+            "meeting_room_state",
+            json!({"id":id,"ticket":"guessed-ticket"})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let mut host = owner().await;
+    let organizer = entry(&mut host, &id, "Organizer").await;
+    assert_eq!(
+        call(
+            &mut anon,
+            &id,
+            "meeting_room_state",
+            json!({"id":id,"ticket":organizer["id"]})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &mut host,
+            &id,
+            "decide_meeting_entry",
+            json!({"id":id,"ticket":ticket,"admit":true})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN,
+        "Organizer must join first"
+    );
+    joined(&organizer["id"]).await;
+    assert_eq!(
+        call(
+            &mut host,
+            &id,
+            "decide_meeting_entry",
+            json!({"id":id,"ticket":ticket,"admit":true})
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let (_, state) = call(
+        &mut anon,
+        &id,
+        "meeting_room_state",
+        json!({"id":id,"ticket":ticket}),
+    )
+    .await;
+    assert_eq!(state["state"], "admitted");
+    assert_eq!(state["waiting"], json!([]));
+    let other = meeting().await;
+    assert_eq!(
+        call(
+            &mut anon,
+            &other,
+            "meeting_room_state",
+            json!({"id":other,"ticket":ticket})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &mut anon,
+            &id,
+            "leave_meeting_entry",
+            json!({"id":id,"ticket":ticket})
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(
+            &mut anon,
+            &id,
+            "join_meeting",
+            json!({"id":id,"display_name":"Guest","admission":ticket})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let expired = entry(&mut anon, &id, "Expired visitor").await;
+    visit::Entity::update_many()
+        .col_expr(visit::Column::LeaseUntil, Expr::value(0))
+        .filter(visit::Column::Id.eq(expired["id"].as_str().unwrap()))
+        .exec(crate::db::db())
+        .await
+        .unwrap();
+    assert_eq!(
+        call(
+            &mut anon,
+            &id,
+            "meeting_room_state",
+            json!({"id":id,"ticket":expired["id"]})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let revoked = entry(&mut anon, &id, "Visitor before revocation").await;
+    assert_eq!(
+        rpc(
+            "/meet",
+            "delete_meeting_link",
+            &json!({"id":id}).to_string()
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(anon.request(&path, None).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(
+        call(
+            &mut anon,
+            &id,
+            "meeting_room_state",
+            json!({"id":id,"ticket":revoked["id"]})
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+}
+
 #[tokio::test]
 async fn lobby_admission_is_required_before_credentials_and_only_owner_can_decide() {
     let id = meeting().await;
@@ -60,6 +257,7 @@ async fn lobby_admission_is_required_before_credentials_and_only_owner_can_decid
     let host_entry = entry(&mut host, &id, "Organizer").await;
     assert_eq!(host_entry["state"], "admitted");
     assert_eq!(host_entry["host"], true);
+    joined(&host_entry["id"]).await;
     let guest_entry = entry(&mut guest, &id, "Waiting Guest").await;
     assert_eq!(guest_entry["state"], "waiting");
     assert_eq!(guest_entry["host"], false);
@@ -453,7 +651,7 @@ async fn provider_permission_denial_preserves_mute_state_and_explains_the_failur
 }
 
 #[tokio::test]
-async fn meeting_control_rpcs_validate_shapes_and_refuse_anonymous_callers() {
+async fn meeting_control_rpcs_validate_shapes_and_guard_moderator_calls() {
     let id = meeting().await;
     let mut host = owner().await;
     let mut anon = Client::new().await;
@@ -473,7 +671,17 @@ async fn meeting_control_rpcs_validate_shapes_and_refuse_anonymous_callers() {
         );
         assert_eq!(
             call(&mut anon, &id, name, json!({})).await.0,
-            StatusCode::UNAUTHORIZED,
+            if [
+                "decide_meeting_entry",
+                "spotlight_participant",
+                "mute_participant"
+            ]
+            .contains(&name)
+            {
+                StatusCode::UNAUTHORIZED
+            } else {
+                StatusCode::BAD_REQUEST
+            },
             "{name}"
         );
     }
@@ -510,6 +718,7 @@ async fn only_the_seeded_admin_moderates_legacy_unowned_links() {
     ));
     let admitted = entry(&mut admin, &id, "Admin").await;
     assert_eq!(admitted["host"], true);
+    joined(&admitted["id"]).await;
     let mut regular = owner().await;
     let waiting = entry(&mut regular, &id, "Regular").await;
     assert_eq!(waiting["state"], "waiting");
@@ -605,21 +814,6 @@ async fn browsers_can_use_lobby_and_host_controls_without_replacing_video_elemen
         return;
     };
     authenticate_browser(&mut host_browser, address).await;
-    guest_browser
-        .goto(&format!("http://{address}/signin"))
-        .await
-        .unwrap();
-    let cookie = format!(
-        "{}; Path=/; SameSite=Lax",
-        super::support::cookie_for("other-user", "Other User", "other@example.com")
-    );
-    let _: String = guest_browser
-        .eval(&format!(
-            "document.cookie = {}",
-            rahti::serde_json::to_string(&cookie).unwrap()
-        ))
-        .await
-        .unwrap();
     host_browser
         .goto(&format!("http://{address}/meet/j/{id}"))
         .await
@@ -635,6 +829,18 @@ async fn browsers_can_use_lobby_and_host_controls_without_replacing_video_elemen
         .unwrap();
     guest_browser
         .goto(&format!("http://{address}/meet/j/{id}"))
+        .await
+        .unwrap();
+    guest_browser.wait_for("!document.querySelector('.meeting-launch').hidden && document.querySelector('.meeting-body').hidden").await.unwrap();
+    let _: bool = guest_browser.eval("(() => { const event = new Event('beforeinstallprompt'); event.prompt = async () => {}; event.userChoice = Promise.resolve({outcome:'accepted'}); window.dispatchEvent(event); return true; })()").await.unwrap();
+    guest_browser.click(".guest-install").await.unwrap();
+    guest_browser.wait_for("!document.querySelector('.meeting-launch p[role=status]').hidden && document.querySelector('.meeting-launch p[role=status]').textContent.length > 0").await.unwrap();
+    guest_browser.click(".guest-browser").await.unwrap();
+    guest_browser.wait_for("!document.querySelector('.meeting-body').hidden && !document.querySelector('.meeting-guest-name').hidden && document.querySelector('.meeting-primary').disabled").await.unwrap();
+    guest_browser.click("#guest-display-name").await.unwrap();
+    guest_browser.type_text("Other User").await.unwrap();
+    guest_browser
+        .wait_for("document.querySelector('.meeting-account strong').textContent === 'Other User'")
         .await
         .unwrap();
     browser_join(&mut guest_browser).await;
@@ -657,7 +863,7 @@ async fn browsers_can_use_lobby_and_host_controls_without_replacing_video_elemen
     guest_browser.wait_for("!document.querySelector('.meeting-room').hidden && document.querySelector('.meeting-lobby-wait').hidden").await.unwrap();
     let row = visit::Entity::find()
         .filter(visit::Column::MeetingId.eq(&id))
-        .filter(visit::Column::UserId.eq("other-user"))
+        .filter(visit::Column::UserId.starts_with("guest:"))
         .filter(visit::Column::State.eq("joined"))
         .one(crate::db::db())
         .await

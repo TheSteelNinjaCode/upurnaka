@@ -18,10 +18,6 @@ fn now() -> i64 {
 pub(super) fn denied() -> Error {
     Error::new(StatusCode::FORBIDDEN, "Meeting access denied.")
 }
-fn user() -> Result<auth::PublicUser> {
-    auth::current().ok_or_else(|| Error::new(StatusCode::UNAUTHORIZED, "Authentication required"))
-}
-
 async fn link(id: &str) -> Result<meeting_link::Model> {
     auth::ready()?;
     meeting_link::Entity::find_by_id(id)
@@ -32,8 +28,11 @@ async fn link(id: &str) -> Result<meeting_link::Model> {
 }
 pub async fn is_host(id: &str) -> Result<bool> {
     let row = link(id).await?;
+    if auth::current().is_none() {
+        return Ok(false);
+    }
     if let Some(owner) = row.owner_id {
-        return Ok(owner == user()?.id);
+        return Ok(auth::current().is_some_and(|user| owner == user.id));
     }
     // Links made before account ownership existed are moderated by the live database admin.
     match crate::users::require_admin().await {
@@ -61,13 +60,20 @@ pub(super) async fn host(id: &str) -> Result<()> {
 }
 pub(super) async fn mine(id: &str, ticket: &str) -> Result<visit::Model> {
     link(id).await?;
-    visit::Entity::find_by_id(ticket)
+    let row = visit::Entity::find_by_id(ticket)
         .filter(visit::Column::MeetingId.eq(id))
-        .filter(visit::Column::UserId.eq(user()?.id))
         .filter(visit::Column::LeaseUntil.gt(now()))
         .one(db::db())
         .await?
-        .ok_or_else(denied)
+        .ok_or_else(denied)?;
+    // Anonymous entries use a random bearer ticket, held only in this browser's
+    // component state. Account entries remain bound to their signed-in owner.
+    if !row.user_id.starts_with("guest:")
+        && auth::current().is_none_or(|user| user.id != row.user_id)
+    {
+        return Err(denied());
+    }
+    Ok(row)
 }
 #[derive(Serialize)]
 pub struct Admission {
@@ -98,14 +104,19 @@ pub async fn request(id: String, name: String) -> Result<Admission> {
         .max_chars("name", &name, 64);
     v.finish()?;
     let row = link(&id).await?;
-    let user = user()?;
+    let user_id = auth::current().map(|user| user.id);
+    let host = if let Some(owner) = row.owner_id {
+        user_id.as_deref() == Some(owner.as_str())
+    } else {
+        is_host(&id).await?
+    };
     visit::Entity::delete_many()
         .filter(visit::Column::LeaseUntil.lt(now() - 86_400))
         .exec(db::db())
         .await?;
     if visit::Entity::find()
         .filter(visit::Column::MeetingId.eq(&id))
-        .filter(visit::Column::UserId.eq(&user.id))
+        .filter(visit::Column::UserId.eq(user_id.as_deref().unwrap_or("")))
         .filter(visit::Column::State.is_in(["waiting", "admitted", "issuing", "joined"]))
         .filter(visit::Column::LeaseUntil.gt(now()))
         .count(db::db())
@@ -117,17 +128,37 @@ pub async fn request(id: String, name: String) -> Result<Admission> {
             "Too many open meeting requests. Close an older tab and try again.",
         ));
     }
-    let host = if let Some(owner) = row.owner_id {
-        owner == user.id
-    } else {
-        is_host(&id).await?
-    };
+    // Also bound anonymous requests per meeting; a guest cannot evade this
+    // bound by creating a new identity for every request.
+    if !host
+        && visit::Entity::find()
+            .filter(visit::Column::MeetingId.eq(&id))
+            .filter(visit::Column::State.eq("waiting"))
+            .filter(visit::Column::LeaseUntil.gt(now()))
+            .count(db::db())
+            .await?
+            >= 100
+    {
+        return Err(Error::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "The lobby is full. Try again shortly.",
+        ));
+    }
     let state = if host { "admitted" } else { "waiting" };
-    let ticket = super::mint_id();
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    use rand::{TryRng, rngs::SysRng};
+    let mut random = [0; 32];
+    SysRng.try_fill_bytes(&mut random).map_err(|_| {
+        Error::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Could not create meeting entry",
+        )
+    })?;
+    let ticket = URL_SAFE_NO_PAD.encode(random);
     visit::ActiveModel {
         id: Set(ticket.clone()),
         meeting_id: Set(id),
-        user_id: Set(user.id),
+        user_id: Set(user_id.unwrap_or_else(|| format!("guest:{ticket}"))),
         name: Set(name.trim().into()),
         state: Set(state.into()),
         lease_until: Set(now() + 90),
@@ -201,6 +232,21 @@ pub async fn snapshot(id: String, ticket: String) -> Result<RoomState> {
 }
 pub async fn decide(id: String, ticket: String, admit: bool) -> Result<bool> {
     host(&id).await?;
+    let user = auth::current().ok_or_else(denied)?;
+    if visit::Entity::find()
+        .filter(visit::Column::MeetingId.eq(&id))
+        .filter(visit::Column::UserId.eq(user.id))
+        .filter(visit::Column::State.eq("joined"))
+        .filter(visit::Column::LeaseUntil.gt(now()))
+        .one(db::db())
+        .await?
+        .is_none()
+    {
+        return Err(Error::new(
+            StatusCode::FORBIDDEN,
+            "Join the meeting before admitting guests.",
+        ));
+    }
     let changed = visit::Entity::update_many()
         .col_expr(
             visit::Column::State,

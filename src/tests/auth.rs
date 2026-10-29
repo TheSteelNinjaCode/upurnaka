@@ -433,7 +433,6 @@ async fn auth_validates_input_and_all_private_endpoints_require_sessions() {
         "/communities",
         "/apps",
         "/account",
-        "/meet/j/example",
     ] {
         let (s, headers, _) = c.request(path, None).await;
         assert_eq!(s, StatusCode::SEE_OTHER, "{path}");

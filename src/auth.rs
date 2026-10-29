@@ -20,7 +20,7 @@ use totp_rs::{Algorithm, Builder, Secret, Totp};
 pub fn settings() -> rahti::auth::AuthSettings {
     rahti::auth::AuthSettings {
         all_private: true,
-        public_routes: vec![],
+        public_routes: vec!["/meet/j/[id]".into()],
         auth_routes: vec!["/signin".into(), "/register".into()],
         signin: "/signin".into(),
         after_signin: "/chat".into(),

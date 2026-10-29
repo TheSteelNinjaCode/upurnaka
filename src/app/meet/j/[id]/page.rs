@@ -63,6 +63,7 @@ const MENU_ROW: &str = "w-full justify-start! px-4! py-2.5 text-left text-[13px]
 const LINK: &str = "h-auto! px-0! text-link";
 
 pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
+    let anonymous = crate::auth::current().is_none();
     let user = crate::auth::current().unwrap_or_default();
     let initials = user.initials();
     // A revoked link and a code nobody ever minted read the same from here,
@@ -85,11 +86,6 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
     let recording_ready = recording::is_configured();
 
     let room_leave = format!("{ROOM_TOOL} {ROOM_LEAVE}");
-    let cancel_join = button_variants(
-        ButtonVariant::Outline,
-        ButtonSize::Lg,
-        "min-w-[118px] px-[22px] text-base font-semibold",
-    );
     let upload_background = button_variants(
         ButtonVariant::Ghost,
         ButtonSize::Default,
@@ -102,20 +98,55 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             class="meeting-join h-dvh overflow-auto bg-pane text-ink **:focus-visible:outline-2 **:focus-visible:outline-offset-4 **:focus-visible:outline-ring"
             onkeydown={handleBackgroundKey(event)}
         >
+            <section
+                class="meeting-launch mx-auto flex min-h-dvh max-w-[480px] flex-col items-center justify-center gap-6 px-6 py-12 text-center"
+                hidden={!showLauncher}
+            >
+                <div
+                    class="flex size-20 items-center justify-center rounded-2xl bg-brand/20 text-brand-ink"
+                >
+                    <Icon name="video" class="size-10" />
+                </div>
+                <div>
+                    <p class="mb-3 text-sm text-muted-foreground">"UPURNAKA MEETINGS"</p>
+                    <h1 class="text-2xl font-semibold">"Join your meeting"</h1>
+                    <p class="mt-3 text-muted-foreground">@{title.as_str()}</p>
+                </div>
+                <div
+                    class="grid w-full gap-3 rounded-xl border border-edge bg-raised p-7 shadow-lg"
+                >
+                    <Button class="guest-browser w-full" onclick={setShowLauncher(false)}>
+                        "Continue in this browser"
+                    </Button>
+                    <Button variant="outline" class="guest-install w-full" onclick={installApp()}>
+                        "Get the Upurnaka app"
+                    </Button>
+                    <p class="text-sm text-muted-foreground">
+                        "No account needed. Enter your name, then wait for the organizer to let you in."
+                    </p>
+                    <p class="text-sm text-muted-foreground" role="status" hidden={!installHelp}>
+                        {installHelp}
+                    </p>
+                </div>
+                <a href="/signin" class="text-sm text-link">"Sign in with an account"</a>
+            </section>
             <div
                 class="meeting-body group/body mx-auto max-w-[1460px] px-5 pb-6 min-[851px]:flex min-[851px]:h-full min-[851px]:flex-col min-[851px]:gap-[clamp(10px,1.8dvh,20px)] min-[851px]:px-[clamp(24px,4vw,64px)] min-[851px]:pb-4 min-[1101px]:data-[backgrounds=true]:ml-0 min-[1101px]:data-[backgrounds=true]:w-[calc(100%-340px)] min-[1101px]:data-[backgrounds=true]:px-6"
                 data-backgrounds={backgroundsOpen}
-                hidden={session !== null}
+                hidden={showLauncher || session !== null}
             >
                 <div
                     class="meeting-account relative mx-auto flex w-fit max-w-full items-center gap-4 rounded-b-md bg-raised px-6 py-5 shadow-md shadow-black/20 max-[480px]:gap-2.5 max-[480px]:p-3.5 min-[851px]:shrink-0 min-[851px]:py-[clamp(12px,1.8dvh,20px)]"
+                    hidden={anonymous}
                 >
                     <Avatar initials=@{initials.as_str()} size="lg" presence="none" />
                     <div
                         class="flex min-w-40 flex-col gap-0.5 text-[15px] max-[480px]:min-w-0 max-[480px]:text-[13px]"
                     >
                         <strong>{displayName || "Your name"}</strong>
-                        <span class="text-[13px] text-muted-foreground">"Joining as a guest"</span>
+                        <span class="text-[13px] text-muted-foreground">
+                            @{if anonymous { "Joining as a guest" } else { "Joining with your account" }}
+                        </span>
                     </div>
                     <Button variant="link" class=@{LINK} onclick={setEditingName(!editingName)}>
                         {editingName ? "Done" : "Change"}
@@ -147,6 +178,23 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     >
                         @{&title}
                     </h1>
+                    <div
+                        class="meeting-guest-name grid w-full max-w-sm gap-2 text-left"
+                        hidden={!anonymous}
+                    >
+                        <Label r#for="guest-display-name">"Your name"</Label>
+                        <Input
+                            id="guest-display-name"
+                            name="guest_name"
+                            attrs=@{Attrs::new().set("autocomplete", "name").set("maxlength", "64").set("placeholder", "Enter your name")}
+                            value={displayName}
+                            oninput={setDisplayName(target.value)}
+                            disabled={lobbyWaiting || joining}
+                        />
+                        <p class="text-center text-xs text-muted-foreground">
+                            "Joining as a guest. The organizer will let you in."
+                        </p>
+                    </div>
                 </div>
                 <div
                     class="grid grid-cols-1 gap-6 min-[851px]:max-h-[min(52dvh,520px)] min-[851px]:min-h-0 min-[851px]:flex-1 min-[851px]:grid-cols-[1.13fr_1fr] min-[1101px]:group-data-[backgrounds=true]/body:gap-4"
@@ -305,7 +353,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     class="mt-7 flex shrink-0 justify-end gap-3 min-[851px]:mt-0"
                     hidden={session !== null}
                 >
-                    <a href="/meet" class=@{cancel_join.as_str()}>"Cancel"</a>
+                    <Button variant="outline" onclick={cancelSetup()}>"Cancel"</Button>
                     <Button
                         size="lg"
                         class="meeting-primary min-w-[118px] px-[22px]! text-base font-semibold"
@@ -1353,6 +1401,34 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         { id: "garden", name: "Green hills", url: "/images/backgrounds/garden.svg" },
                         { id: "sunset", name: "Sunset", url: "/images/backgrounds/sunset.svg" },
                     ]);
+                    const anonymous = @{anonymous};
+                    const [showLauncher, setShowLauncher] = pp.state(anonymous);
+                    const [installHelp, setInstallHelp] = pp.state("");
+                    const installPrompt = pp.ref(null);
+                    const onInstallPrompt = pp.event(event => { event.preventDefault(); installPrompt.current = event; });
+                    pp.effect(() => {
+                        window.addEventListener('beforeinstallprompt', onInstallPrompt);
+                        return () => window.removeEventListener('beforeinstallprompt', onInstallPrompt);
+                    }, [onInstallPrompt]);
+                    async function installApp() {
+                        const prompt = installPrompt.current;
+                        if (prompt) {
+                            installPrompt.current = null;
+                            try {
+                                await prompt.prompt();
+                                const choice = await prompt.userChoice;
+                                setInstallHelp(choice.outcome === 'accepted' ? 'App installed. Continue in this browser to join this meeting, or open the shared link in Upurnaka.' : 'You can continue in this browser without installing.');
+                            } catch (_) { setInstallHelp('Use your browser menu to install Upurnaka, or continue in this browser.'); }
+                        } else {
+                            setInstallHelp('In Chrome or Edge, open the browser menu and choose Install Upurnaka or Install this site as an app. On iPhone or iPad, use Share → Add to Home Screen. You can also continue in this browser.');
+                        }
+                    }
+                    async function cancelSetup() {
+                        await cancelLobby();
+                        await teardown();
+                        setCamera(false); setCameraLive(false); setBackgroundsOpen(false);
+                        setShowLauncher(true);
+                    }
                     const [editingName, setEditingName] = pp.state(false);
                     const [audioMode, setAudioMode] = pp.state("computer");
                     const [microphoneDevice, setMicrophoneDevice] = pp.state(devicePreferences.microphoneId);
@@ -1577,7 +1653,13 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 const result = await pp.rpc('meeting_room_state', {id:code, ticket:admission});
                                 if (!cancelled) await applyRoomState(result, admission);
                             } catch (failure) {
-                                if (!cancelled) setError(failure.body?.error || failure.message || 'Could not update meeting controls.');
+                                if (!cancelled) {
+                                    if ([403, 404].includes(failure.status)) {
+                                        setAdmission(''); setLobbyWaiting(false);
+                                        if (session) { await teardown(); setSession(null); }
+                                    }
+                                    setError(failure.body?.error || failure.message || 'Could not update meeting controls.');
+                                }
                             } finally { busy = false; }
                         }
                         poll();
@@ -2673,6 +2755,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
         content,
         Metadata::new()
             .title(&title)
+            .robots(crate::rahti::Robots::new().index(false).follow(false))
             .description(format!("Join {title} on upurnaka.")),
     ))
 }
@@ -2682,7 +2765,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 /// The join code is checked the same way the page checked it: a revoked or
 /// unknown one is a 404 here too, because an RPC a browser can call is a
 /// second front door and guarding only the page would leave it open.
-#[rpc(auth)]
+#[rpc]
 pub async fn join_meeting(
     id: String,
     display_name: String,
@@ -2724,11 +2807,11 @@ pub async fn join_meeting(
     }
 }
 
-#[rpc(auth)]
+#[rpc]
 pub async fn request_meeting_entry(id: String, name: String) -> Result<meetings::lobby::Admission> {
     meetings::lobby::request(id, name).await
 }
-#[rpc(auth)]
+#[rpc]
 pub async fn meeting_room_state(id: String, ticket: String) -> Result<meetings::lobby::RoomState> {
     meetings::lobby::snapshot(id, ticket).await
 }
@@ -2736,7 +2819,7 @@ pub async fn meeting_room_state(id: String, ticket: String) -> Result<meetings::
 pub async fn decide_meeting_entry(id: String, ticket: String, admit: bool) -> Result<bool> {
     meetings::lobby::decide(id, ticket, admit).await
 }
-#[rpc(auth)]
+#[rpc]
 pub async fn leave_meeting_entry(id: String, ticket: String) -> Result<bool> {
     meetings::lobby::finish(id, ticket).await
 }
@@ -2748,7 +2831,7 @@ pub async fn spotlight_participant(id: String, attendee: Option<String>) -> Resu
 pub async fn mute_participant(id: String, attendee: String) -> Result<bool> {
     meetings::lobby::mute(id, attendee).await
 }
-#[rpc(auth)]
+#[rpc]
 pub async fn resume_meeting_audio(id: String, ticket: String) -> Result<bool> {
     meetings::lobby::resume_audio(id, ticket).await
 }

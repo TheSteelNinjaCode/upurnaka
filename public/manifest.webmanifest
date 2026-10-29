@@ -1,0 +1,11 @@
+{
+  "id": "/",
+  "name": "Upurnaka",
+  "short_name": "Upurnaka",
+  "start_url": "/meet",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1f1f1f",
+  "theme_color": "#6264a7",
+  "icons": [{ "src": "/images/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
