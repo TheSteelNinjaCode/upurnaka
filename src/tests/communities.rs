@@ -1866,6 +1866,22 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .wait_for("document.querySelector('.community-post .community-reaction[aria-pressed=true]')?.getAttribute('aria-label') === 'Like: 1, including you'")
         .await
         .unwrap();
+    // A picker opened from the toolbar keeps the toolbar shown beside it,
+    // even once the pointer leaves the post.
+    browser
+        .click(".community-post .community-post-actions button[aria-label=\"More reactions\"]")
+        .await
+        .unwrap();
+    browser.move_mouse(2.0, 2.0).await.unwrap();
+    browser
+        .wait_for("document.querySelector('#community-reaction-picker').matches(':popover-open') && document.querySelector('.community-post .community-post-actions button[aria-label=\"More reactions\"]').getAttribute('aria-expanded') === 'true' && getComputedStyle(document.querySelector('.community-post .community-post-actions')).opacity === '1'")
+        .await
+        .unwrap();
+    browser.press("Escape").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('#community-reaction-picker').matches(':popover-open') && document.querySelector('.community-post .community-post-actions button[aria-label=\"More reactions\"]').getAttribute('aria-expanded') === 'false'")
+        .await
+        .unwrap();
     browser
         .click(".community-post .community-reaction-add")
         .await
@@ -1955,7 +1971,7 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .await
         .unwrap();
     browser
-        .wait_for("document.querySelector('#community-post-menu').matches(':popover-open') && document.activeElement.textContent.trim() === 'Copy link'")
+        .wait_for(&format!("document.querySelector('#community-post-menu').matches(':popover-open') && document.activeElement.textContent.trim() === 'Copy link' && {projects}.querySelector('.community-post-actions button[aria-label=\"More options\"]').getAttribute('aria-expanded') === 'true' && getComputedStyle({projects}.querySelector('.community-post-actions')).opacity === '1'"))
         .await
         .unwrap();
     assert_eq!(

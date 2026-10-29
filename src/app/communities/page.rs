@@ -923,8 +923,9 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                             aria-label="More reactions"
                                             title="More reactions"
                                             aria-haspopup="dialog"
+                                            aria-expanded={reactionPanelOpen && reactionFromToolbar && reactionPostId === post.id}
                                             popovertarget="community-reaction-picker"
-                                            onclick={prepareReactionPicker(post.id, event)}
+                                            onclick={prepareReactionPicker(post.id, event, true)}
                                         >
                                             <Icon name="emoji-add" class="size-5" />
                                         </button>
@@ -945,6 +946,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                             title="More options"
                                             aria-haspopup="menu"
                                             aria-controls="community-post-menu"
+                                            aria-expanded={postMenuOpen && menuPostId === post.id}
                                             popovertarget="community-post-menu"
                                             onclick={preparePostMenu(post.id, event)}
                                         >
@@ -2141,6 +2143,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-post-actions[hidden] { display:none; }
                     .community-post-actions button { display:grid;place-items:center;width:32px;height:32px;border-radius:4px;color:#d6d6d6; }
                     .community-post-actions button:hover { background:#3b3b3b; }
+                    .community-post-actions button[aria-expanded=true] { background:#3b3b3b;color:#a7acf4; }
                     .community-post-actions button:focus-visible { outline:2px solid #fff;outline-offset:-2px; }
                     .community-quick-reaction img { width:22px;height:22px;object-fit:contain;transition:transform .12s; }
                     .community-quick-reaction:hover img { transform:scale(1.2); }
@@ -2769,8 +2772,11 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     const [reactionPosition, setReactionPosition] = pp.state('');
                     const [reactionPanelOpen, setReactionPanelOpen] = pp.state(false);
                     const [reactionSession, setReactionSession] = pp.state(0);
-                    function prepareReactionPicker(postId, event) {
-                        setReactionPostId(postId); setReactionSession(reactionSession + 1);
+                    // While a picker or menu opened from a post's toolbar is open, the
+                    // toolbar stays shown beside it, as in Teams.
+                    const [reactionFromToolbar, setReactionFromToolbar] = pp.state(false);
+                    function prepareReactionPicker(postId, event, fromToolbar) {
+                        setReactionPostId(postId); setReactionFromToolbar(!!fromToolbar); setReactionSession(reactionSession + 1);
                         const rect = event.currentTarget.getBoundingClientRect(), width = Math.min(420, innerWidth - 24), height = 470;
                         const left = Math.max(12, Math.min(rect.right - width, innerWidth - width - 12));
                         const top = rect.bottom + 6 + height < innerHeight ? rect.bottom + 6 : Math.max(12, rect.top - height - 6);
@@ -2782,6 +2788,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     const postMenu = pp.ref(null);
                     const [menuPostId, setMenuPostId] = pp.state('');
                     const [postMenuPosition, setPostMenuPosition] = pp.state('');
+                    const [postMenuOpen, setPostMenuOpen] = pp.state(false);
                     const menuPost = activeCommunity?.posts.find(p => p.id === menuPostId) || null;
                     function canDelete(post) { return !!post && (post.is_mine || !!activeCommunity?.is_owner); }
                     function preparePostMenu(postId, event) {
@@ -2790,7 +2797,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     }
                     function postMenuItems() { return Array.from(postMenu.current?.querySelectorAll('[role=menuitem]') || []).filter(item => !item.hidden); }
                     const focusPostMenu = pp.event(() => postMenuItems()[0]?.focus());
-                    function postMenuToggled(event) { if (event.newState === 'open') requestAnimationFrame(focusPostMenu); }
+                    function postMenuToggled(event) { setPostMenuOpen(event.newState === 'open'); if (event.newState === 'open') requestAnimationFrame(focusPostMenu); }
                     function postMenuKey(event) {
                         const items = postMenuItems(), index = items.indexOf(document.activeElement);
                         if (event.key === 'Delete' && canDelete(menuPost)) { event.preventDefault(); deletePost(menuPostId); return; }
