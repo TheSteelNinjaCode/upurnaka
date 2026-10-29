@@ -911,6 +911,90 @@ async fn community_picture_upload_normalizes_images_and_rejects_invalid_files() 
 }
 
 #[tokio::test]
+async fn community_banner_upload_is_cropped_kept_and_replaced_by_presets() {
+    setup().await;
+    let mut client = super::auth::Client::new().await;
+    client.with_cookie(test_cookie());
+    client.request("/communities", None).await;
+    let (_, _, body) = client
+        .request(
+            "/communities",
+            Some((
+                "create_community",
+                serde_json::json!({"name":"Banner school", "category":"School"}),
+            )),
+        )
+        .await;
+    let id = serde_json::from_str::<serde_json::Value>(&body).unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let fields = serde_json::json!({"id":id, "cover":"custom"});
+    let (status, body) = client
+        .upload(
+            "/communities",
+            "change_community_cover",
+            fields.clone(),
+            ("image", "image/png", &community_test_png()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let banner: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(banner["cover"], "custom");
+    let encoded = banner["cover_image"]
+        .as_str()
+        .unwrap()
+        .strip_prefix("data:image/jpeg;base64,")
+        .unwrap();
+    let image = image::load_from_memory(
+        &base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!((image.width(), image.height()), (1600, 400));
+    // Choosing the uploaded tile again without a new file keeps the image.
+    let (status, _, body) = client
+        .request(
+            "/communities",
+            Some(("change_community_cover", fields.clone())),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&body).unwrap()["cover_image"],
+        banner["cover_image"]
+    );
+    let (status, body) = client
+        .upload(
+            "/communities",
+            "change_community_cover",
+            fields,
+            ("image", "image/svg+xml", b"<svg></svg>"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(body.contains("image"));
+    let (_, _, page) = client
+        .request(&format!("/communities?community={id}"), None)
+        .await;
+    assert!(page.contains("data:image/jpeg;base64,"));
+    client
+        .request(
+            "/communities",
+            Some((
+                "change_community_cover",
+                serde_json::json!({"id":id, "cover":"stars"}),
+            )),
+        )
+        .await;
+    let (_, _, page) = client
+        .request(&format!("/communities?community={id}"), None)
+        .await;
+    assert!(!page.contains("data:image/jpeg;base64,"));
+}
+
+#[tokio::test]
 async fn community_details_round_trip_and_reject_invalid_payloads() {
     let payload = serde_json::json!({"name":"School", "category":"School", "description":"Our school", "guidelines":"Be kind", "avatar":"🎓"});
     let (status, body) = rpc("/communities", "create_community", &payload.to_string()).await;
@@ -1081,6 +1165,24 @@ async fn communities_channels_posts_and_covers_survive_reload_and_are_private() 
             .0,
         StatusCode::UNPROCESSABLE_ENTITY
     );
+    let (status, _, body) = owner
+        .request(
+            "/communities",
+            Some(("change_community_cover", json!({"id":id,"cover":"custom"}))),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body.contains("Upload an image for the banner."), "{body}");
+    let (status, _, body) = owner
+        .request(
+            "/communities",
+            Some(("change_community_cover", json!({"id":id,"cover":"compass"}))),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let banner: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(banner["cover"], "compass");
+    assert!(banner["cover_image"].is_null());
 }
 
 #[tokio::test]
@@ -1158,11 +1260,24 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
     assert!(posted.is_ok(),"{:?}; {}",posted,browser.eval::<String>("JSON.stringify({active:document.activeElement.outerHTML,body:document.querySelector('#community-post-body').value,error:document.querySelector('.community-workspace-error').textContent,posts:Array.from(document.querySelectorAll('.community-post p')).map(p=>p.textContent),dialogs:Array.from(document.querySelectorAll('dialog')).map(d=>({open:d.open,class:d.className}))})").await.unwrap());
     browser.click(".community-cover-edit").await.unwrap();
     browser
-        .click(".community-cover-picker button:nth-child(2)")
+        .wait_for("document.querySelector('.community-banner-dialog[open]') && document.querySelectorAll('.community-banner-choice:not([hidden])').length === 11")
+        .await
+        .unwrap();
+    assert!(browser.eval::<bool>("document.querySelector('.community-banner-choice[value=mint]').getAttribute('aria-checked') === 'true' && document.querySelector('.community-banner-footer > button:last-child').disabled").await.unwrap());
+    browser
+        .click(".community-banner-choice[value=lavender]")
         .await
         .unwrap();
     browser
-        .wait_for("document.querySelector('.community-cover').dataset.cover === 'lavender'")
+        .wait_for("document.querySelector('.community-banner-choice[value=lavender]').getAttribute('aria-checked') === 'true' && !document.querySelector('.community-banner-footer > button:last-child').disabled")
+        .await
+        .unwrap();
+    browser
+        .click(".community-banner-footer > button:last-child")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.community-cover').dataset.cover === 'lavender' && document.querySelector('.community-cover-image').getAttribute('src') === '/images/banners/lavender.svg' && !document.querySelector('.community-banner-dialog').open")
         .await
         .unwrap();
     browser.goto(&url).await.unwrap();

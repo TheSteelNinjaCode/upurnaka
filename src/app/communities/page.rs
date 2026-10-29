@@ -27,6 +27,30 @@ pub fn metadata() -> Metadata {
 /// A template chip under "Create with a template".
 const TEMPLATE: &str = "rounded-full text-[13px] font-semibold";
 
+/// A preset tile in the Edit banner dialog.
+#[derive(serde::Serialize)]
+struct BannerChoice {
+    key: &'static str,
+    label: &'static str,
+}
+
+fn banner_label(key: &str) -> &'static str {
+    match key {
+        "stationery" => "Stationery on lavender",
+        "paintbrush" => "Paintbrush and butterfly",
+        "keepsakes" => "Heart, flower and photos",
+        "bakery" => "Box of pastries",
+        "giftbox" => "Wrapped gift",
+        "stars" => "Puffy stars",
+        "clock" => "Wall clock",
+        "compass" => "Compass and rope",
+        "mint" => "Mint rings",
+        "lavender" => "Lavender waves",
+        "sunset" => "Sunset waves",
+        _ => "Banner",
+    }
+}
+
 #[derive(Default, Deserialize)]
 pub struct CommunityQuery {
     community: Option<String>,
@@ -46,6 +70,13 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
         .filter(|id| saved.iter().any(|c| &c.id == id))
         .or_else(|| saved.first().map(|c| c.id.clone()))
         .unwrap_or_default();
+    let banners: Vec<_> = communities::BANNERS
+        .iter()
+        .map(|key| BannerChoice {
+            key,
+            label: banner_label(key),
+        })
+        .collect();
     let cancel_link = button_variants(
         ButtonVariant::Link,
         ButtonSize::Default,
@@ -287,27 +318,20 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     </aside>
                     <section class="community-detail" aria-label="Selected community">
                         <div class="community-cover" data-cover={activeCommunity?.cover || "mint"}>
-                            <div class="community-cover-art" aria-hidden="true"></div>
+                            <img
+                                class="community-cover-image"
+                                src={bannerSource(activeCommunity?.cover, activeCommunity?.cover_image)}
+                                alt=""
+                            />
                             <button
                                 class="community-cover-edit"
-                                aria-label="Change community cover"
-                                title="Change community cover"
-                                onclick={setCoverPicker(!coverPicker)}
+                                aria-label="Edit banner"
+                                title="Edit banner"
+                                onclick={openBannerDialog()}
                                 hidden={!activeCommunity?.is_owner}
                             >
                                 <Icon name="edit" class="size-5" />
                             </button>
-                            <div class="community-cover-picker" hidden={!coverPicker}>
-                                <button onclick={changeCover("mint")} disabled={working}>
-                                    "Mint"
-                                </button>
-                                <button onclick={changeCover("lavender")} disabled={working}>
-                                    "Lavender"
-                                </button>
-                                <button onclick={changeCover("sunset")} disabled={working}>
-                                    "Sunset"
-                                </button>
-                            </div>
                         </div>
                         <header class="community-detail-header">
                             <div class="community-identity-title">
@@ -560,6 +584,79 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 </div>
                             </footer>
                         </form>
+                    </DialogContent>
+                </Dialog>
+                <Dialog>
+                    <DialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={bannerOpener}></span>
+                    </DialogTrigger>
+                    <DialogClose attrs=@{hidden()}>
+                        <span pp-ref={bannerCloser}></span>
+                    </DialogClose>
+                    <DialogContent class="community-banner-dialog">
+                        <DialogHeader>
+                            <DialogTitle>"Edit banner"</DialogTitle>
+                        </DialogHeader>
+                        <div
+                            class="community-banner-grid"
+                            role="radiogroup"
+                            aria-label="Banner images"
+                            onkeydown={moveBannerFocus(event)}
+                        >
+                            <button
+                                type="button"
+                                role="radio"
+                                class="community-banner-choice"
+                                value="custom"
+                                aria-label="Uploaded image"
+                                aria-checked={bannerChoice === "custom"}
+                                tabindex={bannerChoice === "custom" ? 0 : -1}
+                                hidden={!bannerCustomImage}
+                                onclick={chooseBanner(event)}
+                            >
+                                <img src={bannerCustomImage || "/images/banners/mint.svg"} alt="" />
+                            </button>
+                            <template pp-for="banner in banners">
+                                <button
+                                    key={banner.key}
+                                    type="button"
+                                    role="radio"
+                                    class="community-banner-choice"
+                                    value={banner.key}
+                                    aria-label={banner.label}
+                                    aria-checked={bannerChoice === banner.key}
+                                    tabindex={bannerTabStop === banner.key ? 0 : -1}
+                                    onclick={chooseBanner(event)}
+                                >
+                                    <img src={"/images/banners/" + banner.key + ".svg"} alt="" />
+                                </button>
+                            </template>
+                        </div>
+                        <p class="community-banner-error" role="alert" hidden={!bannerError}>
+                            {bannerError}
+                        </p>
+                        <input
+                            class="sr-only"
+                            type="file"
+                            accept="image/png,image/jpeg"
+                            tabindex="-1"
+                            aria-hidden="true"
+                            pp-ref={bannerInput}
+                            onchange={bannerFileChosen(event)}
+                        />
+                        <footer class="community-banner-footer">
+                            <Button
+                                variant="outline"
+                                onclick={pickBannerImage()}
+                                disabled={working}
+                            >
+                                <Icon name="upload" class="size-5" />
+                                "Upload image"
+                            </Button>
+                            <Button onclick={saveBanner()} disabled={working || !bannerChanged}>
+                                {working ? "Saving…" : "Done"}
+                            </Button>
+                        </footer>
                     </DialogContent>
                 </Dialog>
                 <div
@@ -1100,13 +1197,24 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     @media(max-width:540px) { .community-channel-dialog { padding:22px; } .community-channel-dialog [data-slot=dialog-title] { font-size:20px; } .community-channel-footer { align-items:stretch;flex-direction:column; } .community-channel-footer > div { justify-content:flex-end; } }
                     .community-detail { min-width:0;background:#262626;border-radius:12px 0 0 0;margin:10px 0 0;overflow:hidden; }
                     .community-cover { position:relative;height:clamp(160px,22vw,280px);margin:12px 12px 0;overflow:hidden;border-radius:8px;background:#bfe9d0; }
-                    .community-cover[data-cover=lavender] { background:#d2c9f4; }
-                    .community-cover[data-cover=sunset] { background:#f4d2b2; }
-                    .community-cover-art { position:absolute;inset:-35% -8%;transform:rotate(-24deg);background:radial-gradient(ellipse at 30% 30%,#ebff9c55,transparent 60%),repeating-radial-gradient(ellipse at 55% 60%,transparent 0 30px,#ffffff55 32px 34px,transparent 36px 62px); }
-                    .community-cover-art::after { content:"";position:absolute;inset:5% 18%;border:45px solid #658c5655;border-radius:50%;transform:rotate(28deg);background:radial-gradient(#426e5266 1px,transparent 2px) 0 0 / 9px 9px;box-shadow:0 0 24px #fff8,inset 0 0 25px #fffc; }
-                    .community-cover-edit { position:absolute;right:10px;bottom:10px;display:grid;place-items:center;border-radius:4px;padding:8px;background:#262626;color:white; }
-                    .community-cover-picker { position:absolute;right:10px;bottom:52px;display:flex;gap:6px;padding:8px;border-radius:6px;background:#292929;box-shadow:0 4px 20px #0006; }
-                    .community-cover-picker button { font-size:13px;padding:8px;border:1px solid #555;border-radius:4px; }
+                    .community-cover-image { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
+                    .community-cover-edit { position:absolute;right:10px;bottom:10px;display:grid;place-items:center;border-radius:4px;padding:8px;background:#262626;color:white;box-shadow:0 2px 8px #0005; }
+                    .community-cover-edit:hover { background:#333; }
+                    .community-cover-edit:focus-visible { outline:2px solid white;outline-offset:2px; }
+                    .community-banner-dialog { max-width:min(880px,calc(100vw - 32px)) !important;padding:32px 40px 36px !important;background:#292929 !important;border-color:#3d3d3d !important;color:#fff; }
+                    .community-banner-dialog h2 { font-size:24px;font-weight:700; }
+                    .community-banner-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:max-content;gap:24px 26px;max-height:min(58vh,560px);min-height:0;overflow-y:auto;padding:6px;margin:0 -6px; }
+                    .community-banner-choice { display:block;border-radius:12px;overflow:hidden;background:#3a3a3a;outline:none; }
+                    .community-banner-choice[hidden] { display:none; }
+                    .community-banner-choice img { display:block;width:100%;aspect-ratio:2/1;object-fit:cover;transition:transform .2s; }
+                    .community-banner-choice:hover img { transform:scale(1.03); }
+                    .community-banner-choice:focus-visible { box-shadow:0 0 0 2px #292929,0 0 0 4px #fff; }
+                    .community-banner-choice[aria-checked=true] { box-shadow:0 0 0 2px #292929,0 0 0 4px #7f85f5; }
+                    .community-banner-error { color:#f1707b;font-size:14px; }
+                    .community-banner-footer { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px; }
+                    .community-banner-footer > button:last-child { min-width:144px;background:#5b5fc7;color:#fff; }
+                    .community-banner-footer > button:last-child:hover:not(:disabled) { background:#4f52b2; }
+                    .community-banner-footer > button:last-child:disabled { background:#1f1f1f;color:#5c5c5c;opacity:1; }
                     .community-detail-header { display:flex;align-items:center;gap:22px;min-height:72px;padding:0 22px;border-bottom:1px solid #ffffff12;flex-wrap:wrap; }
                     .community-identity-title { display:flex;align-items:center;gap:12px;min-width:0; }
                     .community-identity-title h2 { font-size:20px;font-weight:700;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
@@ -1143,7 +1251,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-photo { width:200px;height:200px;object-fit:cover;border-radius:10px; }
                     .community-workspace-error { margin:16px 24px;padding:12px;border:1px solid #b76a6a;border-radius:6px;color:#ffbaba; }
                     @media(max-width:1000px) { .community-workspace { grid-template-columns:240px minmax(0,1fr); } .community-detail-header { gap:12px;padding:10px 16px 0; } .community-content { padding:22px; } .community-header-actions { margin-bottom:10px; } }
-                    @media(max-width:700px) { .community-workspace { display:block; } .community-sidebar { padding:16px; } .community-sidebar-heading { margin-bottom:12px; } .community-sidebar nav { display:flex;gap:8px;overflow:auto; } .community-nav-item { min-width:150px; } .community-channel-list { padding-left:8px; } .community-detail { margin:0;border-radius:12px 12px 0 0; } .community-quick-actions { grid-template-columns:1fr; } .community-cover { height:150px; } .community-detail-header { gap:12px; } .community-identity-title { width:100%; } }
+                    @media(max-width:700px) { .community-workspace { display:block; } .community-sidebar { padding:16px; } .community-sidebar-heading { margin-bottom:12px; } .community-sidebar nav { display:flex;gap:8px;overflow:auto; } .community-nav-item { min-width:150px; } .community-channel-list { padding-left:8px; } .community-detail { margin:0;border-radius:12px 12px 0 0; } .community-quick-actions { grid-template-columns:1fr; } .community-cover { height:150px; } .community-banner-dialog { padding:24px 16px !important; } .community-banner-grid { gap:14px; } .community-detail-header { gap:12px; } .community-identity-title { width:100%; } }
                     .community-create-dialog {
                         width: min(800px, calc(100vw - 40px)); max-width: 800px;
                         min-height: min(740px, calc(100dvh - 40px));
@@ -1213,7 +1321,6 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     }
                     const [postDraft, setPostDraft] = pp.state('');
                     const [announcement, setAnnouncement] = pp.state(false);
-                    const [coverPicker, setCoverPicker] = pp.state(false);
                     const [detailsOpen, setDetailsOpen] = pp.state(false);
                     const [working, setWorking] = pp.state(false);
                     const [workspaceError, setWorkspaceError] = pp.state('');
@@ -1333,7 +1440,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         catch(failure){setNotice(failure.message);}finally{setWorking(false);}
                     }
                     function selectCommunity(id) {
-                        setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false); setCoverPicker(false);
+                        setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false);
                         const url = new URL(location.href); url.searchParams.set('community', id); history.replaceState(null, '', url);
                     }
                     function selectChannel(id) { setChannelId(id); setActiveTab('posts'); setPostDraft(''); setWorkspaceError(''); }
@@ -1359,10 +1466,67 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         } catch (failure) { setWorkspaceError(failure.message || 'Your post could not be saved.'); }
                         finally { setWorking(false); }
                     }
-                    async function changeCover(cover) {
-                        if (working) return; setWorking(true); setWorkspaceError(''); const id = selectedCommunity;
-                        try { const saved = await pp.rpc('change_community_cover', {id, cover}); updateCommunity(id, () => ({cover:saved})); setCoverPicker(false); }
-                        catch (failure) { setWorkspaceError(failure.message || 'The cover could not be saved.'); }
+                    const banners = @{Json(&banners)};
+                    const bannerOpener = pp.ref(null), bannerCloser = pp.ref(null), bannerInput = pp.ref(null);
+                    const [bannerCommunityId, setBannerCommunityId] = pp.state('');
+                    const [bannerChoice, setBannerChoice] = pp.state('');
+                    const [bannerUpload, setBannerUpload] = pp.state(null);
+                    const [bannerUploadPreview, setBannerUploadPreview] = pp.state('');
+                    const [bannerError, setBannerError] = pp.state('');
+                    const bannerCommunity = communities.find(c => c.id === bannerCommunityId) || null;
+                    const bannerCustomImage = bannerUploadPreview || bannerCommunity?.cover_image || '';
+                    const bannerChanged = !!bannerChoice && (bannerChoice !== bannerCommunity?.cover || !!bannerUpload);
+                    const bannerTabStop = banners.some(b => b.key === bannerChoice) ? bannerChoice : banners[0].key;
+                    function bannerSource(cover, image) {
+                        if (cover === 'custom' && image) return image;
+                        return '/images/banners/' + (banners.some(b => b.key === cover) ? cover : 'mint') + '.svg';
+                    }
+                    function openBannerDialog() {
+                        if (!activeCommunity?.is_owner || working) return;
+                        setBannerCommunityId(activeCommunity.id); setBannerChoice(activeCommunity.cover); setBannerUpload(null); setBannerUploadPreview(''); setBannerError('');
+                        bannerOpener.current?.click();
+                    }
+                    function chooseBanner(event) { setBannerChoice(event.currentTarget.value); setBannerError(''); }
+                    // Arrow keys move through the two-column grid and select, like a radio group.
+                    function moveBannerFocus(event) {
+                        const steps = {ArrowRight: 1, ArrowDown: 2, ArrowLeft: -1, ArrowUp: -2};
+                        if (!(event.key in steps) && event.key !== 'Home' && event.key !== 'End') return;
+                        const choices = Array.from(event.currentTarget.querySelectorAll('[role=radio]')).filter(choice => !choice.hidden);
+                        let index = choices.indexOf(document.activeElement);
+                        if (event.key === 'Home') index = 0;
+                        else if (event.key === 'End') index = choices.length - 1;
+                        else index = Math.max(0, Math.min(choices.length - 1, index + steps[event.key]));
+                        event.preventDefault();
+                        choices[index].focus(); choices[index].scrollIntoView({block: 'nearest'});
+                        setBannerChoice(choices[index].value); setBannerError('');
+                    }
+                    function pickBannerImage() {
+                        if (working || !bannerInput.current) return;
+                        bannerInput.current.value = ''; bannerInput.current.click();
+                    }
+                    const bannerLoaded = pp.event(event => { setBannerUploadPreview(String(event.target.result || '')); setBannerChoice('custom'); });
+                    const bannerUnreadable = pp.event(() => { setBannerUpload(null); setBannerError('This image could not be read. Choose a valid PNG or JPEG.'); });
+                    function bannerFileChosen(event) {
+                        const file = event.currentTarget.files?.[0];
+                        if (!file) return;
+                        if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+                            setBannerError('Choose a PNG or JPEG picture up to 2 MB.'); return;
+                        }
+                        setBannerError(''); setBannerUpload(file);
+                        const reader = new FileReader();
+                        reader.onload = bannerLoaded; reader.onerror = bannerUnreadable;
+                        reader.readAsDataURL(file);
+                    }
+                    async function saveBanner() {
+                        if (working || !bannerChanged) return;
+                        setWorking(true); setBannerError(''); const id = bannerCommunityId;
+                        try {
+                            const image = bannerChoice === 'custom' ? bannerUpload : null;
+                            const saved = await pp.rpc('change_community_cover', {id, cover: bannerChoice, image});
+                            updateCommunity(id, () => ({cover: saved.cover, cover_image: saved.cover_image}));
+                            setBannerUpload(null); setBannerUploadPreview('');
+                            bannerCloser.current?.click();
+                        } catch (failure) { setBannerError(failure.errors?.image?.join(' ') || failure.message || 'The banner could not be saved.'); }
                         finally { setWorking(false); }
                     }
                     const openSearchCommunity = pp.event(row => {
@@ -1572,6 +1736,7 @@ pub async fn create_community(
         avatar,
         picture,
         cover: "mint".into(),
+        cover_image: None,
         channels: Vec::new(),
         posts: Vec::new(),
         is_owner: true,
@@ -1599,8 +1764,16 @@ pub async fn publish_community_post(
     communities::publish(id, channel, body, announcement).await
 }
 #[rpc(auth)]
-pub async fn change_community_cover(id: String, cover: String) -> Result<String> {
-    communities::cover(id, cover).await
+pub async fn change_community_cover(
+    id: String,
+    cover: String,
+    image: Option<RpcFile>,
+) -> Result<communities::Banner> {
+    let image = match image {
+        Some(file) => Some(uploaded_image(file, "image", 1600, 400, Encoding::Jpeg).await?),
+        None => None,
+    };
+    communities::cover(id, cover, image).await
 }
 
 #[rpc(auth)]
@@ -1659,19 +1832,38 @@ pub async fn report_community(id: String, details: String) -> Result<String> {
     communities::report(id, details).await
 }
 
-/// Decode the content rather than trusting the upload's name or MIME type.
-/// Return only a bounded, re-encoded thumbnail to the community card.
 async fn community_picture(picture: RpcFile) -> Result<String> {
+    uploaded_image(picture, "picture", 256, 256, Encoding::Png).await
+}
+
+/// How an upload is re-encoded: lossless for the small card thumbnail, JPEG
+/// for the banner so a photograph stays small in every community payload.
+#[derive(Clone, Copy)]
+enum Encoding {
+    Png,
+    Jpeg,
+}
+
+/// Decode the content rather than trusting the upload's name or MIME type.
+/// Return only a bounded, re-encoded image cropped to `width` × `height`:
+/// a square thumbnail for the community card, a wide one for its banner.
+async fn uploaded_image(
+    upload: RpcFile,
+    field: &'static str,
+    width: u32,
+    height: u32,
+    encoding: Encoding,
+) -> Result<String> {
     use base64::Engine;
 
     let mut validator = Validator::new();
     validator.check(
-        "picture",
-        !picture.is_empty() && picture.len() <= 2 * 1024 * 1024,
+        field,
+        !upload.is_empty() && upload.len() <= 2 * 1024 * 1024,
         "Choose a PNG or JPEG picture up to 2 MB.",
     );
     validator.finish()?;
-    let bytes = picture.into_bytes().await?;
+    let bytes = upload.into_bytes().await?;
     let normalized =
         tokio::task::spawn_blocking(move || -> std::result::Result<Vec<u8>, String> {
             let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes))
@@ -1691,17 +1883,22 @@ async fn community_picture(picture: RpcFile) -> Result<String> {
             let decoded = reader.decode().map_err(|_| {
                 "Choose a valid picture no larger than 4096 × 4096 pixels.".to_string()
             })?;
-            let thumbnail = decoded.resize_to_fill(256, 256, image::imageops::FilterType::Lanczos3);
+            let resized =
+                decoded.resize_to_fill(width, height, image::imageops::FilterType::Lanczos3);
             let mut output = std::io::Cursor::new(Vec::new());
-            thumbnail
-                .write_to(&mut output, image::ImageFormat::Png)
-                .map_err(|_| "This picture could not be processed.".to_string())?;
+            match encoding {
+                Encoding::Png => resized.write_to(&mut output, image::ImageFormat::Png),
+                Encoding::Jpeg => resized.to_rgb8().write_with_encoder(
+                    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut output, 85),
+                ),
+            }
+            .map_err(|_| "This picture could not be processed.".to_string())?;
             Ok(output.into_inner())
         })
         .await?;
     let mut validator = Validator::new();
     validator.check(
-        "picture",
+        field,
         normalized.is_ok(),
         normalized
             .as_ref()
@@ -1710,8 +1907,12 @@ async fn community_picture(picture: RpcFile) -> Result<String> {
             .unwrap_or("Choose a valid picture."),
     );
     validator.finish()?;
+    let mime = match encoding {
+        Encoding::Png => "image/png",
+        Encoding::Jpeg => "image/jpeg",
+    };
     Ok(format!(
-        "data:image/png;base64,{}",
+        "data:{mime};base64,{}",
         base64::engine::general_purpose::STANDARD.encode(normalized.unwrap())
     ))
 }

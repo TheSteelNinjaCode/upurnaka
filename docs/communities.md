@@ -19,6 +19,13 @@ are refused. Each community permits five channels. Creation locks the community
 row and performs the count and insert in one transaction, so simultaneous
 requests cannot exceed that limit. Existing channels are preserved by upgrades.
 
+The banner's pencil opens an owner-only Edit banner dialog: a scrolling grid of
+preset artwork (`public/images/banners/`, original SVGs) and Upload image. Done
+stays disabled until the choice differs from the saved banner; arrow keys move
+through the grid. Uploads are PNG/JPEG up to 2 MB, decoded on the server and
+re-encoded as a 1600 × 400 JPEG stored in `community.cover_image`; choosing a
+preset clears it. Older `mint`/`lavender`/`sunset` covers remain valid presets.
+
 The community's three-dot menu follows Teams Free's action order. Edits retain
 the existing image unless a replacement is uploaded or removal is selected.
 Notification preferences are saved per account and community; they do not

@@ -41,6 +41,7 @@ pub struct Community {
     pub avatar: String,
     pub picture: Option<String>,
     pub cover: String,
+    pub cover_image: Option<String>,
     pub channels: Vec<Channel>,
     pub posts: Vec<Post>,
     pub is_owner: bool,
@@ -158,6 +159,7 @@ async fn shown(row: row::Model) -> Result<Community> {
         avatar: row.avatar,
         picture: row.picture,
         cover: row.cover,
+        cover_image: row.cover_image,
         channels,
         posts,
         is_owner,
@@ -200,6 +202,7 @@ pub async fn save(community: Community) -> Result<Community> {
         avatar: Set(community.avatar.clone()),
         picture: Set(community.picture.clone()),
         cover: Set(community.cover.clone()),
+        cover_image: Set(community.cover_image.clone()),
         created_at: Set(crate::rahti::time::now().timestamp_micros()),
         join_token: Set(String::new()),
         deleted_at: Set(None),
@@ -732,16 +735,53 @@ pub async fn reports() -> Result<Vec<Report>> {
     }
     Ok(result)
 }
-pub async fn cover(community: String, cover: String) -> Result<String> {
+/// The preset banners under `public/images/banners/`. `custom` names the
+/// uploaded image kept in `cover_image`.
+pub const BANNERS: &[&str] = &[
+    "stationery",
+    "paintbrush",
+    "keepsakes",
+    "bakery",
+    "giftbox",
+    "stars",
+    "clock",
+    "compass",
+    "mint",
+    "lavender",
+    "sunset",
+];
+#[derive(Clone, Serialize)]
+pub struct Banner {
+    pub cover: String,
+    pub cover_image: Option<String>,
+}
+/// Choose a preset banner, or `custom` with a newly uploaded image. Choosing
+/// `custom` without one keeps the image already uploaded, if there is one.
+pub async fn cover(community: String, cover: String, image: Option<String>) -> Result<Banner> {
     let mut v = Validator::new();
-    v.one_of("cover", &cover.as_str(), &["mint", "lavender", "sunset"]);
+    let mut allowed = BANNERS.to_vec();
+    allowed.push("custom");
+    v.one_of("cover", &cover.as_str(), &allowed);
     v.finish()?;
-    owned(&community).await?;
+    let old = owned(&community).await?;
+    let cover_image = if cover == "custom" {
+        image.or(old.cover_image)
+    } else {
+        None
+    };
+    let mut v = Validator::new();
+    v.check(
+        "image",
+        cover != "custom" || cover_image.is_some(),
+        "Upload an image for the banner.",
+    );
+    v.finish()?;
     row::Entity::update_many()
         .col_expr(row::Column::Cover, Expr::value(&cover))
+        .col_expr(row::Column::CoverImage, Expr::value(cover_image.clone()))
         .filter(row::Column::Id.eq(community))
         .filter(row::Column::OwnerId.eq(owner()?))
         .exec(db::db())
         .await?;
-    Ok(cover)
+    Ok(Banner { cover, cover_image })
 }

@@ -13,6 +13,7 @@ pub struct Model {
     pub avatar: String,
     pub picture: Option<String>,
     pub cover: String,
+    pub cover_image: Option<String>,
     pub created_at: i64,
     pub join_token: String,
     pub deleted_at: Option<i64>,
