@@ -22,9 +22,6 @@ pub struct Channel {
     pub name: String,
     pub icon: String,
 }
-pub const CHANNEL_ICONS: &[&str] = &[
-    "💬", "📢", "🎓", "📚", "💡", "🗓️", "🎨", "⚽", "🌱", "💻", "🎵", "🚀",
-];
 #[derive(Clone, Serialize)]
 pub struct Post {
     pub id: String,
@@ -219,7 +216,12 @@ pub async fn add_channel(community: String, name: String, icon: String) -> Resul
     let mut v = Validator::new();
     v.required("name", &name)
         .max_chars("name", &name, 60)
-        .one_of("icon", &icon.as_str(), CHANNEL_ICONS);
+        .max_chars("icon", &icon, 32)
+        .check(
+            "icon",
+            crate::emoji::supported(&icon),
+            "Choose an icon from the emoji picker.",
+        );
     v.finish()?;
     owned(&community).await?;
     let transaction = db::db().begin().await?;

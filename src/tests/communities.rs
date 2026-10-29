@@ -3,6 +3,147 @@ use base64::Engine;
 use rahti::serde_json;
 use rahti::serde_json::{Value, json};
 
+#[test]
+fn community_emoji_catalog_has_local_artwork_and_supported_glyphs() {
+    let mut glyphs = std::collections::HashSet::new();
+    let mut categories = std::collections::HashSet::new();
+    for emoji in crate::emoji::catalog() {
+        assert!(glyphs.insert(emoji.glyph.replace('\u{fe0f}', "")));
+        assert!(emoji.image.starts_with("/images/fluent-emoji/"));
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("public")
+            .join(emoji.image.trim_start_matches('/'));
+        assert!(
+            std::fs::read(path)
+                .unwrap()
+                .starts_with(b"\x89PNG\r\n\x1a\n")
+        );
+        categories.insert(emoji.category.as_str());
+        assert!(crate::emoji::supported(&emoji.glyph));
+    }
+    assert_eq!(categories.len(), 9);
+    for icon in [
+        "💬", "📢", "🎓", "📚", "💡", "🗓️", "🎨", "⚽", "🌱", "💻", "🎵", "🚀", "✔", "✔️",
+    ] {
+        assert!(crate::emoji::supported(icon), "Missing {icon}");
+    }
+    for icon in ["", "\u{fe0f}", "text", "💬📚", "<script>"] {
+        assert!(!crate::emoji::supported(icon));
+    }
+}
+
+#[tokio::test]
+async fn community_emoji_picker_search_categories_keyboard_and_recents() {
+    let (status, body) = rpc(
+        "/communities",
+        "create_community",
+        r#"{"name":"Emoji picker workspace","category":"School"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let community: Value = serde_json::from_str(&body).unwrap();
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    let url = format!(
+        "http://{address}/communities?community={}",
+        community["id"].as_str().unwrap()
+    );
+    browser.goto(&url).await.unwrap();
+    let initial_channels = browser
+        .eval::<usize>("document.querySelectorAll('.community-channel').length")
+        .await
+        .unwrap();
+    browser.click(".community-add-channel").await.unwrap();
+    browser
+        .click(".community-channel-icon-trigger")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.activeElement.getAttribute('aria-label') === 'Search emoji'")
+        .await
+        .unwrap();
+    assert!(browser.eval::<bool>("document.querySelectorAll('.channel-emoji-categories [role=tab]').length === 10 && document.querySelectorAll('.community-channel-icon-grid button').length === 24").await.unwrap());
+    browser
+        .click("button[aria-label='Animals and nature']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.channel-emoji-heading').textContent === 'Animals and nature' && document.querySelector('button[data-emoji=\"🐶\"]') !== null").await.unwrap();
+    browser.press("ArrowRight").await.unwrap();
+    browser
+        .wait_for(
+            "document.querySelector('.channel-emoji-heading').textContent === 'Food and drink'",
+        )
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Search emoji']")
+        .await
+        .unwrap();
+    browser.type_text("no-such-emoji-result").await.unwrap();
+    browser.wait_for("!document.querySelector('.channel-emoji-empty').hidden && !document.querySelector('.community-channel-icon-grid button')").await.unwrap();
+    browser
+        .eval::<bool>("document.activeElement.select();true")
+        .await
+        .unwrap();
+    browser.type_text("🚀").await.unwrap();
+    browser
+        .wait_for("document.querySelector('button[data-emoji=\"🚀\"]') !== null")
+        .await
+        .unwrap();
+    browser.press("ArrowDown").await.unwrap();
+    let focused = browser
+        .wait_for("document.activeElement.dataset.emoji === '🚀'")
+        .await;
+    assert!(focused.is_ok(), "{focused:?}; {:?}; {}", browser.errors(), browser.eval::<String>("JSON.stringify({active:document.activeElement.outerHTML,first:document.querySelector('.community-channel-icon-grid button')?.outerHTML})").await.unwrap());
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("!document.querySelector('#popover-channel-icon').matches(':popover-open') && document.querySelector('.community-channel-icon-trigger').textContent.includes('🚀')").await.unwrap();
+    browser
+        .click(".community-channel-icon-trigger")
+        .await
+        .unwrap();
+    browser
+        .wait_for(
+            "document.querySelector('.community-channel-icon-grid button').dataset.emoji === '🚀'",
+        )
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Search emoji']")
+        .await
+        .unwrap();
+    browser.type_text("telescope").await.unwrap();
+    browser
+        .wait_for("document.querySelector('button[data-emoji=\"🔭\"]') !== null")
+        .await
+        .unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("document.querySelector('.community-channel-icon-trigger').textContent.includes('🔭') && document.querySelector('.community-channel-dialog').open").await.unwrap();
+    assert_eq!(
+        browser
+            .eval::<usize>("document.querySelectorAll('.community-channel').length")
+            .await
+            .unwrap(),
+        initial_channels
+    );
+    browser.goto(&url).await.unwrap();
+    browser.click(".community-add-channel").await.unwrap();
+    browser
+        .click(".community-channel-icon-trigger")
+        .await
+        .unwrap();
+    browser
+        .wait_for(
+            "document.querySelector('.community-channel-icon-grid button').dataset.emoji === '🔭'",
+        )
+        .await
+        .unwrap();
+    assert!(browser.eval::<bool>("Array.from(document.querySelectorAll('.community-channel-icon-grid button')).filter(b=>b.dataset.emoji==='🔭').length===1 && document.querySelectorAll('.community-channel-icon-grid button').length===24").await.unwrap());
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
 async fn community_call(
     client: &mut super::auth::Client,
     name: &str,
@@ -974,6 +1115,12 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .wait_for("document.querySelector('#popover-channel-icon').matches(':popover-open')")
         .await
         .unwrap();
+    browser
+        .click("input[aria-label='Search emoji']")
+        .await
+        .unwrap();
+    browser.type_text("books").await.unwrap();
+    browser.wait_for("document.querySelector('.channel-emoji-heading').textContent === 'Search results' && document.querySelector('button[data-emoji=\"📚\"]') !== null").await.unwrap();
     browser
         .click("button[aria-label='Use 📚 icon']")
         .await

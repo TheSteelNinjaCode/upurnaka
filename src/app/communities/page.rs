@@ -6,6 +6,7 @@ use serde::Deserialize;
 
 use crate::components::app_shell::AppShell;
 use crate::components::aria::{hidden, submit};
+use crate::components::channel_emoji_picker::ChannelEmojiPicker;
 use crate::components::icon::Icon;
 use crate::components::rahti_ui::attrs::Attrs;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
@@ -14,7 +15,6 @@ use crate::components::rahti_ui::dialog::{
 };
 use crate::components::rahti_ui::field::{Field, FieldLabel};
 use crate::components::rahti_ui::input::Input;
-use crate::components::rahti_ui::popover::{Popover, PopoverContent, PopoverTrigger};
 use crate::components::rahti_ui::textarea::Textarea;
 use crate::rahti::{Html, Json, Metadata, Result, RpcFile, Validator, html, rpc};
 
@@ -256,7 +256,18 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                                 aria-current={channelId === channel.id ? "page" : null}
                                                 onclick={selectChannel(channel.id)}
                                             >
-                                                <span aria-hidden="true">{channel.icon}</span>
+                                                <img
+                                                    class="channel-nav-emoji"
+                                                    src={channelEmojiImage(channel.icon) || "/favicon.ico"}
+                                                    alt=""
+                                                    hidden={!channelEmojiImage(channel.icon)}
+                                                />
+                                                <span
+                                                    aria-hidden="true"
+                                                    class={channelEmojiImage(channel.icon) ? "sr-only" : ""}
+                                                >
+                                                    {channel.icon}
+                                                </span>
                                                 " "
                                                 {channel.name}
                                             </button>
@@ -307,7 +318,15 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                         alt=""
                                         hidden={!activeCommunity?.picture || !!activeChannel}
                                     />
-                                    <span hidden={!!activeCommunity?.picture && !activeChannel}>
+                                    <img
+                                        class="channel-header-emoji"
+                                        src={channelEmojiImage(activeChannel?.icon) || "/favicon.ico"}
+                                        alt=""
+                                        hidden={!activeChannel || !channelEmojiImage(activeChannel.icon)}
+                                    />
+                                    <span
+                                        hidden={activeChannel ? !!channelEmojiImage(activeChannel.icon) : !!activeCommunity?.picture}
+                                    >
                                         {activeChannel?.icon || activeCommunity?.avatar || "👥"}
                                     </span>
                                 </span>
@@ -499,42 +518,10 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         <form class="community-channel-form" onsubmit={addChannel(event)}>
                             <label for="channel-name">"Channel name"</label>
                             <div class="community-channel-identity">
-                                <Popover id="channel-icon">
-                                    <PopoverTrigger
-                                        name="channel-icon"
-                                        class="community-channel-icon-trigger"
-                                        attrs=@{Attrs::new().set("aria-label", "Choose channel icon").set("type", "button")}
-                                    >
-                                        <span hidden={channelIcon !== "💬"}>
-                                            <Icon name="chat" class="size-5" />
-                                        </span>
-                                        <span hidden={channelIcon === "💬"}>{channelIcon}</span>
-                                        <Icon name="chevron-down" class="size-3" />
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                        name="channel-icon"
-                                        class="community-channel-icon-options"
-                                        side="bottom"
-                                        align="start"
-                                    >
-                                        <p>"Choose an icon"</p>
-                                        <div class="community-channel-icon-grid">
-                                            <template pp-for="icon in channelIcons">
-                                                <button
-                                                    key={icon}
-                                                    type="button"
-                                                    aria-label={"Use " + icon + " icon"}
-                                                    aria-pressed={channelIcon === icon}
-                                                    popovertarget="popover-channel-icon"
-                                                    popovertargetaction="hide"
-                                                    onclick={setChannelIcon(icon)}
-                                                >
-                                                    {icon}
-                                                </button>
-                                            </template>
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
+                                <ChannelEmojiPicker
+                                    value={channelIcon}
+                                    select={onChannelIconSelected}
+                                />
                                 <Input
                                     id="channel-name"
                                     name="name"
@@ -1091,6 +1078,8 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-channel-list { padding:6px 0 6px 50px; }
                     .community-channel { display:block;padding:7px 12px;width:100%;text-align:left;font-size:14px;color:#bbb;border-radius:4px;overflow-wrap:anywhere; }
                     .community-channel[aria-current=page] { color:#b6b0ff;background:#ffffff09; }
+                    .community-channel .channel-nav-emoji { display:inline-block;width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:6px; }
+                    .community-small-avatar .channel-header-emoji { padding:3px;object-fit:contain; }
                     .community-add-channel { display:flex;align-items:center;gap:12px;margin:20px 12px;color:#a6a0ed;font-size:14px; }
                     .community-channel-dialog { width:min(680px,calc(100vw - 32px));max-width:680px;max-height:calc(100dvh - 32px);overflow:auto;border:0;border-radius:10px;padding:28px;background:#292929;gap:28px; }
                     .community-channel-dialog [data-slot=dialog-title] { font-size:23px;line-height:1.4;font-weight:700; }
@@ -1098,14 +1087,9 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-channel-identity { display:flex;gap:12px;align-items:stretch; }
                     .community-channel-identity > [data-slot=popover] { flex-shrink:0; }
                     .community-channel-icon-trigger { display:flex;align-items:center;justify-content:center;gap:8px;height:38px;min-width:66px;padding:6px 10px;border:1px solid #aaa;border-radius:4px;background:#222;color:#eee;font-size:19px; }
-                    .community-channel-identity input { min-width:0;height:38px;flex:1;border:1px solid transparent;border-radius:4px;background:#202020;padding:8px 12px;font-size:15px;box-shadow:none; }
-                    .community-channel-identity input:focus-visible { outline:2px solid #a6a0ff;outline-offset:1px; }
-                    .community-channel-identity input::placeholder { color:#aaa; }
-                    .community-channel-icon-options { width:224px;padding:12px;background:#292929;border:1px solid #555; }
-                    .community-channel-icon-options > p { color:#ccc;font-size:13px;margin-bottom:8px; }
-                    .community-channel-icon-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:6px; }
-                    .community-channel-icon-grid button { display:grid;place-items:center;padding:7px;border-radius:4px;border:1px solid transparent;font-size:22px; }
-                    .community-channel-icon-grid button:hover,.community-channel-icon-grid button[aria-pressed=true] { background:#47434f;border-color:#aaa0ef; }
+                    .community-channel-identity > input { min-width:0;height:38px;flex:1;border:1px solid transparent;border-radius:4px;background:#202020;padding:8px 12px;font-size:15px;box-shadow:none; }
+                    .community-channel-identity > input:focus-visible { outline:2px solid #a6a0ff;outline-offset:1px; }
+                    .community-channel-identity > input::placeholder { color:#aaa; }
                     .community-channel-footer { display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:20px; }
                     .community-channel-footer > p { max-width:285px;color:#ddd;font-size:15px;line-height:1.45; }
                     .community-channel-footer > div { display:flex;gap:10px; }
@@ -1216,7 +1200,9 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     const [channelError, setChannelError] = pp.state('');
                     const [channelCommunityId, setChannelCommunityId] = pp.state('');
                     const channelOpener = pp.ref(null), channelCloser = pp.ref(null);
-                    const channelIcons = @{Json(&communities::CHANNEL_ICONS)};
+                    const onChannelIconSelected = pp.event(icon => setChannelIcon(icon));
+                    const channelEmojiImages = pp.memo(() => @{Json(&crate::emoji::image_map())}, []);
+                    function channelEmojiImage(icon) { return channelEmojiImages[String(icon || '').replace(/\uFE0F/g, '')] || ''; }
                     const channelCommunity = communities.find(c=>c.id===channelCommunityId) || null;
                     const channelDialogTitle = 'Create a channel in "' + (channelCommunity?.name || '') + '"';
                     const channelAtLimit = (channelCommunity?.channels.length || 0) >= 5;

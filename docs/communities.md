@@ -6,6 +6,14 @@ an empty `channel_id`, so removing that sidebar row does not move or delete post
 
 Add channel opens an owner-only modal with a name, an emoji selector, and
 Cancel/Add actions. The icon is stored separately from the channel name.
+The picker bundles a curated catalog of Microsoft Fluent 3D emoji locally, with
+search across names and keywords and nine categories. Recent choices are saved
+per account in this browser (up to 24); they are not synced between devices.
+Arrow keys navigate the emoji grid and category tabs; Enter in search selects
+the first result without submitting the channel form. The server accepts only
+catalog emoji. Artwork licensing and the pinned upstream revision are recorded
+in `public/images/fluent-emoji/SOURCE.md`; refresh deliberately with
+`python scripts/vendor_fluent_emoji.py`.
 Blank names, names longer than 60 characters, and case-insensitive duplicates
 are refused. Each community permits five channels. Creation locks the community
 row and performs the count and insert in one transaction, so simultaneous

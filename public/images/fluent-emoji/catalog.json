@@ -1,0 +1,5688 @@
+[
+  {
+    "glyph": "😀",
+    "name": "grinning face",
+    "keywords": [
+      "face",
+      "grin",
+      "grinning face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f600.png"
+  },
+  {
+    "glyph": "😃",
+    "name": "grinning face with big eyes",
+    "keywords": [
+      "face",
+      "grinning face with big eyes",
+      "mouth",
+      "open",
+      "smile"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f603.png"
+  },
+  {
+    "glyph": "😄",
+    "name": "grinning face with smiling eyes",
+    "keywords": [
+      "eye",
+      "face",
+      "grinning face with smiling eyes",
+      "mouth",
+      "open",
+      "smile"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f604.png"
+  },
+  {
+    "glyph": "😁",
+    "name": "beaming face with smiling eyes",
+    "keywords": [
+      "beaming face with smiling eyes",
+      "eye",
+      "face",
+      "grin",
+      "smile"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f601.png"
+  },
+  {
+    "glyph": "😆",
+    "name": "grinning squinting face",
+    "keywords": [
+      "face",
+      "grinning squinting face",
+      "laugh",
+      "mouth",
+      "satisfied",
+      "smile"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f606.png"
+  },
+  {
+    "glyph": "😅",
+    "name": "grinning face with sweat",
+    "keywords": [
+      "cold",
+      "face",
+      "grinning face with sweat",
+      "open",
+      "smile",
+      "sweat"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f605.png"
+  },
+  {
+    "glyph": "🤣",
+    "name": "rolling on the floor laughing",
+    "keywords": [
+      "face",
+      "floor",
+      "laugh",
+      "rofl",
+      "rolling",
+      "rolling on the floor laughing",
+      "rotfl"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f923.png"
+  },
+  {
+    "glyph": "😂",
+    "name": "face with tears of joy",
+    "keywords": [
+      "face",
+      "face with tears of joy",
+      "joy",
+      "laugh",
+      "tear"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f602.png"
+  },
+  {
+    "glyph": "🙂",
+    "name": "slightly smiling face",
+    "keywords": [
+      "face",
+      "slightly smiling face",
+      "smile"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f642.png"
+  },
+  {
+    "glyph": "🙃",
+    "name": "upside-down face",
+    "keywords": [
+      "face",
+      "upside-down"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f643.png"
+  },
+  {
+    "glyph": "😉",
+    "name": "winking face",
+    "keywords": [
+      "face",
+      "wink",
+      "winking face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f609.png"
+  },
+  {
+    "glyph": "😊",
+    "name": "smiling face with smiling eyes",
+    "keywords": [
+      "blush",
+      "eye",
+      "face",
+      "smile",
+      "smiling face with smiling eyes"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f60a.png"
+  },
+  {
+    "glyph": "😇",
+    "name": "smiling face with halo",
+    "keywords": [
+      "angel",
+      "face",
+      "fantasy",
+      "halo",
+      "innocent",
+      "smiling face with halo"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f607.png"
+  },
+  {
+    "glyph": "🥰",
+    "name": "smiling face with hearts",
+    "keywords": [
+      "adore",
+      "crush",
+      "hearts",
+      "in love",
+      "smiling face with hearts"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f970.png"
+  },
+  {
+    "glyph": "😍",
+    "name": "smiling face with heart-eyes",
+    "keywords": [
+      "eye",
+      "face",
+      "love",
+      "smile",
+      "smiling face with heart-eyes"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f60d.png"
+  },
+  {
+    "glyph": "🤩",
+    "name": "star-struck",
+    "keywords": [
+      "eyes",
+      "face",
+      "grinning",
+      "star",
+      "star-struck"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f929.png"
+  },
+  {
+    "glyph": "😘",
+    "name": "face blowing a kiss",
+    "keywords": [
+      "face",
+      "face blowing a kiss",
+      "kiss"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f618.png"
+  },
+  {
+    "glyph": "😗",
+    "name": "kissing face",
+    "keywords": [
+      "face",
+      "kiss",
+      "kissing face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f617.png"
+  },
+  {
+    "glyph": "☺️",
+    "name": "smiling face",
+    "keywords": [
+      "face",
+      "outlined",
+      "relaxed",
+      "smile",
+      "smiling face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/263a-fe0f.png"
+  },
+  {
+    "glyph": "😋",
+    "name": "face savoring food",
+    "keywords": [
+      "delicious",
+      "face",
+      "face savoring food",
+      "savouring",
+      "smile",
+      "yum"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f60b.png"
+  },
+  {
+    "glyph": "😛",
+    "name": "face with tongue",
+    "keywords": [
+      "face",
+      "face with tongue",
+      "tongue"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f61b.png"
+  },
+  {
+    "glyph": "😜",
+    "name": "winking face with tongue",
+    "keywords": [
+      "eye",
+      "face",
+      "joke",
+      "tongue",
+      "wink",
+      "winking face with tongue"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f61c.png"
+  },
+  {
+    "glyph": "🤪",
+    "name": "zany face",
+    "keywords": [
+      "eye",
+      "goofy",
+      "large",
+      "small",
+      "zany face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f92a.png"
+  },
+  {
+    "glyph": "🤗",
+    "name": "hugging face",
+    "keywords": [
+      "face",
+      "hug",
+      "hugging",
+      "open hands",
+      "smiling face",
+      "smiling face with open hands"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f917.png"
+  },
+  {
+    "glyph": "🤭",
+    "name": "face with hand over mouth",
+    "keywords": [
+      "face with hand over mouth",
+      "whoops"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f92d.png"
+  },
+  {
+    "glyph": "🤫",
+    "name": "shushing face",
+    "keywords": [
+      "quiet",
+      "shush",
+      "shushing face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f92b.png"
+  },
+  {
+    "glyph": "🤔",
+    "name": "thinking face",
+    "keywords": [
+      "face",
+      "thinking"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f914.png"
+  },
+  {
+    "glyph": "🫡",
+    "name": "saluting face",
+    "keywords": [
+      "OK",
+      "salute",
+      "saluting face",
+      "sunny",
+      "troops",
+      "yes"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1fae1.png"
+  },
+  {
+    "glyph": "🤐",
+    "name": "zipper-mouth face",
+    "keywords": [
+      "face",
+      "mouth",
+      "zipper",
+      "zipper-mouth face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f910.png"
+  },
+  {
+    "glyph": "🤨",
+    "name": "face with raised eyebrow",
+    "keywords": [
+      "distrust",
+      "face with raised eyebrow",
+      "skeptic"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f928.png"
+  },
+  {
+    "glyph": "😐",
+    "name": "neutral face",
+    "keywords": [
+      "deadpan",
+      "face",
+      "meh",
+      "neutral"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f610.png"
+  },
+  {
+    "glyph": "😑",
+    "name": "expressionless face",
+    "keywords": [
+      "expressionless",
+      "face",
+      "inexpressive",
+      "meh",
+      "unexpressive"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f611.png"
+  },
+  {
+    "glyph": "😶",
+    "name": "face without mouth",
+    "keywords": [
+      "face",
+      "face without mouth",
+      "mouth",
+      "quiet",
+      "silent"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f636.png"
+  },
+  {
+    "glyph": "😏",
+    "name": "smirking face",
+    "keywords": [
+      "face",
+      "smirk",
+      "smirking face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f60f.png"
+  },
+  {
+    "glyph": "😒",
+    "name": "unamused face",
+    "keywords": [
+      "face",
+      "unamused",
+      "unhappy"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f612.png"
+  },
+  {
+    "glyph": "🙄",
+    "name": "face with rolling eyes",
+    "keywords": [
+      "eyeroll",
+      "eyes",
+      "face",
+      "face with rolling eyes",
+      "rolling"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f644.png"
+  },
+  {
+    "glyph": "😬",
+    "name": "grimacing face",
+    "keywords": [
+      "face",
+      "grimace",
+      "grimacing face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f62c.png"
+  },
+  {
+    "glyph": "🤥",
+    "name": "lying face",
+    "keywords": [
+      "face",
+      "lie",
+      "lying face",
+      "pinocchio"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f925.png"
+  },
+  {
+    "glyph": "😌",
+    "name": "relieved face",
+    "keywords": [
+      "face",
+      "relieved"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f60c.png"
+  },
+  {
+    "glyph": "😔",
+    "name": "pensive face",
+    "keywords": [
+      "dejected",
+      "face",
+      "pensive"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f614.png"
+  },
+  {
+    "glyph": "😪",
+    "name": "sleepy face",
+    "keywords": [
+      "face",
+      "sleep",
+      "sleepy face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f62a.png"
+  },
+  {
+    "glyph": "🤤",
+    "name": "drooling face",
+    "keywords": [
+      "drooling",
+      "face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f924.png"
+  },
+  {
+    "glyph": "😴",
+    "name": "sleeping face",
+    "keywords": [
+      "face",
+      "sleep",
+      "sleeping face",
+      "zzz"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f634.png"
+  },
+  {
+    "glyph": "😷",
+    "name": "face with medical mask",
+    "keywords": [
+      "cold",
+      "doctor",
+      "face",
+      "face with medical mask",
+      "mask",
+      "sick"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f637.png"
+  },
+  {
+    "glyph": "🤒",
+    "name": "face with thermometer",
+    "keywords": [
+      "face",
+      "face with thermometer",
+      "ill",
+      "sick",
+      "thermometer"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f912.png"
+  },
+  {
+    "glyph": "🤕",
+    "name": "face with head-bandage",
+    "keywords": [
+      "bandage",
+      "face",
+      "face with head-bandage",
+      "hurt",
+      "injury"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f915.png"
+  },
+  {
+    "glyph": "🤢",
+    "name": "nauseated face",
+    "keywords": [
+      "face",
+      "nauseated",
+      "vomit"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f922.png"
+  },
+  {
+    "glyph": "🤧",
+    "name": "sneezing face",
+    "keywords": [
+      "face",
+      "gesundheit",
+      "sneeze",
+      "sneezing face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f927.png"
+  },
+  {
+    "glyph": "🥵",
+    "name": "hot face",
+    "keywords": [
+      "feverish",
+      "heat stroke",
+      "hot",
+      "hot face",
+      "red-faced",
+      "sweating"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f975.png"
+  },
+  {
+    "glyph": "🥶",
+    "name": "cold face",
+    "keywords": [
+      "blue-faced",
+      "cold",
+      "cold face",
+      "freezing",
+      "frostbite",
+      "icicles"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f976.png"
+  },
+  {
+    "glyph": "🥴",
+    "name": "woozy face",
+    "keywords": [
+      "dizzy",
+      "intoxicated",
+      "tipsy",
+      "uneven eyes",
+      "wavy mouth",
+      "woozy face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f974.png"
+  },
+  {
+    "glyph": "🤯",
+    "name": "exploding head",
+    "keywords": [
+      "exploding head",
+      "mind blown",
+      "shocked"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f92f.png"
+  },
+  {
+    "glyph": "🤠",
+    "name": "cowboy hat face",
+    "keywords": [
+      "cowboy",
+      "cowgirl",
+      "face",
+      "hat"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f920.png"
+  },
+  {
+    "glyph": "🥳",
+    "name": "partying face",
+    "keywords": [
+      "celebration",
+      "hat",
+      "horn",
+      "party",
+      "partying face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f973.png"
+  },
+  {
+    "glyph": "😎",
+    "name": "smiling face with sunglasses",
+    "keywords": [
+      "bright",
+      "cool",
+      "face",
+      "smiling face with sunglasses",
+      "sun",
+      "sunglasses"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f60e.png"
+  },
+  {
+    "glyph": "🤓",
+    "name": "nerd face",
+    "keywords": [
+      "face",
+      "geek",
+      "nerd"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f913.png"
+  },
+  {
+    "glyph": "🧐",
+    "name": "face with monocle",
+    "keywords": [
+      "face with monocle",
+      "stuffy"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f9d0.png"
+  },
+  {
+    "glyph": "😕",
+    "name": "confused face",
+    "keywords": [
+      "confused",
+      "face",
+      "meh"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f615.png"
+  },
+  {
+    "glyph": "😟",
+    "name": "worried face",
+    "keywords": [
+      "face",
+      "worried"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f61f.png"
+  },
+  {
+    "glyph": "🙁",
+    "name": "slightly frowning face",
+    "keywords": [
+      "face",
+      "frown",
+      "slightly frowning face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f641.png"
+  },
+  {
+    "glyph": "☹️",
+    "name": "frowning face",
+    "keywords": [
+      "face",
+      "frown",
+      "frowning face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/2639-fe0f.png"
+  },
+  {
+    "glyph": "😮",
+    "name": "face with open mouth",
+    "keywords": [
+      "face",
+      "face with open mouth",
+      "mouth",
+      "open",
+      "sympathy"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f62e.png"
+  },
+  {
+    "glyph": "😯",
+    "name": "hushed face",
+    "keywords": [
+      "face",
+      "hushed",
+      "stunned",
+      "surprised"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f62f.png"
+  },
+  {
+    "glyph": "😲",
+    "name": "astonished face",
+    "keywords": [
+      "astonished",
+      "face",
+      "shocked",
+      "totally"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f632.png"
+  },
+  {
+    "glyph": "😳",
+    "name": "flushed face",
+    "keywords": [
+      "dazed",
+      "face",
+      "flushed"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f633.png"
+  },
+  {
+    "glyph": "🥺",
+    "name": "pleading face",
+    "keywords": [
+      "begging",
+      "mercy",
+      "pleading face",
+      "puppy eyes"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f97a.png"
+  },
+  {
+    "glyph": "😦",
+    "name": "frowning face with open mouth",
+    "keywords": [
+      "face",
+      "frown",
+      "frowning face with open mouth",
+      "mouth",
+      "open"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f626.png"
+  },
+  {
+    "glyph": "😧",
+    "name": "anguished face",
+    "keywords": [
+      "anguished",
+      "face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f627.png"
+  },
+  {
+    "glyph": "😨",
+    "name": "fearful face",
+    "keywords": [
+      "face",
+      "fear",
+      "fearful",
+      "scared"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f628.png"
+  },
+  {
+    "glyph": "😰",
+    "name": "anxious face with sweat",
+    "keywords": [
+      "anxious face with sweat",
+      "blue",
+      "cold",
+      "face",
+      "rushed",
+      "sweat"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f630.png"
+  },
+  {
+    "glyph": "😥",
+    "name": "sad but relieved face",
+    "keywords": [
+      "disappointed",
+      "face",
+      "relieved",
+      "sad but relieved face",
+      "whew"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f625.png"
+  },
+  {
+    "glyph": "😢",
+    "name": "crying face",
+    "keywords": [
+      "cry",
+      "crying face",
+      "face",
+      "sad",
+      "tear"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f622.png"
+  },
+  {
+    "glyph": "😭",
+    "name": "loudly crying face",
+    "keywords": [
+      "cry",
+      "face",
+      "loudly crying face",
+      "sad",
+      "sob",
+      "tear"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f62d.png"
+  },
+  {
+    "glyph": "😱",
+    "name": "face screaming in fear",
+    "keywords": [
+      "face",
+      "face screaming in fear",
+      "fear",
+      "munch",
+      "scared",
+      "scream"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f631.png"
+  },
+  {
+    "glyph": "😖",
+    "name": "confounded face",
+    "keywords": [
+      "confounded",
+      "face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f616.png"
+  },
+  {
+    "glyph": "😣",
+    "name": "persevering face",
+    "keywords": [
+      "face",
+      "persevere",
+      "persevering face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f623.png"
+  },
+  {
+    "glyph": "😞",
+    "name": "disappointed face",
+    "keywords": [
+      "disappointed",
+      "face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f61e.png"
+  },
+  {
+    "glyph": "😓",
+    "name": "downcast face with sweat",
+    "keywords": [
+      "cold",
+      "downcast face with sweat",
+      "face",
+      "sweat"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f613.png"
+  },
+  {
+    "glyph": "😩",
+    "name": "weary face",
+    "keywords": [
+      "face",
+      "tired",
+      "weary"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f629.png"
+  },
+  {
+    "glyph": "😫",
+    "name": "tired face",
+    "keywords": [
+      "face",
+      "tired"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f62b.png"
+  },
+  {
+    "glyph": "🥱",
+    "name": "yawning face",
+    "keywords": [
+      "bored",
+      "tired",
+      "yawn",
+      "yawning face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f971.png"
+  },
+  {
+    "glyph": "😤",
+    "name": "face with steam from nose",
+    "keywords": [
+      "face",
+      "face with steam from nose",
+      "triumph",
+      "won"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f624.png"
+  },
+  {
+    "glyph": "😡",
+    "name": "pouting face",
+    "keywords": [
+      "angry",
+      "face",
+      "mad",
+      "pouting",
+      "rage",
+      "red"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f621.png"
+  },
+  {
+    "glyph": "😠",
+    "name": "angry face",
+    "keywords": [
+      "anger",
+      "angry",
+      "face",
+      "mad"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f620.png"
+  },
+  {
+    "glyph": "😈",
+    "name": "smiling face with horns",
+    "keywords": [
+      "face",
+      "fairy tale",
+      "fantasy",
+      "horns",
+      "smile",
+      "smiling face with horns"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f608.png"
+  },
+  {
+    "glyph": "💀",
+    "name": "skull",
+    "keywords": [
+      "death",
+      "face",
+      "fairy tale",
+      "monster",
+      "skull"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f480.png"
+  },
+  {
+    "glyph": "💩",
+    "name": "pile of poo",
+    "keywords": [
+      "dung",
+      "face",
+      "monster",
+      "pile of poo",
+      "poo",
+      "poop"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f4a9.png"
+  },
+  {
+    "glyph": "🤡",
+    "name": "clown face",
+    "keywords": [
+      "clown",
+      "face"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f921.png"
+  },
+  {
+    "glyph": "👻",
+    "name": "ghost",
+    "keywords": [
+      "creature",
+      "face",
+      "fairy tale",
+      "fantasy",
+      "ghost",
+      "monster"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f47b.png"
+  },
+  {
+    "glyph": "👽",
+    "name": "alien",
+    "keywords": [
+      "alien",
+      "creature",
+      "extraterrestrial",
+      "face",
+      "fantasy",
+      "ufo"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f47d.png"
+  },
+  {
+    "glyph": "🤖",
+    "name": "robot",
+    "keywords": [
+      "face",
+      "monster",
+      "robot"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f916.png"
+  },
+  {
+    "glyph": "😺",
+    "name": "grinning cat",
+    "keywords": [
+      "cat",
+      "face",
+      "grinning",
+      "mouth",
+      "open",
+      "smile"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f63a.png"
+  },
+  {
+    "glyph": "😻",
+    "name": "smiling cat with heart-eyes",
+    "keywords": [
+      "cat",
+      "eye",
+      "face",
+      "heart",
+      "love",
+      "smile",
+      "smiling cat with heart-eyes"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f63b.png"
+  },
+  {
+    "glyph": "🙈",
+    "name": "see-no-evil monkey",
+    "keywords": [
+      "evil",
+      "face",
+      "forbidden",
+      "monkey",
+      "see",
+      "see-no-evil monkey"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f648.png"
+  },
+  {
+    "glyph": "🙉",
+    "name": "hear-no-evil monkey",
+    "keywords": [
+      "evil",
+      "face",
+      "forbidden",
+      "hear",
+      "hear-no-evil monkey",
+      "monkey"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f649.png"
+  },
+  {
+    "glyph": "🙊",
+    "name": "speak-no-evil monkey",
+    "keywords": [
+      "evil",
+      "face",
+      "forbidden",
+      "monkey",
+      "speak",
+      "speak-no-evil monkey"
+    ],
+    "category": "smileys",
+    "image": "/images/fluent-emoji/1f64a.png"
+  },
+  {
+    "glyph": "👋",
+    "name": "waving hand",
+    "keywords": [
+      "hand",
+      "wave",
+      "waving"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f44b.png"
+  },
+  {
+    "glyph": "🤚",
+    "name": "raised back of hand",
+    "keywords": [
+      "backhand",
+      "raised",
+      "raised back of hand"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f91a.png"
+  },
+  {
+    "glyph": "🖐️",
+    "name": "hand with fingers splayed",
+    "keywords": [
+      "finger",
+      "hand",
+      "hand with fingers splayed",
+      "splayed"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f590-fe0f.png"
+  },
+  {
+    "glyph": "✋",
+    "name": "raised hand",
+    "keywords": [
+      "hand",
+      "high 5",
+      "high five",
+      "raised hand"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/270b.png"
+  },
+  {
+    "glyph": "🖖",
+    "name": "vulcan salute",
+    "keywords": [
+      "finger",
+      "hand",
+      "spock",
+      "vulcan",
+      "vulcan salute"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f596.png"
+  },
+  {
+    "glyph": "👌",
+    "name": "OK hand",
+    "keywords": [
+      "hand",
+      "OK"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f44c.png"
+  },
+  {
+    "glyph": "🤌",
+    "name": "pinched fingers",
+    "keywords": [
+      "fingers",
+      "hand gesture",
+      "interrogation",
+      "pinched",
+      "sarcastic"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f90c.png"
+  },
+  {
+    "glyph": "🤏",
+    "name": "pinching hand",
+    "keywords": [
+      "pinching hand",
+      "small amount"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f90f.png"
+  },
+  {
+    "glyph": "✌️",
+    "name": "victory hand",
+    "keywords": [
+      "hand",
+      "v",
+      "victory"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/270c-fe0f.png"
+  },
+  {
+    "glyph": "🤞",
+    "name": "crossed fingers",
+    "keywords": [
+      "cross",
+      "crossed fingers",
+      "finger",
+      "hand",
+      "luck"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f91e.png"
+  },
+  {
+    "glyph": "🤟",
+    "name": "love-you gesture",
+    "keywords": [
+      "hand",
+      "ILY",
+      "love-you gesture"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f91f.png"
+  },
+  {
+    "glyph": "🤘",
+    "name": "sign of the horns",
+    "keywords": [
+      "finger",
+      "hand",
+      "horns",
+      "rock-on",
+      "sign of the horns"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f918.png"
+  },
+  {
+    "glyph": "🤙",
+    "name": "call me hand",
+    "keywords": [
+      "call",
+      "call me hand",
+      "hand"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f919.png"
+  },
+  {
+    "glyph": "👈",
+    "name": "backhand index pointing left",
+    "keywords": [
+      "backhand",
+      "backhand index pointing left",
+      "finger",
+      "hand",
+      "index",
+      "point"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f448.png"
+  },
+  {
+    "glyph": "👉",
+    "name": "backhand index pointing right",
+    "keywords": [
+      "backhand",
+      "backhand index pointing right",
+      "finger",
+      "hand",
+      "index",
+      "point"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f449.png"
+  },
+  {
+    "glyph": "👆",
+    "name": "backhand index pointing up",
+    "keywords": [
+      "backhand",
+      "backhand index pointing up",
+      "finger",
+      "hand",
+      "point",
+      "up"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f446.png"
+  },
+  {
+    "glyph": "👇",
+    "name": "backhand index pointing down",
+    "keywords": [
+      "backhand",
+      "backhand index pointing down",
+      "down",
+      "finger",
+      "hand",
+      "point"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f447.png"
+  },
+  {
+    "glyph": "☝️",
+    "name": "index pointing up",
+    "keywords": [
+      "finger",
+      "hand",
+      "index",
+      "index pointing up",
+      "point",
+      "up"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/261d-fe0f.png"
+  },
+  {
+    "glyph": "👍",
+    "name": "thumbs up",
+    "keywords": [
+      "+1",
+      "hand",
+      "thumb",
+      "thumbs up",
+      "up"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f44d.png"
+  },
+  {
+    "glyph": "👎",
+    "name": "thumbs down",
+    "keywords": [
+      "-1",
+      "down",
+      "hand",
+      "thumb",
+      "thumbs down"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f44e.png"
+  },
+  {
+    "glyph": "✊",
+    "name": "raised fist",
+    "keywords": [
+      "clenched",
+      "fist",
+      "hand",
+      "punch",
+      "raised fist"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/270a.png"
+  },
+  {
+    "glyph": "👊",
+    "name": "oncoming fist",
+    "keywords": [
+      "clenched",
+      "fist",
+      "hand",
+      "oncoming fist",
+      "punch"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f44a.png"
+  },
+  {
+    "glyph": "🤛",
+    "name": "left-facing fist",
+    "keywords": [
+      "fist",
+      "left-facing fist",
+      "leftwards"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f91b.png"
+  },
+  {
+    "glyph": "🤜",
+    "name": "right-facing fist",
+    "keywords": [
+      "fist",
+      "right-facing fist",
+      "rightwards"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f91c.png"
+  },
+  {
+    "glyph": "👏",
+    "name": "clapping hands",
+    "keywords": [
+      "clap",
+      "clapping hands",
+      "hand"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f44f.png"
+  },
+  {
+    "glyph": "🙌",
+    "name": "raising hands",
+    "keywords": [
+      "celebration",
+      "gesture",
+      "hand",
+      "hooray",
+      "raised",
+      "raising hands"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f64c.png"
+  },
+  {
+    "glyph": "👐",
+    "name": "open hands",
+    "keywords": [
+      "hand",
+      "open",
+      "open hands"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f450.png"
+  },
+  {
+    "glyph": "🤲",
+    "name": "palms up together",
+    "keywords": [
+      "palms up together",
+      "prayer"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f932.png"
+  },
+  {
+    "glyph": "🤝",
+    "name": "handshake",
+    "keywords": [
+      "agreement",
+      "hand",
+      "handshake",
+      "meeting",
+      "shake"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f91d.png"
+  },
+  {
+    "glyph": "🙏",
+    "name": "folded hands",
+    "keywords": [
+      "ask",
+      "folded hands",
+      "hand",
+      "high 5",
+      "high five",
+      "please",
+      "pray",
+      "thanks"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f64f.png"
+  },
+  {
+    "glyph": "✍️",
+    "name": "writing hand",
+    "keywords": [
+      "hand",
+      "write",
+      "writing hand"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/270d-fe0f.png"
+  },
+  {
+    "glyph": "💅",
+    "name": "nail polish",
+    "keywords": [
+      "care",
+      "cosmetics",
+      "manicure",
+      "nail",
+      "polish"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f485.png"
+  },
+  {
+    "glyph": "💪",
+    "name": "flexed biceps",
+    "keywords": [
+      "biceps",
+      "comic",
+      "flex",
+      "flexed biceps",
+      "muscle"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f4aa.png"
+  },
+  {
+    "glyph": "👀",
+    "name": "eyes",
+    "keywords": [
+      "eye",
+      "eyes",
+      "face"
+    ],
+    "category": "gestures",
+    "image": "/images/fluent-emoji/1f440.png"
+  },
+  {
+    "glyph": "👶",
+    "name": "baby",
+    "keywords": [
+      "baby",
+      "young"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f476.png"
+  },
+  {
+    "glyph": "🧒",
+    "name": "child",
+    "keywords": [
+      "child",
+      "gender-neutral",
+      "unspecified gender",
+      "young"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d2.png"
+  },
+  {
+    "glyph": "👦",
+    "name": "boy",
+    "keywords": [
+      "boy",
+      "young"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f466.png"
+  },
+  {
+    "glyph": "👧",
+    "name": "girl",
+    "keywords": [
+      "girl",
+      "Virgo",
+      "young",
+      "zodiac"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f467.png"
+  },
+  {
+    "glyph": "🧑",
+    "name": "person",
+    "keywords": [
+      "adult",
+      "gender-neutral",
+      "person",
+      "unspecified gender"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1.png"
+  },
+  {
+    "glyph": "👨",
+    "name": "man",
+    "keywords": [
+      "adult",
+      "man"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f468.png"
+  },
+  {
+    "glyph": "👩",
+    "name": "woman",
+    "keywords": [
+      "adult",
+      "woman"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f469.png"
+  },
+  {
+    "glyph": "🧓",
+    "name": "older person",
+    "keywords": [
+      "adult",
+      "gender-neutral",
+      "old",
+      "older person",
+      "unspecified gender"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d3.png"
+  },
+  {
+    "glyph": "👴",
+    "name": "old man",
+    "keywords": [
+      "adult",
+      "man",
+      "old"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f474.png"
+  },
+  {
+    "glyph": "👵",
+    "name": "old woman",
+    "keywords": [
+      "adult",
+      "old",
+      "woman"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f475.png"
+  },
+  {
+    "glyph": "🫅",
+    "name": "person with crown",
+    "keywords": [
+      "monarch",
+      "noble",
+      "person with crown",
+      "regal",
+      "royalty"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1fac5.png"
+  },
+  {
+    "glyph": "🤴",
+    "name": "prince",
+    "keywords": [
+      "prince"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f934.png"
+  },
+  {
+    "glyph": "👸",
+    "name": "princess",
+    "keywords": [
+      "fairy tale",
+      "fantasy",
+      "princess"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f478.png"
+  },
+  {
+    "glyph": "👳",
+    "name": "person wearing turban",
+    "keywords": [
+      "person wearing turban",
+      "turban"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f473.png"
+  },
+  {
+    "glyph": "👲",
+    "name": "person with skullcap",
+    "keywords": [
+      "cap",
+      "gua pi mao",
+      "hat",
+      "person",
+      "person with skullcap",
+      "skullcap"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f472.png"
+  },
+  {
+    "glyph": "👮",
+    "name": "police officer",
+    "keywords": [
+      "cop",
+      "officer",
+      "police"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f46e.png"
+  },
+  {
+    "glyph": "🕵️",
+    "name": "detective",
+    "keywords": [
+      "detective",
+      "sleuth",
+      "spy"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f575-fe0f.png"
+  },
+  {
+    "glyph": "💂",
+    "name": "guard",
+    "keywords": [
+      "guard"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f482.png"
+  },
+  {
+    "glyph": "🥷",
+    "name": "ninja",
+    "keywords": [
+      "fighter",
+      "hidden",
+      "ninja",
+      "stealth"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f977.png"
+  },
+  {
+    "glyph": "👷",
+    "name": "construction worker",
+    "keywords": [
+      "construction",
+      "hat",
+      "worker"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f477.png"
+  },
+  {
+    "glyph": "🤵",
+    "name": "person in tuxedo",
+    "keywords": [
+      "groom",
+      "person",
+      "person in tuxedo",
+      "tuxedo"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f935.png"
+  },
+  {
+    "glyph": "👰",
+    "name": "person with veil",
+    "keywords": [
+      "bride",
+      "person",
+      "person with veil",
+      "veil",
+      "wedding"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f470.png"
+  },
+  {
+    "glyph": "🤰",
+    "name": "pregnant woman",
+    "keywords": [
+      "pregnant",
+      "woman"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f930.png"
+  },
+  {
+    "glyph": "🏃",
+    "name": "person running",
+    "keywords": [
+      "marathon",
+      "person running",
+      "running"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f3c3.png"
+  },
+  {
+    "glyph": "🚶",
+    "name": "person walking",
+    "keywords": [
+      "hike",
+      "person walking",
+      "walk",
+      "walking"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f6b6.png"
+  },
+  {
+    "glyph": "🧍",
+    "name": "person standing",
+    "keywords": [
+      "person standing",
+      "stand",
+      "standing"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9cd.png"
+  },
+  {
+    "glyph": "🧎",
+    "name": "person kneeling",
+    "keywords": [
+      "kneel",
+      "kneeling",
+      "person kneeling"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9ce.png"
+  },
+  {
+    "glyph": "🧘",
+    "name": "person in lotus position",
+    "keywords": [
+      "meditation",
+      "person in lotus position",
+      "yoga"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d8.png"
+  },
+  {
+    "glyph": "🛀",
+    "name": "person taking bath",
+    "keywords": [
+      "bath",
+      "bathtub",
+      "person taking bath"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f6c0.png"
+  },
+  {
+    "glyph": "🫂",
+    "name": "people hugging",
+    "keywords": [
+      "goodbye",
+      "hello",
+      "hug",
+      "people hugging",
+      "thanks"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1fac2.png"
+  },
+  {
+    "glyph": "👤",
+    "name": "bust in silhouette",
+    "keywords": [
+      "bust",
+      "bust in silhouette",
+      "silhouette"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f464.png"
+  },
+  {
+    "glyph": "👥",
+    "name": "busts in silhouette",
+    "keywords": [
+      "bust",
+      "busts in silhouette",
+      "silhouette"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f465.png"
+  },
+  {
+    "glyph": "🧑‍🎓",
+    "name": "student",
+    "keywords": [
+      "graduate",
+      "student"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-1f393.png"
+  },
+  {
+    "glyph": "🧑‍🏫",
+    "name": "teacher",
+    "keywords": [
+      "instructor",
+      "professor",
+      "teacher"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-1f3eb.png"
+  },
+  {
+    "glyph": "🧑‍💻",
+    "name": "technologist",
+    "keywords": [
+      "coder",
+      "developer",
+      "inventor",
+      "software",
+      "technologist"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-1f4bb.png"
+  },
+  {
+    "glyph": "🧑‍🚀",
+    "name": "astronaut",
+    "keywords": [
+      "astronaut",
+      "rocket"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-1f680.png"
+  },
+  {
+    "glyph": "🧑‍⚕️",
+    "name": "health worker",
+    "keywords": [
+      "doctor",
+      "health worker",
+      "healthcare",
+      "nurse",
+      "therapist"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-2695-fe0f.png"
+  },
+  {
+    "glyph": "🧑‍🔬",
+    "name": "scientist",
+    "keywords": [
+      "biologist",
+      "chemist",
+      "engineer",
+      "physicist",
+      "scientist"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-1f52c.png"
+  },
+  {
+    "glyph": "🧑‍🎨",
+    "name": "artist",
+    "keywords": [
+      "artist",
+      "palette"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-1f3a8.png"
+  },
+  {
+    "glyph": "🧑‍🚒",
+    "name": "firefighter",
+    "keywords": [
+      "firefighter",
+      "firetruck"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-1f692.png"
+  },
+  {
+    "glyph": "🧑‍🍳",
+    "name": "cook",
+    "keywords": [
+      "chef",
+      "cook"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-1f373.png"
+  },
+  {
+    "glyph": "🧑‍🔧",
+    "name": "mechanic",
+    "keywords": [
+      "electrician",
+      "mechanic",
+      "plumber",
+      "tradesperson"
+    ],
+    "category": "people",
+    "image": "/images/fluent-emoji/1f9d1-200d-1f527.png"
+  },
+  {
+    "glyph": "🐶",
+    "name": "dog face",
+    "keywords": [
+      "dog",
+      "face",
+      "pet"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f436.png"
+  },
+  {
+    "glyph": "🐱",
+    "name": "cat face",
+    "keywords": [
+      "cat",
+      "face",
+      "pet"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f431.png"
+  },
+  {
+    "glyph": "🐭",
+    "name": "mouse face",
+    "keywords": [
+      "face",
+      "mouse"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f42d.png"
+  },
+  {
+    "glyph": "🐹",
+    "name": "hamster",
+    "keywords": [
+      "face",
+      "hamster",
+      "pet"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f439.png"
+  },
+  {
+    "glyph": "🐰",
+    "name": "rabbit face",
+    "keywords": [
+      "bunny",
+      "face",
+      "pet",
+      "rabbit"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f430.png"
+  },
+  {
+    "glyph": "🦊",
+    "name": "fox",
+    "keywords": [
+      "face",
+      "fox"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f98a.png"
+  },
+  {
+    "glyph": "🐻",
+    "name": "bear",
+    "keywords": [
+      "bear",
+      "face"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f43b.png"
+  },
+  {
+    "glyph": "🐼",
+    "name": "panda",
+    "keywords": [
+      "face",
+      "panda"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f43c.png"
+  },
+  {
+    "glyph": "🐨",
+    "name": "koala",
+    "keywords": [
+      "koala",
+      "face",
+      "marsupial"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f428.png"
+  },
+  {
+    "glyph": "🐯",
+    "name": "tiger face",
+    "keywords": [
+      "face",
+      "tiger"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f42f.png"
+  },
+  {
+    "glyph": "🦁",
+    "name": "lion",
+    "keywords": [
+      "face",
+      "Leo",
+      "lion",
+      "zodiac"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f981.png"
+  },
+  {
+    "glyph": "🐮",
+    "name": "cow face",
+    "keywords": [
+      "cow",
+      "face"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f42e.png"
+  },
+  {
+    "glyph": "🐷",
+    "name": "pig face",
+    "keywords": [
+      "face",
+      "pig"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f437.png"
+  },
+  {
+    "glyph": "🐸",
+    "name": "frog",
+    "keywords": [
+      "face",
+      "frog"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f438.png"
+  },
+  {
+    "glyph": "🐵",
+    "name": "monkey face",
+    "keywords": [
+      "face",
+      "monkey"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f435.png"
+  },
+  {
+    "glyph": "🐔",
+    "name": "chicken",
+    "keywords": [
+      "bird",
+      "chicken"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f414.png"
+  },
+  {
+    "glyph": "🐧",
+    "name": "penguin",
+    "keywords": [
+      "bird",
+      "penguin"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f427.png"
+  },
+  {
+    "glyph": "🐦",
+    "name": "bird",
+    "keywords": [
+      "bird"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f426.png"
+  },
+  {
+    "glyph": "🐤",
+    "name": "baby chick",
+    "keywords": [
+      "baby",
+      "bird",
+      "chick"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f424.png"
+  },
+  {
+    "glyph": "🦆",
+    "name": "duck",
+    "keywords": [
+      "bird",
+      "duck"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f986.png"
+  },
+  {
+    "glyph": "🦅",
+    "name": "eagle",
+    "keywords": [
+      "bird",
+      "eagle"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f985.png"
+  },
+  {
+    "glyph": "🦉",
+    "name": "owl",
+    "keywords": [
+      "bird",
+      "owl",
+      "wise"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f989.png"
+  },
+  {
+    "glyph": "🦇",
+    "name": "bat",
+    "keywords": [
+      "bat",
+      "vampire"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f987.png"
+  },
+  {
+    "glyph": "🐺",
+    "name": "wolf",
+    "keywords": [
+      "face",
+      "wolf"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f43a.png"
+  },
+  {
+    "glyph": "🐴",
+    "name": "horse face",
+    "keywords": [
+      "face",
+      "horse"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f434.png"
+  },
+  {
+    "glyph": "🦄",
+    "name": "unicorn",
+    "keywords": [
+      "face",
+      "unicorn"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f984.png"
+  },
+  {
+    "glyph": "🐝",
+    "name": "honeybee",
+    "keywords": [
+      "bee",
+      "honeybee",
+      "insect"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f41d.png"
+  },
+  {
+    "glyph": "🦋",
+    "name": "butterfly",
+    "keywords": [
+      "butterfly",
+      "insect",
+      "pretty"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f98b.png"
+  },
+  {
+    "glyph": "🐌",
+    "name": "snail",
+    "keywords": [
+      "snail"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f40c.png"
+  },
+  {
+    "glyph": "🐞",
+    "name": "lady beetle",
+    "keywords": [
+      "beetle",
+      "insect",
+      "lady beetle",
+      "ladybird",
+      "ladybug"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f41e.png"
+  },
+  {
+    "glyph": "🐢",
+    "name": "turtle",
+    "keywords": [
+      "terrapin",
+      "tortoise",
+      "turtle"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f422.png"
+  },
+  {
+    "glyph": "🐍",
+    "name": "snake",
+    "keywords": [
+      "bearer",
+      "Ophiuchus",
+      "serpent",
+      "snake",
+      "zodiac"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f40d.png"
+  },
+  {
+    "glyph": "🐙",
+    "name": "octopus",
+    "keywords": [
+      "octopus"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f419.png"
+  },
+  {
+    "glyph": "🐠",
+    "name": "tropical fish",
+    "keywords": [
+      "fish",
+      "tropical"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f420.png"
+  },
+  {
+    "glyph": "🐬",
+    "name": "dolphin",
+    "keywords": [
+      "dolphin",
+      "flipper"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f42c.png"
+  },
+  {
+    "glyph": "🐋",
+    "name": "whale",
+    "keywords": [
+      "whale"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f40b.png"
+  },
+  {
+    "glyph": "🦈",
+    "name": "shark",
+    "keywords": [
+      "fish",
+      "shark"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f988.png"
+  },
+  {
+    "glyph": "🐘",
+    "name": "elephant",
+    "keywords": [
+      "elephant"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f418.png"
+  },
+  {
+    "glyph": "🦒",
+    "name": "giraffe",
+    "keywords": [
+      "giraffe",
+      "spots"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f992.png"
+  },
+  {
+    "glyph": "🦌",
+    "name": "deer",
+    "keywords": [
+      "deer"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f98c.png"
+  },
+  {
+    "glyph": "🦔",
+    "name": "hedgehog",
+    "keywords": [
+      "hedgehog",
+      "spiny"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f994.png"
+  },
+  {
+    "glyph": "🐾",
+    "name": "paw prints",
+    "keywords": [
+      "feet",
+      "paw",
+      "paw prints",
+      "print"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f43e.png"
+  },
+  {
+    "glyph": "🌱",
+    "name": "seedling",
+    "keywords": [
+      "seedling",
+      "young"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f331.png"
+  },
+  {
+    "glyph": "🌿",
+    "name": "herb",
+    "keywords": [
+      "herb",
+      "leaf"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f33f.png"
+  },
+  {
+    "glyph": "🍀",
+    "name": "four leaf clover",
+    "keywords": [
+      "4",
+      "clover",
+      "four",
+      "four-leaf clover",
+      "leaf"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f340.png"
+  },
+  {
+    "glyph": "🌳",
+    "name": "deciduous tree",
+    "keywords": [
+      "deciduous",
+      "shedding",
+      "tree"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f333.png"
+  },
+  {
+    "glyph": "🌲",
+    "name": "evergreen tree",
+    "keywords": [
+      "evergreen tree",
+      "tree"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f332.png"
+  },
+  {
+    "glyph": "🌴",
+    "name": "palm tree",
+    "keywords": [
+      "palm",
+      "tree"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f334.png"
+  },
+  {
+    "glyph": "🌵",
+    "name": "cactus",
+    "keywords": [
+      "cactus",
+      "plant"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f335.png"
+  },
+  {
+    "glyph": "🌻",
+    "name": "sunflower",
+    "keywords": [
+      "flower",
+      "sun",
+      "sunflower"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f33b.png"
+  },
+  {
+    "glyph": "🌹",
+    "name": "rose",
+    "keywords": [
+      "flower",
+      "rose"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f339.png"
+  },
+  {
+    "glyph": "🌺",
+    "name": "hibiscus",
+    "keywords": [
+      "flower",
+      "hibiscus"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f33a.png"
+  },
+  {
+    "glyph": "🌼",
+    "name": "blossom",
+    "keywords": [
+      "blossom",
+      "flower"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f33c.png"
+  },
+  {
+    "glyph": "🌸",
+    "name": "cherry blossom",
+    "keywords": [
+      "blossom",
+      "cherry",
+      "flower"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f338.png"
+  },
+  {
+    "glyph": "🌷",
+    "name": "tulip",
+    "keywords": [
+      "flower",
+      "tulip"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f337.png"
+  },
+  {
+    "glyph": "🍄",
+    "name": "mushroom",
+    "keywords": [
+      "mushroom",
+      "toadstool"
+    ],
+    "category": "animals",
+    "image": "/images/fluent-emoji/1f344.png"
+  },
+  {
+    "glyph": "🍎",
+    "name": "red apple",
+    "keywords": [
+      "apple",
+      "fruit",
+      "red"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f34e.png"
+  },
+  {
+    "glyph": "🍏",
+    "name": "green apple",
+    "keywords": [
+      "apple",
+      "fruit",
+      "green"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f34f.png"
+  },
+  {
+    "glyph": "🍐",
+    "name": "pear",
+    "keywords": [
+      "fruit",
+      "pear"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f350.png"
+  },
+  {
+    "glyph": "🍊",
+    "name": "tangerine",
+    "keywords": [
+      "fruit",
+      "orange",
+      "tangerine"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f34a.png"
+  },
+  {
+    "glyph": "🍋",
+    "name": "lemon",
+    "keywords": [
+      "citrus",
+      "fruit",
+      "lemon"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f34b.png"
+  },
+  {
+    "glyph": "🍌",
+    "name": "banana",
+    "keywords": [
+      "banana",
+      "fruit"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f34c.png"
+  },
+  {
+    "glyph": "🍉",
+    "name": "watermelon",
+    "keywords": [
+      "fruit",
+      "watermelon"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f349.png"
+  },
+  {
+    "glyph": "🍇",
+    "name": "grapes",
+    "keywords": [
+      "fruit",
+      "grape",
+      "grapes"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f347.png"
+  },
+  {
+    "glyph": "🍓",
+    "name": "strawberry",
+    "keywords": [
+      "berry",
+      "fruit",
+      "strawberry"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f353.png"
+  },
+  {
+    "glyph": "🫐",
+    "name": "blueberries",
+    "keywords": [
+      "berry",
+      "bilberry",
+      "blue",
+      "blueberries",
+      "blueberry"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1fad0.png"
+  },
+  {
+    "glyph": "🍒",
+    "name": "cherries",
+    "keywords": [
+      "berries",
+      "cherries",
+      "cherry",
+      "fruit",
+      "red"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f352.png"
+  },
+  {
+    "glyph": "🍑",
+    "name": "peach",
+    "keywords": [
+      "fruit",
+      "peach"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f351.png"
+  },
+  {
+    "glyph": "🍍",
+    "name": "pineapple",
+    "keywords": [
+      "fruit",
+      "pineapple"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f34d.png"
+  },
+  {
+    "glyph": "🥝",
+    "name": "kiwi fruit",
+    "keywords": [
+      "food",
+      "fruit",
+      "kiwi"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f95d.png"
+  },
+  {
+    "glyph": "🥑",
+    "name": "avocado",
+    "keywords": [
+      "avocado",
+      "food",
+      "fruit"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f951.png"
+  },
+  {
+    "glyph": "🥦",
+    "name": "broccoli",
+    "keywords": [
+      "broccoli",
+      "wild cabbage"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f966.png"
+  },
+  {
+    "glyph": "🥕",
+    "name": "carrot",
+    "keywords": [
+      "carrot",
+      "food",
+      "vegetable"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f955.png"
+  },
+  {
+    "glyph": "🌽",
+    "name": "ear of corn",
+    "keywords": [
+      "corn",
+      "ear",
+      "ear of corn",
+      "maize",
+      "maze"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f33d.png"
+  },
+  {
+    "glyph": "🌶️",
+    "name": "hot pepper",
+    "keywords": [
+      "hot",
+      "pepper"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f336-fe0f.png"
+  },
+  {
+    "glyph": "🥒",
+    "name": "cucumber",
+    "keywords": [
+      "cucumber",
+      "food",
+      "pickle",
+      "vegetable"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f952.png"
+  },
+  {
+    "glyph": "🥐",
+    "name": "croissant",
+    "keywords": [
+      "bread",
+      "breakfast",
+      "croissant",
+      "food",
+      "french",
+      "roll"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f950.png"
+  },
+  {
+    "glyph": "🍞",
+    "name": "bread",
+    "keywords": [
+      "bread",
+      "loaf"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f35e.png"
+  },
+  {
+    "glyph": "🥨",
+    "name": "pretzel",
+    "keywords": [
+      "pretzel",
+      "twisted"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f968.png"
+  },
+  {
+    "glyph": "🧀",
+    "name": "cheese wedge",
+    "keywords": [
+      "cheese",
+      "cheese wedge"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f9c0.png"
+  },
+  {
+    "glyph": "🍔",
+    "name": "hamburger",
+    "keywords": [
+      "burger",
+      "hamburger"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f354.png"
+  },
+  {
+    "glyph": "🍟",
+    "name": "french fries",
+    "keywords": [
+      "french",
+      "fries"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f35f.png"
+  },
+  {
+    "glyph": "🍕",
+    "name": "pizza",
+    "keywords": [
+      "cheese",
+      "pizza",
+      "slice"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f355.png"
+  },
+  {
+    "glyph": "🌭",
+    "name": "hot dog",
+    "keywords": [
+      "frankfurter",
+      "hot dog",
+      "hotdog",
+      "sausage"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f32d.png"
+  },
+  {
+    "glyph": "🥪",
+    "name": "sandwich",
+    "keywords": [
+      "bread",
+      "sandwich"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f96a.png"
+  },
+  {
+    "glyph": "🌮",
+    "name": "taco",
+    "keywords": [
+      "mexican",
+      "taco"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f32e.png"
+  },
+  {
+    "glyph": "🌯",
+    "name": "burrito",
+    "keywords": [
+      "burrito",
+      "mexican",
+      "wrap"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f32f.png"
+  },
+  {
+    "glyph": "🍳",
+    "name": "cooking",
+    "keywords": [
+      "breakfast",
+      "cooking",
+      "egg",
+      "frying",
+      "pan"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f373.png"
+  },
+  {
+    "glyph": "🥘",
+    "name": "shallow pan of food",
+    "keywords": [
+      "casserole",
+      "food",
+      "paella",
+      "pan",
+      "shallow",
+      "shallow pan of food"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f958.png"
+  },
+  {
+    "glyph": "🍣",
+    "name": "sushi",
+    "keywords": [
+      "sushi"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f363.png"
+  },
+  {
+    "glyph": "🍚",
+    "name": "cooked rice",
+    "keywords": [
+      "cooked",
+      "rice"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f35a.png"
+  },
+  {
+    "glyph": "🍝",
+    "name": "spaghetti",
+    "keywords": [
+      "pasta",
+      "spaghetti"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f35d.png"
+  },
+  {
+    "glyph": "🥟",
+    "name": "dumpling",
+    "keywords": [
+      "dumpling",
+      "empanada",
+      "gyōza",
+      "jiaozi",
+      "pierogi",
+      "potsticker"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f95f.png"
+  },
+  {
+    "glyph": "🍨",
+    "name": "ice cream",
+    "keywords": [
+      "cream",
+      "dessert",
+      "ice",
+      "sweet"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f368.png"
+  },
+  {
+    "glyph": "🍩",
+    "name": "doughnut",
+    "keywords": [
+      "breakfast",
+      "dessert",
+      "donut",
+      "doughnut",
+      "sweet"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f369.png"
+  },
+  {
+    "glyph": "🍪",
+    "name": "cookie",
+    "keywords": [
+      "cookie",
+      "dessert",
+      "sweet"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f36a.png"
+  },
+  {
+    "glyph": "🎂",
+    "name": "birthday cake",
+    "keywords": [
+      "birthday",
+      "cake",
+      "celebration",
+      "dessert",
+      "pastry",
+      "sweet"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f382.png"
+  },
+  {
+    "glyph": "🍰",
+    "name": "shortcake",
+    "keywords": [
+      "cake",
+      "dessert",
+      "pastry",
+      "shortcake",
+      "slice",
+      "sweet"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f370.png"
+  },
+  {
+    "glyph": "🧁",
+    "name": "cupcake",
+    "keywords": [
+      "bakery",
+      "cupcake",
+      "sweet"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f9c1.png"
+  },
+  {
+    "glyph": "🍫",
+    "name": "chocolate bar",
+    "keywords": [
+      "bar",
+      "chocolate",
+      "dessert",
+      "sweet"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f36b.png"
+  },
+  {
+    "glyph": "🍬",
+    "name": "candy",
+    "keywords": [
+      "candy",
+      "dessert",
+      "sweet"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f36c.png"
+  },
+  {
+    "glyph": "🍿",
+    "name": "popcorn",
+    "keywords": [
+      "popcorn"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f37f.png"
+  },
+  {
+    "glyph": "☕",
+    "name": "hot beverage",
+    "keywords": [
+      "beverage",
+      "coffee",
+      "drink",
+      "hot",
+      "steaming",
+      "tea"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/2615.png"
+  },
+  {
+    "glyph": "🍵",
+    "name": "teacup without handle",
+    "keywords": [
+      "beverage",
+      "cup",
+      "drink",
+      "tea",
+      "teacup",
+      "teacup without handle"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f375.png"
+  },
+  {
+    "glyph": "🧋",
+    "name": "bubble tea",
+    "keywords": [
+      "bubble",
+      "milk",
+      "pearl",
+      "tea"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f9cb.png"
+  },
+  {
+    "glyph": "🥂",
+    "name": "clinking glasses",
+    "keywords": [
+      "celebrate",
+      "clink",
+      "clinking glasses",
+      "drink",
+      "glass"
+    ],
+    "category": "food",
+    "image": "/images/fluent-emoji/1f942.png"
+  },
+  {
+    "glyph": "🌍",
+    "name": "globe showing Europe-Africa",
+    "keywords": [
+      "Africa",
+      "earth",
+      "Europe",
+      "globe",
+      "globe showing Europe-Africa",
+      "world"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f30d.png"
+  },
+  {
+    "glyph": "🌎",
+    "name": "globe showing Americas",
+    "keywords": [
+      "Americas",
+      "earth",
+      "globe",
+      "globe showing Americas",
+      "world"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f30e.png"
+  },
+  {
+    "glyph": "🌏",
+    "name": "globe showing Asia-Australia",
+    "keywords": [
+      "Asia",
+      "Australia",
+      "earth",
+      "globe",
+      "globe showing Asia-Australia",
+      "world"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f30f.png"
+  },
+  {
+    "glyph": "🗺️",
+    "name": "world map",
+    "keywords": [
+      "map",
+      "world"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f5fa-fe0f.png"
+  },
+  {
+    "glyph": "⛰️",
+    "name": "mountain",
+    "keywords": [
+      "mountain"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/26f0-fe0f.png"
+  },
+  {
+    "glyph": "🏔️",
+    "name": "snow-capped mountain",
+    "keywords": [
+      "cold",
+      "mountain",
+      "snow",
+      "snow-capped mountain"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3d4-fe0f.png"
+  },
+  {
+    "glyph": "🏕️",
+    "name": "camping",
+    "keywords": [
+      "camping"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3d5-fe0f.png"
+  },
+  {
+    "glyph": "🏖️",
+    "name": "beach with umbrella",
+    "keywords": [
+      "beach",
+      "beach with umbrella",
+      "umbrella"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3d6-fe0f.png"
+  },
+  {
+    "glyph": "🏝️",
+    "name": "desert island",
+    "keywords": [
+      "desert",
+      "island"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3dd-fe0f.png"
+  },
+  {
+    "glyph": "🏞️",
+    "name": "national park",
+    "keywords": [
+      "national park",
+      "park"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3de-fe0f.png"
+  },
+  {
+    "glyph": "🏟️",
+    "name": "stadium",
+    "keywords": [
+      "stadium"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3df-fe0f.png"
+  },
+  {
+    "glyph": "🏛️",
+    "name": "classical building",
+    "keywords": [
+      "classical",
+      "classical building"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3db-fe0f.png"
+  },
+  {
+    "glyph": "🏠",
+    "name": "house",
+    "keywords": [
+      "home",
+      "house"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3e0.png"
+  },
+  {
+    "glyph": "🏡",
+    "name": "house with garden",
+    "keywords": [
+      "garden",
+      "home",
+      "house",
+      "house with garden"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3e1.png"
+  },
+  {
+    "glyph": "🏢",
+    "name": "office building",
+    "keywords": [
+      "building",
+      "office building"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3e2.png"
+  },
+  {
+    "glyph": "🏫",
+    "name": "school",
+    "keywords": [
+      "building",
+      "school"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3eb.png"
+  },
+  {
+    "glyph": "🏥",
+    "name": "hospital",
+    "keywords": [
+      "doctor",
+      "hospital",
+      "medicine"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3e5.png"
+  },
+  {
+    "glyph": "🏦",
+    "name": "bank",
+    "keywords": [
+      "bank",
+      "building"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3e6.png"
+  },
+  {
+    "glyph": "🏨",
+    "name": "hotel",
+    "keywords": [
+      "building",
+      "hotel"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3e8.png"
+  },
+  {
+    "glyph": "🏭",
+    "name": "factory",
+    "keywords": [
+      "building",
+      "factory"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3ed.png"
+  },
+  {
+    "glyph": "🏰",
+    "name": "castle",
+    "keywords": [
+      "castle",
+      "European"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3f0.png"
+  },
+  {
+    "glyph": "⛲",
+    "name": "fountain",
+    "keywords": [
+      "fountain"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/26f2.png"
+  },
+  {
+    "glyph": "🎡",
+    "name": "ferris wheel",
+    "keywords": [
+      "amusement park",
+      "ferris",
+      "wheel"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3a1.png"
+  },
+  {
+    "glyph": "🎢",
+    "name": "roller coaster",
+    "keywords": [
+      "amusement park",
+      "coaster",
+      "roller"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3a2.png"
+  },
+  {
+    "glyph": "🌅",
+    "name": "sunrise",
+    "keywords": [
+      "morning",
+      "sun",
+      "sunrise"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f305.png"
+  },
+  {
+    "glyph": "🌇",
+    "name": "sunset",
+    "keywords": [
+      "dusk",
+      "sun",
+      "sunset"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f307.png"
+  },
+  {
+    "glyph": "🏙️",
+    "name": "cityscape",
+    "keywords": [
+      "city",
+      "cityscape"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3d9-fe0f.png"
+  },
+  {
+    "glyph": "🌉",
+    "name": "bridge at night",
+    "keywords": [
+      "bridge",
+      "bridge at night",
+      "night"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f309.png"
+  },
+  {
+    "glyph": "🚗",
+    "name": "automobile",
+    "keywords": [
+      "automobile",
+      "car"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f697.png"
+  },
+  {
+    "glyph": "🚕",
+    "name": "taxi",
+    "keywords": [
+      "taxi",
+      "vehicle"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f695.png"
+  },
+  {
+    "glyph": "🚌",
+    "name": "bus",
+    "keywords": [
+      "bus",
+      "vehicle"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f68c.png"
+  },
+  {
+    "glyph": "🚍",
+    "name": "oncoming bus",
+    "keywords": [
+      "bus",
+      "oncoming"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f68d.png"
+  },
+  {
+    "glyph": "🏎️",
+    "name": "racing car",
+    "keywords": [
+      "car",
+      "racing"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3ce-fe0f.png"
+  },
+  {
+    "glyph": "🚲",
+    "name": "bicycle",
+    "keywords": [
+      "bicycle",
+      "bike"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f6b2.png"
+  },
+  {
+    "glyph": "🛵",
+    "name": "motor scooter",
+    "keywords": [
+      "motor",
+      "scooter"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f6f5.png"
+  },
+  {
+    "glyph": "🏍️",
+    "name": "motorcycle",
+    "keywords": [
+      "motorcycle",
+      "racing"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f3cd-fe0f.png"
+  },
+  {
+    "glyph": "🚂",
+    "name": "locomotive",
+    "keywords": [
+      "engine",
+      "locomotive",
+      "railway",
+      "steam",
+      "train"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f682.png"
+  },
+  {
+    "glyph": "🚄",
+    "name": "high-speed train",
+    "keywords": [
+      "high-speed train",
+      "railway",
+      "shinkansen",
+      "speed",
+      "train"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f684.png"
+  },
+  {
+    "glyph": "✈️",
+    "name": "airplane",
+    "keywords": [
+      "aeroplane",
+      "airplane"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/2708-fe0f.png"
+  },
+  {
+    "glyph": "🚁",
+    "name": "helicopter",
+    "keywords": [
+      "helicopter",
+      "vehicle"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f681.png"
+  },
+  {
+    "glyph": "🚀",
+    "name": "rocket",
+    "keywords": [
+      "rocket",
+      "space"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f680.png"
+  },
+  {
+    "glyph": "⛵",
+    "name": "sailboat",
+    "keywords": [
+      "boat",
+      "resort",
+      "sailboat",
+      "sea",
+      "yacht"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/26f5.png"
+  },
+  {
+    "glyph": "🚢",
+    "name": "ship",
+    "keywords": [
+      "boat",
+      "passenger",
+      "ship"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f6a2.png"
+  },
+  {
+    "glyph": "🛶",
+    "name": "canoe",
+    "keywords": [
+      "boat",
+      "canoe"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f6f6.png"
+  },
+  {
+    "glyph": "🌈",
+    "name": "rainbow",
+    "keywords": [
+      "rain",
+      "rainbow"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f308.png"
+  },
+  {
+    "glyph": "☀️",
+    "name": "sun",
+    "keywords": [
+      "bright",
+      "rays",
+      "sun",
+      "sunny"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/2600-fe0f.png"
+  },
+  {
+    "glyph": "☁️",
+    "name": "cloud",
+    "keywords": [
+      "cloud",
+      "weather"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/2601-fe0f.png"
+  },
+  {
+    "glyph": "🌧️",
+    "name": "cloud with rain",
+    "keywords": [
+      "cloud",
+      "cloud with rain",
+      "rain"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f327-fe0f.png"
+  },
+  {
+    "glyph": "❄️",
+    "name": "snowflake",
+    "keywords": [
+      "cold",
+      "snow",
+      "snowflake"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/2744-fe0f.png"
+  },
+  {
+    "glyph": "🔥",
+    "name": "fire",
+    "keywords": [
+      "fire",
+      "flame",
+      "tool"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f525.png"
+  },
+  {
+    "glyph": "⭐",
+    "name": "star",
+    "keywords": [
+      "star"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/2b50.png"
+  },
+  {
+    "glyph": "🌙",
+    "name": "crescent moon",
+    "keywords": [
+      "crescent",
+      "moon"
+    ],
+    "category": "travel",
+    "image": "/images/fluent-emoji/1f319.png"
+  },
+  {
+    "glyph": "💬",
+    "name": "speech balloon",
+    "keywords": [
+      "balloon",
+      "bubble",
+      "comic",
+      "dialog",
+      "speech"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4ac.png"
+  },
+  {
+    "glyph": "📣",
+    "name": "megaphone",
+    "keywords": [
+      "cheering",
+      "megaphone"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4e3.png"
+  },
+  {
+    "glyph": "📢",
+    "name": "loudspeaker",
+    "keywords": [
+      "loud",
+      "loudspeaker",
+      "public address"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4e2.png"
+  },
+  {
+    "glyph": "🔔",
+    "name": "bell",
+    "keywords": [
+      "bell"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f514.png"
+  },
+  {
+    "glyph": "💡",
+    "name": "light bulb",
+    "keywords": [
+      "bulb",
+      "comic",
+      "electric",
+      "idea",
+      "light"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4a1.png"
+  },
+  {
+    "glyph": "🔦",
+    "name": "flashlight",
+    "keywords": [
+      "electric",
+      "flashlight",
+      "light",
+      "tool",
+      "torch"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f526.png"
+  },
+  {
+    "glyph": "🕯️",
+    "name": "candle",
+    "keywords": [
+      "candle",
+      "light"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f56f-fe0f.png"
+  },
+  {
+    "glyph": "💻",
+    "name": "laptop",
+    "keywords": [
+      "computer",
+      "laptop",
+      "pc",
+      "personal"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4bb.png"
+  },
+  {
+    "glyph": "🖥️",
+    "name": "desktop computer",
+    "keywords": [
+      "computer",
+      "desktop"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f5a5-fe0f.png"
+  },
+  {
+    "glyph": "⌨️",
+    "name": "keyboard",
+    "keywords": [
+      "computer",
+      "keyboard"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/2328-fe0f.png"
+  },
+  {
+    "glyph": "🖱️",
+    "name": "computer mouse",
+    "keywords": [
+      "computer",
+      "computer mouse"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f5b1-fe0f.png"
+  },
+  {
+    "glyph": "📱",
+    "name": "mobile phone",
+    "keywords": [
+      "cell",
+      "mobile",
+      "phone",
+      "telephone"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4f1.png"
+  },
+  {
+    "glyph": "☎️",
+    "name": "telephone",
+    "keywords": [
+      "phone",
+      "telephone"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/260e-fe0f.png"
+  },
+  {
+    "glyph": "📷",
+    "name": "camera",
+    "keywords": [
+      "camera",
+      "video"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4f7.png"
+  },
+  {
+    "glyph": "📹",
+    "name": "video camera",
+    "keywords": [
+      "camera",
+      "video"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4f9.png"
+  },
+  {
+    "glyph": "📺",
+    "name": "television",
+    "keywords": [
+      "television",
+      "tv",
+      "video"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4fa.png"
+  },
+  {
+    "glyph": "📻",
+    "name": "radio",
+    "keywords": [
+      "radio",
+      "video"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4fb.png"
+  },
+  {
+    "glyph": "🎤",
+    "name": "microphone",
+    "keywords": [
+      "karaoke",
+      "mic",
+      "microphone"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f3a4.png"
+  },
+  {
+    "glyph": "🎧",
+    "name": "headphone",
+    "keywords": [
+      "earbud",
+      "headphone"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f3a7.png"
+  },
+  {
+    "glyph": "📚",
+    "name": "books",
+    "keywords": [
+      "book",
+      "books"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4da.png"
+  },
+  {
+    "glyph": "📖",
+    "name": "open book",
+    "keywords": [
+      "book",
+      "open"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4d6.png"
+  },
+  {
+    "glyph": "📕",
+    "name": "closed book",
+    "keywords": [
+      "book",
+      "closed"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4d5.png"
+  },
+  {
+    "glyph": "📘",
+    "name": "blue book",
+    "keywords": [
+      "blue",
+      "book"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4d8.png"
+  },
+  {
+    "glyph": "📗",
+    "name": "green book",
+    "keywords": [
+      "book",
+      "green"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4d7.png"
+  },
+  {
+    "glyph": "📓",
+    "name": "notebook",
+    "keywords": [
+      "notebook"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4d3.png"
+  },
+  {
+    "glyph": "📒",
+    "name": "ledger",
+    "keywords": [
+      "ledger",
+      "notebook"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4d2.png"
+  },
+  {
+    "glyph": "📄",
+    "name": "page facing up",
+    "keywords": [
+      "document",
+      "page",
+      "page facing up"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4c4.png"
+  },
+  {
+    "glyph": "📝",
+    "name": "memo",
+    "keywords": [
+      "memo",
+      "pencil"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4dd.png"
+  },
+  {
+    "glyph": "✏️",
+    "name": "pencil",
+    "keywords": [
+      "pencil"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/270f-fe0f.png"
+  },
+  {
+    "glyph": "🖋️",
+    "name": "fountain pen",
+    "keywords": [
+      "fountain",
+      "pen"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f58b-fe0f.png"
+  },
+  {
+    "glyph": "🖌️",
+    "name": "paintbrush",
+    "keywords": [
+      "paintbrush",
+      "painting"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f58c-fe0f.png"
+  },
+  {
+    "glyph": "🖍️",
+    "name": "crayon",
+    "keywords": [
+      "crayon"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f58d-fe0f.png"
+  },
+  {
+    "glyph": "✂️",
+    "name": "scissors",
+    "keywords": [
+      "cutting",
+      "scissors",
+      "tool"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/2702-fe0f.png"
+  },
+  {
+    "glyph": "📎",
+    "name": "paperclip",
+    "keywords": [
+      "paperclip"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4ce.png"
+  },
+  {
+    "glyph": "📌",
+    "name": "pushpin",
+    "keywords": [
+      "pin",
+      "pushpin"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4cc.png"
+  },
+  {
+    "glyph": "📍",
+    "name": "round pushpin",
+    "keywords": [
+      "pin",
+      "pushpin",
+      "round pushpin"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4cd.png"
+  },
+  {
+    "glyph": "📏",
+    "name": "straight ruler",
+    "keywords": [
+      "ruler",
+      "straight edge",
+      "straight ruler"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4cf.png"
+  },
+  {
+    "glyph": "📐",
+    "name": "triangular ruler",
+    "keywords": [
+      "ruler",
+      "set",
+      "triangle",
+      "triangular ruler"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4d0.png"
+  },
+  {
+    "glyph": "📁",
+    "name": "file folder",
+    "keywords": [
+      "file",
+      "folder"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4c1.png"
+  },
+  {
+    "glyph": "📂",
+    "name": "open file folder",
+    "keywords": [
+      "file",
+      "folder",
+      "open"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4c2.png"
+  },
+  {
+    "glyph": "🗃️",
+    "name": "card file box",
+    "keywords": [
+      "box",
+      "card",
+      "file"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f5c3-fe0f.png"
+  },
+  {
+    "glyph": "📅",
+    "name": "calendar",
+    "keywords": [
+      "calendar",
+      "date"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4c5.png"
+  },
+  {
+    "glyph": "🗓️",
+    "name": "spiral calendar",
+    "keywords": [
+      "calendar",
+      "pad",
+      "spiral"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f5d3-fe0f.png"
+  },
+  {
+    "glyph": "📋",
+    "name": "clipboard",
+    "keywords": [
+      "clipboard"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4cb.png"
+  },
+  {
+    "glyph": "📊",
+    "name": "bar chart",
+    "keywords": [
+      "bar",
+      "chart",
+      "graph"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4ca.png"
+  },
+  {
+    "glyph": "📈",
+    "name": "chart increasing",
+    "keywords": [
+      "chart",
+      "chart increasing",
+      "graph",
+      "growth",
+      "trend",
+      "upward"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4c8.png"
+  },
+  {
+    "glyph": "📉",
+    "name": "chart decreasing",
+    "keywords": [
+      "chart",
+      "chart decreasing",
+      "down",
+      "graph",
+      "trend"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4c9.png"
+  },
+  {
+    "glyph": "📦",
+    "name": "package",
+    "keywords": [
+      "box",
+      "package",
+      "parcel"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4e6.png"
+  },
+  {
+    "glyph": "✉️",
+    "name": "envelope",
+    "keywords": [
+      "email",
+      "envelope",
+      "letter"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/2709-fe0f.png"
+  },
+  {
+    "glyph": "📨",
+    "name": "incoming envelope",
+    "keywords": [
+      "e-mail",
+      "email",
+      "envelope",
+      "incoming",
+      "letter",
+      "receive"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4e8.png"
+  },
+  {
+    "glyph": "🗳️",
+    "name": "ballot box with ballot",
+    "keywords": [
+      "ballot",
+      "ballot box with ballot",
+      "box"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f5f3-fe0f.png"
+  },
+  {
+    "glyph": "🔒",
+    "name": "locked",
+    "keywords": [
+      "closed",
+      "locked"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f512.png"
+  },
+  {
+    "glyph": "🔓",
+    "name": "unlocked",
+    "keywords": [
+      "lock",
+      "open",
+      "unlock",
+      "unlocked"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f513.png"
+  },
+  {
+    "glyph": "🔑",
+    "name": "key",
+    "keywords": [
+      "key",
+      "lock",
+      "password"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f511.png"
+  },
+  {
+    "glyph": "🔨",
+    "name": "hammer",
+    "keywords": [
+      "hammer",
+      "tool"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f528.png"
+  },
+  {
+    "glyph": "🔧",
+    "name": "wrench",
+    "keywords": [
+      "spanner",
+      "tool",
+      "wrench"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f527.png"
+  },
+  {
+    "glyph": "⚙️",
+    "name": "gear",
+    "keywords": [
+      "cog",
+      "cogwheel",
+      "gear",
+      "tool"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/2699-fe0f.png"
+  },
+  {
+    "glyph": "🧰",
+    "name": "toolbox",
+    "keywords": [
+      "chest",
+      "mechanic",
+      "tool",
+      "toolbox"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f9f0.png"
+  },
+  {
+    "glyph": "🧲",
+    "name": "magnet",
+    "keywords": [
+      "attraction",
+      "horseshoe",
+      "magnet",
+      "magnetic"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f9f2.png"
+  },
+  {
+    "glyph": "🧪",
+    "name": "test tube",
+    "keywords": [
+      "chemist",
+      "chemistry",
+      "experiment",
+      "lab",
+      "science",
+      "test tube"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f9ea.png"
+  },
+  {
+    "glyph": "🔬",
+    "name": "microscope",
+    "keywords": [
+      "microscope",
+      "science",
+      "tool"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f52c.png"
+  },
+  {
+    "glyph": "🔭",
+    "name": "telescope",
+    "keywords": [
+      "science",
+      "telescope",
+      "tool"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f52d.png"
+  },
+  {
+    "glyph": "💊",
+    "name": "pill",
+    "keywords": [
+      "doctor",
+      "medicine",
+      "pill",
+      "sick"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f48a.png"
+  },
+  {
+    "glyph": "🩺",
+    "name": "stethoscope",
+    "keywords": [
+      "doctor",
+      "heart",
+      "medicine",
+      "stethoscope"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1fa7a.png"
+  },
+  {
+    "glyph": "🎓",
+    "name": "graduation cap",
+    "keywords": [
+      "cap",
+      "celebration",
+      "clothing",
+      "graduation",
+      "hat"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f393.png"
+  },
+  {
+    "glyph": "💼",
+    "name": "briefcase",
+    "keywords": [
+      "briefcase"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f4bc.png"
+  },
+  {
+    "glyph": "🛍️",
+    "name": "shopping bags",
+    "keywords": [
+      "bag",
+      "hotel",
+      "shopping",
+      "shopping bags"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f6cd-fe0f.png"
+  },
+  {
+    "glyph": "💎",
+    "name": "gem stone",
+    "keywords": [
+      "diamond",
+      "gem",
+      "gem stone",
+      "jewel"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f48e.png"
+  },
+  {
+    "glyph": "👕",
+    "name": "t-shirt",
+    "keywords": [
+      "clothing",
+      "shirt",
+      "t-shirt",
+      "tshirt"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f455.png"
+  },
+  {
+    "glyph": "👑",
+    "name": "crown",
+    "keywords": [
+      "clothing",
+      "crown",
+      "king",
+      "queen"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f451.png"
+  },
+  {
+    "glyph": "👓",
+    "name": "glasses",
+    "keywords": [
+      "clothing",
+      "eye",
+      "eyeglasses",
+      "eyewear",
+      "glasses"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f453.png"
+  },
+  {
+    "glyph": "🕶️",
+    "name": "sunglasses",
+    "keywords": [
+      "dark",
+      "eye",
+      "eyewear",
+      "glasses",
+      "sunglasses"
+    ],
+    "category": "objects",
+    "image": "/images/fluent-emoji/1f576-fe0f.png"
+  },
+  {
+    "glyph": "⚽",
+    "name": "soccer ball",
+    "keywords": [
+      "ball",
+      "football",
+      "soccer"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/26bd.png"
+  },
+  {
+    "glyph": "🏀",
+    "name": "basketball",
+    "keywords": [
+      "ball",
+      "basketball",
+      "hoop"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3c0.png"
+  },
+  {
+    "glyph": "🏈",
+    "name": "american football",
+    "keywords": [
+      "american",
+      "ball",
+      "football"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3c8.png"
+  },
+  {
+    "glyph": "⚾",
+    "name": "baseball",
+    "keywords": [
+      "ball",
+      "baseball"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/26be.png"
+  },
+  {
+    "glyph": "🎾",
+    "name": "tennis",
+    "keywords": [
+      "ball",
+      "racquet",
+      "tennis"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3be.png"
+  },
+  {
+    "glyph": "🏐",
+    "name": "volleyball",
+    "keywords": [
+      "ball",
+      "game",
+      "volleyball"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3d0.png"
+  },
+  {
+    "glyph": "🏉",
+    "name": "rugby football",
+    "keywords": [
+      "ball",
+      "football",
+      "rugby"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3c9.png"
+  },
+  {
+    "glyph": "🥏",
+    "name": "flying disc",
+    "keywords": [
+      "flying disc",
+      "ultimate"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f94f.png"
+  },
+  {
+    "glyph": "🎳",
+    "name": "bowling",
+    "keywords": [
+      "ball",
+      "bowling",
+      "game"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3b3.png"
+  },
+  {
+    "glyph": "🏏",
+    "name": "cricket game",
+    "keywords": [
+      "ball",
+      "bat",
+      "cricket game",
+      "game"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3cf.png"
+  },
+  {
+    "glyph": "🏓",
+    "name": "ping pong",
+    "keywords": [
+      "ball",
+      "bat",
+      "game",
+      "paddle",
+      "ping pong",
+      "table tennis"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3d3.png"
+  },
+  {
+    "glyph": "🏸",
+    "name": "badminton",
+    "keywords": [
+      "badminton",
+      "birdie",
+      "game",
+      "racquet",
+      "shuttlecock"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3f8.png"
+  },
+  {
+    "glyph": "🏒",
+    "name": "ice hockey",
+    "keywords": [
+      "game",
+      "hockey",
+      "ice",
+      "puck",
+      "stick"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3d2.png"
+  },
+  {
+    "glyph": "🥅",
+    "name": "goal net",
+    "keywords": [
+      "goal",
+      "net"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f945.png"
+  },
+  {
+    "glyph": "🎣",
+    "name": "fishing pole",
+    "keywords": [
+      "fish",
+      "fishing pole",
+      "pole"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3a3.png"
+  },
+  {
+    "glyph": "🥊",
+    "name": "boxing glove",
+    "keywords": [
+      "boxing",
+      "glove"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f94a.png"
+  },
+  {
+    "glyph": "🥋",
+    "name": "martial arts uniform",
+    "keywords": [
+      "judo",
+      "karate",
+      "martial arts",
+      "martial arts uniform",
+      "taekwondo",
+      "uniform"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f94b.png"
+  },
+  {
+    "glyph": "🎽",
+    "name": "running shirt",
+    "keywords": [
+      "athletics",
+      "running",
+      "sash",
+      "shirt"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3bd.png"
+  },
+  {
+    "glyph": "🎿",
+    "name": "skis",
+    "keywords": [
+      "ski",
+      "skis",
+      "snow"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3bf.png"
+  },
+  {
+    "glyph": "🏆",
+    "name": "trophy",
+    "keywords": [
+      "prize",
+      "trophy"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3c6.png"
+  },
+  {
+    "glyph": "🥇",
+    "name": "1st place medal",
+    "keywords": [
+      "1st place medal",
+      "first",
+      "gold",
+      "medal"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f947.png"
+  },
+  {
+    "glyph": "🥈",
+    "name": "2nd place medal",
+    "keywords": [
+      "2nd place medal",
+      "medal",
+      "second",
+      "silver"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f948.png"
+  },
+  {
+    "glyph": "🥉",
+    "name": "3rd place medal",
+    "keywords": [
+      "3rd place medal",
+      "bronze",
+      "medal",
+      "third"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f949.png"
+  },
+  {
+    "glyph": "🏅",
+    "name": "sports medal",
+    "keywords": [
+      "medal",
+      "sports medal"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3c5.png"
+  },
+  {
+    "glyph": "🎖️",
+    "name": "military medal",
+    "keywords": [
+      "celebration",
+      "medal",
+      "military"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f396-fe0f.png"
+  },
+  {
+    "glyph": "🎮",
+    "name": "video game",
+    "keywords": [
+      "controller",
+      "game",
+      "video game"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3ae.png"
+  },
+  {
+    "glyph": "🕹️",
+    "name": "joystick",
+    "keywords": [
+      "game",
+      "joystick",
+      "video game"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f579-fe0f.png"
+  },
+  {
+    "glyph": "🎲",
+    "name": "game die",
+    "keywords": [
+      "dice",
+      "die",
+      "game"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3b2.png"
+  },
+  {
+    "glyph": "♟️",
+    "name": "chess pawn",
+    "keywords": [
+      "chess",
+      "chess pawn",
+      "dupe",
+      "expendable"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/265f-fe0f.png"
+  },
+  {
+    "glyph": "🎯",
+    "name": "bullseye",
+    "keywords": [
+      "bullseye",
+      "dart",
+      "direct hit",
+      "game",
+      "hit",
+      "target"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3af.png"
+  },
+  {
+    "glyph": "🎭",
+    "name": "performing arts",
+    "keywords": [
+      "art",
+      "mask",
+      "performing",
+      "performing arts",
+      "theater",
+      "theatre"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3ad.png"
+  },
+  {
+    "glyph": "🎨",
+    "name": "artist palette",
+    "keywords": [
+      "art",
+      "artist palette",
+      "museum",
+      "painting",
+      "palette"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3a8.png"
+  },
+  {
+    "glyph": "🎵",
+    "name": "musical note",
+    "keywords": [
+      "music",
+      "musical note",
+      "note"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3b5.png"
+  },
+  {
+    "glyph": "🎶",
+    "name": "musical notes",
+    "keywords": [
+      "music",
+      "musical notes",
+      "note",
+      "notes"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3b6.png"
+  },
+  {
+    "glyph": "🎸",
+    "name": "guitar",
+    "keywords": [
+      "guitar",
+      "instrument",
+      "music"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3b8.png"
+  },
+  {
+    "glyph": "🎹",
+    "name": "musical keyboard",
+    "keywords": [
+      "instrument",
+      "keyboard",
+      "music",
+      "musical keyboard",
+      "piano"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3b9.png"
+  },
+  {
+    "glyph": "🎻",
+    "name": "violin",
+    "keywords": [
+      "instrument",
+      "music",
+      "violin"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3bb.png"
+  },
+  {
+    "glyph": "🥁",
+    "name": "drum",
+    "keywords": [
+      "drum",
+      "drumsticks",
+      "music"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f941.png"
+  },
+  {
+    "glyph": "🎷",
+    "name": "saxophone",
+    "keywords": [
+      "instrument",
+      "music",
+      "sax",
+      "saxophone"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3b7.png"
+  },
+  {
+    "glyph": "🎺",
+    "name": "trumpet",
+    "keywords": [
+      "instrument",
+      "music",
+      "trumpet"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3ba.png"
+  },
+  {
+    "glyph": "🎉",
+    "name": "party popper",
+    "keywords": [
+      "celebration",
+      "party",
+      "popper",
+      "tada"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f389.png"
+  },
+  {
+    "glyph": "🎊",
+    "name": "confetti ball",
+    "keywords": [
+      "ball",
+      "celebration",
+      "confetti"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f38a.png"
+  },
+  {
+    "glyph": "🎈",
+    "name": "balloon",
+    "keywords": [
+      "balloon",
+      "celebration"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f388.png"
+  },
+  {
+    "glyph": "🎁",
+    "name": "wrapped gift",
+    "keywords": [
+      "box",
+      "celebration",
+      "gift",
+      "present",
+      "wrapped"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f381.png"
+  },
+  {
+    "glyph": "🎀",
+    "name": "ribbon",
+    "keywords": [
+      "celebration",
+      "ribbon"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f380.png"
+  },
+  {
+    "glyph": "🎫",
+    "name": "ticket",
+    "keywords": [
+      "admission",
+      "ticket"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3ab.png"
+  },
+  {
+    "glyph": "🎬",
+    "name": "clapper board",
+    "keywords": [
+      "clapper",
+      "clapper board",
+      "movie"
+    ],
+    "category": "activities",
+    "image": "/images/fluent-emoji/1f3ac.png"
+  },
+  {
+    "glyph": "❤️",
+    "name": "red heart",
+    "keywords": [
+      "heart",
+      "red heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2764-fe0f.png"
+  },
+  {
+    "glyph": "🧡",
+    "name": "orange heart",
+    "keywords": [
+      "orange",
+      "orange heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f9e1.png"
+  },
+  {
+    "glyph": "💛",
+    "name": "yellow heart",
+    "keywords": [
+      "yellow",
+      "yellow heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f49b.png"
+  },
+  {
+    "glyph": "💚",
+    "name": "green heart",
+    "keywords": [
+      "green",
+      "green heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f49a.png"
+  },
+  {
+    "glyph": "💙",
+    "name": "blue heart",
+    "keywords": [
+      "blue",
+      "blue heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f499.png"
+  },
+  {
+    "glyph": "💜",
+    "name": "purple heart",
+    "keywords": [
+      "purple",
+      "purple heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f49c.png"
+  },
+  {
+    "glyph": "🖤",
+    "name": "black heart",
+    "keywords": [
+      "black",
+      "black heart",
+      "evil",
+      "wicked"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f5a4.png"
+  },
+  {
+    "glyph": "🤍",
+    "name": "white heart",
+    "keywords": [
+      "heart",
+      "white"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f90d.png"
+  },
+  {
+    "glyph": "🤎",
+    "name": "brown heart",
+    "keywords": [
+      "brown",
+      "heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f90e.png"
+  },
+  {
+    "glyph": "💔",
+    "name": "broken heart",
+    "keywords": [
+      "break",
+      "broken",
+      "broken heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f494.png"
+  },
+  {
+    "glyph": "💖",
+    "name": "sparkling heart",
+    "keywords": [
+      "excited",
+      "sparkle",
+      "sparkling heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f496.png"
+  },
+  {
+    "glyph": "💕",
+    "name": "two hearts",
+    "keywords": [
+      "love",
+      "two hearts"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f495.png"
+  },
+  {
+    "glyph": "❤️‍🔥",
+    "name": "heart on fire",
+    "keywords": [
+      "burn",
+      "heart",
+      "heart on fire",
+      "love",
+      "lust",
+      "sacred heart"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2764-fe0f-200d-1f525.png"
+  },
+  {
+    "glyph": "💯",
+    "name": "hundred points",
+    "keywords": [
+      "100",
+      "full",
+      "hundred",
+      "hundred points",
+      "score"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f4af.png"
+  },
+  {
+    "glyph": "💢",
+    "name": "anger symbol",
+    "keywords": [
+      "anger symbol",
+      "angry",
+      "comic",
+      "mad"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f4a2.png"
+  },
+  {
+    "glyph": "💥",
+    "name": "collision",
+    "keywords": [
+      "boom",
+      "collision",
+      "comic"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f4a5.png"
+  },
+  {
+    "glyph": "💦",
+    "name": "sweat droplets",
+    "keywords": [
+      "comic",
+      "splashing",
+      "sweat",
+      "sweat droplets"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f4a6.png"
+  },
+  {
+    "glyph": "💫",
+    "name": "dizzy",
+    "keywords": [
+      "comic",
+      "dizzy",
+      "star"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f4ab.png"
+  },
+  {
+    "glyph": "✔️",
+    "name": "check mark",
+    "keywords": [
+      "✓",
+      "check",
+      "mark"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2714-fe0f.png"
+  },
+  {
+    "glyph": "✅",
+    "name": "check mark button",
+    "keywords": [
+      "✓",
+      "button",
+      "check",
+      "mark"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2705.png"
+  },
+  {
+    "glyph": "❌",
+    "name": "cross mark",
+    "keywords": [
+      "×",
+      "cancel",
+      "cross",
+      "mark",
+      "multiplication",
+      "multiply",
+      "x"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/274c.png"
+  },
+  {
+    "glyph": "➕",
+    "name": "plus",
+    "keywords": [
+      "+",
+      "math",
+      "plus",
+      "sign"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2795.png"
+  },
+  {
+    "glyph": "➖",
+    "name": "minus",
+    "keywords": [
+      "-",
+      "−",
+      "math",
+      "minus",
+      "sign"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2796.png"
+  },
+  {
+    "glyph": "✖️",
+    "name": "multiply",
+    "keywords": [
+      "×",
+      "cancel",
+      "multiplication",
+      "multiply",
+      "sign",
+      "x"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2716-fe0f.png"
+  },
+  {
+    "glyph": "➗",
+    "name": "divide",
+    "keywords": [
+      "÷",
+      "divide",
+      "division",
+      "math",
+      "sign"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2797.png"
+  },
+  {
+    "glyph": "♾️",
+    "name": "infinity",
+    "keywords": [
+      "forever",
+      "infinity",
+      "unbounded",
+      "universal"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/267e-fe0f.png"
+  },
+  {
+    "glyph": "❓",
+    "name": "red question mark",
+    "keywords": [
+      "?",
+      "mark",
+      "punctuation",
+      "question",
+      "red question mark"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2753.png"
+  },
+  {
+    "glyph": "❗",
+    "name": "red exclamation mark",
+    "keywords": [
+      "!",
+      "exclamation",
+      "mark",
+      "punctuation",
+      "red exclamation mark"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2757.png"
+  },
+  {
+    "glyph": "‼️",
+    "name": "double exclamation mark",
+    "keywords": [
+      "!",
+      "!!",
+      "bangbang",
+      "double exclamation mark",
+      "exclamation",
+      "mark"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/203c-fe0f.png"
+  },
+  {
+    "glyph": "⚠️",
+    "name": "warning",
+    "keywords": [
+      "warning"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/26a0-fe0f.png"
+  },
+  {
+    "glyph": "🚫",
+    "name": "prohibited",
+    "keywords": [
+      "entry",
+      "forbidden",
+      "no",
+      "not",
+      "prohibited"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f6ab.png"
+  },
+  {
+    "glyph": "⛔",
+    "name": "no entry",
+    "keywords": [
+      "entry",
+      "forbidden",
+      "no",
+      "not",
+      "prohibited",
+      "traffic"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/26d4.png"
+  },
+  {
+    "glyph": "♻️",
+    "name": "recycling symbol",
+    "keywords": [
+      "recycle",
+      "recycling symbol"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/267b-fe0f.png"
+  },
+  {
+    "glyph": "✨",
+    "name": "sparkles",
+    "keywords": [
+      "*",
+      "sparkle",
+      "sparkles",
+      "star"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2728.png"
+  },
+  {
+    "glyph": "🌟",
+    "name": "glowing star",
+    "keywords": [
+      "glittery",
+      "glow",
+      "glowing star",
+      "shining",
+      "sparkle",
+      "star"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f31f.png"
+  },
+  {
+    "glyph": "🎆",
+    "name": "fireworks",
+    "keywords": [
+      "celebration",
+      "fireworks"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f386.png"
+  },
+  {
+    "glyph": "🔜",
+    "name": "SOON arrow",
+    "keywords": [
+      "arrow",
+      "soon",
+      "SOON arrow"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f51c.png"
+  },
+  {
+    "glyph": "➡️",
+    "name": "right arrow",
+    "keywords": [
+      "arrow",
+      "cardinal",
+      "direction",
+      "east",
+      "right arrow"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/27a1-fe0f.png"
+  },
+  {
+    "glyph": "⬅️",
+    "name": "left arrow",
+    "keywords": [
+      "arrow",
+      "cardinal",
+      "direction",
+      "left arrow",
+      "west"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2b05-fe0f.png"
+  },
+  {
+    "glyph": "⬆️",
+    "name": "up arrow",
+    "keywords": [
+      "arrow",
+      "cardinal",
+      "direction",
+      "north",
+      "up arrow"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2b06-fe0f.png"
+  },
+  {
+    "glyph": "⬇️",
+    "name": "down arrow",
+    "keywords": [
+      "arrow",
+      "cardinal",
+      "direction",
+      "down",
+      "south"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2b07-fe0f.png"
+  },
+  {
+    "glyph": "🔄",
+    "name": "counterclockwise arrows button",
+    "keywords": [
+      "anticlockwise",
+      "arrow",
+      "counterclockwise",
+      "counterclockwise arrows button",
+      "withershins"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f504.png"
+  },
+  {
+    "glyph": "▶️",
+    "name": "play button",
+    "keywords": [
+      "arrow",
+      "play",
+      "play button",
+      "right",
+      "triangle"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/25b6-fe0f.png"
+  },
+  {
+    "glyph": "⏸️",
+    "name": "pause button",
+    "keywords": [
+      "bar",
+      "double",
+      "pause",
+      "pause button",
+      "vertical"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/23f8-fe0f.png"
+  },
+  {
+    "glyph": "⏹️",
+    "name": "stop button",
+    "keywords": [
+      "square",
+      "stop",
+      "stop button"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/23f9-fe0f.png"
+  },
+  {
+    "glyph": "⏺️",
+    "name": "record button",
+    "keywords": [
+      "circle",
+      "record",
+      "record button"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/23fa-fe0f.png"
+  },
+  {
+    "glyph": "🎼",
+    "name": "musical score",
+    "keywords": [
+      "music",
+      "musical score",
+      "score"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/1f3bc.png"
+  },
+  {
+    "glyph": "ℹ️",
+    "name": "information",
+    "keywords": [
+      "i",
+      "information"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/2139-fe0f.png"
+  },
+  {
+    "glyph": "®️",
+    "name": "registered",
+    "keywords": [
+      "r",
+      "registered"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/ae-fe0f.png"
+  },
+  {
+    "glyph": "©️",
+    "name": "copyright",
+    "keywords": [
+      "c",
+      "copyright"
+    ],
+    "category": "symbols",
+    "image": "/images/fluent-emoji/a9-fe0f.png"
+  }
+]

@@ -140,6 +140,20 @@ pub fn Icon(name: &str, class: &str) -> Html {
         "bell" => html! {
             <Bell class=@{class} stroke_width="1.6" />
         },
+        "light-bulb" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+            >
+                <path d="M9 18h6m-5 4h4m-5-6c0-2-4-3-4-7a7 7 0 0 1 14 0c0 4-4 5-4 7v2H9Z" />
+            </svg>
+        },
         "apps" => html! {
             <Gem class=@{class} stroke_width="1.6" />
         },
@@ -215,6 +229,23 @@ pub fn Icon(name: &str, class: &str) -> Html {
         },
         "emoji" => html! {
             <FaceSlightlySmiling class=@{class} stroke_width="1.6" />
+        },
+        "emoji-add" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+            >
+                <path d="M13.8 21.3a9.5 9.5 0 1 1 7.5-9.5" />
+                <path d="M7.5 14a5 5 0 0 0 6.5 1.8M8 8.5h.01M15 8.5h.01" />
+                <circle cx="18" cy="18" r="5" />
+                <path d="M18 15.5v5M15.5 18h5" />
+            </svg>
         },
         "attach" => html! {
             <Paperclip class=@{class} stroke_width="1.6" />
