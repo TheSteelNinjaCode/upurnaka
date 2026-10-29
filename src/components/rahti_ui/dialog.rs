@@ -865,6 +865,10 @@ pub fn Dialog(class: &str, id: &str, bindings: Bindings, attrs: Attrs, children:
                     // outright — so it is intercepted and sent down the animated
                     // path instead.
                     const cancel = (event) => {
+                        // A file input also emits a bubbling `cancel` when its
+                        // native picker is dismissed. Only this dialog's own
+                        // cancellation should close the dialog.
+                        if (event.target !== box) return;
                         event.preventDefault();
                         close();
                     };

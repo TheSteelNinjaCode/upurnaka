@@ -11,6 +11,44 @@ fn community_test_png() -> Vec<u8> {
 }
 
 #[tokio::test]
+async fn canceling_the_community_image_picker_keeps_the_creation_dialog_open() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/communities"))
+        .await
+        .unwrap();
+    let _: bool = browser.eval("Array.from(document.querySelectorAll('main button')).find(button => button.textContent.trim().endsWith('School')).click(); true").await.unwrap();
+    browser.wait_for("document.querySelector('.community-create-dialog[open]') && document.querySelector('#community-name').value === 'School'").await.unwrap();
+    let _: bool = browser
+        .eval("document.querySelector('#community-description').focus(); true")
+        .await
+        .unwrap();
+    browser
+        .type_text("Keep this community draft.")
+        .await
+        .unwrap();
+    // The native file picker sends a non-cancelable, bubbling `cancel` on
+    // its input when Cancel, the window close button, or Escape dismisses it.
+    let retained: bool = browser.eval("(() => { document.querySelector('#community-picture').dispatchEvent(new Event('cancel', {bubbles:true})); const dialog = document.querySelector('.community-create-dialog'); return dialog.open && dialog.dataset.state === 'open' && document.querySelector('#community-name').value === 'School' && document.querySelector('#community-description').value === 'Keep this community draft.'; })()").await.unwrap();
+    assert!(
+        retained,
+        "canceling the image picker must keep the parent dialog and its draft"
+    );
+    // Escape on the creation dialog itself must still dismiss it normally.
+    browser.press("Escape").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-create-dialog[open]')")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn community_template_edits_and_creates_in_one_step() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
