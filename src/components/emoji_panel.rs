@@ -4,8 +4,9 @@ use crate::{
 };
 
 /// The Fluent emoji panel: search, Recent and nine categories. Hosts open it
-/// in their own popover, pass `open` while it shows and `select` to receive a
-/// glyph. `closes` names the popover a choice dismisses; `label` is the
+/// in their own popover, pass `open` while it shows, bump `session` from the
+/// click that opens it (the panel then starts over from Recent with an empty
+/// search, before anyone can type) and `select` to receive a glyph. `closes` names the popover a choice dismisses; `label` is the
 /// accessible name of each emoji button, with `{}` for the glyph.
 #[component]
 pub fn EmojiPanel(
@@ -235,6 +236,7 @@ pub fn EmojiPanel(
                 const emojiButtons = pp.ref({});
                 const searchInput = pp.ref(null), emojiScroll = pp.ref(null), categoryButtons = pp.ref({});
                 const open = !!pp.props.open;
+                const session = pp.props.session || 0;
                 const categoryNames = {recent:'Recent',smileys:'Smileys and emotions',gestures:'Hands and gestures',people:'People',animals:'Animals and nature',food:'Food and drink',travel:'Travel and places',objects:'Objects',activities:'Activities',symbols:'Symbols'};
                 const heading = query.trim() ? 'Search results' : categoryNames[category];
                 const visibleEmojis = pp.memo(() => {
@@ -249,9 +251,11 @@ pub fn EmojiPanel(
                 }, [catalog,lookup,query,category,recent]);
                 const tabStop = visibleEmojis.some(emoji=>emoji.glyph===focusedGlyph) ? focusedGlyph : visibleEmojis[0]?.glyph;
                 const focusSearch = pp.event(() => { if (open) searchInput.current?.focus(); });
-                // Closing resets to Recent with an empty search, so each opening
-                // starts there, as in Teams; opening focuses the search.
-                pp.effect(() => { if (!open) {setQuery('');setCategory('recent');setFocusedGlyph('');return;} const frame=requestAnimationFrame(focusSearch);return ()=>cancelAnimationFrame(frame); },[open,focusSearch]);
+                // Each opening starts from Recent with an empty search, as in Teams.
+                // The reset follows the opening click, not the popover's toggle
+                // event, which arrives asynchronously and could undo typing.
+                pp.effect(() => { setQuery('');setCategory('recent');setFocusedGlyph(''); },[session]);
+                pp.effect(() => { if (!open) return;const frame=requestAnimationFrame(focusSearch);return ()=>cancelAnimationFrame(frame); },[open,focusSearch]);
                 pp.effect(() => { if (emojiScroll.current) emojiScroll.current.scrollTop=0; },[query,category]);
                 function choose(glyph) {
                     const next = canonical([glyph,...recent]);setRecent(next);

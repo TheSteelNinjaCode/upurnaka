@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 184 184" fill="none">
+  <defs>
+    <linearGradient id="folder" x1="20" y1="30" x2="164" y2="168" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4a4a4a"/>
+      <stop offset="0.55" stop-color="#3a3a3a"/>
+      <stop offset="1" stop-color="#2f6f73"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="40" y1="150" x2="150" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2aa8ff"/>
+      <stop offset="0.5" stop-color="#38d6c4"/>
+      <stop offset="1" stop-color="#a6e34f"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="60" y1="60" x2="130" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5c5c5c"/>
+      <stop offset="1" stop-color="#454545"/>
+    </linearGradient>
+    <radialGradient id="night" cx="92" cy="128" r="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b2a6b"/>
+      <stop offset="1" stop-color="#14112a"/>
+    </radialGradient>
+  </defs>
+  <path d="M14 34a12 12 0 0 1 12-12h40c4 0 7.6 2 9.8 5.3L84 40h74a12 12 0 0 1 12 12v94a12 12 0 0 1-12 12H26a12 12 0 0 1-12-12z" fill="url(#folder)"/>
+  <path d="M92 156 40 124l52-32 52 32z" fill="url(#glow)"/>
+  <path d="M92 146 56 124l36-22 36 22z" fill="url(#night)"/>
+  <g fill="#fff" opacity=".7">
+    <circle cx="80" cy="122" r="1"/><circle cx="98" cy="116" r="1.2"/><circle cx="106" cy="128" r=".9"/><circle cx="88" cy="132" r=".8"/><circle cx="94" cy="124" r=".7"/>
+  </g>
+  <path d="M92 118 44 88l48-30 48 30z" fill="url(#lid)"/>
+  <path d="M92 58 44 88l48 30 48-30z" stroke="#ffffff22" stroke-width="1.5"/>
+</svg>

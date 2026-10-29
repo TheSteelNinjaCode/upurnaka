@@ -511,6 +511,156 @@ async fn post_edit_delete_and_pin_respect_authors_and_owners() {
 }
 
 #[tokio::test]
+async fn community_files_upload_as_posts_and_download_only_for_members() {
+    setup().await;
+    let mut owner = super::auth::Client::new().await;
+    owner.with_cookie(test_cookie());
+    owner.request("/communities", None).await;
+    let mut member = super::auth::Client::new().await;
+    member.with_cookie(super::support::cookie_for(
+        "other-user",
+        "Other User",
+        "other@example.com",
+    ));
+    member.request("/communities", None).await;
+    let mut outsider = super::auth::Client::new().await;
+    outsider.with_cookie(super::support::cookie_for(
+        "test-admin",
+        "Test Administrator",
+        "admin-test@example.com",
+    ));
+    outsider.request("/communities", None).await;
+    let (_, created) = community_call(
+        &mut owner,
+        "create_community",
+        json!({"name":"File sharing school","category":"School"}),
+    )
+    .await;
+    let id = created["id"].as_str().unwrap();
+    let (_, link) = community_call(
+        &mut owner,
+        "community_join_link",
+        json!({"id":id,"reset":false}),
+    )
+    .await;
+    let token = link.as_str().unwrap().split("join=").nth(1).unwrap();
+    community_call(
+        &mut member,
+        "join_community",
+        json!({"id":id,"token":token}),
+    )
+    .await;
+
+    let fields = json!({"id":id,"channel":""});
+    let (status, body) = member
+        .upload(
+            "/communities",
+            "upload_community_file",
+            fields.clone(),
+            ("file", "text/plain", b"homework list"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let post: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(post["author_name"], "Other User");
+    assert_eq!(post["body"], "");
+    let file = &post["files"][0];
+    assert_eq!(file["bytes"], 13);
+    assert_eq!(file["content_type"], "text/plain");
+    assert_eq!(file["uploader_name"], "Other User");
+    let file_id = file["id"].as_str().unwrap().to_string();
+    let post_id = post["id"].as_str().unwrap().to_string();
+
+    let (_, _, page) = owner
+        .request(&format!("/communities?community={id}"), None)
+        .await;
+    assert!(page.contains(&file_id), "The owner sees the shared file");
+    let (status, headers, _) = owner
+        .request(&format!("/communities/files/{file_id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::FOUND);
+    assert!(
+        headers["location"]
+            .to_str()
+            .unwrap()
+            .starts_with("https://storage.test/")
+    );
+    assert_eq!(headers["cache-control"], "no-store");
+    assert_eq!(
+        outsider
+            .request(&format!("/communities/files/{file_id}"), None)
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        super::auth::Client::new()
+            .await
+            .request(&format!("/communities/files/{file_id}"), None)
+            .await
+            .0,
+        StatusCode::SEE_OTHER
+    );
+    let (status, _) = outsider
+        .upload(
+            "/communities",
+            "upload_community_file",
+            fields.clone(),
+            ("file", "text/plain", b"intruder"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, body) = member
+        .upload(
+            "/communities",
+            "upload_community_file",
+            fields.clone(),
+            ("file", "text/plain", b""),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(body.contains("file"));
+    let (status, _) = member
+        .upload(
+            "/communities",
+            "upload_community_file",
+            json!({"id":id,"channel":"missing"}),
+            ("file", "text/plain", b"lost"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(
+        community_call(
+            &mut member,
+            "upload_community_file",
+            json!({"id":id,"channel":""})
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+
+    // Deleting the post withdraws its file.
+    community_call(
+        &mut owner,
+        "delete_community_post",
+        json!({"id":id,"post":post_id}),
+    )
+    .await;
+    let (_, _, page) = member
+        .request(&format!("/communities?community={id}"), None)
+        .await;
+    assert!(!page.contains(&file_id), "A deleted post hides its file");
+    assert_eq!(
+        member
+            .request(&format!("/communities/files/{file_id}"), None)
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
 async fn community_actions_enforce_roles_invites_links_and_owner_transfer() {
     setup().await;
     let mut owner = super::auth::Client::new().await;
@@ -1890,7 +2040,33 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .click("button[role=tab][aria-controls=community-files]")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('#community-files').hidden && document.querySelector('#community-posts').hidden").await.unwrap();
+    // Like Teams, the Files tab has no banner and starts from an upload prompt.
+    browser.wait_for("!document.querySelector('#community-files').hidden && document.querySelector('#community-posts').hidden && document.querySelector('.community-cover').hidden && !document.querySelector('.community-files-empty').hidden && document.querySelector('.community-files-empty h3').textContent === 'Share files in this community'").await.unwrap();
+    let _: bool = browser
+        .eval("(() => { const input = document.querySelector('#community-files input[type=file]'); const data = new DataTransfer(); data.items.add(new File(['week one plan'], 'Plan.txt', {type:'text/plain'})); data.items.add(new File(['%PDF-1.4'], 'Rubric.pdf', {type:'application/pdf'})); input.files = data.files; input.dispatchEvent(new Event('change', {bubbles:true})); return true; })()")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelectorAll('.community-files-list tbody tr').length === 2 && !document.querySelector('.community-files-list').hidden && document.querySelector('.community-files-status').textContent.trim() === '2 files uploaded and posted.'")
+        .await
+        .unwrap();
+    assert_eq!(
+        browser.eval::<String>("Array.from(document.querySelectorAll('.community-files-list tbody tr')).map(row => row.querySelector('.community-file-icon').dataset.kind + ':' + row.querySelector('.community-file-name').textContent.trim().replace(/\\s+/g, ' ') + ':' + row.cells[3].textContent.trim()).join('|')").await.unwrap(),
+        "pdf:PDFRubric.pdf:8 B|text:TXTPlan.txt:13 B"
+    );
+    assert!(browser.eval::<bool>("document.querySelector('.community-file-name').getAttribute('href').startsWith('/communities/files/')").await.unwrap());
+    browser
+        .click("button[role=tab][aria-controls=community-posts]")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-cover').hidden && document.querySelector('.community-post .community-file-card strong')?.textContent === 'Rubric.pdf'")
+        .await
+        .unwrap();
+    browser
+        .click("button[role=tab][aria-controls=community-files]")
+        .await
+        .unwrap();
     browser
         .click("button[role=tab][aria-controls=community-photos]")
         .await

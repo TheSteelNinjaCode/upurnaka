@@ -20,6 +20,7 @@ pub fn ChannelEmojiPicker(bindings: Bindings) -> Html {
                     name="channel-icon"
                     class="community-channel-icon-trigger"
                     attrs=@{Attrs::new().set("aria-label", "Choose channel icon").set("type", "button")}
+                    onclick={setSession(session + 1)}
                 >
                     <span hidden={selected !== "💬"}>
                         <Icon name="emoji-add" class="size-5" />
@@ -47,6 +48,7 @@ pub fn ChannelEmojiPicker(bindings: Bindings) -> Html {
                         placeholder="Search"
                         value={selected}
                         open={open}
+                        session={session}
                         select={onChoose}
                     />
                 </PopoverContent>
@@ -67,6 +69,7 @@ pub fn ChannelEmojiPicker(bindings: Bindings) -> Html {
                 const selected = pp.props.value || '💬';
                 const selectedEmoji = pp.memo(() => catalog.find(emoji => normalize(emoji.glyph) === normalize(selected)), [catalog, selected]);
                 const [open, setOpen] = pp.state(false);
+                const [session, setSession] = pp.state(0);
                 function onPickerToggle(event) { setOpen(event.newState === 'open'); }
                 const onChoose = pp.event(glyph => pp.props.select?.(glyph));
             "##</script>

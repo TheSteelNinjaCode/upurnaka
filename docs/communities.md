@@ -57,6 +57,16 @@ headline and formatting; a post stays a post or an announcement, and saved edits
 show "Edited". Delete is soft: content is withheld and the card says the post
 was deleted, with Undo for whoever may delete it; deleting also unpins.
 
+The Files tab, like Teams, shows no banner. It lists every file shared in the
+current channel (newest first: name, modified, modified by, size) and starts
+from a "Share files in this community" prompt. Any member may upload; each file
+(up to 100 MB, several at a time) goes to Dilnaka Storage under
+`community/{id}` and becomes a post by the uploader carrying a file card.
+Downloads go through `/communities/files/{id}`, which checks membership and
+redirects to a 10-minute storage link. Deleting the post withdraws its file
+from the tab and the link; the stored object is kept. Uploading needs
+`DILNAKA_API_KEY`; without it the tab explains that storage is not configured.
+
 The community's three-dot menu follows Teams Free's action order. Edits retain
 the existing image unless a replacement is uploaded or removal is selected.
 Notification preferences are saved per account and community; they do not

@@ -336,7 +336,11 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         aria-label="Selected community"
                         pp-style={"--community-header:" + headerHeight + "px"}
                     >
-                        <div class="community-cover" data-cover={activeCommunity?.cover || "mint"}>
+                        <div
+                            class="community-cover"
+                            data-cover={activeCommunity?.cover || "mint"}
+                            hidden={activeTab === "files"}
+                        >
                             <img
                                 class="community-cover-image"
                                 src={bannerSource(activeCommunity?.cover, activeCommunity?.cover_image)}
@@ -1037,6 +1041,28 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                             </div>
                                         </template>
                                     </div>
+                                    <div class="community-post-files" hidden={!post.files.length}>
+                                        <template pp-for="file in post.files">
+                                            <a
+                                                key={file.id}
+                                                class="community-file-card"
+                                                href={"/communities/files/" + file.id}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <span
+                                                    class="community-file-icon"
+                                                    data-kind={fileKind(file)}
+                                                >
+                                                    {fileBadge(file)}
+                                                </span>
+                                                <span>
+                                                    <strong>{file.name}</strong>
+                                                    <small>{fileSize(file.bytes)}</small>
+                                                </span>
+                                            </a>
+                                        </template>
+                                    </div>
                                     <div class="community-reactions" hidden={post.deleted}>
                                         <template pp-for="reaction in post.reactions">
                                             <button
@@ -1169,12 +1195,97 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             id="community-files"
                             aria-labelledby="community-tab-files"
                             role="tabpanel"
-                            class="community-empty-tab"
+                            class="community-files"
                             hidden={activeTab !== "files"}
                         >
-                            <Icon name="folder" class="size-12" />
-                            <h3>"No files in this community yet"</h3>
-                            <p>"Files shared with this community will appear here."</p>
+                            <input
+                                type="file"
+                                multiple
+                                class="sr-only"
+                                tabindex="-1"
+                                aria-hidden="true"
+                                pp-ref={fileInput}
+                                onchange={uploadFiles(event)}
+                            />
+                            <section class="community-files-empty" hidden={activeFiles.length > 0}>
+                                <img
+                                    src="/images/community-files-empty.svg"
+                                    alt=""
+                                    width="184"
+                                    height="184"
+                                />
+                                <h3>"Share files in this community"</h3>
+                                <p>
+                                    "When you upload files to this tab, they’ll show up in posts."
+                                </p>
+                                <Button
+                                    class="community-files-upload"
+                                    onclick={pickFiles()}
+                                    disabled={uploading}
+                                >
+                                    <Icon name="upload" class="size-4" />
+                                    {uploading ? "Uploading…" : "Upload"}
+                                </Button>
+                            </section>
+                            <section class="community-files-list" hidden={activeFiles.length === 0}>
+                                <div class="community-files-toolbar">
+                                    <Button
+                                        class="community-files-upload"
+                                        onclick={pickFiles()}
+                                        disabled={uploading}
+                                    >
+                                        <Icon name="upload" class="size-4" />
+                                        {uploading ? "Uploading…" : "Upload"}
+                                    </Button>
+                                </div>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">"Name"</th>
+                                            <th scope="col">"Modified"</th>
+                                            <th scope="col">"Modified by"</th>
+                                            <th scope="col">"Size"</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template pp-for="file in activeFiles">
+                                            <tr key={file.id}>
+                                                <td>
+                                                    <a
+                                                        class="community-file-name"
+                                                        href={"/communities/files/" + file.id}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        <span
+                                                            class="community-file-icon"
+                                                            data-kind={fileKind(file)}
+                                                        >
+                                                            {fileBadge(file)}
+                                                        </span>
+                                                        {file.name}
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    <time
+                                                        title={new Date(file.created_at).toLocaleString()}
+                                                    >
+                                                        {fileDate(file.created_at)}
+                                                    </time>
+                                                </td>
+                                                <td>{file.uploader_name}</td>
+                                                <td>{fileSize(file.bytes)}</td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </section>
+                            <p class="community-files-status" role="status" hidden={!uploadStatus}>
+                                {uploadStatus}
+                            </p>
+                            <p class="community-files-error" role="alert" hidden={!fileError}>
+                                {fileError}
+                            </p>
                         </div>
                         <div
                             id="community-photos"
@@ -1343,6 +1454,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         closes="community-reaction-picker"
                         placeholder="Find something fun"
                         open={reactionPanelOpen}
+                        session={reactionSession}
                         select={onReactionEmoji}
                     />
                 </div>
@@ -2097,6 +2209,37 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-details-panel { padding:22px;border-bottom:1px solid #444;background:#202020; }
                     .community-details-panel h3 { font-weight:600;margin-top:14px; }
                     .community-details-panel p { color:#bbb;margin-top:6px; }
+                    .community-files { min-height:calc(100% - var(--community-header,72px));display:flex;flex-direction:column;padding:24px clamp(18px,4vw,48px) 40px; }
+                    .community-files-empty { flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;text-align:center;padding:40px 16px; }
+                    .community-files-empty[hidden],.community-files-list[hidden] { display:none; }
+                    .community-files-empty img { width:184px;height:184px; }
+                    .community-files-empty h3 { margin-top:56px;font-size:18px;font-weight:700;color:#fff; }
+                    .community-files-empty p { margin-top:12px;font-size:14px;color:#fff; }
+                    .community-files-empty .community-files-upload { margin-top:120px; }
+                    .community-files-upload { gap:8px;height:32px;padding:0 16px;background:#5b5fc7 !important;color:#fff !important;font-weight:600; }
+                    .community-files-upload:hover:not(:disabled) { background:#4f52b2 !important; }
+                    .community-files-toolbar { display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid #3a3a3a; }
+                    .community-files-list table { width:100%;border-collapse:collapse;font-size:14px; }
+                    .community-files-list th { padding:12px 10px;text-align:left;font-size:12px;font-weight:600;color:#adadad;border-bottom:1px solid #3a3a3a; }
+                    .community-files-list td { padding:10px;border-bottom:1px solid #303030;color:#d6d6d6;white-space:nowrap; }
+                    .community-files-list td:first-child { width:55%;white-space:normal; }
+                    .community-files-list tr:hover td { background:#2e2e2e; }
+                    .community-file-name { display:inline-flex;align-items:center;gap:12px;color:#fff;overflow-wrap:anywhere; }
+                    .community-file-name:hover { text-decoration:underline; }
+                    .community-file-icon { display:grid;place-items:center;flex-shrink:0;width:32px;height:36px;border-radius:4px;background:#5c5c5c;color:#fff;font-size:9px;font-weight:700;letter-spacing:.02em; }
+                    .community-file-icon[data-kind=pdf] { background:#c4314b; } .community-file-icon[data-kind=word] { background:#185abd; } .community-file-icon[data-kind=excel] { background:#107c41; }
+                    .community-file-icon[data-kind=powerpoint] { background:#c43e1c; } .community-file-icon[data-kind=image] { background:#8764b8; } .community-file-icon[data-kind=archive] { background:#986f0b; }
+                    .community-file-icon[data-kind=video],.community-file-icon[data-kind=audio] { background:#0078d4; } .community-file-icon[data-kind=code],.community-file-icon[data-kind=text] { background:#4a5a6a; }
+                    .community-files-status { margin-top:12px;font-size:13px;color:#c4d8bc; }
+                    .community-files-error { margin-top:12px;font-size:13px;color:#f1707b; }
+                    .community-post-files { display:flex;flex-wrap:wrap;gap:8px;margin-top:12px; }
+                    .community-post-files[hidden] { display:none; }
+                    .community-file-card { display:flex;align-items:center;gap:12px;min-width:min(280px,100%);max-width:100%;padding:10px 14px;border:1px solid #3d3d3d;border-radius:6px;background:#1f1f1f; }
+                    .community-file-card:hover { background:#2e2e2e; }
+                    .community-file-card > span:last-child { display:grid;min-width:0; }
+                    .community-file-card strong { font-size:14px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+                    .community-file-card small { font-size:12px;color:#adadad; }
+                    @media(max-width:700px) { .community-files-list th:nth-child(3),.community-files-list td:nth-child(3),.community-files-list th:nth-child(4),.community-files-list td:nth-child(4) { display:none; } }
                     .community-empty-tab { display:flex;align-items:center;flex-direction:column;gap:16px;padding:70px 24px;text-align:center;color:#bbb; }
                     .community-photo { width:200px;height:200px;object-fit:cover;border-radius:10px; }
                     .community-workspace-error { margin:16px 24px;padding:12px;border:1px solid #b76a6a;border-radius:6px;color:#ffbaba; }
@@ -2568,6 +2711,52 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         observer.observe(detailHeader.current);
                         return () => observer.disconnect();
                     }, []);
+                    // Files tab: every file shared in this channel, newest first. Each
+                    // upload becomes a post carrying the file, as in Teams.
+                    const fileLimit = @{communities::FILE_LIMIT};
+                    const fileInput = pp.ref(null);
+                    const [uploading, setUploading] = pp.state(false);
+                    const [uploadStatus, setUploadStatus] = pp.state('');
+                    const [fileError, setFileError] = pp.state('');
+                    const activeFiles = activePosts.filter(p => !p.deleted).flatMap(p => p.files || []).sort((a, b) => b.created_at - a.created_at);
+                    const fileKinds = {pdf:'pdf',doc:'word',docx:'word',rtf:'word',odt:'word',xls:'excel',xlsx:'excel',csv:'excel',ods:'excel',ppt:'powerpoint',pptx:'powerpoint',odp:'powerpoint',zip:'archive',rar:'archive','7z':'archive',gz:'archive',txt:'text',md:'text',json:'code',js:'code',rs:'code',html:'code',css:'code',mp4:'video',mov:'video',webm:'video',mp3:'audio',wav:'audio'};
+                    function fileExtension(file) { const name = String(file.name || ''); const dot = name.lastIndexOf('.'); return dot > 0 ? name.slice(dot + 1).toLowerCase() : ''; }
+                    function fileKind(file) { return String(file.content_type || '').startsWith('image/') ? 'image' : fileKinds[fileExtension(file)] || 'file'; }
+                    function fileBadge(file) { return (fileExtension(file) || 'file').slice(0, 4).toUpperCase(); }
+                    function fileSize(bytes) {
+                        if (bytes < 1024) return bytes + ' B';
+                        const units = ['KB', 'MB', 'GB']; let value = bytes / 1024, unit = 0;
+                        while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+                        return (value < 10 ? value.toFixed(1) : Math.round(value)) + ' ' + units[unit];
+                    }
+                    function fileDate(value) {
+                        const date = new Date(value), now = new Date();
+                        return date.toDateString() === now.toDateString() ? date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : date.toLocaleDateString([], {month:'short', day:'numeric', ...(date.getFullYear() === now.getFullYear() ? {} : {year:'numeric'})});
+                    }
+                    function pickFiles() {
+                        if (uploading || !fileInput.current) return;
+                        fileInput.current.value = ''; fileInput.current.click();
+                    }
+                    async function uploadFiles(event) {
+                        const files = Array.from(event.currentTarget.files || []);
+                        if (!files.length || uploading) return;
+                        const tooLarge = files.find(file => file.size > fileLimit || file.size === 0);
+                        if (tooLarge) { setFileError(tooLarge.size ? tooLarge.name + ' is larger than 100 MB.' : tooLarge.name + ' is empty.'); return; }
+                        setUploading(true); setFileError(''); const id = selectedCommunity, channel = channelId;
+                        let done = 0;
+                        try {
+                            for (const file of files) {
+                                setUploadStatus('Uploading ' + (done + 1) + ' of ' + files.length + '…');
+                                const post = await pp.rpc('upload_community_file', {id, channel, file});
+                                updateCommunity(id, c => ({posts: [post, ...c.posts]}));
+                                done++;
+                            }
+                            setUploadStatus(done === 1 ? 'File uploaded and posted.' : done + ' files uploaded and posted.');
+                        } catch (failure) {
+                            setUploadStatus('');
+                            setFileError((done ? done + ' uploaded. ' : '') + (failure.errors?.file?.join(' ') || failure.message || 'The file could not be uploaded.'));
+                        } finally { setUploading(false); }
+                    }
                     // Reactions and replies under each post, as in a Teams channel.
                     const reactionChoices = @{Json(&communities::REACTIONS)};
                     const reactionNames = {'👍':'Like','❤️':'Heart','😆':'Laugh','😮':'Surprised','😢':'Sad','😠':'Angry'};
@@ -2579,8 +2768,9 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     const [reactionPostId, setReactionPostId] = pp.state('');
                     const [reactionPosition, setReactionPosition] = pp.state('');
                     const [reactionPanelOpen, setReactionPanelOpen] = pp.state(false);
+                    const [reactionSession, setReactionSession] = pp.state(0);
                     function prepareReactionPicker(postId, event) {
-                        setReactionPostId(postId);
+                        setReactionPostId(postId); setReactionSession(reactionSession + 1);
                         const rect = event.currentTarget.getBoundingClientRect(), width = Math.min(420, innerWidth - 24), height = 470;
                         const left = Math.max(12, Math.min(rect.right - width, innerWidth - width - 12));
                         const top = rect.bottom + 6 + height < innerHeight ? rect.bottom + 6 : Math.max(12, rect.top - height - 6);
@@ -3073,6 +3263,14 @@ pub async fn pin_community_post(
     pinned: bool,
 ) -> Result<communities::Post> {
     communities::pin_post(id, post, pinned).await
+}
+#[rpc(auth)]
+pub async fn upload_community_file(
+    id: String,
+    channel: String,
+    file: RpcFile,
+) -> Result<communities::Post> {
+    communities::share_file(id, channel, file).await
 }
 #[rpc(auth)]
 pub async fn reply_to_community_post(

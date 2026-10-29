@@ -2,9 +2,9 @@
 use crate::{
     auth, chat_format, db,
     models::{
-        account, community as row, community_channel as channel, community_member as member,
-        community_post as post, community_post_reaction as reaction, community_post_reply as reply,
-        community_report as report,
+        account, community as row, community_channel as channel, community_file as shared,
+        community_member as member, community_post as post, community_post_reaction as reaction,
+        community_post_reply as reply, community_report as report,
     },
     rahti::{Error, Result, Validator},
 };
@@ -39,6 +39,8 @@ pub struct Post {
     pub formatting: Option<Vec<chat_format::Line>>,
     pub reactions: Vec<Reaction>,
     pub replies: Vec<Reply>,
+    /// Files uploaded with this post, from the Files tab.
+    pub files: Vec<SharedFile>,
     /// The viewer wrote it, so they may edit it.
     pub is_mine: bool,
     pub edited: bool,
@@ -54,6 +56,19 @@ pub struct Reaction {
     pub count: usize,
     pub mine: bool,
 }
+/// A file shared to a community, as the Files tab and its post show it.
+#[derive(Clone, Serialize)]
+pub struct SharedFile {
+    pub id: String,
+    pub post_id: String,
+    pub name: String,
+    pub content_type: String,
+    pub bytes: i64,
+    pub created_at: i64,
+    pub uploader_name: String,
+}
+/// The largest file a community accepts, inside the framework's request cap.
+pub const FILE_LIMIT: usize = 100 * 1024 * 1024;
 #[derive(Clone, Serialize)]
 pub struct Reply {
     pub id: String,
@@ -106,6 +121,7 @@ fn shown_post(
     author_is_owner: bool,
     reactions: Vec<Reaction>,
     replies: Vec<Reply>,
+    files: Vec<SharedFile>,
     viewer: &str,
 ) -> Post {
     let is_mine = p.author_id == viewer;
@@ -126,6 +142,7 @@ fn shown_post(
             formatting: None,
             reactions: Vec::new(),
             replies,
+            files: Vec::new(),
             is_mine,
             edited: false,
             pinned: false,
@@ -147,6 +164,7 @@ fn shown_post(
         formatting: rahti::serde_json::from_str(&p.content).ok(),
         reactions,
         replies,
+        files,
         is_mine,
         edited,
         pinned,
@@ -259,6 +277,12 @@ async fn shown(row: row::Model) -> Result<Community> {
         .filter(reaction::Column::CommunityId.eq(&row.id))
         .all(db::db())
         .await?;
+    let file_rows = shared::Entity::find()
+        .filter(shared::Column::CommunityId.eq(&row.id))
+        .order_by_asc(shared::Column::CreatedAt)
+        .order_by_asc(shared::Column::Id)
+        .all(db::db())
+        .await?;
     let reply_rows = reply::Entity::find()
         .filter(reply::Column::CommunityId.eq(&row.id))
         .order_by_asc(reply::Column::CreatedAt)
@@ -286,7 +310,13 @@ async fn shown(row: row::Model) -> Result<Community> {
             });
         }
         let reactions = summarize(&mine, &user);
-        posts.push(shown_post(p, name, is_owner, reactions, replies, &user));
+        let mut files = Vec::new();
+        for f in file_rows.iter().filter(|f| f.post_id == p.id) {
+            files.push(shown_file(f.clone()).await?);
+        }
+        posts.push(shown_post(
+            p, name, is_owner, reactions, replies, files, &user,
+        ));
     }
     let is_owner = row.owner_id == user;
     Ok(Community {
@@ -535,8 +565,148 @@ pub async fn publish(
         is_owner,
         Vec::new(),
         Vec::new(),
+        Vec::new(),
         &viewer,
     ))
+}
+async fn shown_file(f: shared::Model) -> Result<SharedFile> {
+    Ok(SharedFile {
+        uploader_name: author_name(&f.uploader_id).await?,
+        id: f.id,
+        post_id: f.post_id,
+        name: f.name,
+        content_type: f.content_type,
+        bytes: f.bytes,
+        created_at: f.created_at,
+    })
+}
+/// Upload one file from the Files tab. As in Teams, it shows up in posts: the
+/// upload becomes a post by the uploader that carries the file.
+pub async fn share_file(
+    community: String,
+    channel_id: String,
+    file: crate::rahti::RpcFile,
+) -> Result<Post> {
+    use crate::meetings::recording;
+    let name: String = file.name().trim().chars().take(200).collect();
+    let mut v = Validator::new();
+    v.check("file", !file.is_empty(), "Choose a file that is not empty.")
+        .check(
+            "file",
+            file.len() <= FILE_LIMIT,
+            "Files can be up to 100 MB.",
+        )
+        .check("file", !name.is_empty(), "The file needs a name.");
+    v.finish()?;
+    let community_row = accessible(&community).await?;
+    if !channel_id.is_empty()
+        && channel::Entity::find_by_id(&channel_id)
+            .filter(channel::Column::CommunityId.eq(&community))
+            .one(db::db())
+            .await?
+            .is_none()
+    {
+        return Err(Error::new(StatusCode::NOT_FOUND, "Channel not found."));
+    }
+    if !recording::is_configured() {
+        return Err(Error::public(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "File storage is not configured for this workspace. Contact your administrator.",
+        ));
+    }
+    let user = owner()?;
+    let file_row_id = id();
+    let content_type = file
+        .content_type()
+        .filter(|kind| !kind.is_empty())
+        .unwrap_or("application/octet-stream")
+        .to_string();
+    let bytes = file.len() as i64;
+    let scratch = std::env::temp_dir()
+        .join("upurnaka-community-files")
+        .join(&file_row_id);
+    let path = scratch.join(file.safe_name().unwrap_or_else(|| "file".into()));
+    let stored = async {
+        tokio::fs::create_dir_all(&scratch)
+            .await
+            .map_err(|error| error.to_string())?;
+        file.save(&path).await.map_err(|error| error.to_string())?;
+        let mut metadata = dilnaka::Metadata::new();
+        metadata.insert("communityFile".into(), file_row_id.clone().into());
+        metadata.insert("community".into(), community.clone().into());
+        let options = dilnaka::UploadOptions::default()
+            .folder(format!("community/{community}"))
+            .content_type(content_type.clone())
+            .metadata(metadata);
+        recording::upload(&path, options).await
+    }
+    .await;
+    let _ = tokio::fs::remove_dir_all(&scratch).await;
+    let stored = stored.map_err(|reason| {
+        eprintln!("community files: {file_row_id} could not be stored: {reason}");
+        Error::public(
+            StatusCode::BAD_GATEWAY,
+            "The file could not be uploaded to storage. Try again shortly.",
+        )
+    })?;
+    let now = crate::rahti::time::now().timestamp_millis();
+    let post_id = id();
+    let transaction = db::db().begin().await?;
+    post::ActiveModel {
+        id: Set(post_id.clone()),
+        community_id: Set(community.clone()),
+        channel_id: Set(channel_id),
+        body: Set(String::new()),
+        announcement: Set(false),
+        created_at: Set(now),
+        author_id: Set(user.clone()),
+        subject: Set(String::new()),
+        headline: Set(String::new()),
+        subheading: Set(String::new()),
+        accent: Set(String::new()),
+        content: Set(String::new()),
+        edited_at: Set(None),
+        deleted_at: Set(None),
+        pinned_at: Set(None),
+    }
+    .insert(&transaction)
+    .await?;
+    shared::ActiveModel {
+        id: Set(file_row_id),
+        community_id: Set(community),
+        post_id: Set(post_id.clone()),
+        uploader_id: Set(user),
+        name: Set(name),
+        content_type: Set(content_type),
+        bytes: Set(bytes),
+        file_id: Set(stored.id),
+        file_key: Set(stored.key),
+        created_at: Set(now),
+    }
+    .insert(&transaction)
+    .await?;
+    transaction.commit().await?;
+    reloaded(&community_row, &post_id).await
+}
+/// A short-lived link to a shared file, for members of its community while
+/// its post is not deleted.
+pub async fn file_link(file_id: &str) -> Result<String> {
+    let row = shared::Entity::find_by_id(file_id)
+        .one(db::db())
+        .await?
+        .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "File not found."))?;
+    post_in(&row.community_id, &row.post_id)
+        .await
+        .map_err(|_| Error::new(StatusCode::NOT_FOUND, "File not found."))?;
+    crate::meetings::recording::signed_url(&row.file_id, 600)
+        .await
+        .map_err(|reason| {
+            eprintln!("community files: no access URL for {}: {reason}", row.id);
+            Error::public(
+                StatusCode::BAD_GATEWAY,
+                "File storage could not be reached. Try again shortly.",
+            )
+        })
 }
 /// The post as the viewer now sees it, with its reactions and replies.
 async fn reloaded(community_row: &row::Model, post_id: &str) -> Result<Post> {
@@ -554,6 +724,15 @@ async fn reloaded(community_row: &row::Model, post_id: &str) -> Result<Post> {
         .filter(reaction::Column::PostId.eq(post_id))
         .all(db::db())
         .await?;
+    let mut files = Vec::new();
+    for f in shared::Entity::find()
+        .filter(shared::Column::PostId.eq(post_id))
+        .order_by_asc(shared::Column::CreatedAt)
+        .all(db::db())
+        .await?
+    {
+        files.push(shown_file(f).await?);
+    }
     let mut replies = Vec::new();
     for r in reply::Entity::find()
         .filter(reply::Column::PostId.eq(post_id))
@@ -576,6 +755,7 @@ async fn reloaded(community_row: &row::Model, post_id: &str) -> Result<Post> {
         author == community_row.owner_id,
         summarize(&reactions.iter().collect::<Vec<_>>(), &viewer),
         replies,
+        files,
         &viewer,
     ))
 }
