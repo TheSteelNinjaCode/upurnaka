@@ -26,6 +26,14 @@ pub fn image_map() -> BTreeMap<String, String> {
         .map(|emoji| (normalize(&emoji.glyph), emoji.image.clone()))
         .collect()
 }
+/// The catalog's own spelling of an emoji, with or without variation selectors.
+pub fn canonical(value: &str) -> Option<&'static str> {
+    let value = normalize(value);
+    catalog()
+        .iter()
+        .find(|emoji| !value.is_empty() && normalize(&emoji.glyph) == value)
+        .map(|emoji| emoji.glyph.as_str())
+}
 pub fn supported(value: &str) -> bool {
     let value = normalize(value);
     !value.is_empty()

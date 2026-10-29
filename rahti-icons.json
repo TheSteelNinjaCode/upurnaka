@@ -347,6 +347,18 @@
       "name": "phone"
     },
     {
+      "component": "Pin",
+      "file": "src/components/rahti_icons/pin.rs",
+      "module": "crate::components::rahti_icons::pin",
+      "name": "pin"
+    },
+    {
+      "component": "PinOff",
+      "file": "src/components/rahti_icons/pin_off.rs",
+      "module": "crate::components::rahti_icons::pin_off",
+      "name": "pin-off"
+    },
+    {
       "component": "Pizza",
       "file": "src/components/rahti_icons/pizza.rs",
       "module": "crate::components::rahti_icons::pizza",
@@ -417,6 +429,12 @@
       "file": "src/components/rahti_icons/square.rs",
       "module": "crate::components::rahti_icons::square",
       "name": "square"
+    },
+    {
+      "component": "SquareArrowOutUpRight",
+      "file": "src/components/rahti_icons/square_arrow_out_up_right.rs",
+      "module": "crate::components::rahti_icons::square_arrow_out_up_right",
+      "name": "square-arrow-out-up-right"
     },
     {
       "component": "SquarePen",

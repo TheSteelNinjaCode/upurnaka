@@ -7,6 +7,7 @@ use serde::Deserialize;
 use crate::components::app_shell::AppShell;
 use crate::components::aria::{hidden, submit};
 use crate::components::channel_emoji_picker::ChannelEmojiPicker;
+use crate::components::emoji_panel::EmojiPanel;
 use crate::components::fluent_emoji_grid::FluentEmojiGrid;
 use crate::components::icon::Icon;
 use crate::components::rahti_ui::attrs::Attrs;
@@ -56,6 +57,8 @@ fn banner_label(key: &str) -> &'static str {
 pub struct CommunityQuery {
     community: Option<String>,
     join: Option<String>,
+    /// A post to open from a copied link.
+    post: Option<String>,
 }
 
 pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
@@ -66,6 +69,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
         None => None,
     };
     let join_token = query.join.unwrap_or_default();
+    let focus_post = query.post.unwrap_or_default();
     let selected = query
         .community
         .filter(|id| saved.iter().any(|c| &c.id == id))
@@ -496,6 +500,12 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                             @{initials.as_str()}
                                         </span>
                                         <strong>@{author.as_str()}</strong>
+                                        <span
+                                            class="community-composer-editing"
+                                            hidden={!editingPostId}
+                                        >
+                                            "Editing post"
+                                        </span>
                                         <button
                                             type="button"
                                             class="community-composer-close"
@@ -730,7 +740,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                             aria-pressed={composeMode === "announcement"}
                                             onmousedown={event.preventDefault()}
                                             onclick={toggleAnnouncement()}
-                                            disabled={working}
+                                            disabled={working || !!editingPostId}
                                         >
                                             <Icon name="announcement" class="size-4" />
                                         </button>
@@ -853,7 +863,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                             <Icon name="emoji" class="size-5" />
                                         </button>
                                         <Button attrs=@{submit()} disabled={working || !canPost}>
-                                            {working ? "Posting…" : "Post"}
+                                            {working ? (editingPostId ? "Saving…" : "Posting…") : editingPostId ? "Save" : "Post"}
                                         </Button>
                                     </footer>
                                 </div>
@@ -873,7 +883,70 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 </div>
                             </section>
                             <template pp-for="post in activePosts">
-                                <article key={post.id} class="community-post">
+                                <article
+                                    key={post.id}
+                                    class="community-post"
+                                    data-post={post.id}
+                                    data-focused={focusedPost === post.id ? "true" : "false"}
+                                    data-deleted={post.deleted ? "true" : "false"}
+                                >
+                                    <div
+                                        class="community-post-actions"
+                                        role="toolbar"
+                                        aria-label="Post actions"
+                                        hidden={post.deleted}
+                                    >
+                                        <template pp-for="emoji in reactionChoices">
+                                            <button
+                                                key={emoji}
+                                                type="button"
+                                                class="community-quick-reaction"
+                                                aria-label={"React with " + (reactionNames[emoji] || emoji)}
+                                                title={reactionNames[emoji] || emoji}
+                                                onclick={toggleReaction(post.id, emoji)}
+                                                disabled={reacting}
+                                            >
+                                                <img
+                                                    src={emojiImage(emoji)}
+                                                    alt=""
+                                                    width="22"
+                                                    height="22"
+                                                />
+                                            </button>
+                                        </template>
+                                        <button
+                                            type="button"
+                                            aria-label="More reactions"
+                                            title="More reactions"
+                                            aria-haspopup="dialog"
+                                            popovertarget="community-reaction-picker"
+                                            onclick={prepareReactionPicker(post.id, event)}
+                                        >
+                                            <Icon name="emoji-add" class="size-5" />
+                                        </button>
+                                        <span class="community-toolbar-divider" aria-hidden="true">
+                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-label="Edit"
+                                            title="Edit"
+                                            hidden={!post.is_mine}
+                                            onclick={startEdit(post.id)}
+                                        >
+                                            <Icon name="edit" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="More options"
+                                            title="More options"
+                                            aria-haspopup="menu"
+                                            aria-controls="community-post-menu"
+                                            popovertarget="community-post-menu"
+                                            onclick={preparePostMenu(post.id, event)}
+                                        >
+                                            <Icon name="more" class="size-4" />
+                                        </button>
+                                    </div>
                                     <header class="community-post-author">
                                         <span class="community-author-avatar">
                                             {authorInitials(post.author_name)}
@@ -889,7 +962,25 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                         <time title={new Date(post.created_at).toLocaleString()}>
                                             {postTime(post.created_at)}
                                         </time>
+                                        <span class="community-post-edited" hidden={!post.edited}>
+                                            "Edited"
+                                        </span>
+                                        <span class="community-post-pinned" hidden={!post.pinned}>
+                                            <Icon name="pin" class="size-3" />
+                                            "Pinned"
+                                        </span>
                                     </header>
+                                    <p class="community-post-deleted" hidden={!post.deleted}>
+                                        "This post has been deleted."
+                                        <button
+                                            type="button"
+                                            hidden={!canDelete(post)}
+                                            onclick={restorePost(post.id)}
+                                            disabled={working}
+                                        >
+                                            "Undo"
+                                        </button>
+                                    </p>
                                     <div
                                         class="community-post-banner"
                                         data-accent={post.accent || "blue"}
@@ -946,7 +1037,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                             </div>
                                         </template>
                                     </div>
-                                    <div class="community-reactions">
+                                    <div class="community-reactions" hidden={post.deleted}>
                                         <template pp-for="reaction in post.reactions">
                                             <button
                                                 key={reaction.emoji}
@@ -958,41 +1049,26 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                                 onclick={toggleReaction(post.id, reaction.emoji)}
                                                 disabled={reacting}
                                             >
-                                                <span aria-hidden="true">{reaction.emoji}</span>
+                                                <img
+                                                    src={emojiImage(reaction.emoji)}
+                                                    alt=""
+                                                    width="18"
+                                                    height="18"
+                                                />
                                                 {reaction.count}
                                             </button>
                                         </template>
-                                        <div class="community-reaction-add">
-                                            <button
-                                                type="button"
-                                                aria-label="React"
-                                                title="React"
-                                                aria-expanded={reactionPicker === post.id}
-                                                onclick={setReactionPicker(reactionPicker === post.id ? "" : post.id)}
-                                            >
-                                                <Icon name="emoji-add" class="size-4" />
-                                            </button>
-                                            <div
-                                                class="community-reaction-picker"
-                                                role="menu"
-                                                aria-label="Reactions"
-                                                hidden={reactionPicker !== post.id}
-                                                onkeydown={closeReactionPicker(event)}
-                                            >
-                                                <template pp-for="emoji in reactionChoices">
-                                                    <button
-                                                        key={emoji}
-                                                        type="button"
-                                                        role="menuitem"
-                                                        aria-label={"React with " + emoji}
-                                                        onclick={toggleReaction(post.id, emoji)}
-                                                        disabled={reacting}
-                                                    >
-                                                        {emoji}
-                                                    </button>
-                                                </template>
-                                            </div>
-                                        </div>
+                                        <button
+                                            type="button"
+                                            class="community-reaction-add"
+                                            aria-label="Add reaction"
+                                            title="Add reaction"
+                                            aria-haspopup="dialog"
+                                            popovertarget="community-reaction-picker"
+                                            onclick={prepareReactionPicker(post.id, event)}
+                                        >
+                                            <Icon name="emoji-add" class="size-4" />
+                                        </button>
                                     </div>
                                     <button
                                         type="button"
@@ -1251,6 +1327,63 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         </footer>
                     </DialogContent>
                 </Dialog>
+                <div
+                    id="community-reaction-picker"
+                    popover="auto"
+                    role="dialog"
+                    aria-label="Reactions"
+                    class="community-reaction-popover"
+                    pp-ref={reactionPopover}
+                    pp-style={reactionPosition}
+                    ontoggle={reactionPopoverToggled(event)}
+                >
+                    <EmojiPanel
+                        recent_key="reaction-emoji"
+                        label="React with {}"
+                        closes="community-reaction-picker"
+                        placeholder="Find something fun"
+                        open={reactionPanelOpen}
+                        select={onReactionEmoji}
+                    />
+                </div>
+                <div
+                    id="community-post-menu"
+                    popover="auto"
+                    role="menu"
+                    aria-label="Post options"
+                    class="community-actions-menu community-post-menu"
+                    pp-ref={postMenu}
+                    pp-style={postMenuPosition}
+                    ontoggle={postMenuToggled(event)}
+                    onkeydown={postMenuKey(event)}
+                >
+                    <button role="menuitem" onclick={copyPostLink(menuPostId)}>
+                        <Icon name="link" class="size-5" />
+                        "Copy link"
+                    </button>
+                    <button
+                        role="menuitem"
+                        hidden={!menuPost || !canDelete(menuPost)}
+                        onclick={deletePost(menuPostId)}
+                    >
+                        <Icon name="trash" class="size-5" />
+                        "Delete"
+                        <kbd>"Del"</kbd>
+                    </button>
+                    <button
+                        role="menuitem"
+                        hidden={!activeCommunity?.is_owner}
+                        onclick={togglePin(menuPostId)}
+                    >
+                        <Icon name="pin" class="size-5" />
+                        {menuPost?.pinned ? "Unpin for everyone" : "Pin for everyone"}
+                        <kbd>"P"</kbd>
+                    </button>
+                    <button role="menuitem" onclick={openConversationWindow(menuPostId)}>
+                        <Icon name="open-window" class="size-5" />
+                        "Open conversation in new window"
+                    </button>
+                </div>
                 <div
                     id="community-actions-menu"
                     popover="auto"
@@ -1885,16 +2018,34 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-post > :not(.community-post-author):not(.community-post-banner):not(.community-conversation-toggle):not(.community-replies):not(.community-reply-open):not(.community-reply-form) { margin-left:18px;margin-right:18px; }
                     .community-reactions { display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:14px;margin-bottom:12px; }
                     .community-reaction { display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;border:1px solid #4a4a4a;border-radius:12px;font-size:12px;color:#d6d6d6; }
-                    .community-reaction span { font-size:14px;line-height:1; }
                     .community-reaction:hover { background:#333; }
+                    .community-reaction img { width:18px;height:18px;object-fit:contain; }
+                    .community-reaction-add { display:grid;place-items:center;width:34px;height:24px;border:1px solid #4a4a4a;border-radius:12px;color:#adadad; }
+                    .community-reaction-add:hover { background:#333;color:#fff; }
+                    .community-post { position:relative;scroll-margin-top:calc(var(--community-header,72px) + 140px); }
+                    .community-post[data-focused=true] { box-shadow:0 0 0 2px #7f85f5;transition:box-shadow .3s; }
+                    .community-post-actions { position:absolute;top:-16px;right:16px;margin:0 !important;z-index:6;display:flex;align-items:center;gap:2px;padding:4px;border:1px solid #3d3d3d;border-radius:6px;background:#292929;box-shadow:0 4px 14px #0008;opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .12s,transform .12s; }
+                    .community-post:hover > .community-post-actions,.community-post:focus-within > .community-post-actions,.community-post-actions:has([aria-expanded=true]) { opacity:1;pointer-events:auto;transform:none; }
+                    .community-post-actions[hidden] { display:none; }
+                    .community-post-actions button { display:grid;place-items:center;width:32px;height:32px;border-radius:4px;color:#d6d6d6; }
+                    .community-post-actions button:hover { background:#3b3b3b; }
+                    .community-post-actions button:focus-visible { outline:2px solid #fff;outline-offset:-2px; }
+                    .community-quick-reaction img { width:22px;height:22px;object-fit:contain;transition:transform .12s; }
+                    .community-quick-reaction:hover img { transform:scale(1.2); }
+                    .community-post-actions .community-toolbar-divider { margin:0 4px; }
+                    .community-post-edited,.community-post-pinned { color:#adadad;font-size:12px; }
+                    .community-post-pinned { display:inline-flex;align-items:center;gap:3px;color:#a7acf4; }
+                    .community-post-deleted { margin-top:12px;margin-bottom:16px;font-size:14px;font-style:italic;color:#adadad; }
+                    .community-post-deleted button { margin-left:10px;font-style:normal;font-weight:600;color:#a7acf4; }
+                    .community-post-deleted button:hover { text-decoration:underline; }
+                    .community-post[data-deleted=true] .community-post-author::before { background:#5c5c5c; }
+                    .community-composer-editing { color:#a7acf4;font-size:12px; }
+                    .community-reaction-popover { position:fixed;margin:0;padding:18px;border:1px solid #383838;border-radius:6px;background:#292929;color:#eee;box-shadow:0 12px 32px #0008; }
+                    .community-reaction-popover:popover-open { display:block; }
+                    .community-post-menu button { position:relative; }
+                    .community-post-menu kbd { margin-left:auto;font:inherit;font-size:12px;color:#adadad; }
+                    .community-post-menu button[hidden] { display:none; }
                     .community-reaction[aria-pressed=true] { border-color:#7f85f5;background:#2f2f4a;color:#c5c8ff; }
-                    .community-reaction-add { position:relative; }
-                    .community-reaction-add > button { display:grid;place-items:center;width:34px;height:24px;border:1px solid #4a4a4a;border-radius:12px;color:#adadad; }
-                    .community-reaction-add > button:hover,.community-reaction-add > button[aria-expanded=true] { background:#333;color:#fff; }
-                    .community-reaction-picker { position:absolute;left:0;bottom:calc(100% + 6px);z-index:15;display:flex;gap:2px;padding:4px;border-radius:20px;background:#333;box-shadow:0 6px 18px #0009; }
-                    .community-reaction-picker[hidden] { display:none; }
-                    .community-reaction-picker button { width:34px;height:34px;border-radius:50%;font-size:20px;transition:transform .12s; }
-                    .community-reaction-picker button:hover,.community-reaction-picker button:focus-visible { transform:scale(1.2);background:#444;outline:none; }
                     .community-conversation-toggle,.community-reply-open { display:flex;align-items:center;gap:8px;width:100%;padding:12px 18px;border-top:1px solid #1f1f1f;font-size:14px;font-weight:600;color:#d6d6d6;text-align:left; }
                     .community-conversation-toggle:hover,.community-reply-open:hover { background:#2e2e2e; }
                     .community-reply-open { font-weight:400;color:#adadad;border-radius:0 0 6px 6px; }
@@ -2023,7 +2174,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     const [workspaceError, setWorkspaceError] = pp.state('');
                     const activeCommunity = communities.find(c => c.id === selectedCommunity) || null;
                     const activeChannel = activeCommunity?.channels.find(c => c.id === channelId) || null;
-                    const activePosts = activeCommunity?.posts.filter(p => p.channel_id === channelId) || [];
+                    const activePosts = (activeCommunity?.posts.filter(p => p.channel_id === channelId) || []).slice().sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
                     function authorInitials(name) { return String(name || '').trim().split(/\s+/).slice(0,2).map(part=>part[0] || '').join('').toUpperCase(); }
                     const [pendingInvites, setPendingInvites] = pp.state(@{Json(&invitations)});
                     const [joinPreview, setJoinPreview] = pp.state(@{Json(&join_preview)});
@@ -2163,6 +2314,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     const colorSwatches = [{value:'#e8ebfa',label:'Default'},{value:'#f1707b',label:'Red'},{value:'#ffaa44',label:'Orange'},{value:'#f8d22a',label:'Yellow'},{value:'#92c353',label:'Green'},{value:'#4fb2f5',label:'Blue'},{value:'#b4a0ff',label:'Purple'},{value:'#9ea2ae',label:'Gray'}];
                     const highlightSwatches = [{value:'#fff100',label:'Yellow highlight'},{value:'#7cfc00',label:'Green highlight'},{value:'#00ffff',label:'Cyan highlight'},{value:'#ff69b4',label:'Pink highlight'},{value:'#ffa500',label:'Orange highlight'},{value:'#c0c0c0',label:'Gray highlight'}];
                     const [composeMode, setComposeMode] = pp.state('');
+                    const [editingPostId, setEditingPostId] = pp.state('');
                     const [postSubject, setPostSubject] = pp.state('');
                     const [postHeadline, setPostHeadline] = pp.state('');
                     const [postSubheading, setPostSubheading] = pp.state('');
@@ -2248,10 +2400,56 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         return () => { disposed = true; editor.current?.destroy(); editor.current = null; };
                     }, []);
                     pp.effect(() => { editor.current?.setProps({editable:() => !working}); }, [working, editorReady]);
-                    function resetEditor() {
+                    function resetEditor(doc) {
                         const view = editor.current, lib = editorLibrary.current;
-                        if (view && lib) view.updateState(lib.EditorState.create({schema:view.state.schema,plugins:view.state.plugins}));
-                        setPostRich(null); setActiveFormats({});
+                        if (view && lib) {
+                            let state = lib.EditorState.create({schema:view.state.schema,plugins:view.state.plugins});
+                            if (doc) {
+                                try { state = lib.EditorState.create({schema:view.state.schema,plugins:view.state.plugins,doc:view.state.schema.nodeFromJSON(doc)}); }
+                                catch (_) { setComposeError('The post could not be loaded for editing.'); }
+                            }
+                            view.updateState(state);
+                        }
+                        setPostRich(doc && view ? view.state.doc.toJSON() : null); setActiveFormats({});
+                    }
+                    // The inverse of formattedLines: saved lines back into an editor document.
+                    function documentFromLines(lines) {
+                        const content = [];
+                        const textNodes = runs => runs.filter(run => run.text).map(run => {
+                            const marks = [];
+                            if (run.bold) marks.push({type:'strong'}); if (run.italic) marks.push({type:'em'});
+                            if (run.underline) marks.push({type:'underline'}); if (run.strike) marks.push({type:'strike'});
+                            if (run.code) marks.push({type:'code'}); if (run.link) marks.push({type:'link',attrs:{href:run.link,title:null}});
+                            if (run.color) marks.push({type:'color',attrs:{value:run.color}}); if (run.highlight) marks.push({type:'highlight',attrs:{value:run.highlight}});
+                            if (run.size) marks.push({type:'size',attrs:{value:run.size}});
+                            return {type:'text',text:run.text,...(marks.length ? {marks} : {})};
+                        });
+                        const paragraph = runs => { const nodes = textNodes(runs); return {type:'paragraph',...(nodes.length ? {content:nodes} : {})}; };
+                        for (const line of lines) {
+                            const last = content[content.length - 1];
+                            if (line.kind === 'bullet' || line.kind === 'ordered') {
+                                const type = line.kind === 'bullet' ? 'bullet_list' : 'ordered_list';
+                                const item = {type:'list_item',content:[paragraph(line.runs)]};
+                                if (last?.type === type) last.content.push(item); else content.push({type,content:[item]});
+                            } else if (line.kind === 'quote') {
+                                if (last?.type === 'blockquote') last.content.push(paragraph(line.runs)); else content.push({type:'blockquote',content:[paragraph(line.runs)]});
+                            } else if (line.kind === 'code') {
+                                const text = line.runs.map(run => run.text).join('');
+                                if (last?.type === 'code_block') last.content = [{type:'text',text:(last.content?.[0]?.text || '') + '\n' + text}];
+                                else content.push({type:'code_block',...(text ? {content:[{type:'text',text}]} : {})});
+                            } else content.push(paragraph(line.runs));
+                        }
+                        return {type:'doc',content:content.length ? content : [{type:'paragraph'}]};
+                    }
+                    function startEdit(postId) {
+                        const post = activeCommunity?.posts.find(p => p.id === postId);
+                        if (!post || !post.is_mine || working) return;
+                        const lines = post.formatting || (post.body ? post.body.split('\n').map(text => ({kind:'paragraph',runs:text ? [{text}] : []})) : []);
+                        setEditingPostId(post.id); setComposeMode(post.announcement ? 'announcement' : 'post');
+                        setPostSubject(post.subject || ''); setPostHeadline(post.headline || ''); setPostSubheading(post.subheading || '');
+                        setPostAccent(post.accent || 'blue'); setAccentOpen(false); setStylePanel(''); setComposeError('');
+                        resetEditor(documentFromLines(lines));
+                        requestAnimationFrame(() => { detailHeader.current?.closest('.community-detail')?.scrollTo({top: 0, behavior: 'smooth'}); editor.current?.focus(); });
                     }
                     function openComposer(mode) {
                         setComposeMode(mode); setComposeError(''); setStylePanel(''); setAccentOpen(false);
@@ -2259,10 +2457,11 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     }
                     function closeComposer() {
                         if (working) return;
-                        setComposeMode(''); setPostSubject(''); setPostHeadline(''); setPostSubheading(''); setPostAccent('blue');
+                        setComposeMode(''); setEditingPostId(''); setPostSubject(''); setPostHeadline(''); setPostSubheading(''); setPostAccent('blue');
                         setAccentOpen(false); setStylePanel(''); setComposeError(''); setLinkUrl(''); resetEditor();
                     }
                     function toggleAnnouncement() {
+                        if (editingPostId) return;
                         const mode = composeMode === 'announcement' ? 'post' : 'announcement';
                         setComposeMode(mode); setAccentOpen(false); setComposeError('');
                         requestAnimationFrame(() => (mode === 'announcement' ? headlineInput : subjectInput).current?.focus());
@@ -2336,15 +2535,21 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         const announcement = composeMode === 'announcement';
                         const formatted = postLines.some(line => line.kind !== 'paragraph' || line.runs.some(run => run.bold || run.italic || run.underline || run.strike || run.code || run.link || run.color || run.highlight || run.size));
                         try {
-                            const post = await pp.rpc('publish_community_post', {
-                                id, channel:channelId, body:postText, announcement,
+                            const fields = {
+                                body:postText,
                                 subject: announcement ? '' : postSubject.trim(),
                                 headline: announcement ? postHeadline.trim() : '',
                                 subheading: announcement ? postSubheading.trim() : '',
                                 accent: announcement ? postAccent : '',
                                 formatting: formatted ? postLines : null
-                            });
-                            updateCommunity(id, c => ({posts:[post, ...c.posts]}));
+                            };
+                            if (editingPostId) {
+                                const post = await pp.rpc('edit_community_post', {id, post: editingPostId, ...fields});
+                                updatePost(id, editingPostId, () => post);
+                            } else {
+                                const post = await pp.rpc('publish_community_post', {id, channel:channelId, announcement, ...fields});
+                                updateCommunity(id, c => ({posts:[post, ...c.posts]}));
+                            }
                             setWorking(false); closeComposer();
                         } catch (failure) {
                             const fields = failure.errors || {};
@@ -2366,8 +2571,96 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     // Reactions and replies under each post, as in a Teams channel.
                     const reactionChoices = @{Json(&communities::REACTIONS)};
                     const reactionNames = {'👍':'Like','❤️':'Heart','😆':'Laugh','😮':'Surprised','😢':'Sad','😠':'Angry'};
-                    const [reactionPicker, setReactionPicker] = pp.state('');
                     const [reacting, setReacting] = pp.state(false);
+                    function emojiImage(glyph) { return channelEmojiImage(glyph) || '/favicon.ico'; }
+                    // The hover toolbar's "More reactions" and the round button under a
+                    // post share one Fluent emoji picker, placed beside whichever opened it.
+                    const reactionPopover = pp.ref(null);
+                    const [reactionPostId, setReactionPostId] = pp.state('');
+                    const [reactionPosition, setReactionPosition] = pp.state('');
+                    const [reactionPanelOpen, setReactionPanelOpen] = pp.state(false);
+                    function prepareReactionPicker(postId, event) {
+                        setReactionPostId(postId);
+                        const rect = event.currentTarget.getBoundingClientRect(), width = Math.min(420, innerWidth - 24), height = 470;
+                        const left = Math.max(12, Math.min(rect.right - width, innerWidth - width - 12));
+                        const top = rect.bottom + 6 + height < innerHeight ? rect.bottom + 6 : Math.max(12, rect.top - height - 6);
+                        setReactionPosition('left:' + left + 'px;top:' + top + 'px;width:' + width + 'px');
+                    }
+                    function reactionPopoverToggled(event) { setReactionPanelOpen(event.newState === 'open'); }
+                    const onReactionEmoji = pp.event(glyph => { if (reactionPostId) toggleReaction(reactionPostId, glyph); });
+                    // The "…" menu: copy link, delete, pin and open in a new window.
+                    const postMenu = pp.ref(null);
+                    const [menuPostId, setMenuPostId] = pp.state('');
+                    const [postMenuPosition, setPostMenuPosition] = pp.state('');
+                    const menuPost = activeCommunity?.posts.find(p => p.id === menuPostId) || null;
+                    function canDelete(post) { return !!post && (post.is_mine || !!activeCommunity?.is_owner); }
+                    function preparePostMenu(postId, event) {
+                        setMenuPostId(postId); const rect = event.currentTarget.getBoundingClientRect();
+                        setPostMenuPosition('left:' + Math.max(12, Math.min(rect.right - 270, innerWidth - 282)) + 'px;top:' + Math.max(12, Math.min(rect.bottom + 6, innerHeight - 240)) + 'px;width:270px');
+                    }
+                    function postMenuItems() { return Array.from(postMenu.current?.querySelectorAll('[role=menuitem]') || []).filter(item => !item.hidden); }
+                    const focusPostMenu = pp.event(() => postMenuItems()[0]?.focus());
+                    function postMenuToggled(event) { if (event.newState === 'open') requestAnimationFrame(focusPostMenu); }
+                    function postMenuKey(event) {
+                        const items = postMenuItems(), index = items.indexOf(document.activeElement);
+                        if (event.key === 'Delete' && canDelete(menuPost)) { event.preventDefault(); deletePost(menuPostId); return; }
+                        if ((event.key === 'p' || event.key === 'P') && activeCommunity?.is_owner) { event.preventDefault(); togglePin(menuPostId); return; }
+                        if (event.key === 'Tab') { postMenu.current?.hidePopover(); return; }
+                        let next;
+                        if (event.key === 'ArrowDown') next = (index + 1) % items.length;
+                        else if (event.key === 'ArrowUp') next = (index + items.length - 1) % items.length;
+                        else if (event.key === 'Home') next = 0;
+                        else if (event.key === 'End') next = items.length - 1;
+                        else return;
+                        event.preventDefault(); items[next]?.focus();
+                    }
+                    function postLink(postId) { return location.origin + '/communities?community=' + encodeURIComponent(selectedCommunity) + '&post=' + encodeURIComponent(postId); }
+                    async function copyPostLink(postId) {
+                        postMenu.current?.hidePopover();
+                        try { await navigator.clipboard.writeText(postLink(postId)); setNotice('Link copied.'); }
+                        catch (_) { setWorkspaceError('The link could not be copied. Copy it from the address bar instead.'); }
+                    }
+                    function openConversationWindow(postId) {
+                        postMenu.current?.hidePopover();
+                        window.open(postLink(postId), '_blank', 'popup,width=760,height=820,noopener');
+                    }
+                    async function deletePost(postId) {
+                        postMenu.current?.hidePopover();
+                        if (working) return; setWorking(true); setWorkspaceError(''); const id = selectedCommunity;
+                        try { const post = await pp.rpc('delete_community_post', {id, post: postId}); updatePost(id, postId, () => post); if (editingPostId === postId) closeComposer(); }
+                        catch (failure) { setWorkspaceError(failure.message || 'The post could not be deleted.'); }
+                        finally { setWorking(false); }
+                    }
+                    async function restorePost(postId) {
+                        if (working) return; setWorking(true); setWorkspaceError(''); const id = selectedCommunity;
+                        try { const post = await pp.rpc('delete_community_post', {id, post: postId, restore: true}); updatePost(id, postId, () => post); }
+                        catch (failure) { setWorkspaceError(failure.message || 'The post could not be restored.'); }
+                        finally { setWorking(false); }
+                    }
+                    async function togglePin(postId) {
+                        postMenu.current?.hidePopover();
+                        const target = activeCommunity?.posts.find(p => p.id === postId);
+                        if (working || !target) return; setWorking(true); setWorkspaceError(''); const id = selectedCommunity;
+                        try { const post = await pp.rpc('pin_community_post', {id, post: postId, pinned: !target.pinned}); updatePost(id, postId, () => post); setNotice(post.pinned ? 'Post pinned for everyone.' : 'Post unpinned.'); }
+                        catch (failure) { setWorkspaceError(failure.message || 'The post could not be pinned.'); }
+                        finally { setWorking(false); }
+                    }
+                    // A link to a post opens its channel, expands the conversation and
+                    // scrolls the post into view with a brief highlight.
+                    const focusPostId = @{Json(&focus_post)};
+                    const [focusedPost, setFocusedPost] = pp.state('');
+                    const revealPost = pp.event(postId => {
+                        const card = document.querySelector('.community-post[data-post="' + CSS.escape(postId) + '"]');
+                        card?.scrollIntoView({block: 'center'}); setFocusedPost(postId);
+                        setTimeout(() => setFocusedPost(''), 2500);
+                    });
+                    pp.effect(() => {
+                        const post = focusPostId && activeCommunity?.posts.find(p => p.id === focusPostId);
+                        if (!post) return;
+                        selectChannel(post.channel_id);
+                        setOpenConversations(current => ({...current, [post.id]: true}));
+                        requestAnimationFrame(() => requestAnimationFrame(() => revealPost(post.id)));
+                    }, []);
                     const [openConversations, setOpenConversations] = pp.state({});
                     const [replyingTo, setReplyingTo] = pp.state('');
                     const [replyDraft, setReplyDraft] = pp.state('');
@@ -2386,17 +2679,12 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     }
                     async function toggleReaction(postId, emoji) {
                         if (reacting) return;
-                        setReacting(true); setReactionPicker(''); const id = selectedCommunity;
+                        setReacting(true); const id = selectedCommunity;
                         try {
                             const reactions = await pp.rpc('react_to_community_post', {id, post: postId, emoji});
                             updatePost(id, postId, () => ({reactions}));
                         } catch (failure) { setReplyError({post: postId, message: failure.message || 'Your reaction could not be saved.'}); }
                         finally { setReacting(false); }
-                    }
-                    function closeReactionPicker(event) {
-                        if (event.key !== 'Escape') return;
-                        event.preventDefault(); setReactionPicker('');
-                        event.currentTarget.parentElement.querySelector('button')?.focus();
                     }
                     function toggleConversation(postId) { setOpenConversations({...openConversations, [postId]: !openConversations[postId]}); }
                     function startReply(postId, event) {
@@ -2749,6 +3037,42 @@ pub async fn react_to_community_post(
     emoji: String,
 ) -> Result<Vec<communities::Reaction>> {
     communities::react(id, post, emoji).await
+}
+#[rpc(auth)]
+pub async fn edit_community_post(
+    id: String,
+    post: String,
+    body: String,
+    subject: Option<String>,
+    headline: Option<String>,
+    subheading: Option<String>,
+    accent: Option<String>,
+    formatting: Option<Vec<crate::chat_format::Line>>,
+) -> Result<communities::Post> {
+    let draft = communities::PostDraft {
+        subject: subject.unwrap_or_default(),
+        headline: headline.unwrap_or_default(),
+        subheading: subheading.unwrap_or_default(),
+        accent: accent.unwrap_or_default(),
+        formatting,
+    };
+    communities::edit_post(id, post, body, draft).await
+}
+#[rpc(auth)]
+pub async fn delete_community_post(
+    id: String,
+    post: String,
+    restore: Option<bool>,
+) -> Result<communities::Post> {
+    communities::delete_post(id, post, restore.unwrap_or(false)).await
+}
+#[rpc(auth)]
+pub async fn pin_community_post(
+    id: String,
+    post: String,
+    pinned: bool,
+) -> Result<communities::Post> {
+    communities::pin_post(id, post, pinned).await
 }
 #[rpc(auth)]
 pub async fn reply_to_community_post(

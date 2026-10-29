@@ -39,6 +39,12 @@ pub struct Post {
     pub formatting: Option<Vec<chat_format::Line>>,
     pub reactions: Vec<Reaction>,
     pub replies: Vec<Reply>,
+    /// The viewer wrote it, so they may edit it.
+    pub is_mine: bool,
+    pub edited: bool,
+    pub pinned: bool,
+    /// Deleted posts stay in the feed as a placeholder with no content.
+    pub deleted: bool,
 }
 /// One reaction kind on a post: how many people chose it and whether the
 /// viewer is one of them.
@@ -56,20 +62,28 @@ pub struct Reply {
     pub author_name: String,
     pub author_is_owner: bool,
 }
-/// The Teams quick reactions, in the order the picker shows them.
-pub const REACTIONS: &[&str] = &["👍", "❤️", "😆", "😮", "😢", "😠"];
+/// The Teams quick reactions on the hover toolbar. Any bundled Fluent emoji
+/// is accepted from the full picker.
+pub const REACTIONS: &[&str] = &["👍", "❤️", "😆", "😮"];
+/// Group reactions by emoji in the order each was first chosen.
 fn summarize(rows: &[&reaction::Model], viewer: &str) -> Vec<Reaction> {
-    REACTIONS
-        .iter()
-        .filter_map(|emoji| {
-            let chosen: Vec<_> = rows.iter().filter(|r| r.emoji == *emoji).collect();
-            (!chosen.is_empty()).then(|| Reaction {
-                emoji: emoji.to_string(),
-                count: chosen.len(),
-                mine: chosen.iter().any(|r| r.user_id == viewer),
-            })
-        })
-        .collect()
+    let mut rows = rows.to_vec();
+    rows.sort_by(|a, b| (a.created_at, &a.id).cmp(&(b.created_at, &b.id)));
+    let mut result: Vec<Reaction> = Vec::new();
+    for row in rows {
+        match result.iter_mut().find(|r| r.emoji == row.emoji) {
+            Some(reaction) => {
+                reaction.count += 1;
+                reaction.mine |= row.user_id == viewer;
+            }
+            None => result.push(Reaction {
+                emoji: row.emoji.clone(),
+                count: 1,
+                mine: row.user_id == viewer,
+            }),
+        }
+    }
+    result
 }
 /// What the composer sends besides the plain text. Everything is optional so
 /// a plain post stays `{body, announcement}`.
@@ -92,7 +106,32 @@ fn shown_post(
     author_is_owner: bool,
     reactions: Vec<Reaction>,
     replies: Vec<Reply>,
+    viewer: &str,
 ) -> Post {
+    let is_mine = p.author_id == viewer;
+    let (edited, pinned) = (p.edited_at.is_some(), p.pinned_at.is_some());
+    if p.deleted_at.is_some() {
+        return Post {
+            id: p.id,
+            channel_id: p.channel_id,
+            body: String::new(),
+            announcement: false,
+            created_at: p.created_at,
+            author_name,
+            author_is_owner,
+            subject: String::new(),
+            headline: String::new(),
+            subheading: String::new(),
+            accent: String::new(),
+            formatting: None,
+            reactions: Vec::new(),
+            replies,
+            is_mine,
+            edited: false,
+            pinned: false,
+            deleted: true,
+        };
+    }
     Post {
         id: p.id,
         channel_id: p.channel_id,
@@ -108,6 +147,10 @@ fn shown_post(
         formatting: rahti::serde_json::from_str(&p.content).ok(),
         reactions,
         replies,
+        is_mine,
+        edited,
+        pinned,
+        deleted: false,
     }
 }
 #[derive(Clone, Serialize)]
@@ -243,7 +286,7 @@ async fn shown(row: row::Model) -> Result<Community> {
             });
         }
         let reactions = summarize(&mine, &user);
-        posts.push(shown_post(p, name, is_owner, reactions, replies));
+        posts.push(shown_post(p, name, is_owner, reactions, replies, &user));
     }
     let is_owner = row.owner_id == user;
     Ok(Community {
@@ -386,13 +429,16 @@ pub async fn add_channel(community: String, name: String, icon: String) -> Resul
         icon: row.icon,
     })
 }
-pub async fn publish(
-    community: String,
-    channel_id: String,
+/// A post's content after validation, ready to store.
+struct Checked {
     body: String,
-    announcement: bool,
-    draft: PostDraft,
-) -> Result<Post> {
+    subject: String,
+    headline: String,
+    subheading: String,
+    accent: String,
+    content: String,
+}
+fn checked(body: String, announcement: bool, draft: PostDraft) -> Result<Checked> {
     let body = body.trim().to_string();
     let subject = draft.subject.trim().to_string();
     let headline = draft.headline.trim().to_string();
@@ -434,6 +480,23 @@ pub async fn publish(
         Some(lines) => rahti::serde_json::to_string(lines)?,
         None => String::new(),
     };
+    Ok(Checked {
+        body,
+        subject: if announcement { String::new() } else { subject },
+        headline,
+        subheading,
+        accent,
+        content,
+    })
+}
+pub async fn publish(
+    community: String,
+    channel_id: String,
+    body: String,
+    announcement: bool,
+    draft: PostDraft,
+) -> Result<Post> {
+    let checked = checked(body, announcement, draft)?;
     let community_row = accessible(&community).await?;
     if !channel_id.is_empty()
         && channel::Entity::find_by_id(&channel_id)
@@ -448,21 +511,147 @@ pub async fn publish(
         id: Set(id()),
         community_id: Set(community),
         channel_id: Set(channel_id),
-        body: Set(body),
+        body: Set(checked.body),
         announcement: Set(announcement),
         created_at: Set(crate::rahti::time::now().timestamp_millis()),
         author_id: Set(owner()?),
-        subject: Set(if announcement { String::new() } else { subject }),
-        headline: Set(headline),
-        subheading: Set(subheading),
-        accent: Set(accent),
-        content: Set(content),
+        subject: Set(checked.subject),
+        headline: Set(checked.headline),
+        subheading: Set(checked.subheading),
+        accent: Set(checked.accent),
+        content: Set(checked.content),
+        edited_at: Set(None),
+        deleted_at: Set(None),
+        pinned_at: Set(None),
     }
     .insert(db::db())
     .await?;
     let name = author_name(&row.author_id).await?;
     let is_owner = row.author_id == community_row.owner_id;
-    Ok(shown_post(row, name, is_owner, Vec::new(), Vec::new()))
+    let viewer = row.author_id.clone();
+    Ok(shown_post(
+        row,
+        name,
+        is_owner,
+        Vec::new(),
+        Vec::new(),
+        &viewer,
+    ))
+}
+/// The post as the viewer now sees it, with its reactions and replies.
+async fn reloaded(community_row: &row::Model, post_id: &str) -> Result<Post> {
+    let viewer = owner()?;
+    let p = post::Entity::find_by_id(post_id)
+        .one(db::db())
+        .await?
+        .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "Post not found."))?;
+    let author = if p.author_id.is_empty() {
+        community_row.owner_id.clone()
+    } else {
+        p.author_id.clone()
+    };
+    let reactions = reaction::Entity::find()
+        .filter(reaction::Column::PostId.eq(post_id))
+        .all(db::db())
+        .await?;
+    let mut replies = Vec::new();
+    for r in reply::Entity::find()
+        .filter(reply::Column::PostId.eq(post_id))
+        .order_by_asc(reply::Column::CreatedAt)
+        .order_by_asc(reply::Column::Id)
+        .all(db::db())
+        .await?
+    {
+        replies.push(Reply {
+            id: r.id,
+            body: r.body,
+            created_at: r.created_at,
+            author_name: author_name(&r.author_id).await?,
+            author_is_owner: r.author_id == community_row.owner_id,
+        });
+    }
+    Ok(shown_post(
+        p,
+        author_name(&author).await?,
+        author == community_row.owner_id,
+        summarize(&reactions.iter().collect::<Vec<_>>(), &viewer),
+        replies,
+        &viewer,
+    ))
+}
+/// Only the author edits a post; the kind (post or announcement) stays.
+pub async fn edit_post(
+    community: String,
+    post_id: String,
+    body: String,
+    draft: PostDraft,
+) -> Result<Post> {
+    let (community_row, existing) = post_in(&community, &post_id).await?;
+    if existing.author_id != owner()? {
+        return Err(Error::new(
+            StatusCode::FORBIDDEN,
+            "Only the author can edit this post.",
+        ));
+    }
+    let checked = checked(body, existing.announcement, draft)?;
+    post::Entity::update_many()
+        .col_expr(post::Column::Body, Expr::value(checked.body))
+        .col_expr(post::Column::Subject, Expr::value(checked.subject))
+        .col_expr(post::Column::Headline, Expr::value(checked.headline))
+        .col_expr(post::Column::Subheading, Expr::value(checked.subheading))
+        .col_expr(post::Column::Accent, Expr::value(checked.accent))
+        .col_expr(post::Column::Content, Expr::value(checked.content))
+        .col_expr(
+            post::Column::EditedAt,
+            Expr::value(crate::rahti::time::now().timestamp_millis()),
+        )
+        .filter(post::Column::Id.eq(&post_id))
+        .filter(post::Column::DeletedAt.is_null())
+        .exec(db::db())
+        .await?;
+    reloaded(&community_row, &post_id).await
+}
+/// The author or the community owner may delete a post, and undo it.
+async fn moderated(community: &str, post_id: &str) -> Result<(row::Model, post::Model)> {
+    let community_row = accessible(community).await?;
+    let p = post::Entity::find_by_id(post_id)
+        .filter(post::Column::CommunityId.eq(community))
+        .one(db::db())
+        .await?
+        .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "Post not found."))?;
+    let user = owner()?;
+    if p.author_id != user && community_row.owner_id != user {
+        return Err(Error::new(
+            StatusCode::FORBIDDEN,
+            "Only the author or the community owner can delete this post.",
+        ));
+    }
+    Ok((community_row, p))
+}
+pub async fn delete_post(community: String, post_id: String, restore: bool) -> Result<Post> {
+    let (community_row, _) = moderated(&community, &post_id).await?;
+    let deleted_at = (!restore).then(|| crate::rahti::time::now().timestamp_millis());
+    let mut update = post::Entity::update_many()
+        .col_expr(post::Column::DeletedAt, Expr::value(deleted_at))
+        .filter(post::Column::Id.eq(&post_id));
+    if !restore {
+        // A deleted post is no longer pinned for anyone.
+        update = update.col_expr(post::Column::PinnedAt, Expr::value(Option::<i64>::None));
+    }
+    update.exec(db::db()).await?;
+    reloaded(&community_row, &post_id).await
+}
+/// Pinning is for everyone, so only the community owner may do it.
+pub async fn pin_post(community: String, post_id: String, pinned: bool) -> Result<Post> {
+    let community_row = owned(&community).await?;
+    post_in(&community, &post_id).await?;
+    let pinned_at = pinned.then(|| crate::rahti::time::now().timestamp_millis());
+    post::Entity::update_many()
+        .col_expr(post::Column::PinnedAt, Expr::value(pinned_at))
+        .filter(post::Column::Id.eq(&post_id))
+        .exec(db::db())
+        .await?;
+    reloaded(&community_row, &post_id).await
 }
 /// A post of a community the viewer belongs to, or 404 for both a missing
 /// post and a community they cannot see.
@@ -470,6 +659,7 @@ async fn post_in(community: &str, post_id: &str) -> Result<(row::Model, post::Mo
     let community_row = accessible(community).await?;
     let post_row = post::Entity::find_by_id(post_id)
         .filter(post::Column::CommunityId.eq(community))
+        .filter(post::Column::DeletedAt.is_null())
         .one(db::db())
         .await?
         .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "Post not found."))?;
@@ -477,9 +667,13 @@ async fn post_in(community: &str, post_id: &str) -> Result<(row::Model, post::Mo
 }
 /// Add the viewer's reaction, or take it back if it is already there.
 pub async fn react(community: String, post_id: String, emoji: String) -> Result<Vec<Reaction>> {
+    let canonical = (emoji.chars().count() <= 16)
+        .then(|| crate::emoji::canonical(&emoji))
+        .flatten();
     let mut v = Validator::new();
-    v.one_of("emoji", &emoji.as_str(), REACTIONS);
+    v.check("emoji", canonical.is_some(), "Choose a supported emoji.");
     v.finish()?;
+    let emoji = canonical.unwrap_or_default().to_string();
     post_in(&community, &post_id).await?;
     let user = owner()?;
     let removed = reaction::Entity::delete_many()

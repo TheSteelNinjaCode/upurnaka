@@ -53,6 +53,8 @@ use crate::components::rahti_icons::paperclip::Paperclip;
 use crate::components::rahti_icons::paw_print::PawPrint;
 use crate::components::rahti_icons::pencil::Pencil;
 use crate::components::rahti_icons::phone::Phone;
+use crate::components::rahti_icons::pin::Pin;
+use crate::components::rahti_icons::pin_off::PinOff;
 use crate::components::rahti_icons::pizza::Pizza;
 use crate::components::rahti_icons::play::Play;
 use crate::components::rahti_icons::plus::Plus;
@@ -65,6 +67,7 @@ use crate::components::rahti_icons::settings::Settings;
 use crate::components::rahti_icons::shield::Shield;
 use crate::components::rahti_icons::sparkles::Sparkles;
 use crate::components::rahti_icons::square::Square;
+use crate::components::rahti_icons::square_arrow_out_up_right::SquareArrowOutUpRight;
 use crate::components::rahti_icons::square_pen::SquarePen;
 use crate::components::rahti_icons::strikethrough::Strikethrough;
 use crate::components::rahti_icons::thumbs_up::ThumbsUp;
@@ -159,6 +162,15 @@ pub fn Icon(name: &str, class: &str) -> Html {
         },
         "announcement" => html! {
             <Megaphone class=@{class} stroke_width="1.6" />
+        },
+        "pin" => html! {
+            <Pin class=@{class} stroke_width="1.6" />
+        },
+        "unpin" => html! {
+            <PinOff class=@{class} stroke_width="1.6" />
+        },
+        "open-window" => html! {
+            <SquareArrowOutUpRight class=@{class} stroke_width="1.6" />
         },
         "list" => html! {
             <List class=@{class} stroke_width="1.6" />

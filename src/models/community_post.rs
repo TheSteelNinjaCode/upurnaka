@@ -17,6 +17,9 @@ pub struct Model {
     pub accent: String,
     /// The formatted message as JSON `Block`s; empty for plain-text posts.
     pub content: String,
+    pub edited_at: Option<i64>,
+    pub deleted_at: Option<i64>,
+    pub pinned_at: Option<i64>,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
