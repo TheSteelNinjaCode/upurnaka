@@ -17,6 +17,8 @@ pub mod community;
 pub mod community_channel;
 pub mod community_member;
 pub mod community_post;
+pub mod community_post_reaction;
+pub mod community_post_reply;
 pub mod community_report;
 pub mod meeting_control;
 pub mod meeting_link;

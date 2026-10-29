@@ -946,6 +946,146 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                             </div>
                                         </template>
                                     </div>
+                                    <div class="community-reactions">
+                                        <template pp-for="reaction in post.reactions">
+                                            <button
+                                                key={reaction.emoji}
+                                                type="button"
+                                                class="community-reaction"
+                                                aria-pressed={reaction.mine}
+                                                aria-label={reactionLabel(reaction)}
+                                                title={reactionLabel(reaction)}
+                                                onclick={toggleReaction(post.id, reaction.emoji)}
+                                                disabled={reacting}
+                                            >
+                                                <span aria-hidden="true">{reaction.emoji}</span>
+                                                {reaction.count}
+                                            </button>
+                                        </template>
+                                        <div class="community-reaction-add">
+                                            <button
+                                                type="button"
+                                                aria-label="React"
+                                                title="React"
+                                                aria-expanded={reactionPicker === post.id}
+                                                onclick={setReactionPicker(reactionPicker === post.id ? "" : post.id)}
+                                            >
+                                                <Icon name="emoji-add" class="size-4" />
+                                            </button>
+                                            <div
+                                                class="community-reaction-picker"
+                                                role="menu"
+                                                aria-label="Reactions"
+                                                hidden={reactionPicker !== post.id}
+                                                onkeydown={closeReactionPicker(event)}
+                                            >
+                                                <template pp-for="emoji in reactionChoices">
+                                                    <button
+                                                        key={emoji}
+                                                        type="button"
+                                                        role="menuitem"
+                                                        aria-label={"React with " + emoji}
+                                                        onclick={toggleReaction(post.id, emoji)}
+                                                        disabled={reacting}
+                                                    >
+                                                        {emoji}
+                                                    </button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="community-conversation-toggle"
+                                        aria-expanded={!!openConversations[post.id]}
+                                        onclick={toggleConversation(post.id)}
+                                    >
+                                        <Icon name="chat" class="size-4" />
+                                        {conversationLabel(post)}
+                                    </button>
+                                    <ol
+                                        class="community-replies"
+                                        aria-label="Replies"
+                                        hidden={!openConversations[post.id]}
+                                    >
+                                        <li
+                                            class="community-replies-empty"
+                                            hidden={post.replies.length > 0}
+                                        >
+                                            "No replies yet. Start the conversation."
+                                        </li>
+                                        <template pp-for="reply in post.replies">
+                                            <li key={reply.id} class="community-reply">
+                                                <span class="community-author-avatar">
+                                                    {authorInitials(reply.author_name)}
+                                                </span>
+                                                <div>
+                                                    <p class="community-reply-meta">
+                                                        <strong>{reply.author_name}</strong>
+                                                        <span
+                                                            class="community-owner-badge"
+                                                            hidden={!reply.author_is_owner}
+                                                        >
+                                                            <Icon name="shield" class="size-3" />
+                                                            "Owner"
+                                                        </span>
+                                                        <time
+                                                            title={new Date(reply.created_at).toLocaleString()}
+                                                        >
+                                                            {postTime(reply.created_at)}
+                                                        </time>
+                                                    </p>
+                                                    <p class="community-reply-body">{reply.body}</p>
+                                                </div>
+                                            </li>
+                                        </template>
+                                    </ol>
+                                    <button
+                                        type="button"
+                                        class="community-reply-open"
+                                        hidden={replyingTo === post.id}
+                                        onclick={startReply(post.id, event)}
+                                    >
+                                        <span class="community-author-avatar">
+                                            @{initials.as_str()}
+                                        </span>
+                                        "Reply"
+                                    </button>
+                                    <form
+                                        class="community-reply-form"
+                                        hidden={replyingTo !== post.id}
+                                        onsubmit={sendReply(post.id, event)}
+                                    >
+                                        <span class="community-author-avatar">
+                                            @{initials.as_str()}
+                                        </span>
+                                        <textarea
+                                            aria-label="Reply"
+                                            placeholder="Reply"
+                                            maxlength="2000"
+                                            rows="1"
+                                            value={replyingTo === post.id ? replyDraft : ""}
+                                            oninput={setReplyDraft(target.value)}
+                                            onkeydown={replyKey(post.id, event)}
+                                            disabled={replying}
+                                        >
+                                        </textarea>
+                                        <button
+                                            type="submit"
+                                            aria-label="Send reply"
+                                            title="Send reply"
+                                            disabled={replying || !replyDraft.trim()}
+                                        >
+                                            <Icon name="send" class="size-4" />
+                                        </button>
+                                    </form>
+                                    <p
+                                        class="community-reply-error"
+                                        role="alert"
+                                        hidden={replyError.post !== post.id}
+                                    >
+                                        {replyError.message}
+                                    </p>
                                 </article>
                             </template>
                         </div>
@@ -1741,8 +1881,42 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-composer[data-mode=collapsed] { position:sticky;top:calc(var(--community-header,72px) + 12px);z-index:10; }
                     .community-composer[data-mode=collapsed]::before { content:"";position:absolute;left:-12px;right:-12px;bottom:100%;height:13px;background:#262626; }
                     .community-composer[data-mode=collapsed]::after { content:"";position:absolute;left:-12px;right:-12px;top:100%;height:12px;background:linear-gradient(#262626,#26262600);pointer-events:none; }
-                    .community-post { padding:0 0 16px;border-color:#1f1f1f;border-radius:6px;overflow:hidden; }
-                    .community-post > :not(.community-post-author):not(.community-post-banner) { margin-left:18px;margin-right:18px; }
+                    .community-post { padding:0;border-color:#1f1f1f;border-radius:6px; }
+                    .community-post > :not(.community-post-author):not(.community-post-banner):not(.community-conversation-toggle):not(.community-replies):not(.community-reply-open):not(.community-reply-form) { margin-left:18px;margin-right:18px; }
+                    .community-reactions { display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:14px;margin-bottom:12px; }
+                    .community-reaction { display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;border:1px solid #4a4a4a;border-radius:12px;font-size:12px;color:#d6d6d6; }
+                    .community-reaction span { font-size:14px;line-height:1; }
+                    .community-reaction:hover { background:#333; }
+                    .community-reaction[aria-pressed=true] { border-color:#7f85f5;background:#2f2f4a;color:#c5c8ff; }
+                    .community-reaction-add { position:relative; }
+                    .community-reaction-add > button { display:grid;place-items:center;width:34px;height:24px;border:1px solid #4a4a4a;border-radius:12px;color:#adadad; }
+                    .community-reaction-add > button:hover,.community-reaction-add > button[aria-expanded=true] { background:#333;color:#fff; }
+                    .community-reaction-picker { position:absolute;left:0;bottom:calc(100% + 6px);z-index:15;display:flex;gap:2px;padding:4px;border-radius:20px;background:#333;box-shadow:0 6px 18px #0009; }
+                    .community-reaction-picker[hidden] { display:none; }
+                    .community-reaction-picker button { width:34px;height:34px;border-radius:50%;font-size:20px;transition:transform .12s; }
+                    .community-reaction-picker button:hover,.community-reaction-picker button:focus-visible { transform:scale(1.2);background:#444;outline:none; }
+                    .community-conversation-toggle,.community-reply-open { display:flex;align-items:center;gap:8px;width:100%;padding:12px 18px;border-top:1px solid #1f1f1f;font-size:14px;font-weight:600;color:#d6d6d6;text-align:left; }
+                    .community-conversation-toggle:hover,.community-reply-open:hover { background:#2e2e2e; }
+                    .community-reply-open { font-weight:400;color:#adadad;border-radius:0 0 6px 6px; }
+                    .community-reply-open .community-author-avatar,.community-reply-form .community-author-avatar { width:20px;height:20px;font-size:8px; }
+                    .community-replies { border-top:1px solid #1f1f1f;padding:6px 18px; }
+                    .community-replies[hidden] { display:none; }
+                    .community-replies-empty { padding:8px 0;font-size:13px;color:#adadad; }
+                    .community-reply { display:flex;gap:10px;padding:10px 0; }
+                    .community-reply .community-author-avatar { width:28px;height:28px;font-size:11px; }
+                    .community-reply > div { min-width:0; }
+                    .community-reply-meta { display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px; }
+                    .community-reply-meta strong { font-weight:600; }
+                    .community-reply-meta time { color:#adadad;font-size:12px; }
+                    .community-reply-body { margin-top:2px;font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere; }
+                    .community-reply-form { display:flex;align-items:flex-start;gap:8px;padding:10px 18px 12px;border-top:1px solid #1f1f1f; }
+                    .community-reply-form[hidden] { display:none; }
+                    .community-reply-form .community-author-avatar { margin-top:8px; }
+                    .community-reply-form textarea { flex:1;min-width:0;min-height:36px;max-height:160px;resize:vertical;padding:7px 10px;border:1px solid #4a4a4a;border-bottom:2px solid #7f85f5;border-radius:4px;background:#1f1f1f;outline:none;font-size:14px;field-sizing:content; }
+                    .community-reply-form button { display:grid;place-items:center;width:36px;height:36px;border-radius:4px;color:#a7acf4; }
+                    .community-reply-form button:hover:not(:disabled) { background:#333; }
+                    .community-reply-form button:disabled { color:#5c5c5c; }
+                    .community-reply-error { color:#f1707b;font-size:13px;padding-bottom:10px; }
                     .community-post .community-post-author { position:relative;display:flex;align-items:center;gap:8px;padding:16px 18px 0;font-size:14px;flex-wrap:wrap; }
                     .community-post-author::before { content:"";position:absolute;left:0;top:16px;width:4px;height:32px;border-radius:0 3px 3px 0;background:#7f85f5; }
                     .community-post-author .community-author-avatar { width:32px;height:32px;font-size:12px; }
@@ -2189,6 +2363,66 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         observer.observe(detailHeader.current);
                         return () => observer.disconnect();
                     }, []);
+                    // Reactions and replies under each post, as in a Teams channel.
+                    const reactionChoices = @{Json(&communities::REACTIONS)};
+                    const reactionNames = {'👍':'Like','❤️':'Heart','😆':'Laugh','😮':'Surprised','😢':'Sad','😠':'Angry'};
+                    const [reactionPicker, setReactionPicker] = pp.state('');
+                    const [reacting, setReacting] = pp.state(false);
+                    const [openConversations, setOpenConversations] = pp.state({});
+                    const [replyingTo, setReplyingTo] = pp.state('');
+                    const [replyDraft, setReplyDraft] = pp.state('');
+                    const [replying, setReplying] = pp.state(false);
+                    const [replyError, setReplyError] = pp.state({post:'', message:''});
+                    function updatePost(communityId, postId, change) {
+                        updateCommunity(communityId, c => ({posts: c.posts.map(p => p.id === postId ? {...p, ...change(p)} : p)}));
+                    }
+                    function reactionLabel(reaction) {
+                        return (reactionNames[reaction.emoji] || reaction.emoji) + ': ' + reaction.count + (reaction.mine ? ', including you' : '');
+                    }
+                    function conversationLabel(post) {
+                        const count = post.replies.length;
+                        if (openConversations[post.id]) return 'Hide conversation';
+                        return count ? count + (count === 1 ? ' reply' : ' replies') : 'View conversation';
+                    }
+                    async function toggleReaction(postId, emoji) {
+                        if (reacting) return;
+                        setReacting(true); setReactionPicker(''); const id = selectedCommunity;
+                        try {
+                            const reactions = await pp.rpc('react_to_community_post', {id, post: postId, emoji});
+                            updatePost(id, postId, () => ({reactions}));
+                        } catch (failure) { setReplyError({post: postId, message: failure.message || 'Your reaction could not be saved.'}); }
+                        finally { setReacting(false); }
+                    }
+                    function closeReactionPicker(event) {
+                        if (event.key !== 'Escape') return;
+                        event.preventDefault(); setReactionPicker('');
+                        event.currentTarget.parentElement.querySelector('button')?.focus();
+                    }
+                    function toggleConversation(postId) { setOpenConversations({...openConversations, [postId]: !openConversations[postId]}); }
+                    function startReply(postId, event) {
+                        const card = event.currentTarget.closest('article');
+                        if (replyingTo !== postId) setReplyDraft('');
+                        setReplyingTo(postId); setReplyError({post:'', message:''});
+                        setOpenConversations({...openConversations, [postId]: true});
+                        requestAnimationFrame(() => card?.querySelector('.community-reply-form textarea')?.focus());
+                    }
+                    function replyKey(postId, event) {
+                        if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendReply(postId, event); }
+                        else if (event.key === 'Escape') { event.preventDefault(); setReplyingTo(''); setReplyDraft(''); }
+                    }
+                    async function sendReply(postId, event) {
+                        event.preventDefault();
+                        const body = replyDraft.trim();
+                        if (replying || !body) return;
+                        setReplying(true); setReplyError({post:'', message:''}); const id = selectedCommunity;
+                        try {
+                            const reply = await pp.rpc('reply_to_community_post', {id, post: postId, body});
+                            updatePost(id, postId, p => ({replies: [...p.replies, reply]}));
+                            setReplyDraft(''); setReplyingTo('');
+                            setOpenConversations({...openConversations, [postId]: true});
+                        } catch (failure) { setReplyError({post: postId, message: failure.errors?.body?.join(' ') || failure.message || 'Your reply could not be sent.'}); }
+                        finally { setReplying(false); }
+                    }
                     function postTime(value) {
                         const date = new Date(value), now = new Date();
                         const time = date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -2507,6 +2741,22 @@ pub async fn publish_community_post(
         formatting,
     };
     communities::publish(id, channel, body, announcement, draft).await
+}
+#[rpc(auth)]
+pub async fn react_to_community_post(
+    id: String,
+    post: String,
+    emoji: String,
+) -> Result<Vec<communities::Reaction>> {
+    communities::react(id, post, emoji).await
+}
+#[rpc(auth)]
+pub async fn reply_to_community_post(
+    id: String,
+    post: String,
+    body: String,
+) -> Result<communities::Reply> {
+    communities::reply(id, post, body).await
 }
 #[rpc(auth)]
 pub async fn change_community_cover(

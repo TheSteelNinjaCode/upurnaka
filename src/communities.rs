@@ -3,7 +3,8 @@ use crate::{
     auth, chat_format, db,
     models::{
         account, community as row, community_channel as channel, community_member as member,
-        community_post as post, community_report as report,
+        community_post as post, community_post_reaction as reaction, community_post_reply as reply,
+        community_report as report,
     },
     rahti::{Error, Result, Validator},
 };
@@ -36,6 +37,39 @@ pub struct Post {
     pub subheading: String,
     pub accent: String,
     pub formatting: Option<Vec<chat_format::Line>>,
+    pub reactions: Vec<Reaction>,
+    pub replies: Vec<Reply>,
+}
+/// One reaction kind on a post: how many people chose it and whether the
+/// viewer is one of them.
+#[derive(Clone, Serialize)]
+pub struct Reaction {
+    pub emoji: String,
+    pub count: usize,
+    pub mine: bool,
+}
+#[derive(Clone, Serialize)]
+pub struct Reply {
+    pub id: String,
+    pub body: String,
+    pub created_at: i64,
+    pub author_name: String,
+    pub author_is_owner: bool,
+}
+/// The Teams quick reactions, in the order the picker shows them.
+pub const REACTIONS: &[&str] = &["👍", "❤️", "😆", "😮", "😢", "😠"];
+fn summarize(rows: &[&reaction::Model], viewer: &str) -> Vec<Reaction> {
+    REACTIONS
+        .iter()
+        .filter_map(|emoji| {
+            let chosen: Vec<_> = rows.iter().filter(|r| r.emoji == *emoji).collect();
+            (!chosen.is_empty()).then(|| Reaction {
+                emoji: emoji.to_string(),
+                count: chosen.len(),
+                mine: chosen.iter().any(|r| r.user_id == viewer),
+            })
+        })
+        .collect()
 }
 /// What the composer sends besides the plain text. Everything is optional so
 /// a plain post stays `{body, announcement}`.
@@ -52,7 +86,13 @@ pub struct PostDraft {
 pub const ACCENTS: &[&str] = &[
     "blue", "teal", "green", "purple", "magenta", "red", "orange", "slate",
 ];
-fn shown_post(p: post::Model, author_name: String, author_is_owner: bool) -> Post {
+fn shown_post(
+    p: post::Model,
+    author_name: String,
+    author_is_owner: bool,
+    reactions: Vec<Reaction>,
+    replies: Vec<Reply>,
+) -> Post {
     Post {
         id: p.id,
         channel_id: p.channel_id,
@@ -66,6 +106,8 @@ fn shown_post(p: post::Model, author_name: String, author_is_owner: bool) -> Pos
         subheading: p.subheading,
         accent: p.accent,
         formatting: rahti::serde_json::from_str(&p.content).ok(),
+        reactions,
+        replies,
     }
 }
 #[derive(Clone, Serialize)]
@@ -170,6 +212,16 @@ async fn shown(row: row::Model) -> Result<Community> {
         .order_by_desc(post::Column::Id)
         .all(db::db())
         .await?;
+    let reactions = reaction::Entity::find()
+        .filter(reaction::Column::CommunityId.eq(&row.id))
+        .all(db::db())
+        .await?;
+    let reply_rows = reply::Entity::find()
+        .filter(reply::Column::CommunityId.eq(&row.id))
+        .order_by_asc(reply::Column::CreatedAt)
+        .order_by_asc(reply::Column::Id)
+        .all(db::db())
+        .await?;
     let mut posts = Vec::new();
     for p in rows {
         let author = if p.author_id.is_empty() {
@@ -179,7 +231,19 @@ async fn shown(row: row::Model) -> Result<Community> {
         };
         let name = author_name(author).await?;
         let is_owner = *author == row.owner_id;
-        posts.push(shown_post(p, name, is_owner));
+        let mine: Vec<_> = reactions.iter().filter(|r| r.post_id == p.id).collect();
+        let mut replies = Vec::new();
+        for r in reply_rows.iter().filter(|r| r.post_id == p.id) {
+            replies.push(Reply {
+                id: r.id.clone(),
+                body: r.body.clone(),
+                created_at: r.created_at,
+                author_name: author_name(&r.author_id).await?,
+                author_is_owner: r.author_id == row.owner_id,
+            });
+        }
+        let reactions = summarize(&mine, &user);
+        posts.push(shown_post(p, name, is_owner, reactions, replies));
     }
     let is_owner = row.owner_id == user;
     Ok(Community {
@@ -398,7 +462,83 @@ pub async fn publish(
     .await?;
     let name = author_name(&row.author_id).await?;
     let is_owner = row.author_id == community_row.owner_id;
-    Ok(shown_post(row, name, is_owner))
+    Ok(shown_post(row, name, is_owner, Vec::new(), Vec::new()))
+}
+/// A post of a community the viewer belongs to, or 404 for both a missing
+/// post and a community they cannot see.
+async fn post_in(community: &str, post_id: &str) -> Result<(row::Model, post::Model)> {
+    let community_row = accessible(community).await?;
+    let post_row = post::Entity::find_by_id(post_id)
+        .filter(post::Column::CommunityId.eq(community))
+        .one(db::db())
+        .await?
+        .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "Post not found."))?;
+    Ok((community_row, post_row))
+}
+/// Add the viewer's reaction, or take it back if it is already there.
+pub async fn react(community: String, post_id: String, emoji: String) -> Result<Vec<Reaction>> {
+    let mut v = Validator::new();
+    v.one_of("emoji", &emoji.as_str(), REACTIONS);
+    v.finish()?;
+    post_in(&community, &post_id).await?;
+    let user = owner()?;
+    let removed = reaction::Entity::delete_many()
+        .filter(reaction::Column::PostId.eq(&post_id))
+        .filter(reaction::Column::UserId.eq(&user))
+        .filter(reaction::Column::Emoji.eq(&emoji))
+        .exec(db::db())
+        .await?;
+    if removed.rows_affected == 0 {
+        reaction::Entity::insert(reaction::ActiveModel {
+            id: Set(id()),
+            community_id: Set(community.clone()),
+            post_id: Set(post_id.clone()),
+            user_id: Set(user.clone()),
+            emoji: Set(emoji),
+            created_at: Set(crate::rahti::time::now().timestamp_millis()),
+        })
+        .on_conflict(
+            OnConflict::columns([
+                reaction::Column::PostId,
+                reaction::Column::UserId,
+                reaction::Column::Emoji,
+            ])
+            .do_nothing()
+            .to_owned(),
+        )
+        .exec_without_returning(db::db())
+        .await?;
+    }
+    let rows = reaction::Entity::find()
+        .filter(reaction::Column::PostId.eq(&post_id))
+        .all(db::db())
+        .await?;
+    Ok(summarize(&rows.iter().collect::<Vec<_>>(), &user))
+}
+pub async fn reply(community: String, post_id: String, body: String) -> Result<Reply> {
+    let body = body.trim().to_string();
+    let mut v = Validator::new();
+    v.required("body", &body).max_chars("body", &body, 2000);
+    v.finish()?;
+    let (community_row, _) = post_in(&community, &post_id).await?;
+    let user = owner()?;
+    let saved = reply::ActiveModel {
+        id: Set(id()),
+        community_id: Set(community),
+        post_id: Set(post_id),
+        author_id: Set(user.clone()),
+        body: Set(body),
+        created_at: Set(crate::rahti::time::now().timestamp_millis()),
+    }
+    .insert(db::db())
+    .await?;
+    Ok(Reply {
+        id: saved.id,
+        body: saved.body,
+        created_at: saved.created_at,
+        author_name: author_name(&user).await?,
+        author_is_owner: user == community_row.owner_id,
+    })
 }
 
 #[derive(Serialize)]

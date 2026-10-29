@@ -36,6 +36,14 @@ Ctrl+Enter to post. Formatting travels and is stored as `chat_format` lines in
 `community_post.content` and is rendered without HTML; links must be http(s).
 Attachments, images and the "+" apps menu from Teams are not implemented.
 
+The posts pane scrolls on its own: the banner scrolls away while the header
+and the collapsed composer stay pinned. Under each post, members can react with
+the six Teams quick reactions (choosing one again takes it back; a unique index
+keeps one of each kind per person) and reply in plain text (up to 2000
+characters, Enter sends, Shift+Enter adds a line). "View conversation" expands
+the replies, oldest first. Replies and reactions require membership and cannot
+be edited or deleted yet; replies have no reactions of their own.
+
 The community's three-dot menu follows Teams Free's action order. Edits retain
 the existing image unless a replacement is uploaded or removal is selected.
 Notification preferences are saved per account and community; they do not

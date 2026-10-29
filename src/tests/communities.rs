@@ -157,6 +157,175 @@ async fn community_call(
 }
 
 #[tokio::test]
+async fn post_reactions_toggle_and_replies_persist_for_members_only() {
+    setup().await;
+    let mut owner = super::auth::Client::new().await;
+    owner.with_cookie(test_cookie());
+    owner.request("/communities", None).await;
+    let mut member = super::auth::Client::new().await;
+    member.with_cookie(super::support::cookie_for(
+        "other-user",
+        "Other User",
+        "other@example.com",
+    ));
+    member.request("/communities", None).await;
+    let mut outsider = super::auth::Client::new().await;
+    outsider.with_cookie(super::support::cookie_for(
+        "test-admin",
+        "Test Administrator",
+        "admin-test@example.com",
+    ));
+    outsider.request("/communities", None).await;
+    let (_, created) = community_call(
+        &mut owner,
+        "create_community",
+        json!({"name":"Conversation school","category":"School"}),
+    )
+    .await;
+    let id = created["id"].as_str().unwrap();
+    let (_, link) = community_call(
+        &mut owner,
+        "community_join_link",
+        json!({"id":id,"reset":false}),
+    )
+    .await;
+    let token = link.as_str().unwrap().split("join=").nth(1).unwrap();
+    let (status, _) = community_call(
+        &mut member,
+        "join_community",
+        json!({"id":id,"token":token}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, post) = community_call(
+        &mut owner,
+        "publish_community_post",
+        json!({"id":id,"channel":"","body":"Talk to me","announcement":false}),
+    )
+    .await;
+    let post_id = post["id"].as_str().unwrap();
+    assert_eq!(post["reactions"], json!([]));
+    assert_eq!(post["replies"], json!([]));
+
+    let react = json!({"id":id,"post":post_id,"emoji":"👍"});
+    let (status, reactions) =
+        community_call(&mut owner, "react_to_community_post", react.clone()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(reactions, json!([{"emoji":"👍","count":1,"mine":true}]));
+    let (_, reactions) =
+        community_call(&mut member, "react_to_community_post", react.clone()).await;
+    assert_eq!(reactions, json!([{"emoji":"👍","count":2,"mine":true}]));
+    let (_, reactions) = community_call(
+        &mut member,
+        "react_to_community_post",
+        json!({"id":id,"post":post_id,"emoji":"❤️"}),
+    )
+    .await;
+    assert_eq!(
+        reactions,
+        json!([{"emoji":"👍","count":2,"mine":true},{"emoji":"❤️","count":1,"mine":true}])
+    );
+    // Reacting again takes the reaction back.
+    let (_, reactions) = community_call(&mut owner, "react_to_community_post", react).await;
+    assert_eq!(
+        reactions,
+        json!([{"emoji":"👍","count":1,"mine":false},{"emoji":"❤️","count":1,"mine":false}])
+    );
+
+    let (status, reply) = community_call(
+        &mut member,
+        "reply_to_community_post",
+        json!({"id":id,"post":post_id,"body":"  Replying here  "}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply}");
+    assert_eq!(reply["body"], "Replying here");
+    assert_eq!(reply["author_name"], "Other User");
+    assert_eq!(reply["author_is_owner"], false);
+    let (_, reply) = community_call(
+        &mut owner,
+        "reply_to_community_post",
+        json!({"id":id,"post":post_id,"body":"Owner answer"}),
+    )
+    .await;
+    assert_eq!(reply["author_is_owner"], true);
+
+    let (_, _, page) = member
+        .request(&format!("/communities?community={id}"), None)
+        .await;
+    for value in ["Replying here", "Owner answer", "❤️"] {
+        assert!(page.contains(value), "Missing {value}");
+    }
+    let replying = page.find("Replying here").unwrap();
+    assert!(
+        replying < page.find("Owner answer").unwrap(),
+        "Replies are oldest first"
+    );
+
+    for (name, payload) in [
+        (
+            "react_to_community_post",
+            json!({"id":id,"post":post_id,"emoji":"🦄"}),
+        ),
+        (
+            "reply_to_community_post",
+            json!({"id":id,"post":post_id,"body":"   "}),
+        ),
+        (
+            "reply_to_community_post",
+            json!({"id":id,"post":post_id,"body":"x".repeat(2001)}),
+        ),
+    ] {
+        assert_eq!(
+            community_call(&mut owner, name, payload).await.0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    for (name, payload) in [
+        (
+            "react_to_community_post",
+            json!({"id":id,"post":"missing","emoji":"👍"}),
+        ),
+        (
+            "reply_to_community_post",
+            json!({"id":id,"post":"missing","body":"Lost"}),
+        ),
+    ] {
+        assert_eq!(
+            community_call(&mut owner, name, payload).await.0,
+            StatusCode::NOT_FOUND
+        );
+    }
+    for (name, payload) in [
+        (
+            "react_to_community_post",
+            json!({"id":id,"post":post_id,"emoji":"👍"}),
+        ),
+        (
+            "reply_to_community_post",
+            json!({"id":id,"post":post_id,"body":"Sneaky"}),
+        ),
+    ] {
+        assert_eq!(
+            community_call(&mut outsider, name, payload.clone()).await.0,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            super::auth::Client::new()
+                .await
+                .request("/communities", Some((name, payload)))
+                .await
+                .0,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            community_call(&mut owner, name, json!({"id":id})).await.0,
+            StatusCode::BAD_REQUEST
+        );
+    }
+}
+
+#[tokio::test]
 async fn community_actions_enforce_roles_invites_links_and_owner_transfer() {
     setup().await;
     let mut owner = super::auth::Client::new().await;
@@ -1342,6 +1511,32 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .unwrap();
     let posted = browser.wait_for("document.querySelector('.community-post .community-rich-message')?.innerText.trim() === 'Our first saved class project.' && document.querySelector('.community-post .community-rich-message .font-bold')?.innerText === 'saved' && document.querySelector('.community-post-subject').textContent.trim() === 'Projects' && document.querySelector('.community-composer').dataset.mode === 'collapsed'").await;
     assert!(posted.is_ok(),"{:?}; {}",posted,browser.eval::<String>("JSON.stringify({error:document.querySelector('.community-compose-error').textContent,html:document.querySelector('.community-post .community-rich-message')?.innerHTML,hidden:document.querySelector('.community-post .community-rich-message')?.hidden,mode:document.querySelector('.community-composer').dataset.mode,posts:Array.from(document.querySelectorAll('.community-post')).map(p=>p.innerText)})").await.unwrap());
+    browser
+        .click(".community-post .community-reaction-add > button")
+        .await
+        .unwrap();
+    browser
+        .click(".community-post .community-reaction-picker button[aria-label='React with 👍']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.community-post .community-reaction[aria-pressed=true]')?.innerText.replace(/\\s+/g, '') === '👍1' && document.querySelector('.community-post .community-reaction-picker').hidden")
+        .await
+        .unwrap();
+    browser
+        .click(".community-post .community-reply-open")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.activeElement === document.querySelector('.community-post .community-reply-form textarea')")
+        .await
+        .unwrap();
+    browser.type_text("Count me in").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.community-post .community-reply-body')?.textContent === 'Count me in' && document.querySelector('.community-post .community-reply-form').hidden && document.querySelector('.community-post .community-conversation-toggle').getAttribute('aria-expanded') === 'true'")
+        .await
+        .unwrap();
     browser
         .click(".community-compose-mode:not([data-primary])")
         .await

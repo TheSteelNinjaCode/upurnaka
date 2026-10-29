@@ -23,6 +23,7 @@ pub mod m20261029_000002_community_actions;
 pub mod m20261029_000003_channel_icons;
 pub mod m20261029_000004_community_banner_image;
 pub mod m20261029_000005_community_post_formatting;
+pub mod m20261029_000006_community_post_conversations;
 
 /// The application's migrations, in the order they are applied.
 pub struct Migrator;
@@ -46,6 +47,7 @@ impl ::sea_orm_migration::MigratorTrait for Migrator {
             Box::new(m20261029_000003_channel_icons::Migration),
             Box::new(m20261029_000004_community_banner_image::Migration),
             Box::new(m20261029_000005_community_post_formatting::Migration),
+            Box::new(m20261029_000006_community_post_conversations::Migration),
         ]
     }
 }
