@@ -3,6 +3,114 @@ use rahti::serde_json::{Value, json};
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 
 #[tokio::test]
+async fn calendar_month_picker_browses_selects_and_dismisses() {
+    setup().await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/calendar"))
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Choose calendar date']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('#popover-calendar-date').matches(':popover-open') && document.querySelectorAll('.calendar-picker-range').length === 7 && document.querySelectorAll('.calendar-picker-selected').length === 1 && document.activeElement.classList.contains('calendar-picker-day')").await.unwrap();
+    let initial: String = browser
+        .eval("document.querySelector('.calendar-picker-header h2').textContent")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("document.querySelector('button[aria-label=\"Next month\"]').click(); true")
+        .await
+        .unwrap();
+    browser
+        .wait_for(&format!(
+            "document.querySelector('.calendar-picker-header h2').textContent !== {}",
+            rahti::serde_json::to_string(&initial).unwrap()
+        ))
+        .await
+        .unwrap();
+    let next_month: String = browser
+        .eval("document.querySelector('.calendar-picker-header h2').textContent")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("document.querySelector('button[aria-label=\"Previous month\"]').click(); true")
+        .await
+        .unwrap();
+    browser
+        .wait_for(&format!(
+            "document.querySelector('.calendar-picker-header h2').textContent === {}",
+            rahti::serde_json::to_string(&initial).unwrap()
+        ))
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("document.querySelector('button[aria-label=\"Next month\"]').click(); true")
+        .await
+        .unwrap();
+    browser
+        .wait_for(&format!(
+            "document.querySelector('.calendar-picker-header h2').textContent === {}",
+            rahti::serde_json::to_string(&next_month).unwrap()
+        ))
+        .await
+        .unwrap();
+    // Pick a Sunday in the browsed month. Work week must show the following
+    // Monday, while the picker highlights this Sunday-to-Saturday row.
+    let chosen: String = browser.eval("(() => { const dates = Array.from(document.querySelectorAll('.calendar-picker-day')); const sunday = dates.find((date,index) => index % 7 === 0 && !date.classList.contains('calendar-picker-outside')); const key = sunday.value; sunday.click(); return key; })()").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('#popover-calendar-date').matches(':popover-open')")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Choose calendar date']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('#popover-calendar-date').matches(':popover-open') && document.activeElement.classList.contains('calendar-picker-day')").await.unwrap();
+    let selected: String = browser
+        .eval("document.querySelector('.calendar-picker-selected').value")
+        .await
+        .unwrap();
+    // Sunday's Work week starts on Monday; the selected week remains visible.
+    assert_eq!(
+        selected, chosen,
+        "the chosen Sunday remains selected in its highlighted week"
+    );
+    let start: String = browser
+        .eval("document.querySelector('.calendar-grid-slot').value.split('@')[0]")
+        .await
+        .unwrap();
+    let monday: bool = browser
+        .eval(&format!("new Date('{start}T12:00').getDay() === 1"))
+        .await
+        .unwrap();
+    assert!(monday);
+    let adjacent: bool = browser
+        .eval(&format!(
+            "(new Date('{start}T12:00') - new Date('{chosen}T12:00')) / 86400000 === 1"
+        ))
+        .await
+        .unwrap();
+    assert!(
+        adjacent,
+        "the calendar displays the work week directly after the chosen Sunday"
+    );
+    browser.press("ArrowRight").await.unwrap();
+    browser.wait_for("document.activeElement.classList.contains('calendar-picker-day') && document.activeElement.getAttribute('aria-label') !== document.querySelector('.calendar-picker-selected').getAttribute('aria-label')").await.unwrap();
+    browser.press("Escape").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('#popover-calendar-date').matches(':popover-open')")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn calendar_time_marker_and_half_hour_selection_follow_the_visible_days() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;

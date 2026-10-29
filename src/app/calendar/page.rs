@@ -25,6 +25,7 @@ use crate::components::rahti_ui::dropdown_menu::{
 };
 use crate::components::rahti_ui::input::Input;
 use crate::components::rahti_ui::label::Label;
+use crate::components::rahti_ui::popover::{Popover, PopoverContent, PopoverTrigger};
 use crate::components::rahti_ui::select::{Select, SelectItem};
 use crate::components::rahti_ui::switch::Switch;
 use crate::components::rahti_ui::textarea::Textarea;
@@ -72,6 +73,11 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
     );
     let close_event = button_variants(ButtonVariant::Outline, ButtonSize::Default, "");
     let join_event = button_variants(ButtonVariant::Default, ButtonSize::Default, "font-semibold");
+    let date_trigger = button_variants(
+        ButtonVariant::Ghost,
+        ButtonSize::Sm,
+        "calendar-date-trigger ml-2 text-[15px] font-semibold",
+    );
     Ok(html! {
         <AppShell active="calendar">
             <main
@@ -129,14 +135,78 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                             >
                                 <Icon name="chevron-right" class="size-4" />
                             </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                class="ml-2 text-[15px] font-semibold"
-                            >
-                                {title}
-                                <Icon name="chevron-down" class="size-4 text-muted-foreground" />
-                            </Button>
+                            <Popover>
+                                <PopoverTrigger
+                                    name="calendar-date"
+                                    class=@{date_trigger.as_str()}
+                                    attrs=@{named("Choose calendar date")}
+                                >
+                                    {title}
+                                    <Icon name="chevron-down" class="size-4" />
+                                </PopoverTrigger>
+                                <PopoverContent
+                                    name="calendar-date"
+                                    align="start"
+                                    class="calendar-date-picker"
+                                    ontoggle={toggleDatePicker(event.newState)}
+                                    attrs=@{named("Choose calendar date")}
+                                >
+                                    <div class="calendar-picker-header">
+                                        <h2 aria-live="polite">{pickerTitle}</h2>
+                                        <button
+                                            type="button"
+                                            aria-label="Previous month"
+                                            onclick={movePickerMonth(-1)}
+                                        >
+                                            <Icon name="chevron-left" class="size-5" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Next month"
+                                            onclick={movePickerMonth(1)}
+                                        >
+                                            <Icon name="chevron-right" class="size-5" />
+                                        </button>
+                                    </div>
+                                    <div class="calendar-picker-grid">
+                                        <template pp-for="weekday in PICKER_WEEKDAYS">
+                                            <span
+                                                key={weekday.name}
+                                                class="calendar-picker-weekday"
+                                                title={weekday.name}
+                                            >
+                                                {weekday.short}
+                                            </span>
+                                        </template>
+                                        <template pp-for="date in pickerDates">
+                                            <button
+                                                key={date.key}
+                                                type="button"
+                                                value={date.key}
+                                                class={date.classes}
+                                                aria-label={date.label}
+                                                aria-pressed={date.selected}
+                                                aria-current={date.today ? "date" : "false"}
+                                                tabindex={date.key === pickerTabDate ? "0" : "-1"}
+                                                pp-ref={element => pickerElements.current[date.key] = element}
+                                                onclick={chooseCalendarDate(date.key)}
+                                                onfocus={setPickerFocus(date.key)}
+                                                onkeydown={pickerKey(event, date.key)}
+                                            >
+                                                <span>{date.number}</span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        popovertarget="popover-calendar-date"
+                                        popovertargetaction="hide"
+                                        pp-ref={pickerCloser}
+                                        hidden
+                                    >
+                                    </button>
+                                </PopoverContent>
+                            </Popover>
                         </div>
                         <div class="flex items-center gap-4">
                             <DropdownMenu>
@@ -588,6 +658,22 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     </DialogContent>
                 </Dialog>
                 <style>r##"
+                    .calendar-date-trigger[aria-expanded=true] { color: #9690ff; }
+                    .calendar-date-picker { width: 304px; max-width: calc(100vw - 32px); padding: 18px; border: 1px solid #222; border-radius: 5px; background: #292929; color: #f5f5f5; box-shadow: 0 8px 24px #0005; }
+                    .calendar-picker-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+                    .calendar-picker-header h2 { flex: 1; font-size: 16px; font-weight: 700; }
+                    .calendar-picker-header button { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 3px; color: #ddd; }
+                    .calendar-picker-header button:hover { background: #3c3c3c; }
+                    .calendar-picker-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+                    .calendar-picker-weekday { display: grid; place-items: center; height: 32px; font-size: 14px; }
+                    .calendar-picker-day { display: grid; place-items: center; height: 38px; min-width: 0; font-size: 14px; }
+                    .calendar-picker-day.calendar-picker-outside { color: #aaa; }
+                    .calendar-picker-day.calendar-picker-range { background: #4e478b; color: white; }
+                    .calendar-picker-day span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; }
+                    .calendar-picker-day.calendar-picker-selected span { background: #8880f5; color: white; }
+                    .calendar-picker-day[aria-current=date]:not(.calendar-picker-selected) span { box-shadow: inset 0 0 0 1px #9690ff; color: #b4afff; }
+                    .calendar-picker-day:hover:not(.calendar-picker-selected) span { background: #ffffff20; }
+                    .calendar-picker-day:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
                     .calendar-grid-slot { position: relative; height: 28px; min-width: 0; padding: 0; border-left: 1px solid var(--color-line); border-bottom: 1px dotted var(--color-line); cursor: default; }
                     .calendar-grid-slot.calendar-hour-end { border-bottom-style: solid; }
                     .calendar-grid-slot:hover { background: rgb(255 255 255 / 7%); }
@@ -637,6 +723,19 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     const [endDate, setEndDate] = pp.state(dayKey(initialEnd));
                     const [endTime, setEndTime] = pp.state(clockValue(initialEnd));
                     const [anchorDate, setAnchorDate] = pp.state(@{app_date});
+                    const [pickerMonth, setPickerMonth] = pp.state(@{app_date[..7].to_string()} + '-01');
+                    const [pickedDate, setPickedDate] = pp.state(@{app_date});
+                    const [pickerFocus, setPickerFocus] = pp.state(@{app_date});
+                    const [pickerOpen, setPickerOpen] = pp.state(false);
+                    const pickerCloser = pp.ref(null);
+                    const pickerElements = pp.ref({});
+                    const focusPickerDay = pp.event(() => pickerElements.current[pickerFocus]?.focus());
+                    const PICKER_WEEKDAYS = [{name:'Sunday',short:'S'},{name:'Monday',short:'M'},{name:'Tuesday',short:'T'},{name:'Wednesday',short:'W'},{name:'Thursday',short:'T'},{name:'Friday',short:'F'},{name:'Saturday',short:'S'}];
+                    pp.effect(() => {
+                        if (!pickerOpen) return;
+                        const frame = requestAnimationFrame(focusPickerDay);
+                        return () => cancelAnimationFrame(frame);
+                    }, [pickerOpen, pickerFocus]);
                     const durationMinutes = (new Date(endDate + 'T' + endTime) - new Date(startDate + 'T' + startTime)) / 60000;
                     const durationLabel = Number.isFinite(durationMinutes) && durationMinutes > 0 ? (durationMinutes < 60 ? durationMinutes + 'm' : Math.round(durationMinutes / 6) / 10 + 'h') : '';
 
@@ -691,7 +790,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     // The details dialog is rahti-ui's, which opens from a trigger;
                     // an event on the grid reaches it through the hidden one.
                     const showEvent = pp.event(function showEvent(id) {const meeting = placed.find(item => item.id === id); if (!meeting) return; setSelectedEvent(meeting); eventOpener.current?.click();});
-                    function goToday() {setAnchorDate(todayKey); setOffset(0); setSelection(null);}
+                    function goToday() {setAnchorDate(todayKey); setPickedDate(todayKey); setOffset(0); setSelection(null);}
 
                     function describe(date) {
                         const key = dayKey(date);
@@ -713,12 +812,9 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         }
 
                         const weekday = gridAnchor.getDay();
-                        const shift = weekday === 0 ? -6 : 1 - weekday;
+                        const shift = view === "Week" ? -weekday : weekday === 0 ? 1 : 1 - weekday;
                         const first = new Date(gridAnchor.getFullYear(), gridAnchor.getMonth(), gridAnchor.getDate() + shift + offset * 7);
                         const count = view === "Week" ? 7 : 5;
-                        if (view === "Week") {
-                            first.setDate(first.getDate() - 1);
-                        }
                         for (let index = 0; index < count; index += 1) {
                             list.push(describe(new Date(first.getFullYear(), first.getMonth(), first.getDate() + index)));
                         }
@@ -726,6 +822,54 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     }
 
                     const days = buildDays();
+                    const pickerBase = new Date(pickerMonth + 'T12:00');
+                    const pickerTitle = MONTHS[pickerBase.getMonth()] + ' ' + pickerBase.getFullYear();
+                    const rangeFirst = new Date(days[0].key + 'T12:00');
+                    rangeFirst.setDate(rangeFirst.getDate() - rangeFirst.getDay());
+                    const rangeLast = new Date(rangeFirst); rangeLast.setDate(rangeLast.getDate() + 6);
+                    const activePickerDate = (view === 'Day' ? pickedDate === days[0].key : pickedDate >= dayKey(rangeFirst) && pickedDate <= dayKey(rangeLast)) ? pickedDate : days[0].key;
+                    const pickerStart = new Date(pickerBase); pickerStart.setDate(1 - pickerBase.getDay());
+                    const pickerCount = Math.ceil((pickerBase.getDay() + new Date(pickerBase.getFullYear(), pickerBase.getMonth() + 1, 0).getDate()) / 7) * 7;
+                    const pickerDates = [];
+                    for (let index = 0; index < pickerCount; index++) {
+                        const date = new Date(pickerStart); date.setDate(date.getDate() + index);
+                        const key = dayKey(date);
+                        const selected = key === activePickerDate;
+                        const inRange = view === 'Day' ? selected : date >= rangeFirst && date <= rangeLast;
+                        pickerDates.push({key,number:date.getDate(),selected,today:key === todayKey,label:date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),classes:'calendar-picker-day' + (date.getMonth() !== pickerBase.getMonth() ? ' calendar-picker-outside' : '') + (inRange ? ' calendar-picker-range' : '') + (selected ? ' calendar-picker-selected' : '')});
+                    }
+
+                    const pickerTabDate = pickerDates.some(date => date.key === pickerFocus) ? pickerFocus : pickerMonth;
+                    function toggleDatePicker(state) {
+                        if (state === 'open') {
+                            setPickerMonth(activePickerDate.slice(0,7) + '-01');
+                            setPickerFocus(activePickerDate);
+                        }
+                        setPickerOpen(state === 'open');
+                    }
+                    function movePickerMonth(amount) {
+                        const date = new Date(pickerMonth + 'T12:00');
+                        date.setMonth(date.getMonth() + amount);
+                        setPickerMonth(dayKey(date));
+                    }
+                    function chooseCalendarDate(key) {
+                        setSelection(null); setPickedDate(key); setAnchorDate(key); setOffset(0);
+                        pickerCloser.current?.click();
+                    }
+                    function pickerKey(event, key) {
+                        const moves = {ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7};
+                        const date = new Date(key + 'T12:00');
+                        if (event.key in moves) date.setDate(date.getDate() + moves[event.key]);
+                        else if (event.key === 'Home') date.setDate(date.getDate() - date.getDay());
+                        else if (event.key === 'End') date.setDate(date.getDate() + 6 - date.getDay());
+                        else if (event.key === 'PageUp' || event.key === 'PageDown') {
+                            const original = date.getDate(); date.setDate(1);
+                            date.setMonth(date.getMonth() + (event.key === 'PageUp' ? -1 : 1));
+                            date.setDate(Math.min(original, new Date(date.getFullYear(),date.getMonth()+1,0).getDate()));
+                        } else return;
+                        event.preventDefault();
+                        const next = dayKey(date); setPickerMonth(next.slice(0,7) + '-01'); setPickerFocus(next);
+                    }
                     const title = MONTHS[days[0].month] + " " + days[0].year;
                     // One column per day shown: Day, Work week or Week.
                     const GRID_COLUMNS = { 1: "grid-cols-1", 5: "grid-cols-5", 7: "grid-cols-7" };
