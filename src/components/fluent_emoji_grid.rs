@@ -4,7 +4,7 @@ use crate::rahti::{Bindings, Html, component, html};
 #[component]
 pub fn FluentEmojiGrid(bindings: Bindings) -> Html {
     html! {
-        <div class="grid grid-cols-6" @{..bindings} onkeydown={moveFocus(event)}>
+        <div class="grid grid-cols-6" @{..bindings}>
             <template pp-for="item in items">
                 <button
                     key={item.symbol}
@@ -13,6 +13,7 @@ pub fn FluentEmojiGrid(bindings: Bindings) -> Html {
                     title={item.name}
                     value={item.symbol}
                     onclick={pp.props.select?.(item.symbol)}
+                    onkeydown={moveFocus(event)}
                 >
                     <img
                         src={item.image}
@@ -28,7 +29,7 @@ pub fn FluentEmojiGrid(bindings: Bindings) -> Html {
             <script>r##"
                 const items=pp.props.items || [];
                 function moveFocus(event) {
-                    const buttons=Array.from(event.currentTarget.children).filter(element=>element.tagName==='BUTTON');
+                    const buttons=Array.from(event.currentTarget.parentElement.children).filter(element=>element.tagName==='BUTTON');
                     let index=buttons.indexOf(document.activeElement);
                     if(index<0)return;
                     if(event.key==='ArrowRight')index++;
