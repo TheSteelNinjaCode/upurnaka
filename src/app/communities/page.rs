@@ -1,20 +1,21 @@
 //! Communities: the invitation to start one, and the ones already started.
 
-use serde::Serialize;
+use crate::communities::{self, Community};
+use axum::extract::Query;
+use serde::Deserialize;
 
 use crate::components::app_shell::AppShell;
 use crate::components::aria::{hidden, submit};
 use crate::components::icon::Icon;
 use crate::components::rahti_ui::attrs::Attrs;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
-use crate::components::rahti_ui::card::{Card, CardDescription, CardFooter, CardHeader, CardTitle};
 use crate::components::rahti_ui::dialog::{
     Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 };
 use crate::components::rahti_ui::field::{Field, FieldLabel};
 use crate::components::rahti_ui::input::Input;
 use crate::components::rahti_ui::textarea::Textarea;
-use crate::rahti::{Html, Metadata, Result, RpcFile, Validator, html, rpc};
+use crate::rahti::{Html, Json, Metadata, Result, RpcFile, Validator, html, rpc};
 
 pub fn metadata() -> Metadata {
     Metadata::new()
@@ -25,13 +26,25 @@ pub fn metadata() -> Metadata {
 /// A template chip under "Create with a template".
 const TEMPLATE: &str = "rounded-full text-[13px] font-semibold";
 
-pub async fn page() -> Html {
+#[derive(Default, Deserialize)]
+pub struct CommunityQuery {
+    community: Option<String>,
+}
+
+pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
+    let saved = communities::list().await?;
+    let selected = query
+        .community
+        .filter(|id| saved.iter().any(|c| &c.id == id))
+        .or_else(|| saved.first().map(|c| c.id.clone()))
+        .unwrap_or_default();
+    let owner_name = crate::auth::current().map(|u| u.name).unwrap_or_default();
     let cancel_link = button_variants(
         ButtonVariant::Link,
         ButtonSize::Default,
         "text-[13px] text-link",
     );
-    html! {
+    Ok(html! {
         <AppShell active="communities">
             <main
                 class="ambient-strong scroll-thin relative min-h-0 flex-1 overflow-y-auto rounded-tl-xl border-l border-t border-line"
@@ -148,60 +161,293 @@ pub async fn page() -> Html {
                         </div>
                     </div>
                 </div>
-                <div
-                    class="mx-auto w-full max-w-[1100px] px-16 py-12"
-                    hidden={communities.length === 0}
-                >
-                    <div class="flex items-center justify-between">
-                        <h1 class="text-[22px] font-semibold tracking-tight text-ink">
-                            "Your communities"
-                        </h1>
-                        <Button class="text-[13px] font-semibold" onclick={openCreate("")}>
-                            "Create your own"
-                        </Button>
-                    </div>
-                    <div class="mt-7 grid grid-cols-3 gap-5">
-                        <template pp-for="community in communities">
-                            <div
-                                key={community.id}
-                                tabindex="-1"
-                                pp-ref={element => communityElements.current[community.id] = element}
-                                class={selectedCommunity === community.id ? "rounded-xl outline-2 outline-brand-ink" : ""}
+                <div class="community-workspace" hidden={communities.length === 0}>
+                    <aside class="community-sidebar" aria-label="Your communities">
+                        <header class="community-sidebar-heading">
+                            <h1>"Communities"</h1>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                attrs=@{Attrs::new().set("aria-label", "Create community").set("title", "Create your own")}
+                                onclick={openCreate("")}
                             >
-                                <Card class="gap-4 overflow-hidden bg-raised pt-0 pb-5">
-                                    <div
-                                        class="flex h-24 items-center justify-center bg-linear-to-br from-[#6f63d8] to-[#3a3270] text-5xl"
-                                        aria-hidden="true"
+                                <Icon name="plus" class="size-5" />
+                            </Button>
+                        </header>
+                        <nav aria-label="Communities">
+                            <template pp-for="community in communities">
+                                <div key={community.id} class="community-nav-group">
+                                    <button
+                                        class="community-nav-item"
+                                        aria-current={selectedCommunity === community.id ? "page" : null}
+                                        onclick={selectCommunity(community.id)}
+                                        pp-ref={element => communityElements.current[community.id] = element}
                                     >
-                                        <img
-                                            src={community.picture || "/images/upurnaka-logo.png"}
-                                            alt=""
-                                            class="h-full w-full object-cover"
-                                            hidden={!community.picture}
-                                        />
-                                        <span hidden={!!community.picture}>{community.avatar}</span>
-                                    </div>
-                                    <CardHeader class="gap-1 px-5">
-                                        <CardTitle class="truncate text-[15px]">
-                                            {community.name}
-                                        </CardTitle>
-                                        <CardDescription class="text-xs">
-                                            {community.category}
-                                        </CardDescription>
-                                        <p
-                                            class="line-clamp-2 text-sm text-muted-foreground"
-                                            hidden={!community.description}
+                                        <span class="community-small-avatar">
+                                            <img
+                                                src={community.picture || "/images/upurnaka-logo.png"}
+                                                alt=""
+                                                hidden={!community.picture}
+                                            />
+                                            <span hidden={!!community.picture}>
+                                                {community.avatar}
+                                            </span>
+                                        </span>
+                                        <strong>{community.name}</strong>
+                                    </button>
+                                    <div
+                                        class="community-channel-list"
+                                        hidden={selectedCommunity !== community.id}
+                                    >
+                                        <button
+                                            class="community-channel"
+                                            aria-current={channelId === "" ? "page" : null}
+                                            onclick={selectChannel("")}
                                         >
-                                            {community.description}
-                                        </p>
-                                    </CardHeader>
-                                    <CardFooter class="px-5 text-xs text-subtle">
-                                        "1 member · you are the owner"
-                                    </CardFooter>
-                                </Card>
+                                            "General"
+                                        </button>
+                                        <template pp-for="channel in community.channels">
+                                            <button
+                                                key={channel.id}
+                                                class="community-channel"
+                                                aria-current={channelId === channel.id ? "page" : null}
+                                                onclick={selectChannel(channel.id)}
+                                            >
+                                                {channel.name}
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </nav>
+                        <button
+                            class="community-add-channel"
+                            onclick={setAddingChannel(!addingChannel)}
+                        >
+                            <Icon name="plus" class="size-5" />
+                            "Add channel"
+                        </button>
+                        <form
+                            class="community-channel-form"
+                            hidden={!addingChannel}
+                            onsubmit={addChannel(event)}
+                        >
+                            <label for="channel-name">"Channel name"</label>
+                            <Input
+                                id="channel-name"
+                                value={channelName}
+                                oninput={setChannelName(target.value)}
+                                attrs=@{Attrs::new().set("maxlength", "60")}
+                            />
+                            <Button attrs=@{submit()} disabled={working || !channelName.trim()}>
+                                "Add"
+                            </Button>
+                        </form>
+                    </aside>
+                    <section class="community-detail" aria-label="Selected community">
+                        <div class="community-cover" data-cover={activeCommunity?.cover || "mint"}>
+                            <div class="community-cover-art" aria-hidden="true"></div>
+                            <button
+                                class="community-cover-edit"
+                                aria-label="Change community cover"
+                                title="Change community cover"
+                                onclick={setCoverPicker(!coverPicker)}
+                            >
+                                <Icon name="edit" class="size-5" />
+                            </button>
+                            <div class="community-cover-picker" hidden={!coverPicker}>
+                                <button onclick={changeCover("mint")} disabled={working}>
+                                    "Mint"
+                                </button>
+                                <button onclick={changeCover("lavender")} disabled={working}>
+                                    "Lavender"
+                                </button>
+                                <button onclick={changeCover("sunset")} disabled={working}>
+                                    "Sunset"
+                                </button>
                             </div>
-                        </template>
-                    </div>
+                        </div>
+                        <header class="community-detail-header">
+                            <div class="community-identity-title">
+                                <span class="community-small-avatar">
+                                    <img
+                                        class="community-saved-picture"
+                                        src={activeCommunity?.picture || "/images/upurnaka-logo.png"}
+                                        alt=""
+                                        hidden={!activeCommunity?.picture}
+                                    />
+                                    <span hidden={!!activeCommunity?.picture}>
+                                        {activeCommunity?.avatar || "👥"}
+                                    </span>
+                                </span>
+                                <h2>
+                                    {activeChannel?.name || activeCommunity?.name || "Community"}
+                                </h2>
+                            </div>
+                            <div
+                                class="community-tabs"
+                                role="tablist"
+                                aria-label="Community content"
+                                onkeydown={handleCommunityTabKeys(event)}
+                            >
+                                <button
+                                    role="tab"
+                                    aria-selected={activeTab === "posts"}
+                                    aria-controls="community-posts"
+                                    id="community-tab-posts"
+                                    pp-ref={postsTab}
+                                    tabindex={activeTab === "posts" ? 0 : -1}
+                                    onclick={setActiveTab("posts")}
+                                >
+                                    "Posts"
+                                </button>
+                                <button
+                                    role="tab"
+                                    aria-selected={activeTab === "files"}
+                                    aria-controls="community-files"
+                                    id="community-tab-files"
+                                    pp-ref={filesTab}
+                                    tabindex={activeTab === "files" ? 0 : -1}
+                                    onclick={setActiveTab("files")}
+                                >
+                                    "Files"
+                                </button>
+                                <button
+                                    role="tab"
+                                    aria-selected={activeTab === "photos"}
+                                    aria-controls="community-photos"
+                                    id="community-tab-photos"
+                                    pp-ref={photosTab}
+                                    tabindex={activeTab === "photos" ? 0 : -1}
+                                    onclick={setActiveTab("photos")}
+                                >
+                                    "Photos"
+                                </button>
+                            </div>
+                            <div class="community-header-actions">
+                                <a href="/calendar?new=1" class="community-event-link">
+                                    <Icon name="calendar" class="size-4" />
+                                    "Events"
+                                </a>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    attrs=@{Attrs::new().set("aria-label", "Community details and members")}
+                                    onclick={setDetailsOpen(!detailsOpen)}
+                                >
+                                    <Icon name="settings" class="size-4" />
+                                </Button>
+                            </div>
+                        </header>
+                        <div class="community-details-panel" hidden={!detailsOpen}>
+                            <h3>"About this community"</h3>
+                            <p>
+                                {activeCommunity?.description || "Bring your community together in one place."}
+                            </p>
+                            <h3>"Community guidelines"</h3>
+                            <p>{activeCommunity?.guidelines || "Be kind and respectful."}</p>
+                            <h3>"Members (1)"</h3>
+                            <p>@{owner_name.as_str()}" · Owner"</p>
+                        </div>
+                        <p class="community-workspace-error" role="alert" hidden={!workspaceError}>
+                            {workspaceError}
+                        </p>
+                        <div
+                            id="community-posts"
+                            aria-labelledby="community-tab-posts"
+                            role="tabpanel"
+                            class="community-content"
+                            hidden={activeTab !== "posts"}
+                        >
+                            <form class="community-composer" onsubmit={publishPost(event)}>
+                                <label for="community-post-body" class="community-composer-heading">
+                                    <span class="community-author-avatar">
+                                        @{crate::auth::current().map(|u| u.initials()).unwrap_or_default()}
+                                    </span>
+                                    "Post in channel"
+                                </label>
+                                <textarea
+                                    id="community-post-body"
+                                    placeholder="Share something with your community…"
+                                    maxlength="5000"
+                                    value={postDraft}
+                                    oninput={setPostDraft(target.value)}
+                                >
+                                </textarea>
+                                <div class="community-composer-actions">
+                                    <Button
+                                        attrs=@{submit()}
+                                        disabled={working || !postDraft.trim()}
+                                    >
+                                        {working ? "Posting…" : announcement ? "Post announcement" : "Post"}
+                                    </Button>
+                                    <button
+                                        type="button"
+                                        aria-pressed={announcement}
+                                        onclick={setAnnouncement(!announcement)}
+                                    >
+                                        "◁ Announcement"
+                                    </button>
+                                </div>
+                            </form>
+                            <section class="community-setup" hidden={activePosts.length > 0}>
+                                <h2>"Set up your community"</h2>
+                                <p>"Get started with these quick actions"</p>
+                                <div class="community-quick-actions">
+                                    <button onclick={setDetailsOpen(true)}>
+                                        <span>"👥"</span>
+                                        "Community details"
+                                    </button>
+                                    <a href="/calendar?new=1">
+                                        <span>"🗓️"</span>
+                                        "Create new event"
+                                    </a>
+                                </div>
+                            </section>
+                            <template pp-for="post in activePosts">
+                                <article key={post.id} class="community-post">
+                                    <header>
+                                        <span class="community-author-avatar">
+                                            @{crate::auth::current().map(|u| u.initials()).unwrap_or_default()}
+                                        </span>
+                                        <strong>@{owner_name.as_str()}</strong>
+                                        <time>{new Date(post.created_at).toLocaleString()}</time>
+                                    </header>
+                                    <h3 hidden={!post.announcement}>"Announcement"</h3>
+                                    <p>{post.body}</p>
+                                </article>
+                            </template>
+                        </div>
+                        <div
+                            id="community-files"
+                            aria-labelledby="community-tab-files"
+                            role="tabpanel"
+                            class="community-empty-tab"
+                            hidden={activeTab !== "files"}
+                        >
+                            <Icon name="folder" class="size-12" />
+                            <h3>"No files in this community yet"</h3>
+                            <p>"Files shared with this community will appear here."</p>
+                        </div>
+                        <div
+                            id="community-photos"
+                            aria-labelledby="community-tab-photos"
+                            role="tabpanel"
+                            class="community-empty-tab"
+                            hidden={activeTab !== "photos"}
+                        >
+                            <Icon name="image" class="size-12" />
+                            <h3>
+                                {activeCommunity?.picture ? "Community photo" : "No photos in this community yet"}
+                            </h3>
+                            <img
+                                src={activeCommunity?.picture || "/images/upurnaka-logo.png"}
+                                alt="Community photo"
+                                hidden={!activeCommunity?.picture}
+                                class="community-photo"
+                            />
+                        </div>
+                    </section>
                 </div>
                 <Dialog>
                     <DialogTrigger attrs=@{hidden()}>
@@ -410,6 +656,68 @@ pub async fn page() -> Html {
                     </DialogContent>
                 </Dialog>
                 <style>r##"
+                    .community-workspace { display: grid; grid-template-columns: 300px minmax(0,1fr); min-height: 100%; color: #f2f2f2; background: linear-gradient(135deg,#18121f,#241415 60%,#16141c); }
+                    .community-sidebar { padding: 24px 16px; }
+                    .community-sidebar-heading { display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px; }
+                    .community-sidebar-heading h1 { font-size:23px;font-weight:700; }
+                    .community-nav-group { margin-bottom:8px; }
+                    .community-nav-item { display:flex;align-items:center;gap:12px;text-align:left;padding:14px 12px;width:100%;border-radius:8px; }
+                    .community-nav-item strong { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+                    .community-nav-item:hover,.community-nav-item[aria-current=page] { background:#292929; }
+                    .community-small-avatar { display:grid;place-items:center;flex-shrink:0;width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,#fff0ca,#e7c16b);font-size:24px;overflow:hidden; }
+                    .community-nav-item .community-small-avatar { width:48px;height:48px;font-size:30px; }
+                    .community-small-avatar img { width:100%;height:100%;object-fit:cover; }
+                    .community-channel-list { padding:6px 0 6px 50px; }
+                    .community-channel { display:block;padding:7px 12px;width:100%;text-align:left;font-size:14px;color:#bbb;border-radius:4px;overflow-wrap:anywhere; }
+                    .community-channel[aria-current=page] { color:#b6b0ff;background:#ffffff09; }
+                    .community-add-channel { display:flex;align-items:center;gap:12px;margin:20px 12px;color:#a6a0ed;font-size:14px; }
+                    .community-channel-form { display:grid;gap:10px;padding:12px;font-size:13px; }
+                    .community-detail { min-width:0;background:#262626;border-radius:12px 0 0 0;margin:10px 0 0;overflow:hidden; }
+                    .community-cover { position:relative;height:clamp(160px,22vw,280px);margin:12px 12px 0;overflow:hidden;border-radius:8px;background:#bfe9d0; }
+                    .community-cover[data-cover=lavender] { background:#d2c9f4; }
+                    .community-cover[data-cover=sunset] { background:#f4d2b2; }
+                    .community-cover-art { position:absolute;inset:-35% -8%;transform:rotate(-24deg);background:radial-gradient(ellipse at 30% 30%,#ebff9c55,transparent 60%),repeating-radial-gradient(ellipse at 55% 60%,transparent 0 30px,#ffffff55 32px 34px,transparent 36px 62px); }
+                    .community-cover-art::after { content:"";position:absolute;inset:5% 18%;border:45px solid #658c5655;border-radius:50%;transform:rotate(28deg);background:radial-gradient(#426e5266 1px,transparent 2px) 0 0 / 9px 9px;box-shadow:0 0 24px #fff8,inset 0 0 25px #fffc; }
+                    .community-cover-edit { position:absolute;right:10px;bottom:10px;display:grid;place-items:center;border-radius:4px;padding:8px;background:#262626;color:white; }
+                    .community-cover-picker { position:absolute;right:10px;bottom:52px;display:flex;gap:6px;padding:8px;border-radius:6px;background:#292929;box-shadow:0 4px 20px #0006; }
+                    .community-cover-picker button { font-size:13px;padding:8px;border:1px solid #555;border-radius:4px; }
+                    .community-detail-header { display:flex;align-items:center;gap:22px;min-height:72px;padding:0 22px;border-bottom:1px solid #ffffff12;flex-wrap:wrap; }
+                    .community-identity-title { display:flex;align-items:center;gap:12px;min-width:0; }
+                    .community-identity-title h2 { font-size:20px;font-weight:700;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+                    .community-tabs { display:flex;gap:20px;align-self:stretch; }
+                    .community-tabs button { position:relative;font-size:14px;color:#c4c4c4;padding:18px 0; }
+                    .community-tabs button[aria-selected=true] { color:white;font-weight:600; }
+                    .community-tabs button[aria-selected=true]::after { content:"";position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:3px;background:#9186ef; }
+                    .community-header-actions { display:flex;align-items:center;gap:8px;margin-left:auto; }
+                    .community-event-link { display:flex;align-items:center;gap:8px;border:1px solid #555;border-radius:4px;padding:8px 12px;font-size:14px; }
+                    .community-content { max-width:1140px;margin:auto;padding:24px clamp(18px,5vw,90px) 50px; }
+                    .community-composer,.community-post { border:1px solid #222;border-radius:8px;background:#282828;padding:18px;box-shadow:0 2px 4px #0003; }
+                    .community-composer-heading { display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;color:#ddd; }
+                    .community-author-avatar { width:36px;height:36px;display:grid;place-items:center;flex-shrink:0;border-radius:50%;background:#d2dce9;color:#35445c;font-size:13px; }
+                    .community-composer textarea { width:100%;min-height:66px;resize:vertical;padding:14px 0 8px;outline:none;background:transparent;font-size:14px; }
+                    .community-composer textarea:focus { min-height:110px; }
+                    .community-composer-actions { display:flex;align-items:center;gap:22px; }
+                    .community-composer-actions > button[type=button] { color:#ddd;font-size:14px;padding:8px; }
+                    .community-composer-actions > button[aria-pressed=true] { color:#b6b0ff; }
+                    .community-setup { padding:48px 0 20px;text-align:center; }
+                    .community-setup h2 { font-size:23px;font-weight:700;margin-bottom:10px; }
+                    .community-setup > p { color:#ccc;font-size:15px; }
+                    .community-quick-actions { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:32px; }
+                    .community-quick-actions > * { display:flex;align-items:center;gap:16px;text-align:left;padding:18px;border:1px solid #555;border-radius:5px;font-size:16px;font-weight:600; }
+                    .community-quick-actions span { font-size:32px; }
+                    .community-post { margin-top:20px; }
+                    .community-post header { display:flex;align-items:center;gap:10px;font-size:13px;flex-wrap:wrap; }
+                    .community-post time { color:#aaa;font-size:11px;margin-left:auto; }
+                    .community-post > p,.community-details-panel p { white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-size:14px;margin-top:14px; }
+                    .community-post h3 { color:#b6b0ff;font-weight:700;margin-top:16px; }
+                    .community-details-panel { padding:22px;border-bottom:1px solid #444;background:#202020; }
+                    .community-details-panel h3 { font-weight:600;margin-top:14px; }
+                    .community-details-panel p { color:#bbb;margin-top:6px; }
+                    .community-empty-tab { display:flex;align-items:center;flex-direction:column;gap:16px;padding:70px 24px;text-align:center;color:#bbb; }
+                    .community-photo { width:200px;height:200px;object-fit:cover;border-radius:10px; }
+                    .community-workspace-error { margin:16px 24px;padding:12px;border:1px solid #b76a6a;border-radius:6px;color:#ffbaba; }
+                    @media(max-width:1000px) { .community-workspace { grid-template-columns:240px minmax(0,1fr); } .community-detail-header { gap:12px;padding:10px 16px 0; } .community-content { padding:22px; } .community-header-actions { margin-bottom:10px; } }
+                    @media(max-width:700px) { .community-workspace { display:block; } .community-sidebar { padding:16px; } .community-sidebar-heading { margin-bottom:12px; } .community-sidebar nav { display:flex;gap:8px;overflow:auto; } .community-nav-item { min-width:150px; } .community-channel-list { padding-left:8px; } .community-detail { margin:0;border-radius:12px 12px 0 0; } .community-quick-actions { grid-template-columns:1fr; } .community-cover { height:150px; } .community-detail-header { gap:12px; } .community-identity-title { width:100%; } }
                     .community-create-dialog {
                         width: min(800px, calc(100vw - 40px)); max-width: 800px;
                         min-height: min(740px, calc(100dvh - 40px));
@@ -443,12 +751,68 @@ pub async fn page() -> Html {
                     }
                 "##</style>
                 <script>r##"
-                    const [communities, setCommunities] = pp.state([]);
+                    const [communities, setCommunities] = pp.state(@{Json(&saved)});
                     const searchStore = pp.context(window.UpurnakaSearchContext);
                     const communityElements = pp.ref({});
-                    const [selectedCommunity, setSelectedCommunity] = pp.state('');
+                    const [selectedCommunity, setSelectedCommunity] = pp.state(@{selected.as_str()});
+                    const [channelId, setChannelId] = pp.state('');
+                    const [activeTab, setActiveTab] = pp.state('posts');
+                    const postsTab = pp.ref(null), filesTab = pp.ref(null), photosTab = pp.ref(null);
+                    function handleCommunityTabKeys(event) {
+                        const tabs = ['posts', 'files', 'photos'];
+                        let index = tabs.indexOf(activeTab);
+                        if (event.key === 'ArrowRight') index = (index + 1) % 3;
+                        else if (event.key === 'ArrowLeft') index = (index + 2) % 3;
+                        else if (event.key === 'Home') index = 0;
+                        else if (event.key === 'End') index = 2;
+                        else return;
+                        event.preventDefault(); setActiveTab(tabs[index]);
+                        [postsTab, filesTab, photosTab][index].current?.focus();
+                    }
+                    const [addingChannel, setAddingChannel] = pp.state(false);
+                    const [channelName, setChannelName] = pp.state('');
+                    const [postDraft, setPostDraft] = pp.state('');
+                    const [announcement, setAnnouncement] = pp.state(false);
+                    const [coverPicker, setCoverPicker] = pp.state(false);
+                    const [detailsOpen, setDetailsOpen] = pp.state(false);
+                    const [working, setWorking] = pp.state(false);
+                    const [workspaceError, setWorkspaceError] = pp.state('');
+                    const activeCommunity = communities.find(c => c.id === selectedCommunity) || null;
+                    const activeChannel = activeCommunity?.channels.find(c => c.id === channelId) || null;
+                    const activePosts = activeCommunity?.posts.filter(p => p.channel_id === channelId) || [];
+                    function selectCommunity(id) {
+                        setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false); setCoverPicker(false); setAddingChannel(false);
+                        const url = new URL(location.href); url.searchParams.set('community', id); history.replaceState(null, '', url);
+                    }
+                    function selectChannel(id) { setChannelId(id); setActiveTab('posts'); setPostDraft(''); setWorkspaceError(''); }
+                    function updateCommunity(id, changes) { setCommunities(current => current.map(c => c.id === id ? {...c, ...changes(c)} : c)); }
+                    async function addChannel(event) {
+                        event.preventDefault(); if (working || !channelName.trim()) return;
+                        setWorking(true); setWorkspaceError(''); const id = selectedCommunity;
+                        try {
+                            const channel = await pp.rpc('create_community_channel', {id, name:channelName});
+                            updateCommunity(id, c => ({channels:[...c.channels, channel]}));
+                            if (id === selectedCommunity) { setChannelName(''); setAddingChannel(false); selectChannel(channel.id); }
+                        } catch (failure) { setWorkspaceError(failure.message || 'The channel could not be saved.'); }
+                        finally { setWorking(false); }
+                    }
+                    async function publishPost(event) {
+                        event.preventDefault(); if (working || !postDraft.trim()) return;
+                        setWorking(true); setWorkspaceError(''); const id = selectedCommunity;
+                        try {
+                            const post = await pp.rpc('publish_community_post', {id, channel:channelId, body:postDraft, announcement});
+                            updateCommunity(id, c => ({posts:[post, ...c.posts]})); setPostDraft('');
+                        } catch (failure) { setWorkspaceError(failure.message || 'Your post could not be saved.'); }
+                        finally { setWorking(false); }
+                    }
+                    async function changeCover(cover) {
+                        if (working) return; setWorking(true); setWorkspaceError(''); const id = selectedCommunity;
+                        try { const saved = await pp.rpc('change_community_cover', {id, cover}); updateCommunity(id, () => ({cover:saved})); setCoverPicker(false); }
+                        catch (failure) { setWorkspaceError(failure.message || 'The cover could not be saved.'); }
+                        finally { setWorking(false); }
+                    }
                     const openSearchCommunity = pp.event(row => {
-                        setSelectedCommunity(row.id);
+                        selectCommunity(row.id);
                         requestAnimationFrame(() => {
                             const card = communityElements.current[row.id];
                             card?.focus({preventScroll:true}); card?.scrollIntoView({block:'center'});
@@ -484,9 +848,14 @@ pub async fn page() -> Html {
                     const [guidelines, setGuidelines] = pp.state(DEFAULT_GUIDELINES);
                     const [avatar, setAvatar] = pp.state("👥");
                     const [editingGuidelines, setEditingGuidelines] = pp.state(false);
-                    pp.effect(() => {
+                    const focusGuidelines = pp.event(() => {
                         if (editingGuidelines) guidelinesInput.current?.focus();
-                    }, [editingGuidelines]);
+                    });
+                    pp.effect(() => {
+                        if (!editingGuidelines) return;
+                        const frame = requestAnimationFrame(focusGuidelines);
+                        return () => cancelAnimationFrame(frame);
+                    }, [editingGuidelines, focusGuidelines]);
                     const [fieldErrors, setFieldErrors] = pp.state({});
                     const [step, setStep] = pp.state(1);
                     const [name, setName] = pp.state("");
@@ -562,6 +931,7 @@ pub async fn page() -> Html {
                                 picture: picture,
                             });
                             setCommunities((current) => current.concat([community]));
+                            selectCommunity(community.id);
                             createCloser.current?.click();
                         } catch (failure) {
                             setFieldErrors(failure.errors || {});
@@ -574,19 +944,7 @@ pub async fn page() -> Html {
                 "##</script>
             </main>
         </AppShell>
-    }
-}
-
-/// A community this account owns.
-#[derive(Serialize)]
-pub struct Community {
-    pub id: String,
-    pub name: String,
-    pub category: String,
-    pub description: String,
-    pub guidelines: String,
-    pub avatar: String,
-    pub picture: Option<String>,
+    })
 }
 
 /// The categories the create flow offers. A value outside this list is a 422,
@@ -639,9 +997,9 @@ pub async fn create_community(
         None => None,
     };
 
-    let id = format!("{:x}", crate::rahti::time::now().timestamp_micros());
+    let id = communities::new_id();
 
-    Ok(Community {
+    communities::save(Community {
         id,
         name,
         category,
@@ -649,7 +1007,29 @@ pub async fn create_community(
         guidelines,
         avatar,
         picture,
+        cover: "mint".into(),
+        channels: Vec::new(),
+        posts: Vec::new(),
     })
+    .await
+}
+
+#[rpc(auth)]
+pub async fn create_community_channel(id: String, name: String) -> Result<communities::Channel> {
+    communities::add_channel(id, name).await
+}
+#[rpc(auth)]
+pub async fn publish_community_post(
+    id: String,
+    channel: String,
+    body: String,
+    announcement: bool,
+) -> Result<communities::Post> {
+    communities::publish(id, channel, body, announcement).await
+}
+#[rpc(auth)]
+pub async fn change_community_cover(id: String, cover: String) -> Result<String> {
+    communities::cover(id, cover).await
 }
 
 /// Decode the content rather than trusting the upload's name or MIME type.

@@ -53,10 +53,12 @@ mod r_profilepicture;
 /// a page's rpc belongs to that page's URL.
 const PAGE_RPCS: &[&str] = &[
     "append_meeting_recording",
+    "change_community_cover",
     "chat_cloud_files",
     "create_chat_folder",
     "create_chat_meeting",
     "create_community",
+    "create_community_channel",
     "create_meeting",
     "create_meeting_link",
     "create_user",
@@ -72,6 +74,7 @@ const PAGE_RPCS: &[&str] = &[
     "meeting_recordings",
     "meeting_room_state",
     "mute_participant",
+    "publish_community_post",
     "remove_profile_picture",
     "rename_meeting_link",
     "request_meeting_entry",
@@ -150,6 +153,11 @@ async fn rpc_p_communities(req: axum::extract::Request) -> axum::response::Respo
     };
     match name.as_str() {
         "create_community" => p_communities::__rahti_rpc_create_community(req).await,
+        "create_community_channel" => {
+            p_communities::__rahti_rpc_create_community_channel(req).await
+        }
+        "publish_community_post" => p_communities::__rahti_rpc_publish_community_post(req).await,
+        "change_community_cover" => p_communities::__rahti_rpc_change_community_cover(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -258,7 +266,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: schedule_meeting, create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/settings` [GET, POST] — src/app/settings/page.rs (layouts: src/app/layout.rs)
-/// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community)
+/// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community, create_community_channel, publish_community_post, change_community_cover)
 /// - `/profile-picture` [GET] — src/app/profile-picture/route.rs
 /// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
 /// - `/chat/files/{id}` [GET] — src/app/chat/files/[id]/route.rs

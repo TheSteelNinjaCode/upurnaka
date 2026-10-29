@@ -423,7 +423,7 @@ async fn workspace_search_finds_current_communities_and_focuses_the_result() {
         .goto(&format!("http://{address}/communities"))
         .await
         .unwrap();
-    browser.click("main button").await.unwrap();
+    let _: bool = browser.eval("(Array.from(document.querySelectorAll('main button')).find(button => button.getAttribute('aria-label') === 'Create community') || Array.from(document.querySelectorAll('main button')).find(button => button.textContent.trim() === 'Create your own')).click(); true").await.unwrap();
     browser.click("#community-name").await.unwrap();
     browser
         .type_text("Searchable weekend community")
@@ -441,7 +441,7 @@ async fn workspace_search_finds_current_communities_and_focuses_the_result() {
         .unwrap();
     browser.wait_for("document.querySelector('.global-search-card')?.textContent.includes('Searchable weekend community')").await.unwrap();
     browser.click(".global-search-card").await.unwrap();
-    browser.wait_for("document.querySelector('.global-search-view').hidden && document.activeElement.textContent.includes('Searchable weekend community') && document.activeElement.classList.contains('outline-brand-ink')").await.unwrap();
+    browser.wait_for("document.querySelector('.global-search-view').hidden && document.activeElement.textContent.includes('Searchable weekend community') && document.activeElement.getAttribute('aria-current') === 'page' && document.querySelector('.community-identity-title h2').textContent === 'Searchable weekend community'").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
 

@@ -86,7 +86,10 @@ async fn community_template_edits_and_creates_in_one_step() {
         .await
         .unwrap();
     browser.type_text("A place for our school.").await.unwrap();
-    let _: bool = browser.eval(r##"document.querySelector("button[aria-label='Edit community guidelines']").click(); true"##).await.unwrap();
+    browser
+        .click("button[aria-label='Edit community guidelines']")
+        .await
+        .unwrap();
     browser
         .wait_for("document.activeElement.id === 'community-guidelines'")
         .await
@@ -99,13 +102,20 @@ async fn community_template_edits_and_creates_in_one_step() {
         .type_text("Respect each other and share ideas.")
         .await
         .unwrap();
-    let _: bool = browser.eval(r##"document.querySelector("button[aria-label='Done editing community guidelines']").click(); true"##).await.unwrap();
+    browser
+        .click("button[aria-label='Done editing community guidelines']")
+        .await
+        .unwrap();
     browser.wait_for("document.querySelector('.community-guidelines-preview').textContent === 'Respect each other and share ideas.'").await.unwrap();
     let fits: bool = browser.eval("(() => { const box = document.querySelector('.community-create-dialog').getBoundingClientRect(); return box.top >= 0 && box.left >= 0 && box.bottom <= innerHeight && box.right <= innerWidth; })()").await.unwrap();
     assert!(fits, "creation dialog fits the viewport");
     let _: bool = browser.eval(r##"document.querySelector(".community-create-form button[type=submit]").click(); true"##).await.unwrap();
     browser.wait_for("!document.querySelector('.community-create-dialog[open]') && document.querySelector('main').textContent.includes('A place for our school.')").await.unwrap();
-    browser.wait_for("Array.from(document.querySelectorAll('main [data-slot=card] img')).some(image => !image.hidden && image.naturalWidth === 256)").await.unwrap();
+    browser.wait_for("Array.from(document.querySelectorAll('.community-saved-picture')).some(image => !image.hidden && image.naturalWidth === 256)").await.unwrap();
+    let url: String = browser.eval("location.href").await.unwrap();
+    browser.goto(&url).await.unwrap();
+    browser.wait_for("document.querySelector('.community-nav-item[aria-current=page]')?.textContent.includes('School') && document.querySelector('.community-saved-picture').naturalWidth === 256").await.unwrap();
+    assert!(browser.eval::<bool>("document.querySelector('.community-details-panel').textContent.includes('Respect each other and share ideas.')").await.unwrap());
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
 
@@ -175,4 +185,234 @@ async fn community_details_round_trip_and_reject_invalid_payloads() {
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn communities_channels_posts_and_covers_survive_reload_and_are_private() {
+    use serde_json::json;
+    let mut owner = super::auth::Client::new().await;
+    owner.with_cookie(test_cookie());
+    owner.request("/communities", None).await;
+    let (status, _, body) = owner.request("/communities", Some(("create_community", json!({"name":"Persistent school workspace", "category":"School", "description":"Saved description", "guidelines":"Saved guidelines"})))).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let community: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let id = community["id"].as_str().unwrap();
+    let (status, _, body) = owner
+        .request(
+            "/communities",
+            Some((
+                "create_community_channel",
+                json!({"id":id,"name":"Homework"}),
+            )),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let channel: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        owner
+            .request(
+                "/communities",
+                Some((
+                    "create_community_channel",
+                    json!({"id":id,"name":"Homework"})
+                ))
+            )
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(owner.request("/communities", Some(("publish_community_post", json!({"id":id,"channel":channel["id"],"body":"Saved school announcement", "announcement":true})))).await.0, StatusCode::OK);
+    assert_eq!(
+        owner
+            .request(
+                "/communities",
+                Some((
+                    "change_community_cover",
+                    json!({"id":id,"cover":"lavender"})
+                ))
+            )
+            .await
+            .0,
+        StatusCode::OK
+    );
+    let mut fresh = super::auth::Client::new().await;
+    fresh.with_cookie(test_cookie());
+    let (status, _, body) = fresh
+        .request(&format!("/communities?community={id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    for value in [
+        "Persistent school workspace",
+        "Saved description",
+        "Saved guidelines",
+        "Homework",
+        "Saved school announcement",
+        "lavender",
+    ] {
+        assert!(body.contains(value), "Missing {value}");
+    }
+    let mut other = super::auth::Client::new().await;
+    other.with_cookie(super::support::cookie_for(
+        "other-user",
+        "Other User",
+        "other@example.com",
+    ));
+    let (_, _, body) = other
+        .request(&format!("/communities?community={id}"), None)
+        .await;
+    assert!(!body.contains("Persistent school workspace"));
+    for (name, payload) in [
+        (
+            "create_community_channel",
+            json!({"id":id,"name":"Unauthorized"}),
+        ),
+        (
+            "publish_community_post",
+            json!({"id":id,"channel":"","body":"Unauthorized","announcement":false}),
+        ),
+        ("change_community_cover", json!({"id":id,"cover":"sunset"})),
+    ] {
+        assert_eq!(
+            other.request("/communities", Some((name, payload))).await.0,
+            StatusCode::NOT_FOUND
+        );
+    }
+    let mut anonymous = super::auth::Client::new().await;
+    for name in [
+        "create_community",
+        "create_community_channel",
+        "publish_community_post",
+        "change_community_cover",
+    ] {
+        assert_eq!(
+            anonymous
+                .request("/communities", Some((name, json!({}))))
+                .await
+                .0,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            owner
+                .request("/communities", Some((name, json!({}))))
+                .await
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+    }
+    assert_eq!(
+        owner
+            .request(
+                "/communities",
+                Some((
+                    "publish_community_post",
+                    json!({"id":id,"channel":"missing","body":"Wrong channel","announcement":false})
+                ))
+            )
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        owner
+            .request(
+                "/communities",
+                Some((
+                    "publish_community_post",
+                    json!({"id":id,"channel":"","body":"  ","announcement":false})
+                ))
+            )
+            .await
+            .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(
+        owner
+            .request(
+                "/communities",
+                Some(("change_community_cover", json!({"id":id,"cover":"invalid"})))
+            )
+            .await
+            .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+}
+
+#[tokio::test]
+async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
+    let (status, body) = rpc(
+        "/communities",
+        "create_community",
+        r#"{"name":"Browser school workspace","category":"School"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let community: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    let url = format!(
+        "http://{address}/communities?community={}",
+        community["id"].as_str().unwrap()
+    );
+    browser.goto(&url).await.unwrap();
+    browser.wait_for("document.querySelector('.community-identity-title h2').textContent === 'Browser school workspace'").await.unwrap();
+    browser.click(".community-add-channel").await.unwrap();
+    browser.click("#channel-name").await.unwrap();
+    browser.type_text("Class projects").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-channel-form button[type=submit]').disabled")
+        .await
+        .unwrap();
+    browser
+        .click(".community-channel-form button[type=submit]")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.community-identity-title h2').textContent === 'Class projects'").await.unwrap();
+    browser.click("#community-post-body").await.unwrap();
+    browser
+        .type_text("Our first saved class project.")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-composer button[type=submit]').disabled")
+        .await
+        .unwrap();
+    browser
+        .click(".community-composer button[type=submit]")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('.community-post p')?.textContent === 'Our first saved class project.'").await.unwrap();
+    browser.click(".community-cover-edit").await.unwrap();
+    browser
+        .click(".community-cover-picker button:nth-child(2)")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.community-cover').dataset.cover === 'lavender'")
+        .await
+        .unwrap();
+    browser.goto(&url).await.unwrap();
+    browser
+        .wait_for("document.querySelector('.community-cover').dataset.cover === 'lavender'")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("Array.from(document.querySelectorAll('.community-channel')).find(button => button.textContent === 'Class projects').click(); true").await.unwrap();
+    browser.wait_for("document.querySelector('.community-post p')?.textContent === 'Our first saved class project.'").await.unwrap();
+    browser
+        .click("button[role=tab][aria-controls=community-files]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('#community-files').hidden && document.querySelector('#community-posts').hidden").await.unwrap();
+    browser
+        .click("button[role=tab][aria-controls=community-photos]")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('#community-photos').hidden")
+        .await
+        .unwrap();
+    assert!(browser.eval::<bool>("document.querySelector('.community-detail').getBoundingClientRect().right <= innerWidth + 1").await.unwrap());
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
