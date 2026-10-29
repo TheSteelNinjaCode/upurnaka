@@ -436,6 +436,186 @@ fn community_test_png() -> Vec<u8> {
 }
 
 #[tokio::test]
+async fn channel_creation_limit_is_atomic_and_icons_and_validation_persist() {
+    setup().await;
+    let mut owner = super::auth::Client::new().await;
+    owner.with_cookie(test_cookie());
+    owner.request("/communities", None).await;
+    let (_, created) = community_call(
+        &mut owner,
+        "create_community",
+        json!({"name":"Channel limit workspace","category":"School"}),
+    )
+    .await;
+    let id = created["id"].as_str().unwrap().to_string();
+    for name in ["", "   ", &"x".repeat(61)] {
+        assert_eq!(
+            community_call(
+                &mut owner,
+                "create_community_channel",
+                json!({"id":id,"name":name})
+            )
+            .await
+            .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "create_community_channel",
+            json!({"id":id,"name":"Bad icon","icon":"<script>"})
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let (status, first) = community_call(
+        &mut owner,
+        "create_community_channel",
+        json!({"id":id,"name":"Homework","icon":"📚"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(first["icon"], "📚");
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "create_community_channel",
+            json!({"id":id,"name":"  HOMEWORK  "})
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    let mut requests = Vec::new();
+    for number in 0..8 {
+        let mut client = owner.clone();
+        let id = id.clone();
+        requests.push(tokio::spawn(async move {
+            community_call(
+                &mut client,
+                "create_community_channel",
+                json!({"id":id,"name":format!("Topic {number}")}),
+            )
+            .await
+        }));
+    }
+    let mut accepted = 0;
+    for request in requests {
+        let (status, body) = request.await.unwrap();
+        if status == StatusCode::OK {
+            accepted += 1;
+            assert_eq!(body["icon"], "💬");
+        } else {
+            assert_eq!(status, StatusCode::CONFLICT, "{body}");
+        }
+    }
+    assert_eq!(
+        accepted, 4,
+        "Only the remaining four slots may be created concurrently"
+    );
+    let (status, body) = community_call(
+        &mut owner,
+        "create_community_channel",
+        json!({"id":id,"name":"Sixth channel"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(body.to_string().contains("5 channels"));
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    let saved = crate::models::community_channel::Entity::find()
+        .filter(crate::models::community_channel::Column::CommunityId.eq(&id))
+        .all(crate::db::db())
+        .await
+        .unwrap();
+    assert_eq!(saved.len(), 5);
+    assert!(saved.iter().any(|c| c.name == "Homework" && c.icon == "📚"));
+}
+
+#[tokio::test]
+async fn canceling_channel_dialog_discards_drafts_and_errors_keep_it_open() {
+    let (_, body) = rpc(
+        "/communities",
+        "create_community",
+        r#"{"name":"Channel dialog school","category":"School"}"#,
+    )
+    .await;
+    let created: Value = serde_json::from_str(&body).unwrap();
+    let id = created["id"].as_str().unwrap();
+    for name in ["Existing", "Second", "Third", "Fourth"] {
+        assert_eq!(
+            rpc(
+                "/communities",
+                "create_community_channel",
+                &json!({"id":id,"name":name}).to_string()
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+    }
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/communities?community={id}"))
+        .await
+        .unwrap();
+    browser.click(".community-add-channel").await.unwrap();
+    browser.wait_for("document.querySelector('.community-channel-dialog[open]') && document.activeElement.id === 'channel-name'").await.unwrap();
+    browser.type_text("Canceled draft").await.unwrap();
+    browser
+        .click(".community-channel-footer button[type=button]")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-channel-dialog[open]')")
+        .await
+        .unwrap();
+    assert!(
+        browser
+            .eval::<bool>("document.querySelectorAll('.community-channel').length === 4")
+            .await
+            .unwrap()
+    );
+    browser.click(".community-add-channel").await.unwrap();
+    browser.wait_for("document.querySelector('.community-channel-dialog[open]') && document.querySelector('#channel-name').value === '' && document.querySelector('.community-channel-form button[type=submit]').disabled").await.unwrap();
+    browser.type_text("Existing").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-channel-form button[type=submit]').disabled")
+        .await
+        .unwrap();
+    browser
+        .click(".community-channel-form button[type=submit]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('#community-channel-error').hidden && document.querySelector('#community-channel-error').textContent.includes('already exists')").await.unwrap();
+    assert!(browser.eval::<bool>("document.querySelector('.community-channel-dialog').open && document.querySelector('#channel-name').value === 'Existing'").await.unwrap());
+    browser.click("#channel-name").await.unwrap();
+    let _: bool = browser
+        .eval("document.activeElement.select();true")
+        .await
+        .unwrap();
+    browser.type_text("Fifth").await.unwrap();
+    browser
+        .click(".community-channel-form button[type=submit]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.community-channel-dialog[open]') && document.querySelectorAll('.community-channel').length === 5").await.unwrap();
+    browser.click(".community-add-channel").await.unwrap();
+    browser.wait_for("document.querySelector('.community-channel-dialog[open]') && document.querySelector('.community-channel-form button[type=submit]').disabled && document.querySelector('#community-channel-error').textContent.includes('5 channels')").await.unwrap();
+    browser.press("Escape").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-channel-dialog[open]')")
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn canceling_the_community_image_picker_keeps_the_creation_dialog_open() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
@@ -784,6 +964,21 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
     browser.goto(&url).await.unwrap();
     browser.wait_for("document.querySelector('.community-identity-title h2').textContent === 'Browser school workspace'").await.unwrap();
     browser.click(".community-add-channel").await.unwrap();
+    browser.wait_for("document.querySelector('.community-channel-dialog[open]') && document.activeElement.id === 'channel-name'").await.unwrap();
+    assert!(browser.eval::<bool>("document.querySelector('.community-channel-dialog h2').textContent === 'Create a channel in \"Browser school workspace\"' && document.querySelector('.community-channel-form button[type=submit]').disabled").await.unwrap());
+    browser
+        .click(".community-channel-icon-trigger")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('#popover-channel-icon').matches(':popover-open')")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Use 📚 icon']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('#popover-channel-icon').matches(':popover-open') && document.querySelector('.community-channel-icon-trigger').textContent.includes('📚')").await.unwrap();
     browser.click("#channel-name").await.unwrap();
     browser.type_text("Class projects").await.unwrap();
     browser
@@ -795,6 +990,10 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.community-identity-title h2').textContent === 'Class projects'").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-channel-dialog[open]')")
+        .await
+        .unwrap();
     browser.click("#community-post-body").await.unwrap();
     browser
         .type_text("Our first saved class project.")
@@ -808,7 +1007,8 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .click(".community-composer button[type=submit]")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('.community-post p')?.textContent === 'Our first saved class project.'").await.unwrap();
+    let posted = browser.wait_for("document.querySelector('.community-post p')?.textContent === 'Our first saved class project.'").await;
+    assert!(posted.is_ok(),"{:?}; {}",posted,browser.eval::<String>("JSON.stringify({active:document.activeElement.outerHTML,body:document.querySelector('#community-post-body').value,error:document.querySelector('.community-workspace-error').textContent,posts:Array.from(document.querySelectorAll('.community-post p')).map(p=>p.textContent),dialogs:Array.from(document.querySelectorAll('dialog')).map(d=>({open:d.open,class:d.className}))})").await.unwrap());
     browser.click(".community-cover-edit").await.unwrap();
     browser
         .click(".community-cover-picker button:nth-child(2)")
@@ -823,7 +1023,8 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .wait_for("document.querySelector('.community-cover').dataset.cover === 'lavender'")
         .await
         .unwrap();
-    let _: bool = browser.eval("Array.from(document.querySelectorAll('.community-channel')).find(button => button.textContent === 'Class projects').click(); true").await.unwrap();
+    let _: bool = browser.eval("Array.from(document.querySelectorAll('.community-channel')).find(button => button.textContent.trim().endsWith('Class projects')).click(); true").await.unwrap();
+    assert!(browser.eval::<bool>("Array.from(document.querySelectorAll('.community-channel')).some(button => button.textContent.includes('📚') && button.textContent.includes('Class projects'))").await.unwrap());
     browser.wait_for("document.querySelector('.community-post p')?.textContent === 'Our first saved class project.'").await.unwrap();
     browser
         .click("button[role=tab][aria-controls=community-files]")

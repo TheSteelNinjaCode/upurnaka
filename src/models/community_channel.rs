@@ -8,6 +8,7 @@ pub struct Model {
     pub community_id: String,
     pub name: String,
     pub created_at: i64,
+    pub icon: String,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}

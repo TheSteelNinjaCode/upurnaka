@@ -14,6 +14,7 @@ use crate::components::rahti_ui::dialog::{
 };
 use crate::components::rahti_ui::field::{Field, FieldLabel};
 use crate::components::rahti_ui::input::Input;
+use crate::components::rahti_ui::popover::{Popover, PopoverContent, PopoverTrigger};
 use crate::components::rahti_ui::textarea::Textarea;
 use crate::rahti::{Html, Json, Metadata, Result, RpcFile, Validator, html, rpc};
 
@@ -255,6 +256,8 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                                 aria-current={channelId === channel.id ? "page" : null}
                                                 onclick={selectChannel(channel.id)}
                                             >
+                                                <span aria-hidden="true">{channel.icon}</span>
+                                                " "
                                                 {channel.name}
                                             </button>
                                         </template>
@@ -264,28 +267,12 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         </nav>
                         <button
                             class="community-add-channel"
-                            onclick={setAddingChannel(!addingChannel)}
+                            onclick={openChannelDialog()}
                             hidden={!activeCommunity?.is_owner}
                         >
                             <Icon name="plus" class="size-5" />
                             "Add channel"
                         </button>
-                        <form
-                            class="community-channel-form"
-                            hidden={!addingChannel}
-                            onsubmit={addChannel(event)}
-                        >
-                            <label for="channel-name">"Channel name"</label>
-                            <Input
-                                id="channel-name"
-                                value={channelName}
-                                oninput={setChannelName(target.value)}
-                                attrs=@{Attrs::new().set("maxlength", "60")}
-                            />
-                            <Button attrs=@{submit()} disabled={working || !channelName.trim()}>
-                                "Add"
-                            </Button>
-                        </form>
                     </aside>
                     <section class="community-detail" aria-label="Selected community">
                         <div class="community-cover" data-cover={activeCommunity?.cover || "mint"}>
@@ -318,10 +305,10 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                         class="community-saved-picture"
                                         src={activeCommunity?.picture || "/images/upurnaka-logo.png"}
                                         alt=""
-                                        hidden={!activeCommunity?.picture}
+                                        hidden={!activeCommunity?.picture || !!activeChannel}
                                     />
-                                    <span hidden={!!activeCommunity?.picture}>
-                                        {activeCommunity?.avatar || "👥"}
+                                    <span hidden={!!activeCommunity?.picture && !activeChannel}>
+                                        {activeChannel?.icon || activeCommunity?.avatar || "👥"}
                                     </span>
                                 </span>
                                 <h2>
@@ -498,6 +485,96 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         </div>
                     </section>
                 </div>
+                <Dialog>
+                    <DialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={channelOpener}></span>
+                    </DialogTrigger>
+                    <DialogClose attrs=@{hidden()}>
+                        <span pp-ref={channelCloser}></span>
+                    </DialogClose>
+                    <DialogContent class="community-channel-dialog" hide_close=@{true}>
+                        <DialogHeader>
+                            <DialogTitle>{channelDialogTitle}</DialogTitle>
+                        </DialogHeader>
+                        <form class="community-channel-form" onsubmit={addChannel(event)}>
+                            <label for="channel-name">"Channel name"</label>
+                            <div class="community-channel-identity">
+                                <Popover id="channel-icon">
+                                    <PopoverTrigger
+                                        name="channel-icon"
+                                        class="community-channel-icon-trigger"
+                                        attrs=@{Attrs::new().set("aria-label", "Choose channel icon").set("type", "button")}
+                                    >
+                                        <span hidden={channelIcon !== "💬"}>
+                                            <Icon name="chat" class="size-5" />
+                                        </span>
+                                        <span hidden={channelIcon === "💬"}>{channelIcon}</span>
+                                        <Icon name="chevron-down" class="size-3" />
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                        name="channel-icon"
+                                        class="community-channel-icon-options"
+                                        side="bottom"
+                                        align="start"
+                                    >
+                                        <p>"Choose an icon"</p>
+                                        <div class="community-channel-icon-grid">
+                                            <template pp-for="icon in channelIcons">
+                                                <button
+                                                    key={icon}
+                                                    type="button"
+                                                    aria-label={"Use " + icon + " icon"}
+                                                    aria-pressed={channelIcon === icon}
+                                                    popovertarget="popover-channel-icon"
+                                                    popovertargetaction="hide"
+                                                    onclick={setChannelIcon(icon)}
+                                                >
+                                                    {icon}
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <Input
+                                    id="channel-name"
+                                    name="name"
+                                    placeholder="Give your channel a name"
+                                    value={channelName}
+                                    oninput={setChannelName(target.value)}
+                                    disabled={working}
+                                    attrs=@{Attrs::new().set("maxlength", "60").set("autocomplete", "off").set("autofocus", "").set("aria-describedby", "community-channel-error")}
+                                />
+                            </div>
+                            <p
+                                id="community-channel-error"
+                                class="community-channel-error"
+                                role="alert"
+                                hidden={!channelError && !channelAtLimit}
+                            >
+                                {channelError || "This community already has 5 channels."}
+                            </p>
+                            <footer class="community-channel-footer">
+                                <p>"Owners may add up to 5 channels per community"</p>
+                                <div>
+                                    <Button
+                                        variant="outline"
+                                        onclick={channelCloser.current?.click()}
+                                        attrs=@{Attrs::new().set("type", "button")}
+                                        disabled={working}
+                                    >
+                                        "Cancel"
+                                    </Button>
+                                    <Button
+                                        attrs=@{submit()}
+                                        disabled={working || !channelName.trim() || channelAtLimit}
+                                    >
+                                        {working ? "Adding…" : "Add"}
+                                    </Button>
+                                </div>
+                            </footer>
+                        </form>
+                    </DialogContent>
+                </Dialog>
                 <div
                     id="community-actions-menu"
                     popover="auto"
@@ -1015,7 +1092,28 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-channel { display:block;padding:7px 12px;width:100%;text-align:left;font-size:14px;color:#bbb;border-radius:4px;overflow-wrap:anywhere; }
                     .community-channel[aria-current=page] { color:#b6b0ff;background:#ffffff09; }
                     .community-add-channel { display:flex;align-items:center;gap:12px;margin:20px 12px;color:#a6a0ed;font-size:14px; }
-                    .community-channel-form { display:grid;gap:10px;padding:12px;font-size:13px; }
+                    .community-channel-dialog { width:min(680px,calc(100vw - 32px));max-width:680px;max-height:calc(100dvh - 32px);overflow:auto;border:0;border-radius:10px;padding:28px;background:#292929;gap:28px; }
+                    .community-channel-dialog [data-slot=dialog-title] { font-size:23px;line-height:1.4;font-weight:700; }
+                    .community-channel-form { display:grid;gap:6px;font-size:14px; }
+                    .community-channel-identity { display:flex;gap:12px;align-items:stretch; }
+                    .community-channel-identity > [data-slot=popover] { flex-shrink:0; }
+                    .community-channel-icon-trigger { display:flex;align-items:center;justify-content:center;gap:8px;height:38px;min-width:66px;padding:6px 10px;border:1px solid #aaa;border-radius:4px;background:#222;color:#eee;font-size:19px; }
+                    .community-channel-identity input { min-width:0;height:38px;flex:1;border:1px solid transparent;border-radius:4px;background:#202020;padding:8px 12px;font-size:15px;box-shadow:none; }
+                    .community-channel-identity input:focus-visible { outline:2px solid #a6a0ff;outline-offset:1px; }
+                    .community-channel-identity input::placeholder { color:#aaa; }
+                    .community-channel-icon-options { width:224px;padding:12px;background:#292929;border:1px solid #555; }
+                    .community-channel-icon-options > p { color:#ccc;font-size:13px;margin-bottom:8px; }
+                    .community-channel-icon-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:6px; }
+                    .community-channel-icon-grid button { display:grid;place-items:center;padding:7px;border-radius:4px;border:1px solid transparent;font-size:22px; }
+                    .community-channel-icon-grid button:hover,.community-channel-icon-grid button[aria-pressed=true] { background:#47434f;border-color:#aaa0ef; }
+                    .community-channel-footer { display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:20px; }
+                    .community-channel-footer > p { max-width:285px;color:#ddd;font-size:15px;line-height:1.45; }
+                    .community-channel-footer > div { display:flex;gap:10px; }
+                    .community-channel-footer button { min-width:108px;height:36px;font-size:14px; }
+                    .community-channel-footer button[type=button] { background:transparent;border:1px solid #555; }
+                    .community-channel-footer button[type=submit]:disabled { background:#171717;color:#777;opacity:1; }
+                    .community-channel-error { color:#ffbaba;font-size:13px;line-height:1.5;margin-top:8px; }
+                    @media(max-width:540px) { .community-channel-dialog { padding:22px; } .community-channel-dialog [data-slot=dialog-title] { font-size:20px; } .community-channel-footer { align-items:stretch;flex-direction:column; } .community-channel-footer > div { justify-content:flex-end; } }
                     .community-detail { min-width:0;background:#262626;border-radius:12px 0 0 0;margin:10px 0 0;overflow:hidden; }
                     .community-cover { position:relative;height:clamp(160px,22vw,280px);margin:12px 12px 0;overflow:hidden;border-radius:8px;background:#bfe9d0; }
                     .community-cover[data-cover=lavender] { background:#d2c9f4; }
@@ -1039,7 +1137,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-composer-heading { display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;color:#ddd; }
                     .community-author-avatar { width:36px;height:36px;display:grid;place-items:center;flex-shrink:0;border-radius:50%;background:#d2dce9;color:#35445c;font-size:13px; }
                     .community-composer textarea { width:100%;min-height:66px;resize:vertical;padding:14px 0 8px;outline:none;background:transparent;font-size:14px; }
-                    .community-composer textarea:focus { min-height:110px; }
+                    .community-composer:focus-within textarea,.community-composer textarea:not(:placeholder-shown) { min-height:110px; }
                     .community-composer-actions { display:flex;align-items:center;gap:22px; }
                     .community-composer-actions > button[type=button] { color:#ddd;font-size:14px;padding:8px; }
                     .community-composer-actions > button[aria-pressed=true] { color:#b6b0ff; }
@@ -1113,8 +1211,20 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         event.preventDefault(); setActiveTab(tabs[index]);
                         [postsTab, filesTab, photosTab][index].current?.focus();
                     }
-                    const [addingChannel, setAddingChannel] = pp.state(false);
                     const [channelName, setChannelName] = pp.state('');
+                    const [channelIcon, setChannelIcon] = pp.state('💬');
+                    const [channelError, setChannelError] = pp.state('');
+                    const [channelCommunityId, setChannelCommunityId] = pp.state('');
+                    const channelOpener = pp.ref(null), channelCloser = pp.ref(null);
+                    const channelIcons = @{Json(&communities::CHANNEL_ICONS)};
+                    const channelCommunity = communities.find(c=>c.id===channelCommunityId) || null;
+                    const channelDialogTitle = 'Create a channel in "' + (channelCommunity?.name || '') + '"';
+                    const channelAtLimit = (channelCommunity?.channels.length || 0) >= 5;
+                    function openChannelDialog() {
+                        if (!activeCommunity?.is_owner || working) return;
+                        setChannelCommunityId(activeCommunity.id); setChannelName(''); setChannelIcon('💬'); setChannelError('');
+                        channelOpener.current?.click();
+                    }
                     const [postDraft, setPostDraft] = pp.state('');
                     const [announcement, setAnnouncement] = pp.state(false);
                     const [coverPicker, setCoverPicker] = pp.state(false);
@@ -1237,19 +1347,21 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         catch(failure){setNotice(failure.message);}finally{setWorking(false);}
                     }
                     function selectCommunity(id) {
-                        setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false); setCoverPicker(false); setAddingChannel(false);
+                        setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false); setCoverPicker(false);
                         const url = new URL(location.href); url.searchParams.set('community', id); history.replaceState(null, '', url);
                     }
                     function selectChannel(id) { setChannelId(id); setActiveTab('posts'); setPostDraft(''); setWorkspaceError(''); }
                     function updateCommunity(id, changes) { setCommunities(current => current.map(c => c.id === id ? {...c, ...changes(c)} : c)); }
                     async function addChannel(event) {
-                        event.preventDefault(); if (working || !channelName.trim()) return;
-                        setWorking(true); setWorkspaceError(''); const id = selectedCommunity;
+                        event.preventDefault(); if (working || channelAtLimit) return;
+                        const fields = Object.fromEntries(new FormData(event.currentTarget));
+                        const name = String(fields.name || '').trim(); if (!name) return;
+                        setWorking(true); setChannelError(''); const id = channelCommunityId;
                         try {
-                            const channel = await pp.rpc('create_community_channel', {id, name:channelName});
+                            const channel = await pp.rpc('create_community_channel', {id, name, icon:channelIcon});
                             updateCommunity(id, c => ({channels:[...c.channels, channel]}));
-                            if (id === selectedCommunity) { setChannelName(''); setAddingChannel(false); selectChannel(channel.id); }
-                        } catch (failure) { setWorkspaceError(failure.message || 'The channel could not be saved.'); }
+                            channelCloser.current?.click(); selectCommunity(id); selectChannel(channel.id);
+                        } catch (failure) { setChannelError(failure.body?.error || failure.message || 'The channel could not be saved.'); }
                         finally { setWorking(false); }
                     }
                     async function publishPost(event) {
@@ -1484,8 +1596,12 @@ pub async fn create_community(
 }
 
 #[rpc(auth)]
-pub async fn create_community_channel(id: String, name: String) -> Result<communities::Channel> {
-    communities::add_channel(id, name).await
+pub async fn create_community_channel(
+    id: String,
+    name: String,
+    icon: Option<String>,
+) -> Result<communities::Channel> {
+    communities::add_channel(id, name, icon.unwrap_or_else(|| "💬".into())).await
 }
 #[rpc(auth)]
 pub async fn publish_community_post(

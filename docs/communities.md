@@ -4,6 +4,13 @@ The community row opens its main feed. The sidebar lists only channels people
 explicitly create; there is no synthetic General channel. Main-feed posts retain
 an empty `channel_id`, so removing that sidebar row does not move or delete posts.
 
+Add channel opens an owner-only modal with a name, an emoji selector, and
+Cancel/Add actions. The icon is stored separately from the channel name.
+Blank names, names longer than 60 characters, and case-insensitive duplicates
+are refused. Each community permits five channels. Creation locks the community
+row and performs the count and insert in one transaction, so simultaneous
+requests cannot exceed that limit. Existing channels are preserved by upgrades.
+
 The community's three-dot menu follows Teams Free's action order. Edits retain
 the existing image unless a replacement is uploaded or removal is selected.
 Notification preferences are saved per account and community; they do not

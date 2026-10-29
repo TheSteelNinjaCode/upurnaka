@@ -11,7 +11,7 @@ use axum::http::StatusCode;
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::Set,
-    ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder, TransactionTrait,
+    ColumnTrait, Condition, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, TransactionTrait,
     sea_query::{Expr, OnConflict},
 };
 use serde::Serialize;
@@ -20,7 +20,11 @@ use serde::Serialize;
 pub struct Channel {
     pub id: String,
     pub name: String,
+    pub icon: String,
 }
+pub const CHANNEL_ICONS: &[&str] = &[
+    "💬", "📢", "🎓", "📚", "💡", "🗓️", "🎨", "⚽", "🌱", "💻", "🎵", "🚀",
+];
 #[derive(Clone, Serialize)]
 pub struct Post {
     pub id: String,
@@ -122,6 +126,7 @@ async fn shown(row: row::Model) -> Result<Community> {
         .map(|c| Channel {
             id: c.id,
             name: c.name,
+            icon: c.icon,
         })
         .collect();
     let rows = post::Entity::find()
@@ -209,19 +214,57 @@ pub async fn save(community: Community) -> Result<Community> {
 pub fn new_id() -> String {
     id()
 }
-pub async fn add_channel(community: String, name: String) -> Result<Channel> {
+pub async fn add_channel(community: String, name: String, icon: String) -> Result<Channel> {
     let name = name.trim().to_string();
     let mut v = Validator::new();
-    v.required("name", &name).max_chars("name", &name, 60);
+    v.required("name", &name)
+        .max_chars("name", &name, 60)
+        .one_of("icon", &icon.as_str(), CHANNEL_ICONS);
     v.finish()?;
     owned(&community).await?;
+    let transaction = db::db().begin().await?;
+    // Serialize count and insert across processes on both supported databases.
+    let locked = row::Entity::update_many()
+        .col_expr(row::Column::Name, Expr::col(row::Column::Name).into())
+        .filter(row::Column::Id.eq(&community))
+        .filter(row::Column::OwnerId.eq(owner()?))
+        .filter(row::Column::DeletedAt.is_null())
+        .exec(&transaction)
+        .await?;
+    if locked.rows_affected != 1 {
+        return Err(Error::new(StatusCode::NOT_FOUND, "Community not found."));
+    }
+    if channel::Entity::find()
+        .filter(channel::Column::CommunityId.eq(&community))
+        .count(&transaction)
+        .await?
+        >= 5
+    {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            "Owners may add up to 5 channels per community.",
+        ));
+    }
+    if channel::Entity::find()
+        .filter(channel::Column::CommunityId.eq(&community))
+        .all(&transaction)
+        .await?
+        .iter()
+        .any(|c| c.name.to_lowercase() == name.to_lowercase())
+    {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            "A channel with this name already exists.",
+        ));
+    }
     let row = channel::ActiveModel {
         id: Set(id()),
         community_id: Set(community),
         name: Set(name),
         created_at: Set(crate::rahti::time::now().timestamp_micros()),
+        icon: Set(icon),
     }
-    .insert(db::db())
+    .insert(&transaction)
     .await
     .map_err(|e| {
         if e.sql_err()
@@ -235,9 +278,11 @@ pub async fn add_channel(community: String, name: String) -> Result<Channel> {
             Error::from(e)
         }
     })?;
+    transaction.commit().await?;
     Ok(Channel {
         id: row.id,
         name: row.name,
+        icon: row.icon,
     })
 }
 pub async fn publish(
