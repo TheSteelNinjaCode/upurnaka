@@ -145,7 +145,11 @@ pub async fn page() -> Result {
                                     href="/calendar?new=1"
                                     class="min-h-10 text-[14px]"
                                 >
-                                    <Icon name="people" class="size-5 text-brand-ink" />
+                                    <img
+                                        src="/images/upurnaka-logo.png"
+                                        alt=""
+                                        class="size-5 shrink-0 object-contain"
+                                    />
                                     "Schedule in Upurnaka"
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
@@ -153,12 +157,11 @@ pub async fn page() -> Result {
                                     class="min-h-10 text-[14px]"
                                     attrs=@{Attrs::new().set("target", "_blank").set("rel", "noopener noreferrer")}
                                 >
-                                    <span
-                                        aria-hidden="true"
-                                        class="grid size-5 place-items-center rounded-sm bg-white text-[11px] font-semibold text-[#4285f4]"
-                                    >
-                                        "31"
-                                    </span>
+                                    <img
+                                        src="/images/google-calendar.png"
+                                        alt=""
+                                        class="size-5 shrink-0 object-contain"
+                                    />
                                     "Schedule in Google Calendar"
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
