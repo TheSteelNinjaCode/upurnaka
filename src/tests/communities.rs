@@ -1051,7 +1051,7 @@ async fn communities_channels_posts_and_covers_survive_reload_and_are_private() 
             .0,
         StatusCode::CONFLICT
     );
-    assert_eq!(owner.request("/communities", Some(("publish_community_post", json!({"id":id,"channel":channel["id"],"body":"Saved school announcement", "announcement":true})))).await.0, StatusCode::OK);
+    assert_eq!(owner.request("/communities", Some(("publish_community_post", json!({"id":id,"channel":channel["id"],"body":"Saved school announcement", "announcement":true, "headline":"Saved headline", "accent":"teal"})))).await.0, StatusCode::OK);
     assert_eq!(
         owner
             .request(
@@ -1165,6 +1165,60 @@ async fn communities_channels_posts_and_covers_survive_reload_and_are_private() 
             .0,
         StatusCode::UNPROCESSABLE_ENTITY
     );
+    for (payload, field) in [
+        (
+            json!({"id":id,"channel":"","body":"No headline","announcement":true}),
+            "headline",
+        ),
+        (
+            json!({"id":id,"channel":"","body":"Bad color","announcement":true,"headline":"Hi","accent":"neon"}),
+            "accent",
+        ),
+        (
+            json!({"id":id,"channel":"","body":"Plain","announcement":false,"headline":"Stray"}),
+            "headline",
+        ),
+        (
+            json!({"id":id,"channel":"","body":"Text","announcement":false,"formatting":[{"kind":"paragraph","runs":[{"text":"Different"}]}]}),
+            "formatting",
+        ),
+        (
+            json!({"id":id,"channel":"","body":"Text","announcement":false,"formatting":[{"kind":"paragraph","runs":[{"text":"Text","link":"javascript:alert(1)"}]}]}),
+            "formatting",
+        ),
+    ] {
+        let (status, _, body) = owner
+            .request("/communities", Some(("publish_community_post", payload)))
+            .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+        assert!(body.contains(field), "{body}");
+    }
+    let (status, _, body) = owner
+        .request(
+            "/communities",
+            Some((
+                "publish_community_post",
+                json!({"id":id,"channel":"","body":"","announcement":false,"subject":"Subject only"}),
+            )),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, _, body) = owner
+        .request(
+            "/communities",
+            Some((
+                "publish_community_post",
+                json!({"id":id,"channel":"","body":"Bold move","announcement":false,"formatting":[{"kind":"bullet","runs":[{"text":"Bold","bold":true},{"text":" move"}]}]}),
+            )),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (_, _, page) = owner
+        .request(&format!("/communities?community={id}"), None)
+        .await;
+    for value in ["Subject only", "Saved headline", "teal", "bullet"] {
+        assert!(page.contains(value), "Missing {value}");
+    }
     let (status, _, body) = owner
         .request(
             "/communities",
@@ -1243,21 +1297,77 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .wait_for("!document.querySelector('.community-channel-dialog[open]')")
         .await
         .unwrap();
-    browser.click("#community-post-body").await.unwrap();
     browser
-        .type_text("Our first saved class project.")
+        .click(".community-compose-mode[data-primary]")
         .await
         .unwrap();
     browser
-        .wait_for("!document.querySelector('.community-composer button[type=submit]').disabled")
+        .wait_for("!document.querySelector('.community-composer-expanded').hidden && document.querySelector('.community-rich-host .ProseMirror') !== null")
+        .await
+        .unwrap();
+    assert!(
+        browser
+            .eval::<bool>(
+                "document.querySelector('.community-composer-footer button[type=submit]').disabled"
+            )
+            .await
+            .unwrap()
+    );
+    browser.click("input[aria-label=Subject]").await.unwrap();
+    browser.type_text("Projects").await.unwrap();
+    browser
+        .click(".community-rich-host .ProseMirror")
+        .await
+        .unwrap();
+    browser.type_text("Our first ").await.unwrap();
+    browser
+        .click(".community-format-toolbar button[aria-label=Bold]")
+        .await
+        .unwrap();
+    browser.type_text("saved").await.unwrap();
+    browser
+        .click(".community-format-toolbar button[aria-label=Bold]")
+        .await
+        .unwrap();
+    browser.type_text(" class project.").await.unwrap();
+    browser
+        .wait_for(
+            "!document.querySelector('.community-composer-footer button[type=submit]').disabled",
+        )
         .await
         .unwrap();
     browser
-        .click(".community-composer button[type=submit]")
+        .click(".community-composer-footer button[type=submit]")
         .await
         .unwrap();
-    let posted = browser.wait_for("document.querySelector('.community-post p')?.textContent === 'Our first saved class project.'").await;
-    assert!(posted.is_ok(),"{:?}; {}",posted,browser.eval::<String>("JSON.stringify({active:document.activeElement.outerHTML,body:document.querySelector('#community-post-body').value,error:document.querySelector('.community-workspace-error').textContent,posts:Array.from(document.querySelectorAll('.community-post p')).map(p=>p.textContent),dialogs:Array.from(document.querySelectorAll('dialog')).map(d=>({open:d.open,class:d.className}))})").await.unwrap());
+    let posted = browser.wait_for("document.querySelector('.community-post .community-rich-message')?.innerText.trim() === 'Our first saved class project.' && document.querySelector('.community-post .community-rich-message .font-bold')?.innerText === 'saved' && document.querySelector('.community-post-subject').textContent.trim() === 'Projects' && document.querySelector('.community-composer').dataset.mode === 'collapsed'").await;
+    assert!(posted.is_ok(),"{:?}; {}",posted,browser.eval::<String>("JSON.stringify({error:document.querySelector('.community-compose-error').textContent,html:document.querySelector('.community-post .community-rich-message')?.innerHTML,hidden:document.querySelector('.community-post .community-rich-message')?.hidden,mode:document.querySelector('.community-composer').dataset.mode,posts:Array.from(document.querySelectorAll('.community-post')).map(p=>p.innerText)})").await.unwrap());
+    browser
+        .click(".community-compose-mode:not([data-primary])")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-announcement-banner').hidden && document.activeElement.getAttribute('aria-label') === 'Headline'")
+        .await
+        .unwrap();
+    browser.type_text("Science fair").await.unwrap();
+    browser.click(".community-accent-button").await.unwrap();
+    browser
+        .click(".community-accent-palette button[value=green]")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.community-announcement-banner').dataset.accent === 'green' && document.querySelector('.community-accent-palette').hidden")
+        .await
+        .unwrap();
+    browser
+        .click(".community-composer-footer button[type=submit]")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.community-post .community-post-banner h3')?.textContent === 'Science fair' && document.querySelector('.community-post .community-post-banner').dataset.accent === 'green'")
+        .await
+        .unwrap();
     browser.click(".community-cover-edit").await.unwrap();
     browser
         .wait_for("document.querySelector('.community-banner-dialog[open]') && document.querySelectorAll('.community-banner-choice:not([hidden])').length === 11")
@@ -1287,7 +1397,7 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .unwrap();
     let _: bool = browser.eval("Array.from(document.querySelectorAll('.community-channel')).find(button => button.textContent.trim().endsWith('Class projects')).click(); true").await.unwrap();
     assert!(browser.eval::<bool>("Array.from(document.querySelectorAll('.community-channel')).some(button => button.textContent.includes('📚') && button.textContent.includes('Class projects'))").await.unwrap());
-    browser.wait_for("document.querySelector('.community-post p')?.textContent === 'Our first saved class project.'").await.unwrap();
+    browser.wait_for("Array.from(document.querySelectorAll('.community-post .community-rich-message')).some(message => message.innerText.trim() === 'Our first saved class project.')").await.unwrap();
     browser
         .click("button[role=tab][aria-controls=community-files]")
         .await

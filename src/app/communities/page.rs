@@ -7,6 +7,7 @@ use serde::Deserialize;
 use crate::components::app_shell::AppShell;
 use crate::components::aria::{hidden, submit};
 use crate::components::channel_emoji_picker::ChannelEmojiPicker;
+use crate::components::fluent_emoji_grid::FluentEmojiGrid;
 use crate::components::icon::Icon;
 use crate::components::rahti_ui::attrs::Attrs;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
@@ -75,6 +76,16 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
         .map(|key| BannerChoice {
             key,
             label: banner_label(key),
+        })
+        .collect();
+    let user = crate::auth::current().unwrap_or_default();
+    let initials = user.initials();
+    let author = user.name.clone();
+    let compose_emojis: Vec<_> = crate::emoji::catalog()
+        .iter()
+        .take(48)
+        .map(|emoji| {
+            rahti::serde_json::json!({"symbol": emoji.glyph, "name": emoji.name, "image": emoji.image})
         })
         .collect();
     let cancel_link = button_variants(
@@ -438,35 +449,409 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             class="community-content"
                             hidden={activeTab !== "posts"}
                         >
-                            <form class="community-composer" onsubmit={publishPost(event)}>
-                                <label for="community-post-body" class="community-composer-heading">
-                                    <span class="community-author-avatar">
-                                        @{crate::auth::current().map(|u| u.initials()).unwrap_or_default()}
-                                    </span>
-                                    "Post in channel"
-                                </label>
-                                <textarea
-                                    id="community-post-body"
-                                    placeholder="Share something with your community…"
-                                    maxlength="5000"
-                                    value={postDraft}
-                                    oninput={setPostDraft(target.value)}
-                                >
-                                </textarea>
-                                <div class="community-composer-actions">
-                                    <Button
-                                        attrs=@{submit()}
-                                        disabled={working || !postDraft.trim()}
-                                    >
-                                        {working ? "Posting…" : announcement ? "Post announcement" : "Post"}
-                                    </Button>
+                            <form
+                                class="community-composer"
+                                data-mode={composeMode || "collapsed"}
+                                onsubmit={publishPost(event)}
+                                onkeydown={handleComposerKey(event)}
+                            >
+                                <div class="community-composer-collapsed" hidden={!!composeMode}>
                                     <button
                                         type="button"
-                                        aria-pressed={announcement}
-                                        onclick={setAnnouncement(!announcement)}
+                                        class="community-composer-heading"
+                                        onclick={openComposer("post")}
                                     >
-                                        "◁ Announcement"
+                                        <span class="community-author-avatar">
+                                            @{initials.as_str()}
+                                        </span>
+                                        "Post in channel"
                                     </button>
+                                    <div class="community-compose-modes">
+                                        <button
+                                            type="button"
+                                            class="community-compose-mode"
+                                            data-primary="true"
+                                            onclick={openComposer("post")}
+                                        >
+                                            <Icon name="compose" class="size-4" />
+                                            "Post"
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="community-compose-mode"
+                                            onclick={openComposer("announcement")}
+                                        >
+                                            <Icon name="announcement" class="size-4" />
+                                            "Announcement"
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="community-composer-expanded" hidden={!composeMode}>
+                                    <header class="community-composer-author">
+                                        <span class="community-author-avatar">
+                                            @{initials.as_str()}
+                                        </span>
+                                        <strong>@{author.as_str()}</strong>
+                                        <button
+                                            type="button"
+                                            class="community-composer-close"
+                                            aria-label="Discard post"
+                                            title="Discard post"
+                                            onclick={closeComposer()}
+                                            disabled={working}
+                                        >
+                                            <Icon name="close" class="size-5" />
+                                        </button>
+                                    </header>
+                                    <input
+                                        class="community-compose-line"
+                                        aria-label="Subject"
+                                        placeholder="Add a subject"
+                                        maxlength="200"
+                                        autocomplete="off"
+                                        value={postSubject}
+                                        oninput={setPostSubject(target.value)}
+                                        hidden={composeMode !== "post"}
+                                        disabled={working}
+                                        pp-ref={subjectInput}
+                                    />
+                                    <div
+                                        class="community-announcement-banner"
+                                        data-accent={postAccent}
+                                        hidden={composeMode !== "announcement"}
+                                    >
+                                        <input
+                                            aria-label="Headline"
+                                            placeholder="Type a headline"
+                                            maxlength="100"
+                                            autocomplete="off"
+                                            value={postHeadline}
+                                            oninput={setPostHeadline(target.value)}
+                                            disabled={working}
+                                            pp-ref={headlineInput}
+                                        />
+                                        <button
+                                            type="button"
+                                            class="community-accent-button"
+                                            aria-label="Change announcement color"
+                                            title="Change announcement color"
+                                            aria-expanded={accentOpen}
+                                            onclick={setAccentOpen(!accentOpen)}
+                                            disabled={working}
+                                        >
+                                            <span data-accent={postAccent}></span>
+                                        </button>
+                                        <div
+                                            class="community-accent-palette"
+                                            role="radiogroup"
+                                            aria-label="Announcement color"
+                                            hidden={!accentOpen}
+                                        >
+                                            <template pp-for="color in accents">
+                                                <button
+                                                    key={color}
+                                                    type="button"
+                                                    role="radio"
+                                                    data-accent={color}
+                                                    value={color}
+                                                    aria-label={color}
+                                                    title={color}
+                                                    aria-checked={postAccent === color}
+                                                    onclick={chooseAccent(event)}
+                                                >
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <input
+                                        class="community-compose-line"
+                                        aria-label="Subheading"
+                                        placeholder="Add a subheading"
+                                        maxlength="200"
+                                        autocomplete="off"
+                                        value={postSubheading}
+                                        oninput={setPostSubheading(target.value)}
+                                        hidden={composeMode !== "announcement"}
+                                        disabled={working}
+                                    />
+                                    <div
+                                        class="community-format-toolbar"
+                                        role="toolbar"
+                                        aria-label="Formatting options"
+                                    >
+                                        <button
+                                            type="button"
+                                            aria-label="Bold"
+                                            title="Bold (Ctrl+B)"
+                                            aria-pressed={!!activeFormats.strong}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={formatText("strong")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="bold" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Italic"
+                                            title="Italic (Ctrl+I)"
+                                            aria-pressed={!!activeFormats.em}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={formatText("em")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="italic" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Underline"
+                                            title="Underline (Ctrl+U)"
+                                            aria-pressed={!!activeFormats.underline}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={formatText("underline")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="underline" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Strikethrough"
+                                            title="Strikethrough"
+                                            aria-pressed={!!activeFormats.strike}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={formatText("strike")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="strikethrough" class="size-4" />
+                                        </button>
+                                        <span class="community-toolbar-divider" aria-hidden="true">
+                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-label="Bulleted list"
+                                            title="Bulleted list"
+                                            aria-pressed={!!activeFormats.bullet_list}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={formatText("bullet_list")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="list" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Numbered list"
+                                            title="Numbered list"
+                                            aria-pressed={!!activeFormats.ordered_list}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={formatText("ordered_list")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="list-ordered" class="size-4" />
+                                        </button>
+                                        <span class="community-toolbar-divider" aria-hidden="true">
+                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-label="Highlight"
+                                            title="Highlight"
+                                            aria-expanded={stylePanel === "highlight"}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={toggleStylePanel("highlight")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="highlight" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Font color"
+                                            title="Font color"
+                                            aria-expanded={stylePanel === "color"}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={toggleStylePanel("color")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="font-color" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Font size"
+                                            title="Font size"
+                                            aria-expanded={stylePanel === "size"}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={toggleStylePanel("size")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="font-size" class="size-4" />
+                                        </button>
+                                        <span class="community-toolbar-divider" aria-hidden="true">
+                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-label="Quote"
+                                            title="Quote"
+                                            aria-pressed={!!activeFormats.blockquote}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={formatText("blockquote")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="quote" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Insert link"
+                                            title="Insert link"
+                                            aria-expanded={stylePanel === "link"}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={openLink()}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="link" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Code snippet"
+                                            title="Code snippet"
+                                            aria-pressed={!!activeFormats.code_block}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={formatText("code_block")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="code" class="size-4" />
+                                        </button>
+                                        <span class="community-toolbar-divider" aria-hidden="true">
+                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-label="Announcement"
+                                            title="Announcement"
+                                            aria-pressed={composeMode === "announcement"}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={toggleAnnouncement()}
+                                            disabled={working}
+                                        >
+                                            <Icon name="announcement" class="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="More options"
+                                            title="More options"
+                                            aria-expanded={stylePanel === "more"}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={toggleStylePanel("more")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="more" class="size-4" />
+                                        </button>
+                                    </div>
+                                    <div class="community-style-panel" hidden={!stylePanel}>
+                                        <div
+                                            hidden={stylePanel !== "highlight" && stylePanel !== "color"}
+                                        >
+                                            <template pp-for="swatch in shownSwatches">
+                                                <button
+                                                    key={swatch.value}
+                                                    type="button"
+                                                    class="community-swatch"
+                                                    value={swatch.value}
+                                                    aria-label={swatch.label}
+                                                    title={swatch.label}
+                                                    pp-style={"background:" + swatch.value}
+                                                    onmousedown={event.preventDefault()}
+                                                    onclick={applySwatch(event)}
+                                                >
+                                                </button>
+                                            </template>
+                                        </div>
+                                        <div hidden={stylePanel !== "size"}>
+                                            <button
+                                                type="button"
+                                                class="community-style-option"
+                                                onmousedown={event.preventDefault()}
+                                                onclick={applyStyle("size", "small")}
+                                            >
+                                                "Small"
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="community-style-option"
+                                                onmousedown={event.preventDefault()}
+                                                onclick={applyStyle("size", "normal")}
+                                            >
+                                                "Medium"
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="community-style-option"
+                                                onmousedown={event.preventDefault()}
+                                                onclick={applyStyle("size", "large")}
+                                            >
+                                                "Large"
+                                            </button>
+                                        </div>
+                                        <div hidden={stylePanel !== "link"}>
+                                            <input
+                                                type="url"
+                                                aria-label="Link address"
+                                                placeholder="https://example.com"
+                                                value={linkUrl}
+                                                oninput={setLinkUrl(target.value)}
+                                                onkeydown={handleLinkKey(event)}
+                                                pp-ref={linkInput}
+                                            />
+                                            <button
+                                                type="button"
+                                                class="community-style-option"
+                                                onclick={saveLink()}
+                                            >
+                                                "Insert"
+                                            </button>
+                                        </div>
+                                        <div hidden={stylePanel !== "more"}>
+                                            <button
+                                                type="button"
+                                                class="community-style-option"
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatText("clear")}
+                                            >
+                                                "Clear formatting"
+                                            </button>
+                                        </div>
+                                        <div
+                                            class="community-compose-emoji"
+                                            hidden={stylePanel !== "emoji"}
+                                        >
+                                            <FluentEmojiGrid
+                                                items={composeEmojis}
+                                                select={insertEmoji}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div class="community-rich-host">
+                                        <div pp-ref={editorHost}></div>
+                                        <p hidden={editorReady}>"Loading editor…"</p>
+                                    </div>
+                                    <p
+                                        class="community-compose-error"
+                                        role="alert"
+                                        hidden={!composeError}
+                                    >
+                                        {composeError}
+                                    </p>
+                                    <footer class="community-composer-footer">
+                                        <button
+                                            type="button"
+                                            aria-label="Emoji"
+                                            title="Emoji"
+                                            aria-expanded={stylePanel === "emoji"}
+                                            onmousedown={event.preventDefault()}
+                                            onclick={toggleStylePanel("emoji")}
+                                            disabled={working || !editorReady}
+                                        >
+                                            <Icon name="emoji" class="size-5" />
+                                        </button>
+                                        <Button attrs=@{submit()} disabled={working || !canPost}>
+                                            {working ? "Posting…" : "Post"}
+                                        </Button>
+                                    </footer>
                                 </div>
                             </form>
                             <section class="community-setup" hidden={activePosts.length > 0}>
@@ -492,8 +877,62 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                         <strong>{post.author_name}</strong>
                                         <time>{new Date(post.created_at).toLocaleString()}</time>
                                     </header>
-                                    <h3 hidden={!post.announcement}>"Announcement"</h3>
-                                    <p>{post.body}</p>
+                                    <div
+                                        class="community-post-banner"
+                                        data-accent={post.accent || "blue"}
+                                        hidden={!post.announcement}
+                                    >
+                                        <h3>{post.headline || "Announcement"}</h3>
+                                    </div>
+                                    <div
+                                        class="community-post-subheading"
+                                        hidden={!post.subheading}
+                                    >
+                                        {post.subheading}
+                                    </div>
+                                    <h3 class="community-post-subject" hidden={!post.subject}>
+                                        {post.subject}
+                                    </h3>
+                                    <p hidden={!!post.formatting || !post.body}>{post.body}</p>
+                                    <div class="community-rich-message" hidden={!post.formatting}>
+                                        <template
+                                            pp-for="(line, lineIndex) in post.formatting || []"
+                                        >
+                                            <div key={lineIndex} class={postLineClass(line.kind)}>
+                                                <span
+                                                    hidden={line.kind !== "bullet"}
+                                                    aria-hidden="true"
+                                                >
+                                                    "• "
+                                                </span>
+                                                <span
+                                                    hidden={line.kind !== "ordered"}
+                                                    aria-hidden="true"
+                                                >
+                                                    {postListNumber(post.formatting, lineIndex)}
+                                                    ". "
+                                                </span>
+                                                <template pp-for="(run, runIndex) in line.runs">
+                                                    <span
+                                                        key={runIndex}
+                                                        class={postRunClass(run)}
+                                                        pp-style={postRunStyle(run)}
+                                                    >
+                                                        <a
+                                                            href={run.link || "#"}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            hidden={!run.link}
+                                                        >
+                                                            {run.text}
+                                                        </a>
+                                                        <span hidden={!!run.link}>{run.text}</span>
+                                                    </span>
+                                                </template>
+                                                <br hidden={line.runs.length > 0} />
+                                            </div>
+                                        </template>
+                                    </div>
                                 </article>
                             </template>
                         </div>
@@ -1228,11 +1667,74 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-composer,.community-post { border:1px solid #222;border-radius:8px;background:#282828;padding:18px;box-shadow:0 2px 4px #0003; }
                     .community-composer-heading { display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;color:#ddd; }
                     .community-author-avatar { width:36px;height:36px;display:grid;place-items:center;flex-shrink:0;border-radius:50%;background:#d2dce9;color:#35445c;font-size:13px; }
-                    .community-composer textarea { width:100%;min-height:66px;resize:vertical;padding:14px 0 8px;outline:none;background:transparent;font-size:14px; }
-                    .community-composer:focus-within textarea,.community-composer textarea:not(:placeholder-shown) { min-height:110px; }
-                    .community-composer-actions { display:flex;align-items:center;gap:22px; }
-                    .community-composer-actions > button[type=button] { color:#ddd;font-size:14px;padding:8px; }
-                    .community-composer-actions > button[aria-pressed=true] { color:#b6b0ff; }
+                    .community-composer { padding:0; }
+                    .community-composer-collapsed { padding:14px 16px 12px; }
+                    .community-composer-heading { width:100%;text-align:left;border-radius:6px;padding:2px 0; }
+                    .community-compose-modes { display:flex;gap:16px;margin-top:16px; }
+                    .community-compose-mode { display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 24px;border-radius:4px;font-size:14px;font-weight:600;color:#fff; }
+                    .community-compose-mode svg { color:#d6d6d6; }
+                    .community-compose-mode[data-primary] { background:#333;color:#a7acf4; }
+                    .community-compose-mode[data-primary] svg { color:#a7acf4; }
+                    .community-compose-mode:hover { background:#3b3b3b; }
+                    .community-compose-mode:focus-visible,.community-composer-heading:focus-visible { outline:2px solid #fff;outline-offset:1px; }
+                    .community-composer-expanded { padding:0 16px 14px; }
+                    .community-composer-author { display:flex;align-items:center;gap:10px;height:56px;border-bottom:1px solid #4a4a4a;font-size:13px; }
+                    .community-composer-author strong { font-weight:700; }
+                    .community-composer-close { margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border-radius:4px;color:#ddd; }
+                    .community-composer-close:hover,.community-format-toolbar button:hover:not(:disabled),.community-composer-footer > button[type=button]:hover:not(:disabled) { background:#3b3b3b; }
+                    .community-compose-line { display:block;width:100%;height:56px;padding:0 6px;border-bottom:1px solid #4a4a4a;background:transparent;outline:none;font-size:18px;color:#fff; }
+                    .community-compose-line::placeholder { color:#adadad; }
+                    .community-compose-line:focus { border-bottom-color:#7f85f5; }
+                    .community-announcement-banner { position:relative;margin:12px -8px 0;border-radius:4px;height:clamp(160px,22vw,244px);display:grid;place-items:center;padding:0 64px; }
+                    .community-announcement-banner input { width:100%;text-align:center;background:transparent;outline:none;font-size:clamp(24px,3.4vw,36px);font-weight:700;color:#fff; }
+                    .community-announcement-banner input::placeholder { color:#9fd4ffd9; }
+                    [data-accent=blue] { --accent:#004578; } [data-accent=teal] { --accent:#005b70; } [data-accent=green] { --accent:#0b6a0b; } [data-accent=purple] { --accent:#4f3f99; }
+                    [data-accent=magenta] { --accent:#8c1a6b; } [data-accent=red] { --accent:#a4262c; } [data-accent=orange] { --accent:#a74109; } [data-accent=slate] { --accent:#3b4a5a; }
+                    .community-announcement-banner,.community-post-banner,.community-accent-button span,.community-accent-palette button { background:var(--accent,#004578); }
+                    .community-accent-button { position:absolute;right:12px;bottom:12px;display:grid;place-items:center;width:34px;height:34px;border-radius:4px;background:#262626 !important; }
+                    .community-accent-button span { width:16px;height:16px;border-radius:2px;outline:1px solid #ffffff66; }
+                    .community-accent-palette { position:absolute;right:12px;bottom:54px;z-index:5;display:grid;grid-template-columns:repeat(4,28px);gap:8px;padding:10px;border-radius:6px;background:#292929 !important;box-shadow:0 8px 24px #0008; }
+                    .community-accent-palette[hidden] { display:none; }
+                    .community-accent-palette button { width:28px;height:28px;border-radius:4px; }
+                    .community-accent-palette button[aria-checked=true] { outline:2px solid #fff;outline-offset:2px; }
+                    .community-format-toolbar { display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:10px 0 6px;color:#d6d6d6; }
+                    .community-format-toolbar button,.community-composer-footer > button[type=button] { display:grid;place-items:center;width:32px;height:32px;border-radius:4px; }
+                    .community-format-toolbar button[aria-pressed=true],.community-format-toolbar button[aria-expanded=true] { background:#3b3b3b;color:#a7acf4; }
+                    .community-format-toolbar button:disabled { opacity:.45; }
+                    .community-toolbar-divider { width:1px;height:16px;margin:0 6px;background:#5c5c5c; }
+                    .community-style-panel > div { display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 0; }
+                    .community-style-panel > div[hidden] { display:none; }
+                    .community-style-panel input { flex:1;min-width:0;height:32px;padding:0 10px;border:1px solid #555;border-radius:4px;background:#1f1f1f;outline:none;font-size:14px; }
+                    .community-swatch { width:24px;height:24px;border-radius:50%;outline:1px solid #ffffff33; }
+                    .community-swatch:hover,.community-swatch:focus-visible { outline:2px solid #fff; }
+                    .community-style-option { height:32px;padding:0 12px;border:1px solid #555;border-radius:4px;font-size:13px; }
+                    .community-style-option:hover { background:#3b3b3b; }
+                    .community-compose-emoji { max-height:220px;overflow-y:auto; }
+                    .community-rich-host { position:relative; }
+                    .community-rich-host .ProseMirror { min-height:96px;max-height:360px;overflow-y:auto;padding:4px 6px 12px;outline:none;font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere; }
+                    .community-rich-host .ProseMirror p { margin:0;min-height:1.6em; }
+                    .community-rich-host .ProseMirror:has(> p:only-child > br:only-child)::before,.community-rich-host .ProseMirror:has(> p:only-child:empty)::before { content:"Type a message";position:absolute;color:#adadad;pointer-events:none; }
+                    .community-rich-host .ProseMirror ul { list-style:disc;padding-left:24px; }
+                    .community-rich-host .ProseMirror ol { list-style:decimal;padding-left:24px; }
+                    .community-rich-host .ProseMirror blockquote { border-left:3px solid #6a6a6a;padding-left:12px;color:#d0d0d0; }
+                    .community-rich-host .ProseMirror pre { background:#1f1f1f;padding:8px 10px;border-radius:4px;font-family:monospace; }
+                    .community-rich-host .ProseMirror a { color:#a7acf4;text-decoration:underline; }
+                    .community-rich-host > p { padding:4px 6px;font-size:13px;color:#adadad; }
+                    .community-compose-error { color:#f1707b;font-size:13px;padding:4px 6px; }
+                    .community-composer-footer { display:flex;align-items:center;gap:4px;color:#d6d6d6;padding-top:6px; }
+                    .community-composer-footer > button[data-slot=button] { margin-left:auto;min-width:96px;background:#5b5fc7;color:#fff; }
+                    .community-composer-footer > button[data-slot=button]:hover:not(:disabled) { background:#4f52b2; }
+                    .community-post-banner { margin:14px -18px 0;padding:44px 24px;text-align:center; }
+                    .community-post .community-post-banner h3 { margin:0;color:#fff;font-size:clamp(20px,2.6vw,28px);overflow-wrap:anywhere; }
+                    .community-post-subheading { margin-top:14px;font-size:16px;color:#d6d6d6;overflow-wrap:anywhere; }
+                    .community-post .community-post-subject { color:#fff;font-size:16px;margin-top:12px; }
+                    .community-rich-message { margin-top:12px;font-size:14px;line-height:1.6; }
+                    .community-post-line { min-height:1.6em;white-space:pre-wrap;overflow-wrap:anywhere; }
+                    .community-post-line.is-bullet,.community-post-line.is-ordered { padding-left:12px; }
+                    .community-post-line.is-quote { border-left:3px solid #6a6a6a;padding-left:12px;color:#d0d0d0; }
+                    .community-post-line.is-code { background:#1f1f1f;padding:0 10px;font-family:monospace; }
+                    .community-inline-code { background:#1f1f1f;border-radius:3px;padding:0 4px;font-family:monospace; }
+                    .community-post-link { color:#a7acf4;text-decoration:underline; }
                     .community-setup { padding:48px 0 20px;text-align:center; }
                     .community-setup h2 { font-size:23px;font-weight:700;margin-bottom:10px; }
                     .community-setup > p { color:#ccc;font-size:15px; }
@@ -1319,8 +1821,6 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         setChannelCommunityId(activeCommunity.id); setChannelName(''); setChannelIcon('💬'); setChannelError('');
                         channelOpener.current?.click();
                     }
-                    const [postDraft, setPostDraft] = pp.state('');
-                    const [announcement, setAnnouncement] = pp.state(false);
                     const [detailsOpen, setDetailsOpen] = pp.state(false);
                     const [working, setWorking] = pp.state(false);
                     const [workspaceError, setWorkspaceError] = pp.state('');
@@ -1443,7 +1943,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false);
                         const url = new URL(location.href); url.searchParams.set('community', id); history.replaceState(null, '', url);
                     }
-                    function selectChannel(id) { setChannelId(id); setActiveTab('posts'); setPostDraft(''); setWorkspaceError(''); }
+                    function selectChannel(id) { setChannelId(id); setActiveTab('posts'); setWorkspaceError(''); }
                     function updateCommunity(id, changes) { setCommunities(current => current.map(c => c.id === id ? {...c, ...changes(c)} : c)); }
                     async function addChannel(event) {
                         event.preventDefault(); if (working || channelAtLimit) return;
@@ -1457,15 +1957,208 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         } catch (failure) { setChannelError(failure.body?.error || failure.message || 'The channel could not be saved.'); }
                         finally { setWorking(false); }
                     }
+                    // The composer follows Teams: a collapsed card that opens as a
+                    // post (subject) or an announcement (colored headline). ProseMirror
+                    // owns only the empty editor host, as in chat; the message travels
+                    // as chat_format lines and is rendered without HTML.
+                    const accents = @{Json(&communities::ACCENTS)};
+                    const composeEmojis = @{Json(&compose_emojis)};
+                    const colorSwatches = [{value:'#e8ebfa',label:'Default'},{value:'#f1707b',label:'Red'},{value:'#ffaa44',label:'Orange'},{value:'#f8d22a',label:'Yellow'},{value:'#92c353',label:'Green'},{value:'#4fb2f5',label:'Blue'},{value:'#b4a0ff',label:'Purple'},{value:'#9ea2ae',label:'Gray'}];
+                    const highlightSwatches = [{value:'#fff100',label:'Yellow highlight'},{value:'#7cfc00',label:'Green highlight'},{value:'#00ffff',label:'Cyan highlight'},{value:'#ff69b4',label:'Pink highlight'},{value:'#ffa500',label:'Orange highlight'},{value:'#c0c0c0',label:'Gray highlight'}];
+                    const [composeMode, setComposeMode] = pp.state('');
+                    const [postSubject, setPostSubject] = pp.state('');
+                    const [postHeadline, setPostHeadline] = pp.state('');
+                    const [postSubheading, setPostSubheading] = pp.state('');
+                    const [postAccent, setPostAccent] = pp.state('blue');
+                    const [accentOpen, setAccentOpen] = pp.state(false);
+                    const [postRich, setPostRich] = pp.state(null);
+                    const [stylePanel, setStylePanel] = pp.state('');
+                    const [composeError, setComposeError] = pp.state('');
+                    const [linkUrl, setLinkUrl] = pp.state('');
+                    const [activeFormats, setActiveFormats] = pp.state({});
+                    const [editorReady, setEditorReady] = pp.state(false);
+                    const editorHost = pp.ref(null), editor = pp.ref(null), editorLibrary = pp.ref(null);
+                    const subjectInput = pp.ref(null), headlineInput = pp.ref(null), linkInput = pp.ref(null), linkSelection = pp.ref(null);
+                    const shownSwatches = stylePanel === 'highlight' ? highlightSwatches : colorSwatches;
+                    const postLines = postRich ? formattedLines(postRich) : [];
+                    const postText = postLines.map(line => line.runs.map(run => run.text).join('')).join('\n').trim();
+                    const canPost = composeMode === 'announcement' ? !!postHeadline.trim() : !!(postText || postSubject.trim());
+                    function formattedLines(doc) {
+                        const lines = [];
+                        function visit(node, kind) {
+                            const type = node.type;
+                            if (type === 'paragraph' || type === 'code_block') {
+                                let runs = [];
+                                const emit = () => { lines.push({kind:type === 'code_block' ? 'code' : kind || 'paragraph',runs}); runs = []; };
+                                for (const child of node.content || []) {
+                                    if (child.type === 'hard_break') {emit(); continue;}
+                                    const marks = Object.fromEntries((child.marks || []).map(mark => [mark.type,mark.attrs || true]));
+                                    (child.text || '').split('\n').forEach((text,index) => {
+                                        if (index) emit();
+                                        if (text) runs.push({text,bold:!!marks.strong,italic:!!marks.em,underline:!!marks.underline,strike:!!marks.strike,code:!!marks.code,link:marks.link?.href || null,color:marks.color?.value || null,highlight:marks.highlight?.value || null,size:marks.size?.value || null});
+                                    });
+                                }
+                                emit(); return;
+                            }
+                            const next = {bullet_list:'bullet',ordered_list:'ordered',blockquote:'quote'}[type] || kind;
+                            (node.content || []).forEach(child => visit(child,next));
+                        }
+                        visit(doc,'paragraph');
+                        while (lines.length && !lines[lines.length - 1].runs.length) lines.pop();
+                        return lines;
+                    }
+                    function updateActiveFormats() {
+                        const view = editor.current;
+                        if (!view) return;
+                        const {state} = view, {$from,empty,from,to} = state.selection;
+                        const marks = state.storedMarks || $from.marks();
+                        const active = {};
+                        for (const name of ['strong','em','underline','strike']) active[name] = empty ? marks.some(mark => mark.type.name === name) : state.doc.rangeHasMark(from,to,state.schema.marks[name]);
+                        for (let depth = $from.depth; depth > 0; depth--) active[$from.node(depth).type.name] = true;
+                        setActiveFormats(active);
+                    }
+                    const editorDispatch = pp.event(transaction => {
+                        const view = editor.current;
+                        if (!view) return;
+                        view.updateState(view.state.apply(transaction));
+                        if (transaction.docChanged) { setPostRich(view.state.doc.toJSON()); setComposeError(''); }
+                        updateActiveFormats();
+                    });
+                    const pasteEditorText = pp.event((view,event) => {
+                        event.preventDefault();
+                        const text = event.clipboardData?.getData('text/plain') || '';
+                        if (!working && text) view.dispatch(view.state.tr.insertText(text));
+                        return true;
+                    });
+                    pp.effect(() => {
+                        let disposed = false;
+                        import('/js/vendor/chat-editor.js').then(lib => {
+                            if (disposed || !editorHost.current) return;
+                            editorLibrary.current = lib;
+                            const simple = name => ({parseDOM:[{tag:name === 'underline' ? 'u' : 's'}],toDOM:() => [name === 'underline' ? 'u' : 's',0]});
+                            let marks = lib.schema.spec.marks.addToEnd('underline',simple('underline')).addToEnd('strike',simple('strike'));
+                            for (const name of ['color','highlight','size']) marks = marks.addToEnd(name,{attrs:{value:{}},toDOM:mark => ['span',{style:name === 'color' ? 'color:'+mark.attrs.value : name === 'highlight' ? 'background-color:'+mark.attrs.value+';color:#111' : 'font-size:'+({small:'12px',normal:'14px',large:'20px'}[mark.attrs.value] || '14px')},0]});
+                            const nodes = lib.addListNodes(lib.schema.spec.nodes,'paragraph block*','block').remove('image').remove('horizontal_rule').remove('heading');
+                            const schema = new lib.Schema({nodes,marks});
+                            editor.current = new lib.EditorView(editorHost.current,{
+                                state:lib.EditorState.create({schema,plugins:[lib.history(),lib.keymap({'Mod-z':lib.undo,'Mod-y':lib.redo,'Mod-Shift-z':lib.redo,'Mod-b':lib.toggleMark(schema.marks.strong),'Mod-i':lib.toggleMark(schema.marks.em),'Mod-u':lib.toggleMark(schema.marks.underline),'Enter':lib.splitListItem(schema.nodes.list_item),'Tab':lib.sinkListItem(schema.nodes.list_item),'Shift-Tab':lib.liftListItem(schema.nodes.list_item)}),lib.keymap(lib.baseKeymap)]}),
+                                attributes:{'aria-label':'Message','role':'textbox','aria-multiline':'true'},
+                                dispatchTransaction:editorDispatch,
+                                handleDOMEvents:{paste:pasteEditorText,drop:(_view,event) => {event.preventDefault(); return true;}}
+                            });
+                            setEditorReady(true);
+                        }).catch(() => { if (!disposed) setComposeError('The formatting editor could not be loaded. Try again.'); });
+                        return () => { disposed = true; editor.current?.destroy(); editor.current = null; };
+                    }, []);
+                    pp.effect(() => { editor.current?.setProps({editable:() => !working}); }, [working, editorReady]);
+                    function resetEditor() {
+                        const view = editor.current, lib = editorLibrary.current;
+                        if (view && lib) view.updateState(lib.EditorState.create({schema:view.state.schema,plugins:view.state.plugins}));
+                        setPostRich(null); setActiveFormats({});
+                    }
+                    function openComposer(mode) {
+                        setComposeMode(mode); setComposeError(''); setStylePanel(''); setAccentOpen(false);
+                        requestAnimationFrame(() => (mode === 'announcement' ? headlineInput : subjectInput).current?.focus());
+                    }
+                    function closeComposer() {
+                        if (working) return;
+                        setComposeMode(''); setPostSubject(''); setPostHeadline(''); setPostSubheading(''); setPostAccent('blue');
+                        setAccentOpen(false); setStylePanel(''); setComposeError(''); setLinkUrl(''); resetEditor();
+                    }
+                    function toggleAnnouncement() {
+                        const mode = composeMode === 'announcement' ? 'post' : 'announcement';
+                        setComposeMode(mode); setAccentOpen(false); setComposeError('');
+                        requestAnimationFrame(() => (mode === 'announcement' ? headlineInput : subjectInput).current?.focus());
+                    }
+                    function chooseAccent(event) { setPostAccent(event.currentTarget.value); setAccentOpen(false); headlineInput.current?.focus(); }
+                    function toggleStylePanel(name) { setStylePanel(stylePanel === name ? '' : name); }
+                    function formatText(name) {
+                        const view = editor.current, lib = editorLibrary.current;
+                        if (!view || working) return;
+                        const {state} = view;
+                        let command;
+                        if (state.schema.marks[name]) command = lib.toggleMark(state.schema.marks[name]);
+                        else if (name === 'bullet_list' || name === 'ordered_list') command = activeFormats[name] ? lib.liftListItem(state.schema.nodes.list_item) : lib.wrapInList(state.schema.nodes[name]);
+                        else if (name === 'blockquote') command = activeFormats.blockquote ? lib.lift : lib.wrapIn(state.schema.nodes.blockquote);
+                        else if (name === 'code_block') command = lib.setBlockType(activeFormats.code_block ? state.schema.nodes.paragraph : state.schema.nodes.code_block);
+                        else if (name === 'clear') {
+                            const {from,to,empty} = state.selection;
+                            view.dispatch(empty ? state.tr.setStoredMarks([]) : state.tr.removeMark(from,to));
+                            setStylePanel('');
+                        }
+                        if (command) command(state,view.dispatch);
+                        view.focus(); updateActiveFormats();
+                    }
+                    function applyStyle(name,value) {
+                        const view = editor.current;
+                        if (!view || working) return;
+                        const {from,to,empty} = view.state.selection;
+                        const tr = name === 'color' && value === '#e8ebfa' ? view.state.tr.removeMark(from,to,view.state.schema.marks.color).removeStoredMark(view.state.schema.marks.color)
+                            : empty ? view.state.tr.addStoredMark(view.state.schema.marks[name].create({value})) : view.state.tr.addMark(from,to,view.state.schema.marks[name].create({value}));
+                        view.dispatch(tr); setStylePanel(''); view.focus();
+                    }
+                    function applySwatch(event) { applyStyle(stylePanel, event.currentTarget.value); }
+                    const insertEmoji = pp.event(symbol => {
+                        const view = editor.current;
+                        if (!view || working) return;
+                        view.dispatch(view.state.tr.insertText(symbol)); setStylePanel(''); view.focus();
+                    });
+                    function openLink() {
+                        const view = editor.current;
+                        if (!view || working) return;
+                        if (stylePanel === 'link') { setStylePanel(''); return; }
+                        linkSelection.current = view.state.selection;
+                        const mark = view.state.selection.$from.marks().find(mark => mark.type.name === 'link');
+                        setLinkUrl(mark?.attrs.href || ''); setStylePanel('link');
+                        requestAnimationFrame(() => linkInput.current?.focus());
+                    }
+                    function handleLinkKey(event) {
+                        if (event.key === 'Enter') { event.preventDefault(); saveLink(); }
+                        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setStylePanel(''); editor.current?.focus(); }
+                    }
+                    function saveLink() {
+                        const view = editor.current, href = linkUrl.trim();
+                        if (!view || !linkSelection.current) return;
+                        if (href && !/^https?:\/\/[^\s]+$/i.test(href)) { setComposeError('Enter a full http:// or https:// link.'); return; }
+                        const {from,to,empty} = linkSelection.current;
+                        let tr = view.state.tr;
+                        if (!href) tr = tr.removeMark(from,to,view.state.schema.marks.link);
+                        else if (empty) tr = tr.insertText(href,from).addMark(from,from+href.length,view.state.schema.marks.link.create({href}));
+                        else tr = tr.addMark(from,to,view.state.schema.marks.link.create({href}));
+                        view.dispatch(tr); setStylePanel(''); setComposeError(''); view.focus();
+                    }
+                    function handleComposerKey(event) {
+                        if (!composeMode) return;
+                        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); publishPost(event); }
+                        else if (event.key === 'Enter' && event.target.tagName === 'INPUT' && event.target.type !== 'url') { event.preventDefault(); editor.current?.focus(); }
+                        else if (event.key === 'Escape' && (stylePanel || accentOpen)) { event.preventDefault(); setStylePanel(''); setAccentOpen(false); editor.current?.focus(); }
+                    }
                     async function publishPost(event) {
-                        event.preventDefault(); if (working || !postDraft.trim()) return;
-                        setWorking(true); setWorkspaceError(''); const id = selectedCommunity;
+                        event.preventDefault(); if (working || !canPost) return;
+                        setWorking(true); setComposeError(''); const id = selectedCommunity;
+                        const announcement = composeMode === 'announcement';
+                        const formatted = postLines.some(line => line.kind !== 'paragraph' || line.runs.some(run => run.bold || run.italic || run.underline || run.strike || run.code || run.link || run.color || run.highlight || run.size));
                         try {
-                            const post = await pp.rpc('publish_community_post', {id, channel:channelId, body:postDraft, announcement});
-                            updateCommunity(id, c => ({posts:[post, ...c.posts]})); setPostDraft('');
-                        } catch (failure) { setWorkspaceError(failure.message || 'Your post could not be saved.'); }
+                            const post = await pp.rpc('publish_community_post', {
+                                id, channel:channelId, body:postText, announcement,
+                                subject: announcement ? '' : postSubject.trim(),
+                                headline: announcement ? postHeadline.trim() : '',
+                                subheading: announcement ? postSubheading.trim() : '',
+                                accent: announcement ? postAccent : '',
+                                formatting: formatted ? postLines : null
+                            });
+                            updateCommunity(id, c => ({posts:[post, ...c.posts]}));
+                            setWorking(false); closeComposer();
+                        } catch (failure) {
+                            const fields = failure.errors || {};
+                            setComposeError(Object.values(fields).flat()[0] || failure.message || 'Your post could not be saved.');
+                        }
                         finally { setWorking(false); }
                     }
+                    function postLineClass(kind) { return 'community-post-line' + (kind && kind !== 'paragraph' ? ' is-' + kind : ''); }
+                    function postListNumber(lines,index) { let start = index; while (start > 0 && lines[start-1].kind === 'ordered') start--; return index - start + 1; }
+                    function postRunClass(run) { return [run.bold?'font-bold':'',run.italic?'italic':'',run.underline?'underline':'',run.strike?'line-through':'',run.code?'community-inline-code':'',run.link?'community-post-link':''].join(' '); }
+                    function postRunStyle(run) { return (run.color?'color:'+run.color+';':'')+(run.highlight?'background-color:'+run.highlight+';color:#111;':'')+(run.size?'font-size:'+({small:'12px',normal:'14px',large:'20px'}[run.size] || '14px')+';':''); }
                     const banners = @{Json(&banners)};
                     const bannerOpener = pp.ref(null), bannerCloser = pp.ref(null), bannerInput = pp.ref(null);
                     const [bannerCommunityId, setBannerCommunityId] = pp.state('');
@@ -1760,8 +2453,20 @@ pub async fn publish_community_post(
     channel: String,
     body: String,
     announcement: bool,
+    subject: Option<String>,
+    headline: Option<String>,
+    subheading: Option<String>,
+    accent: Option<String>,
+    formatting: Option<Vec<crate::chat_format::Line>>,
 ) -> Result<communities::Post> {
-    communities::publish(id, channel, body, announcement).await
+    let draft = communities::PostDraft {
+        subject: subject.unwrap_or_default(),
+        headline: headline.unwrap_or_default(),
+        subheading: subheading.unwrap_or_default(),
+        accent: accent.unwrap_or_default(),
+        formatting,
+    };
+    communities::publish(id, channel, body, announcement, draft).await
 }
 #[rpc(auth)]
 pub async fn change_community_cover(

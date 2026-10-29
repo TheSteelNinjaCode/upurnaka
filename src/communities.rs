@@ -1,6 +1,6 @@
 //! Durable, account-owned communities. The database is authoritative on every load.
 use crate::{
-    auth, db,
+    auth, chat_format, db,
     models::{
         account, community as row, community_channel as channel, community_member as member,
         community_post as post, community_report as report,
@@ -30,6 +30,41 @@ pub struct Post {
     pub announcement: bool,
     pub created_at: i64,
     pub author_name: String,
+    pub subject: String,
+    pub headline: String,
+    pub subheading: String,
+    pub accent: String,
+    pub formatting: Option<Vec<chat_format::Line>>,
+}
+/// What the composer sends besides the plain text. Everything is optional so
+/// a plain post stays `{body, announcement}`.
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+pub struct PostDraft {
+    pub subject: String,
+    pub headline: String,
+    pub subheading: String,
+    pub accent: String,
+    pub formatting: Option<Vec<chat_format::Line>>,
+}
+/// Announcement header colors, named so the browser owns the exact shades.
+pub const ACCENTS: &[&str] = &[
+    "blue", "teal", "green", "purple", "magenta", "red", "orange", "slate",
+];
+fn shown_post(p: post::Model, author_name: String) -> Post {
+    Post {
+        id: p.id,
+        channel_id: p.channel_id,
+        body: p.body,
+        announcement: p.announcement,
+        created_at: p.created_at,
+        author_name,
+        subject: p.subject,
+        headline: p.headline,
+        subheading: p.subheading,
+        accent: p.accent,
+        formatting: rahti::serde_json::from_str(&p.content).ok(),
+    }
 }
 #[derive(Clone, Serialize)]
 pub struct Community {
@@ -140,14 +175,8 @@ async fn shown(row: row::Model) -> Result<Community> {
         } else {
             &p.author_id
         };
-        posts.push(Post {
-            id: p.id,
-            channel_id: p.channel_id,
-            body: p.body,
-            announcement: p.announcement,
-            created_at: p.created_at,
-            author_name: author_name(author).await?,
-        });
+        let name = author_name(author).await?;
+        posts.push(shown_post(p, name));
     }
     let is_owner = row.owner_id == user;
     Ok(Community {
@@ -295,11 +324,49 @@ pub async fn publish(
     channel_id: String,
     body: String,
     announcement: bool,
+    draft: PostDraft,
 ) -> Result<Post> {
     let body = body.trim().to_string();
+    let subject = draft.subject.trim().to_string();
+    let headline = draft.headline.trim().to_string();
+    let subheading = draft.subheading.trim().to_string();
+    let accent = if announcement {
+        if draft.accent.is_empty() {
+            "blue".to_string()
+        } else {
+            draft.accent
+        }
+    } else {
+        String::new()
+    };
     let mut v = Validator::new();
-    v.required("body", &body).max_chars("body", &body, 5000);
+    v.max_chars("body", &body, 5000)
+        .max_chars("subject", &subject, 200)
+        .max_chars("headline", &headline, 100)
+        .max_chars("subheading", &subheading, 200);
+    if announcement {
+        v.required("headline", &headline)
+            .one_of("accent", &accent.as_str(), ACCENTS);
+    } else {
+        v.check(
+            "body",
+            !body.is_empty() || !subject.is_empty(),
+            "Write a message or add a subject.",
+        )
+        .check(
+            "headline",
+            headline.is_empty() && subheading.is_empty(),
+            "Only announcements have a headline.",
+        );
+    }
     v.finish()?;
+    if let Some(lines) = &draft.formatting {
+        chat_format::validate_within(lines, &body, 5000)?;
+    }
+    let content = match &draft.formatting {
+        Some(lines) => rahti::serde_json::to_string(lines)?,
+        None => String::new(),
+    };
     accessible(&community).await?;
     if !channel_id.is_empty()
         && channel::Entity::find_by_id(&channel_id)
@@ -318,17 +385,16 @@ pub async fn publish(
         announcement: Set(announcement),
         created_at: Set(crate::rahti::time::now().timestamp_millis()),
         author_id: Set(owner()?),
+        subject: Set(if announcement { String::new() } else { subject }),
+        headline: Set(headline),
+        subheading: Set(subheading),
+        accent: Set(accent),
+        content: Set(content),
     }
     .insert(db::db())
     .await?;
-    Ok(Post {
-        id: row.id,
-        channel_id: row.channel_id,
-        body: row.body,
-        announcement: row.announcement,
-        created_at: row.created_at,
-        author_name: author_name(&row.author_id).await?,
-    })
+    let name = author_name(&row.author_id).await?;
+    Ok(shown_post(row, name))
 }
 
 #[derive(Serialize)]

@@ -11,6 +11,12 @@ pub struct Model {
     pub announcement: bool,
     pub created_at: i64,
     pub author_id: String,
+    pub subject: String,
+    pub headline: String,
+    pub subheading: String,
+    pub accent: String,
+    /// The formatted message as JSON `Block`s; empty for plain-text posts.
+    pub content: String,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}

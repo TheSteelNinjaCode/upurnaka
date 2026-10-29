@@ -25,6 +25,11 @@ pub struct Line {
 }
 
 pub fn validate(lines: &[Line], text: &str) -> Result<()> {
+    validate_within(lines, text, 2000)
+}
+
+/// [`validate`] with a caller's character limit, for longer community posts.
+pub fn validate_within(lines: &[Line], text: &str, limit: usize) -> Result<()> {
     let mut validator = Validator::new();
     let count: usize = lines.iter().map(|line| line.runs.len()).sum();
     let plain = lines
@@ -45,8 +50,8 @@ pub fn validate(lines: &[Line], text: &str) -> Result<()> {
         })
     };
     let valid = lines.len() <= 200
-        && count <= 2000
-        && plain.chars().count() <= 2000
+        && count <= limit
+        && plain.chars().count() <= limit
         && plain.trim() == text
         && lines.iter().all(|line| {
             matches!(

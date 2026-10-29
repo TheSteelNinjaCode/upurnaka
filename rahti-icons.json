@@ -23,6 +23,12 @@
   "generatedWith": "0.0.27",
   "icons": [
     {
+      "component": "ALargeSmall",
+      "file": "src/components/rahti_icons/a_large_small.rs",
+      "module": "crate::components::rahti_icons::a_large_small",
+      "name": "a-large-small"
+    },
+    {
       "component": "ArrowDown",
       "file": "src/components/rahti_icons/arrow_down.rs",
       "module": "crate::components::rahti_icons::arrow_down",
@@ -45,6 +51,12 @@
       "file": "src/components/rahti_icons/at_sign.rs",
       "module": "crate::components::rahti_icons::at_sign",
       "name": "at-sign"
+    },
+    {
+      "component": "Baseline",
+      "file": "src/components/rahti_icons/baseline.rs",
+      "module": "crate::components::rahti_icons::baseline",
+      "name": "baseline"
     },
     {
       "component": "Bell",
@@ -131,6 +143,12 @@
       "name": "cloud"
     },
     {
+      "component": "CodeXml",
+      "file": "src/components/rahti_icons/code_xml.rs",
+      "module": "crate::components::rahti_icons::code_xml",
+      "name": "code-xml"
+    },
+    {
       "component": "Contact",
       "file": "src/components/rahti_icons/contact.rs",
       "module": "crate::components::rahti_icons::contact",
@@ -209,6 +227,12 @@
       "name": "hash"
     },
     {
+      "component": "Highlighter",
+      "file": "src/components/rahti_icons/highlighter.rs",
+      "module": "crate::components::rahti_icons::highlighter",
+      "name": "highlighter"
+    },
+    {
       "component": "Image",
       "file": "src/components/rahti_icons/image.rs",
       "module": "crate::components::rahti_icons::image",
@@ -261,6 +285,12 @@
       "file": "src/components/rahti_icons/map_pin.rs",
       "module": "crate::components::rahti_icons::map_pin",
       "name": "map-pin"
+    },
+    {
+      "component": "Megaphone",
+      "file": "src/components/rahti_icons/megaphone.rs",
+      "module": "crate::components::rahti_icons::megaphone",
+      "name": "megaphone"
     },
     {
       "component": "MessageCircle",
@@ -335,6 +365,12 @@
       "name": "plus"
     },
     {
+      "component": "Quote",
+      "file": "src/components/rahti_icons/quote.rs",
+      "module": "crate::components::rahti_icons::quote",
+      "name": "quote"
+    },
+    {
       "component": "Repeat",
       "file": "src/components/rahti_icons/repeat.rs",
       "module": "crate::components::rahti_icons::repeat",
@@ -389,6 +425,12 @@
       "name": "square-pen"
     },
     {
+      "component": "Strikethrough",
+      "file": "src/components/rahti_icons/strikethrough.rs",
+      "module": "crate::components::rahti_icons::strikethrough",
+      "name": "strikethrough"
+    },
+    {
       "component": "ThumbsUp",
       "file": "src/components/rahti_icons/thumbs_up.rs",
       "module": "crate::components::rahti_icons::thumbs_up",
@@ -405,6 +447,12 @@
       "file": "src/components/rahti_icons/type_icon.rs",
       "module": "crate::components::rahti_icons::type_icon",
       "name": "type"
+    },
+    {
+      "component": "Underline",
+      "file": "src/components/rahti_icons/underline.rs",
+      "module": "crate::components::rahti_icons::underline",
+      "name": "underline"
     },
     {
       "component": "Upload",

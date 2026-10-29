@@ -26,6 +26,16 @@ through the grid. Uploads are PNG/JPEG up to 2 MB, decoded on the server and
 re-encoded as a 1600 × 400 JPEG stored in `community.cover_image`; choosing a
 preset clears it. Older `mint`/`lavender`/`sunset` covers remain valid presets.
 
+The composer follows Teams: a collapsed "Post in channel" card with Post and
+Announcement. Post adds an optional subject; Announcement adds a required
+headline on a colored header (eight named accents) and an optional subheading.
+Both share the chat formatting editor (ProseMirror from
+`public/js/vendor/chat-editor.js`): bold, italic, underline, strikethrough,
+lists, highlight, font color, size, quote, link, code block and emoji, with
+Ctrl+Enter to post. Formatting travels and is stored as `chat_format` lines in
+`community_post.content` and is rendered without HTML; links must be http(s).
+Attachments, images and the "+" apps menu from Teams are not implemented.
+
 The community's three-dot menu follows Teams Free's action order. Edits retain
 the existing image unless a replacement is uploaded or removal is selected.
 Notification preferences are saved per account and community; they do not
