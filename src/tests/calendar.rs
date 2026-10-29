@@ -142,6 +142,18 @@ async fn calendar_time_marker_and_half_hour_selection_follow_the_visible_days() 
         .await
         .unwrap();
     let date = selected.split('@').next().unwrap();
+    browser.wait_for("!document.querySelector('.calendar-editor').hidden && document.activeElement.name === 'title'").await.unwrap();
+    let click_times: bool = browser.eval(&format!("document.querySelector('input[name=start_date]').value === '{date}' && document.querySelector('input[name=start_time]').value === '09:00' && document.querySelector('input[name=end_time]').value === '09:30'")).await.unwrap();
+    assert!(
+        click_times,
+        "one click opens the meeting editor at the clicked time"
+    );
+    browser.press("Escape").await.unwrap();
+    browser.wait_for("document.querySelector('.calendar-editor').hidden && document.activeElement.textContent.includes('New meeting')").await.unwrap();
+    let _: bool = browser
+        .eval("document.querySelector('.calendar-slot-selected').focus(); true")
+        .await
+        .unwrap();
     browser.wait_for(&format!("document.activeElement.value === '{selected}' && document.activeElement.getAttribute('aria-pressed') === 'true'")).await.unwrap();
     browser.press("ArrowDown").await.unwrap();
     browser.wait_for(&format!("document.activeElement.value === '{date}@19' && document.activeElement.getAttribute('aria-pressed') === 'true'")).await.unwrap();

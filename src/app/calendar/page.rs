@@ -281,8 +281,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                             aria-pressed={selectedSlot === cell.key}
                                             pp-ref={element => slotElements.current[cell.key] = element}
                                             onfocus={setSelection(cell.key)}
-                                            onclick={setSelection(cell.key)}
-                                            ondblclick={openCompose(cell)}
+                                            onclick={openCompose(cell)}
                                             onkeydown={slotKey(event, cell)}
                                         >
                                         </button>
@@ -968,6 +967,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     function openCompose(cell) {
                         const slot = cell || cells.find(item => item.key === selectedSlot);
                         if (slot) {
+                            setSelection(slot.key);
                             const end = new Date(slot.day + 'T' + slot.time);
                             end.setMinutes(end.getMinutes() + 30);
                             setStartDate(slot.day); setStartTime(slot.time);
