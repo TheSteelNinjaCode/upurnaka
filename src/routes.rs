@@ -28,6 +28,8 @@ mod p_calendar;
 mod p_chat;
 #[path = "app/communities/page.rs"]
 mod p_communities;
+#[path = "app/communities/reports/page.rs"]
+mod p_communities_reports;
 #[path = "app/meet/page.rs"]
 mod p_meet;
 #[path = "app/meet/j/[id]/page.rs"]
@@ -55,6 +57,8 @@ const PAGE_RPCS: &[&str] = &[
     "append_meeting_recording",
     "change_community_cover",
     "chat_cloud_files",
+    "community_join_link",
+    "community_members",
     "create_chat_folder",
     "create_chat_meeting",
     "create_community",
@@ -63,11 +67,16 @@ const PAGE_RPCS: &[&str] = &[
     "create_meeting_link",
     "create_user",
     "decide_meeting_entry",
+    "delete_community",
     "delete_meeting_link",
     "delete_user",
+    "edit_community",
     "finish_meeting_recording",
+    "invite_community_member",
     "invite_to_teams",
+    "join_community",
     "join_meeting",
+    "leave_community",
     "leave_meeting_entry",
     "list_users",
     "meeting_recording_url",
@@ -75,16 +84,20 @@ const PAGE_RPCS: &[&str] = &[
     "meeting_room_state",
     "mute_participant",
     "publish_community_post",
+    "remove_community_member",
     "remove_profile_picture",
     "rename_meeting_link",
+    "report_community",
     "request_meeting_entry",
     "resume_meeting_audio",
     "retry_meeting_recording",
     "schedule_meeting",
     "send_message",
+    "set_community_notifications",
     "set_user_active",
     "spotlight_participant",
     "start_meeting_recording",
+    "transfer_community_ownership",
     "update_profile_name",
     "update_profile_picture",
     "update_user",
@@ -158,6 +171,21 @@ async fn rpc_p_communities(req: axum::extract::Request) -> axum::response::Respo
         }
         "publish_community_post" => p_communities::__rahti_rpc_publish_community_post(req).await,
         "change_community_cover" => p_communities::__rahti_rpc_change_community_cover(req).await,
+        "edit_community" => p_communities::__rahti_rpc_edit_community(req).await,
+        "community_members" => p_communities::__rahti_rpc_community_members(req).await,
+        "community_join_link" => p_communities::__rahti_rpc_community_join_link(req).await,
+        "invite_community_member" => p_communities::__rahti_rpc_invite_community_member(req).await,
+        "join_community" => p_communities::__rahti_rpc_join_community(req).await,
+        "set_community_notifications" => {
+            p_communities::__rahti_rpc_set_community_notifications(req).await
+        }
+        "transfer_community_ownership" => {
+            p_communities::__rahti_rpc_transfer_community_ownership(req).await
+        }
+        "remove_community_member" => p_communities::__rahti_rpc_remove_community_member(req).await,
+        "leave_community" => p_communities::__rahti_rpc_leave_community(req).await,
+        "delete_community" => p_communities::__rahti_rpc_delete_community(req).await,
+        "report_community" => p_communities::__rahti_rpc_report_community(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -241,6 +269,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
         ::rahti::StaticRoute::fixed("/calendar"),
         ::rahti::StaticRoute::fixed("/chat"),
         ::rahti::StaticRoute::fixed("/communities"),
+        ::rahti::StaticRoute::fixed("/communities/reports"),
         ::rahti::StaticRoute::undeclared(&["/meet/j/{id}"]),
         ::rahti::StaticRoute::fixed("/meet"),
         ::rahti::StaticRoute::fixed("/"),
@@ -266,8 +295,9 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: schedule_meeting, create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/settings` [GET, POST] — src/app/settings/page.rs (layouts: src/app/layout.rs)
-/// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community, create_community_channel, publish_community_post, change_community_cover)
+/// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community, create_community_channel, publish_community_post, change_community_cover, edit_community, community_members, community_join_link, invite_community_member, join_community, set_community_notifications, transfer_community_ownership, remove_community_member, leave_community, delete_community, report_community)
 /// - `/profile-picture` [GET] — src/app/profile-picture/route.rs
+/// - `/communities/reports` [GET, POST] — src/app/communities/reports/page.rs (layouts: src/app/layout.rs)
 /// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
 /// - `/chat/files/{id}` [GET] — src/app/chat/files/[id]/route.rs
 ///
@@ -350,6 +380,12 @@ pub fn router() -> Router {
                 ::rahti::apply_metadata(p_communities::metadata(), res)
             })),
         )
+        .route(
+            "/communities/reports",
+            axum::routing::get(p_communities_reports::page).layer(axum::middleware::map_response(
+                |res| ::rahti::apply_metadata(p_communities_reports::metadata(), res),
+            )),
+        )
         .layer(axum::middleware::map_response(|res| {
             ::rahti::apply_root_layout_metadata(
                 l_root::layout,
@@ -413,6 +449,7 @@ pub fn router() -> Router {
         .route("/calendar", axum::routing::post(rpc_p_calendar))
         .route("/chat", axum::routing::post(rpc_p_chat))
         .route("/communities", axum::routing::post(rpc_p_communities))
+        .route("/communities/reports", axum::routing::post(rpc_components))
         .route("/meet/j/{id}", axum::routing::post(rpc_p_meet_j_id))
         .route("/meet", axum::routing::post(rpc_p_meet))
         .route("/", axum::routing::post(rpc_components))

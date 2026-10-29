@@ -167,6 +167,37 @@ pub fn Icon(name: &str, class: &str) -> Html {
         "more" => html! {
             <Ellipsis class=@{class} stroke_width="1.6" />
         },
+        "warning" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+            >
+                <path
+                    d="M10.3 3.9 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
+                />
+                <path d="M12 8v5m0 4h.01" />
+            </svg>
+        },
+        "sign-out" => html! {
+            <svg
+                class=@{class}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+            >
+                <path d="M10 17v3H4V4h6v3m4 1 4 4-4 4m-6-4h10" />
+            </svg>
+        },
         "minimize" => html! {
             <Minus class=@{class} stroke_width="1.6" />
         },

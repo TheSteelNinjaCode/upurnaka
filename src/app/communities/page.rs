@@ -29,16 +29,22 @@ const TEMPLATE: &str = "rounded-full text-[13px] font-semibold";
 #[derive(Default, Deserialize)]
 pub struct CommunityQuery {
     community: Option<String>,
+    join: Option<String>,
 }
 
 pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
     let saved = communities::list().await?;
+    let invitations = communities::invitations().await?;
+    let join_preview = match query.join.as_deref() {
+        Some(token) => communities::preview(token).await?,
+        None => None,
+    };
+    let join_token = query.join.unwrap_or_default();
     let selected = query
         .community
         .filter(|id| saved.iter().any(|c| &c.id == id))
         .or_else(|| saved.first().map(|c| c.id.clone()))
         .unwrap_or_default();
-    let owner_name = crate::auth::current().map(|u| u.name).unwrap_or_default();
     let cancel_link = button_variants(
         ButtonVariant::Link,
         ButtonSize::Default,
@@ -49,6 +55,33 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
             <main
                 class="ambient-strong scroll-thin relative min-h-0 flex-1 overflow-y-auto rounded-tl-xl border-l border-t border-line"
             >
+                <section
+                    class="community-invites"
+                    hidden={!joinPreview && pendingInvites.length === 0}
+                >
+                    <div hidden={!joinPreview}>
+                        <h2>{joinPreview?.avatar}" "{joinPreview?.name}</h2>
+                        <p>{joinPreview?.description}</p>
+                        <Button
+                            onclick={acceptInvitation(joinPreview.id, joinToken)}
+                            disabled={working}
+                        >
+                            "Join community"
+                        </Button>
+                    </div>
+                    <template pp-for="invitation in pendingInvites">
+                        <div key={invitation.id}>
+                            <h2>"You're invited to "{invitation.name}</h2>
+                            <Button
+                                onclick={acceptInvitation(invitation.id, null)}
+                                disabled={working}
+                            >
+                                "Accept invitation"
+                            </Button>
+                        </div>
+                    </template>
+                </section>
+                <p class="community-status" role="status" hidden={!notice}>{notice}</p>
                 <div
                     class="mx-auto grid w-full max-w-[1280px] grid-cols-2 items-center gap-12 px-16 py-16"
                     hidden={communities.length > 0}
@@ -177,35 +210,44 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         <nav aria-label="Communities">
                             <template pp-for="community in communities">
                                 <div key={community.id} class="community-nav-group">
-                                    <button
-                                        class="community-nav-item"
-                                        aria-current={selectedCommunity === community.id ? "page" : null}
-                                        onclick={selectCommunity(community.id)}
-                                        pp-ref={element => communityElements.current[community.id] = element}
+                                    <div
+                                        class="community-nav-row"
+                                        data-selected={selectedCommunity === community.id}
                                     >
-                                        <span class="community-small-avatar">
-                                            <img
-                                                src={community.picture || "/images/upurnaka-logo.png"}
-                                                alt=""
-                                                hidden={!community.picture}
-                                            />
-                                            <span hidden={!!community.picture}>
-                                                {community.avatar}
+                                        <button
+                                            class="community-nav-item"
+                                            aria-current={selectedCommunity === community.id && channelId === "" ? "page" : null}
+                                            onclick={selectCommunity(community.id)}
+                                            pp-ref={element => communityElements.current[community.id] = element}
+                                        >
+                                            <span class="community-small-avatar">
+                                                <img
+                                                    src={community.picture || "/images/upurnaka-logo.png"}
+                                                    alt=""
+                                                    hidden={!community.picture}
+                                                />
+                                                <span hidden={!!community.picture}>
+                                                    {community.avatar}
+                                                </span>
                                             </span>
-                                        </span>
-                                        <strong>{community.name}</strong>
-                                    </button>
+                                            <strong>{community.name}</strong>
+                                        </button>
+                                        <button
+                                            class="community-more"
+                                            aria-label={"More options for " + community.name}
+                                            aria-haspopup="menu"
+                                            aria-controls="community-actions-menu"
+                                            popovertarget="community-actions-menu"
+                                            onclick={prepareMenu(community.id, event)}
+                                            onkeydown={openMenuKey(community.id, event)}
+                                        >
+                                            <Icon name="more" class="size-5" />
+                                        </button>
+                                    </div>
                                     <div
                                         class="community-channel-list"
                                         hidden={selectedCommunity !== community.id}
                                     >
-                                        <button
-                                            class="community-channel"
-                                            aria-current={channelId === "" ? "page" : null}
-                                            onclick={selectChannel("")}
-                                        >
-                                            "General"
-                                        </button>
                                         <template pp-for="channel in community.channels">
                                             <button
                                                 key={channel.id}
@@ -223,6 +265,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         <button
                             class="community-add-channel"
                             onclick={setAddingChannel(!addingChannel)}
+                            hidden={!activeCommunity?.is_owner}
                         >
                             <Icon name="plus" class="size-5" />
                             "Add channel"
@@ -252,6 +295,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 aria-label="Change community cover"
                                 title="Change community cover"
                                 onclick={setCoverPicker(!coverPicker)}
+                                hidden={!activeCommunity?.is_owner}
                             >
                                 <Icon name="edit" class="size-5" />
                             </button>
@@ -346,8 +390,13 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             </p>
                             <h3>"Community guidelines"</h3>
                             <p>{activeCommunity?.guidelines || "Be kind and respectful."}</p>
-                            <h3>"Members (1)"</h3>
-                            <p>@{owner_name.as_str()}" · Owner"</p>
+                            <h3>{"Members (" + (activeCommunity?.member_count || 1) + ")"}</h3>
+                            <Button
+                                variant="outline"
+                                onclick={openAction("manage", selectedCommunity)}
+                            >
+                                "View members"
+                            </Button>
                         </div>
                         <p class="community-workspace-error" role="alert" hidden={!workspaceError}>
                             {workspaceError}
@@ -408,9 +457,9 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 <article key={post.id} class="community-post">
                                     <header>
                                         <span class="community-author-avatar">
-                                            @{crate::auth::current().map(|u| u.initials()).unwrap_or_default()}
+                                            {authorInitials(post.author_name)}
                                         </span>
-                                        <strong>@{owner_name.as_str()}</strong>
+                                        <strong>{post.author_name}</strong>
                                         <time>{new Date(post.created_at).toLocaleString()}</time>
                                     </header>
                                     <h3 hidden={!post.announcement}>"Announcement"</h3>
@@ -449,6 +498,269 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         </div>
                     </section>
                 </div>
+                <div
+                    id="community-actions-menu"
+                    popover="auto"
+                    role="menu"
+                    aria-label="Community options"
+                    class="community-actions-menu"
+                    pp-ref={actionsMenu}
+                    pp-style={menuPosition}
+                    ontoggle={menuToggled(event)}
+                    onkeydown={menuKey(event)}
+                >
+                    <button
+                        role="menuitem"
+                        pp-ref={shareMenuItem}
+                        hidden={!menuCommunity?.is_owner}
+                        onclick={openAction("share", menuId)}
+                    >
+                        <Icon name="link" class="size-5" />
+                        "Share join link"
+                    </button>
+                    <button
+                        role="menuitem"
+                        pp-ref={inviteMenuItem}
+                        hidden={!menuCommunity?.is_owner}
+                        onclick={openAction("invite", menuId)}
+                    >
+                        <Icon name="person-add" class="size-5" />
+                        "Invite members"
+                    </button>
+                    <button
+                        role="menuitem"
+                        pp-ref={notificationMenuItem}
+                        onclick={openAction("notifications", menuId)}
+                    >
+                        <Icon name="bell" class="size-5" />
+                        "Notifications"
+                    </button>
+                    <hr />
+                    <button
+                        role="menuitem"
+                        pp-ref={manageMenuItem}
+                        onclick={openAction("manage", menuId)}
+                    >
+                        <Icon name="settings" class="size-5" />
+                        "Manage community"
+                    </button>
+                    <button
+                        role="menuitem"
+                        pp-ref={editMenuItem}
+                        hidden={!menuCommunity?.is_owner}
+                        onclick={openEdit(menuId)}
+                    >
+                        <Icon name="edit" class="size-5" />
+                        "Edit community"
+                    </button>
+                    <hr />
+                    <button
+                        role="menuitem"
+                        pp-ref={reportMenuItem}
+                        onclick={openAction("report", menuId)}
+                    >
+                        <Icon name="warning" class="size-5" />
+                        "Report a concern"
+                    </button>
+                    <hr />
+                    <button
+                        role="menuitem"
+                        pp-ref={leaveMenuItem}
+                        onclick={openAction("leave", menuId)}
+                    >
+                        <Icon name="sign-out" class="size-5" />
+                        "Leave community"
+                    </button>
+                    <button
+                        role="menuitem"
+                        pp-ref={deleteMenuItem}
+                        hidden={!menuCommunity?.is_owner}
+                        onclick={openAction("delete", menuId)}
+                    >
+                        <Icon name="trash" class="size-5" />
+                        "Delete community"
+                    </button>
+                </div>
+                <Dialog>
+                    <DialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={actionOpener}></span>
+                    </DialogTrigger>
+                    <DialogClose attrs=@{hidden()}>
+                        <span pp-ref={actionCloser}></span>
+                    </DialogClose>
+                    <DialogContent class="community-action-dialog">
+                        <DialogHeader>
+                            <DialogTitle>{actionTitle}</DialogTitle>
+                        </DialogHeader>
+                        <p class="text-sm text-muted-foreground">{actionCommunity?.name}</p>
+                        <section hidden={action !== "share"} class="community-action-fields">
+                            <p>
+                                "People with this link can sign in and join this community. Share it only with people you want to invite."
+                            </p>
+                            <label for="community-join-link">"Join link"</label>
+                            <input
+                                id="community-join-link"
+                                pp-ref={joinLinkInput}
+                                value={shareUrl}
+                                readonly
+                            />
+                            <Button onclick={copyJoinLink()} disabled={working || !shareUrl}>
+                                "Copy link"
+                            </Button>
+                        </section>
+                        <form
+                            hidden={action !== "invite"}
+                            class="community-action-fields"
+                            onsubmit={sendInvitation(event)}
+                        >
+                            <p>
+                                "Invite someone with an Upurnaka account. They will see an invitation when they open Communities."
+                            </p>
+                            <label for="community-invite-email">"Email address"</label>
+                            <Input
+                                id="community-invite-email"
+                                value={inviteEmail}
+                                oninput={setInviteEmail(target.value)}
+                                attrs=@{Attrs::new().set("type","email").set("maxlength","254")}
+                            />
+                            <Button attrs=@{submit()} disabled={working || !inviteEmail.trim()}>
+                                "Send invitation"
+                            </Button>
+                        </form>
+                        <form
+                            hidden={action !== "notifications"}
+                            class="community-action-fields"
+                            onsubmit={saveNotifications(event)}
+                        >
+                            <label for="community-notification-preference">
+                                "Community notifications"
+                            </label>
+                            <select
+                                id="community-notification-preference"
+                                value={notificationPreference}
+                                onchange={setNotificationPreference(target.value)}
+                            >
+                                <option value="all">"All activity"</option>
+                                <option value="mentions">"Mentions only"</option>
+                                <option value="off">"Off"</option>
+                            </select>
+                            <Button attrs=@{submit()} disabled={working}>"Save"</Button>
+                        </form>
+                        <section hidden={action !== "manage"} class="community-action-fields">
+                            <h3>"Members and invitations"</h3>
+                            <template pp-for="member in members">
+                                <div key={member.id} class="community-member-row">
+                                    <div>
+                                        <strong>{member.name}</strong>
+                                        <p>
+                                            {member.is_owner ? "Owner" : member.state === "invited" ? "Invitation pending" : "Member"}
+                                        </p>
+                                    </div>
+                                    <div hidden={!actionCommunity?.is_owner || member.is_owner}>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            hidden={member.state !== "joined"}
+                                            onclick={setTransferTarget(member.id)}
+                                            disabled={working}
+                                        >
+                                            "Make owner"
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onclick={removeMember(member.id)}
+                                            disabled={working}
+                                        >
+                                            {member.state === "invited" ? "Cancel invitation" : "Remove"}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </template>
+                            <div hidden={!transferTarget} class="community-action-fields">
+                                <p>
+                                    "Transfer ownership to this member? You will become a member and lose owner controls."
+                                </p>
+                                <Button onclick={transferOwnership()} disabled={working}>
+                                    "Confirm transfer"
+                                </Button>
+                                <Button variant="outline" onclick={setTransferTarget("")}>
+                                    "Cancel"
+                                </Button>
+                            </div>
+                            <Button
+                                variant="outline"
+                                hidden={!actionCommunity?.is_owner}
+                                onclick={resetJoinLink()}
+                                disabled={working}
+                            >
+                                "Reset join link"
+                            </Button>
+                            <p hidden={!actionCommunity?.is_owner}>
+                                "Resetting the link invalidates older join links."
+                            </p>
+                            @{if crate::auth::current().is_some_and(|u| u.role == crate::auth::Role::Admin) { html!{<a href="/communities/reports" class="text-link">"Review community reports"</a>} } else { Html::empty() }}
+                        </section>
+                        <form
+                            hidden={action !== "report"}
+                            class="community-action-fields"
+                            onsubmit={submitReport(event)}
+                        >
+                            <p>
+                                "Describe your concern. Your report will be available to workspace administrators."
+                            </p>
+                            <label for="community-report-details">"Your concern"</label>
+                            <textarea
+                                id="community-report-details"
+                                maxlength="2000"
+                                value={reportDetails}
+                                oninput={setReportDetails(target.value)}
+                            >
+                            </textarea>
+                            <Button
+                                attrs=@{submit()}
+                                disabled={working || reportDetails.trim().length < 10 || !!reportReceipt}
+                            >
+                                "Submit report"
+                            </Button>
+                        </form>
+                        <section hidden={action !== "leave"} class="community-action-fields">
+                            <p hidden={!actionCommunity?.is_owner}>
+                                "You are the community owner. Make another joined member the owner in Manage community before leaving."
+                            </p>
+                            <p hidden={actionCommunity?.is_owner}>
+                                "Leave this community? It will disappear from your list and you will lose access to its posts and channels."
+                            </p>
+                            <Button
+                                onclick={leaveCommunity()}
+                                disabled={working || actionCommunity?.is_owner}
+                            >
+                                "Leave community"
+                            </Button>
+                        </section>
+                        <section hidden={action !== "delete"} class="community-action-fields">
+                            <p>
+                                "Delete this community? It will be removed from every member's list. Posts, channels, and join links will no longer be accessible."
+                            </p>
+                            <Button
+                                variant="destructive"
+                                onclick={deleteCommunity()}
+                                disabled={working}
+                            >
+                                "Delete community"
+                            </Button>
+                            <Button variant="outline" onclick={actionCloser.current?.click()}>
+                                "Cancel"
+                            </Button>
+                        </section>
+                        <p role="alert" class="text-sm text-danger-ink" hidden={!actionError}>
+                            {actionError}
+                        </p>
+                        <p role="status" class="community-action-notice" hidden={!actionNotice}>
+                            {actionNotice}
+                        </p>
+                    </DialogContent>
+                </Dialog>
                 <Dialog>
                     <DialogTrigger attrs=@{hidden()}>
                         <span pp-ref={createOpener}></span>
@@ -460,7 +772,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         <div class="flex items-start justify-between gap-6">
                             <DialogHeader class="text-left!">
                                 <DialogTitle class="text-[24px] font-bold leading-tight">
-                                    {step === 2 ? "Choose a category" : template ? "Create your " + template.toLowerCase() + " community" : "Create your community"}
+                                    {editingId ? "Edit community" : step === 2 ? "Choose a category" : template ? "Create your " + template.toLowerCase() + " community" : "Create your community"}
                                 </DialogTitle>
                             </DialogHeader>
                             <button
@@ -540,6 +852,14 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             <p id="community-image-help" class="mt-2 text-xs text-muted-foreground">
                                 "PNG or JPEG, up to 2 MB."
                             </p>
+                            <button
+                                type="button"
+                                class="text-sm text-link"
+                                hidden={!editingId || (!picturePreview && !editingPicture)}
+                                onclick={clearCommunityPicture()}
+                            >
+                                "Remove community image"
+                            </button>
                             <p
                                 class="mt-2 text-sm text-busy"
                                 role="alert"
@@ -620,7 +940,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                     attrs=@{submit()}
                                     disabled={saving || name.trim().length < 2 || (picture && !picturePreview)}
                                 >
-                                    {saving ? "Creating…" : template ? "Create" : "Next"}
+                                    {saving ? "Saving…" : editingId ? "Save" : template ? "Create" : "Next"}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -656,6 +976,30 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     </DialogContent>
                 </Dialog>
                 <style>r##"
+                    .community-nav-row { display:flex;align-items:center;border-radius:8px; }
+                    .community-nav-row[data-selected=true],.community-nav-row:hover { background:#292929; }
+                    .community-nav-row .community-nav-item { flex:1;min-width:0;background:transparent; }
+                    .community-more { display:grid;place-items:center;flex-shrink:0;width:36px;height:36px;margin-right:8px;border-radius:4px;color:#ccc; }
+                    .community-more:hover,.community-more[aria-expanded=true] { background:#444; }
+                    .community-actions-menu { position:fixed;margin:0;width:260px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto;border:1px solid #454545;border-radius:6px;padding:5px 0;background:#292929;color:#ddd;box-shadow:0 8px 28px #0006; }
+                    .community-actions-menu:popover-open { display:block; }
+                    .community-actions-menu button { display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;text-align:left;font-size:14px; }
+                    .community-actions-menu button:hover { background:#3c3c3c; }
+                    .community-actions-menu button:focus { outline:2px solid white;outline-offset:-4px;border-radius:5px; }
+                    .community-actions-menu hr { border:0;border-top:1px solid #505050;margin:6px 0; }
+                    .community-action-dialog { width:min(580px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto; }
+                    .community-action-fields { display:grid;gap:14px;font-size:14px; }
+                    .community-action-fields p { color:#bbb;line-height:1.6; }
+                    .community-action-fields input,.community-action-fields textarea,.community-action-fields select { width:100%;border:1px solid #555;border-radius:4px;background:#202020;color:#eee;padding:10px; }
+                    .community-action-fields textarea { min-height:110px; }
+                    .community-action-fields h3 { font-weight:600; }
+                    .community-member-row { display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #444;padding:12px 0; }
+                    .community-member-row > div:last-child { display:flex;gap:6px;flex-wrap:wrap; }
+                    .community-action-notice,.community-status { color:#c4d8bc;font-size:14px;line-height:1.5; }
+                    .community-status { padding:12px 24px;background:#253323; }
+                    .community-invites { padding:20px;background:#242033;display:grid;gap:16px; }
+                    .community-invites h2 { font-weight:600;margin-bottom:8px; }
+                    .community-invites p { margin-bottom:12px; }
                     .community-workspace { display: grid; grid-template-columns: 300px minmax(0,1fr); min-height: 100%; color: #f2f2f2; background: linear-gradient(135deg,#18121f,#241415 60%,#16141c); }
                     .community-sidebar { padding: 24px 16px; }
                     .community-sidebar-heading { display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px; }
@@ -780,6 +1124,118 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     const activeCommunity = communities.find(c => c.id === selectedCommunity) || null;
                     const activeChannel = activeCommunity?.channels.find(c => c.id === channelId) || null;
                     const activePosts = activeCommunity?.posts.filter(p => p.channel_id === channelId) || [];
+                    function authorInitials(name) { return String(name || '').trim().split(/\s+/).slice(0,2).map(part=>part[0] || '').join('').toUpperCase(); }
+                    const [pendingInvites, setPendingInvites] = pp.state(@{Json(&invitations)});
+                    const [joinPreview, setJoinPreview] = pp.state(@{Json(&join_preview)});
+                    const joinToken = @{join_token.as_str()};
+                    const [notice, setNotice] = pp.state('');
+                    const actionsMenu = pp.ref(null);
+                    const [menuId, setMenuId] = pp.state('');
+                    const [menuPosition, setMenuPosition] = pp.state('');
+                    const shareMenuItem = pp.ref(null), inviteMenuItem = pp.ref(null), notificationMenuItem = pp.ref(null), manageMenuItem = pp.ref(null), editMenuItem = pp.ref(null), reportMenuItem = pp.ref(null), leaveMenuItem = pp.ref(null), deleteMenuItem = pp.ref(null);
+                    const menuCommunity = communities.find(c => c.id === menuId) || null;
+                    function prepareMenu(id, event) {
+                        setMenuId(id); const rect = event.currentTarget.getBoundingClientRect();
+                        setMenuPosition('left:' + Math.max(12, Math.min(rect.right - 260, innerWidth - 272)) + 'px;top:' + Math.max(12, Math.min(rect.bottom + 6, innerHeight - 450)) + 'px');
+                    }
+                    function menuItems() { return [shareMenuItem,inviteMenuItem,notificationMenuItem,manageMenuItem,editMenuItem,reportMenuItem,leaveMenuItem,deleteMenuItem].map(ref => ref.current).filter(element => element && !element.hidden && !element.disabled); }
+                    const focusMenu = pp.event(() => { if (!actionsMenu.current?.contains(document.activeElement)) menuItems()[0]?.focus(); });
+                    function menuToggled(event) { if (event.newState === 'open') requestAnimationFrame(focusMenu); }
+                    function openMenuKey(id, event) {
+                        if (event.key !== 'ArrowDown') return;
+                        event.preventDefault(); prepareMenu(id, event); actionsMenu.current?.showPopover();
+                    }
+                    function menuKey(event) {
+                        const items = menuItems(), index = items.indexOf(document.activeElement);
+                        if (event.key === 'Tab') { actionsMenu.current?.hidePopover(); return; }
+                        let next;
+                        if (event.key === 'ArrowDown') next = (index + 1) % items.length;
+                        else if (event.key === 'ArrowUp') next = (index + items.length - 1) % items.length;
+                        else if (event.key === 'Home') next = 0;
+                        else if (event.key === 'End') next = items.length - 1;
+                        else return;
+                        event.preventDefault(); items[next]?.focus();
+                    }
+                    const actionOpener = pp.ref(null), actionCloser = pp.ref(null), joinLinkInput = pp.ref(null);
+                    const [action, setAction] = pp.state('');
+                    const [actionId, setActionId] = pp.state('');
+                    const [actionError, setActionError] = pp.state('');
+                    const [actionNotice, setActionNotice] = pp.state('');
+                    const [shareUrl, setShareUrl] = pp.state('');
+                    const [inviteEmail, setInviteEmail] = pp.state('');
+                    const [notificationPreference, setNotificationPreference] = pp.state('all');
+                    const [members, setMembers] = pp.state([]);
+                    const [transferTarget, setTransferTarget] = pp.state('');
+                    const [reportDetails, setReportDetails] = pp.state('');
+                    const [reportReceipt, setReportReceipt] = pp.state('');
+                    const actionCommunity = communities.find(c => c.id === actionId) || null;
+                    const actionTitle = {share:'Share join link',invite:'Invite members',notifications:'Notifications',manage:'Manage community',report:'Report a concern',leave:'Leave community',delete:'Delete community'}[action] || 'Community';
+                    async function openAction(kind, id) {
+                        actionsMenu.current?.hidePopover(); setAction(kind); setActionId(id); setActionError(''); setActionNotice(''); setTransferTarget(''); setReportDetails('');setReportReceipt('');setInviteEmail('');setShareUrl('');
+                        const target = communities.find(c => c.id === id); setNotificationPreference(target?.notifications || 'all');
+                        actionOpener.current?.click();
+                        if (!['share','manage'].includes(kind)) return;
+                        setWorking(true);
+                        try {
+                            if (kind === 'share') setShareUrl(location.origin + await pp.rpc('community_join_link', {id,reset:false}));
+                            else setMembers(await pp.rpc('community_members', {id}));
+                        } catch (failure) {setActionError(failure.message || 'Could not load community settings.');}
+                        finally {setWorking(false);}
+                    }
+                    async function copyJoinLink() {
+                        try { await navigator.clipboard.writeText(shareUrl);setActionNotice('Join link copied.'); }
+                        catch (_) {joinLinkInput.current?.focus();joinLinkInput.current?.select();setActionNotice('Select and copy the join link above.');}
+                    }
+                    async function sendInvitation(event) {
+                        event.preventDefault();if(working)return;setWorking(true);setActionError('');
+                        try {await pp.rpc('invite_community_member',{id:actionId,email:inviteEmail});setInviteEmail('');setActionNotice('Invitation saved. This person can accept it in Communities.');}
+                        catch(failure){setActionError(failure.message);}
+                        finally{setWorking(false);}
+                    }
+                    async function saveNotifications(event) {
+                        event.preventDefault();if(working)return;setWorking(true);setActionError('');
+                        try {const preference=await pp.rpc('set_community_notifications',{id:actionId,preference:notificationPreference});updateCommunity(actionId,()=>({notifications:preference}));setActionNotice('Notification preference saved.');}
+                        catch(failure){setActionError(failure.message);}finally{setWorking(false);}
+                    }
+                    async function resetJoinLink() {
+                        if(working)return;setWorking(true);setActionError('');
+                        try {await pp.rpc('community_join_link',{id:actionId,reset:true});setActionNotice('New join link created. Previous join links are no longer valid.');}
+                        catch(failure){setActionError(failure.message);}finally{setWorking(false);}
+                    }
+                    async function removeMember(target) {
+                        if(working)return;setWorking(true);setActionError('');
+                        try {await pp.rpc('remove_community_member',{id:actionId,target});const next=await pp.rpc('community_members',{id:actionId});setMembers(next);updateCommunity(actionId,()=>({member_count:next.filter(m=>m.state==='joined').length}));}
+                        catch(failure){setActionError(failure.message);}finally{setWorking(false);}
+                    }
+                    async function transferOwnership() {
+                        if(working)return;setWorking(true);setActionError('');
+                        try {await pp.rpc('transfer_community_ownership',{id:actionId,target:transferTarget});updateCommunity(actionId,()=>({is_owner:false}));setMembers(await pp.rpc('community_members',{id:actionId}));setTransferTarget('');setActionNotice('Ownership transferred. You are now a member.');}
+                        catch(failure){setActionError(failure.message);}finally{setWorking(false);}
+                    }
+                    async function submitReport(event) {
+                        event.preventDefault();if(working||reportReceipt)return;setWorking(true);setActionError('');
+                        try {const receipt=await pp.rpc('report_community',{id:actionId,details:reportDetails});setReportReceipt(receipt);setActionNotice('Report submitted to workspace administrators. Reference: '+receipt);}
+                        catch(failure){setActionError(failure.message);}finally{setWorking(false);}
+                    }
+                    function removeFromList(id) {
+                        const next=communities.filter(c=>c.id!==id);setCommunities(next);
+                        if(selectedCommunity===id)selectCommunity(next[0]?.id || '');actionCloser.current?.click();
+                    }
+                    async function leaveCommunity() {
+                        if(working)return;setWorking(true);setActionError('');
+                        try {await pp.rpc('leave_community',{id:actionId});removeFromList(actionId);setNotice('You left the community.');}
+                        catch(failure){setActionError(failure.message);}finally{setWorking(false);}
+                    }
+                    async function deleteCommunity() {
+                        if(working)return;setWorking(true);setActionError('');
+                        try {await pp.rpc('delete_community',{id:actionId});removeFromList(actionId);setNotice('Community deleted.');}
+                        catch(failure){setActionError(failure.message);}finally{setWorking(false);}
+                    }
+                    async function acceptInvitation(id, token) {
+                        if(working)return;setWorking(true);
+                        try {const joined=await pp.rpc('join_community',{id,token});setCommunities(current=>[...current.filter(c=>c.id!==id),joined]);selectCommunity(id);setPendingInvites(current=>current.filter(i=>i.id!==id));setJoinPreview(null);setNotice('You joined the community.');}
+                        catch(failure){setNotice(failure.message);}finally{setWorking(false);}
+                    }
                     function selectCommunity(id) {
                         setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false); setCoverPicker(false); setAddingChannel(false);
                         const url = new URL(location.href); url.searchParams.set('community', id); history.replaceState(null, '', url);
@@ -862,8 +1318,17 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     const [template, setTemplate] = pp.state("");
                     const [error, setError] = pp.state("");
                     const [saving, setSaving] = pp.state(false);
+                    const [editingId, setEditingId] = pp.state('');
+                    const [editingPicture, setEditingPicture] = pp.state('');
+                    const [removePicture, setRemovePicture] = pp.state(false);
+                    function openEdit(id) {
+                        actionsMenu.current?.hidePopover();const target=communities.find(c=>c.id===id);if(!target?.is_owner)return;
+                        setEditingId(id);setEditingPicture(target.picture || '');setRemovePicture(false);setName(target.name);setTemplate(target.category);setDescription(target.description);setGuidelines(target.guidelines);setAvatar(target.avatar);setPicture(null);setPicturePreview(target.picture || '');setPictureError('');setError('');setFieldErrors({});setEditingGuidelines(false);setStep(1);createOpener.current?.click();
+                    }
+                    function clearCommunityPicture(){setPicture(null);setPicturePreview('');setEditingPicture('');setRemovePicture(true);}
 
                     function openCreate(fromTemplate) {
+                        setEditingId('');setEditingPicture('');setRemovePicture(false);
                         setTemplate(fromTemplate);
                         setName(fromTemplate);
                         setDescription("");
@@ -895,6 +1360,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         }
                         setPictureError("");
                         setFieldErrors({...fieldErrors, picture: undefined});
+                        setRemovePicture(false);
                         setPicturePreview("");
                         setPicture(file);
                     }
@@ -913,7 +1379,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     function goToCategory(event) {
                         event.preventDefault();
                         if (saving || name.trim().length < 2 || (picture && !picturePreview)) return;
-                        if (template) create(template);
+                        if (editingId || template) create(template);
                         else setStep(2);
                     }
 
@@ -922,7 +1388,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         setSaving(true);
                         setError("");
                         try {
-                            const community = await pp.rpc("create_community", {
+                            const community = editingId ? await pp.rpc('edit_community', {id:editingId,name:name.trim(),description:description.trim(),guidelines:guidelines.trim(),picture,remove_picture:removePicture}) : await pp.rpc("create_community", {
                                 name: name.trim(),
                                 category: category,
                                 description: description.trim(),
@@ -930,7 +1396,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 avatar: avatar,
                                 picture: picture,
                             });
-                            setCommunities((current) => current.concat([community]));
+                            setCommunities((current) => editingId ? current.map(c=>c.id===editingId?community:c) : current.concat([community]));
                             selectCommunity(community.id);
                             createCloser.current?.click();
                         } catch (failure) {
@@ -1010,6 +1476,9 @@ pub async fn create_community(
         cover: "mint".into(),
         channels: Vec::new(),
         posts: Vec::new(),
+        is_owner: true,
+        notifications: "all".into(),
+        member_count: 1,
     })
     .await
 }
@@ -1030,6 +1499,62 @@ pub async fn publish_community_post(
 #[rpc(auth)]
 pub async fn change_community_cover(id: String, cover: String) -> Result<String> {
     communities::cover(id, cover).await
+}
+
+#[rpc(auth)]
+pub async fn edit_community(
+    id: String,
+    name: String,
+    description: String,
+    guidelines: String,
+    picture: Option<RpcFile>,
+    remove_picture: bool,
+) -> Result<Community> {
+    let picture = match picture {
+        Some(file) => Some(community_picture(file).await?),
+        None => None,
+    };
+    communities::edit(id, name, description, guidelines, picture, remove_picture).await
+}
+#[rpc(auth)]
+pub async fn community_members(id: String) -> Result<Vec<communities::Member>> {
+    communities::members(id).await
+}
+#[rpc(auth)]
+pub async fn community_join_link(id: String, reset: bool) -> Result<String> {
+    communities::join_link(id, reset).await
+}
+#[rpc(auth)]
+pub async fn invite_community_member(id: String, email: String) -> Result<bool> {
+    communities::invite(id, email).await
+}
+#[rpc(auth)]
+pub async fn join_community(id: String, token: Option<String>) -> Result<Community> {
+    communities::join(id, token).await
+}
+#[rpc(auth)]
+pub async fn set_community_notifications(id: String, preference: String) -> Result<String> {
+    communities::notifications(id, preference).await
+}
+#[rpc(auth)]
+pub async fn transfer_community_ownership(id: String, target: String) -> Result<bool> {
+    communities::transfer(id, target).await
+}
+#[rpc(auth)]
+pub async fn remove_community_member(id: String, target: String) -> Result<bool> {
+    communities::remove_member(id, target).await
+}
+#[rpc(auth)]
+pub async fn leave_community(id: String) -> Result<bool> {
+    communities::leave(id).await
+}
+#[rpc(auth)]
+pub async fn delete_community(id: String) -> Result<bool> {
+    communities::delete(id).await
+}
+#[rpc(auth)]
+pub async fn report_community(id: String, details: String) -> Result<String> {
+    communities::report(id, details).await
 }
 
 /// Decode the content rather than trusting the upload's name or MIME type.

@@ -10,6 +10,7 @@ pub struct Model {
     pub body: String,
     pub announcement: bool,
     pub created_at: i64,
+    pub author_id: String,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}

@@ -1,0 +1,117 @@
+use sea_orm_migration::{prelude::*, schema::*};
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.alter_table(
+            Table::alter()
+                .table(Community::Table)
+                .add_column(string(Community::JoinToken).default(""))
+                .to_owned(),
+        )
+        .await?;
+        m.alter_table(
+            Table::alter()
+                .table(Community::Table)
+                .add_column(big_integer_null(Community::DeletedAt))
+                .to_owned(),
+        )
+        .await?;
+        m.alter_table(
+            Table::alter()
+                .table(CommunityPost::Table)
+                .add_column(string(CommunityPost::AuthorId).default(""))
+                .to_owned(),
+        )
+        .await?;
+        m.create_table(
+            Table::create()
+                .table(CommunityMember::Table)
+                .col(string(CommunityMember::Id).primary_key())
+                .col(string(CommunityMember::CommunityId))
+                .col(string(CommunityMember::UserId))
+                .col(string(CommunityMember::State))
+                .col(string(CommunityMember::Notifications))
+                .to_owned(),
+        )
+        .await?;
+        m.create_index(
+            Index::create()
+                .name("idx_community_member_unique")
+                .table(CommunityMember::Table)
+                .col(CommunityMember::CommunityId)
+                .col(CommunityMember::UserId)
+                .unique()
+                .to_owned(),
+        )
+        .await?;
+        m.create_table(
+            Table::create()
+                .table(CommunityReport::Table)
+                .col(string(CommunityReport::Id).primary_key())
+                .col(string(CommunityReport::CommunityId))
+                .col(string(CommunityReport::ReporterId))
+                .col(text(CommunityReport::Details))
+                .col(big_integer(CommunityReport::CreatedAt))
+                .to_owned(),
+        )
+        .await
+    }
+    async fn down(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.drop_table(Table::drop().table(CommunityReport::Table).to_owned())
+            .await?;
+        m.drop_table(Table::drop().table(CommunityMember::Table).to_owned())
+            .await?;
+        m.alter_table(
+            Table::alter()
+                .table(CommunityPost::Table)
+                .drop_column(CommunityPost::AuthorId)
+                .to_owned(),
+        )
+        .await?;
+        m.alter_table(
+            Table::alter()
+                .table(Community::Table)
+                .drop_column(Community::DeletedAt)
+                .to_owned(),
+        )
+        .await?;
+        m.alter_table(
+            Table::alter()
+                .table(Community::Table)
+                .drop_column(Community::JoinToken)
+                .to_owned(),
+        )
+        .await
+    }
+}
+#[derive(DeriveIden)]
+enum Community {
+    Table,
+    JoinToken,
+    DeletedAt,
+}
+#[derive(DeriveIden)]
+enum CommunityPost {
+    Table,
+    AuthorId,
+}
+#[derive(DeriveIden)]
+enum CommunityMember {
+    Table,
+    Id,
+    CommunityId,
+    UserId,
+    State,
+    Notifications,
+}
+#[derive(DeriveIden)]
+enum CommunityReport {
+    Table,
+    Id,
+    CommunityId,
+    ReporterId,
+    Details,
+    CreatedAt,
+}

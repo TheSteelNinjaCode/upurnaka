@@ -14,6 +14,8 @@ pub struct Model {
     pub picture: Option<String>,
     pub cover: String,
     pub created_at: i64,
+    pub join_token: String,
+    pub deleted_at: Option<i64>,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
