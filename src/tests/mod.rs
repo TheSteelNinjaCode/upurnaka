@@ -10,6 +10,7 @@ use support::*;
 mod auth;
 mod calendar;
 mod chat_files;
+mod communities;
 mod database;
 pub(crate) mod giphy;
 mod meeting_controls;

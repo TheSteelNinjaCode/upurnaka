@@ -9,11 +9,11 @@ use crate::components::rahti_ui::attrs::Attrs;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
 use crate::components::rahti_ui::card::{Card, CardDescription, CardFooter, CardHeader, CardTitle};
 use crate::components::rahti_ui::dialog::{
-    Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-    DialogTrigger,
+    Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 };
 use crate::components::rahti_ui::field::{Field, FieldLabel};
 use crate::components::rahti_ui::input::Input;
+use crate::components::rahti_ui::textarea::Textarea;
 use crate::rahti::{Html, Metadata, Result, Validator, html, rpc};
 
 pub fn metadata() -> Metadata {
@@ -26,11 +26,6 @@ pub fn metadata() -> Metadata {
 const TEMPLATE: &str = "rounded-full text-[13px] font-semibold";
 
 pub async fn page() -> Html {
-    let cancel = button_variants(
-        ButtonVariant::Outline,
-        ButtonSize::Default,
-        "text-[13px] font-semibold",
-    );
     let cancel_link = button_variants(
         ButtonVariant::Link,
         ButtonSize::Default,
@@ -174,7 +169,11 @@ pub async fn page() -> Html {
                                 class={selectedCommunity === community.id ? "rounded-xl outline-2 outline-brand-ink" : ""}
                             >
                                 <Card class="gap-4 overflow-hidden bg-raised pt-0 pb-5">
-                                    <div class="h-24 bg-linear-to-br from-[#6f63d8] to-[#3a3270]">
+                                    <div
+                                        class="flex h-24 items-center justify-center bg-linear-to-br from-[#6f63d8] to-[#3a3270] text-5xl"
+                                        aria-hidden="true"
+                                    >
+                                        {community.avatar}
                                     </div>
                                     <CardHeader class="gap-1 px-5">
                                         <CardTitle class="truncate text-[15px]">
@@ -183,6 +182,12 @@ pub async fn page() -> Html {
                                         <CardDescription class="text-xs">
                                             {community.category}
                                         </CardDescription>
+                                        <p
+                                            class="line-clamp-2 text-sm text-muted-foreground"
+                                            hidden={!community.description}
+                                        >
+                                            {community.description}
+                                        </p>
                                     </CardHeader>
                                     <CardFooter class="px-5 text-xs text-subtle">
                                         "1 member · you are the owner"
@@ -199,43 +204,160 @@ pub async fn page() -> Html {
                     <DialogClose attrs=@{hidden()}>
                         <span pp-ref={createCloser}></span>
                     </DialogClose>
-                    <DialogContent class="sm:max-w-[520px]!">
-                        <DialogHeader>
-                            <DialogTitle class="text-center text-xl">
-                                {step === 1 ? "Name your community" : "Choose a category"}
-                            </DialogTitle>
-                            <DialogDescription class="text-center" hidden={!template || step !== 1}>
-                                "Starting from the "
-                                {template}
-                                " template."
-                            </DialogDescription>
-                        </DialogHeader>
-                        <form onsubmit={goToCategory(event)} novalidate hidden={step !== 1}>
-                            <Field>
+                    <DialogContent class="community-create-dialog" hide_close=@{true}>
+                        <div class="flex items-start justify-between gap-6">
+                            <DialogHeader class="text-left!">
+                                <DialogTitle class="text-[24px] font-bold leading-tight">
+                                    {step === 2 ? "Choose a category" : template ? "Create your " + template.toLowerCase() + " community" : "Create your community"}
+                                </DialogTitle>
+                            </DialogHeader>
+                            <button
+                                type="button"
+                                class="community-create-close"
+                                aria-label="Close community creation"
+                                onclick={createCloser.current?.click()}
+                            >
+                                <Icon name="close" class="size-6" />
+                            </button>
+                        </div>
+                        <form
+                            class="community-create-form"
+                            onsubmit={goToCategory(event)}
+                            novalidate
+                            hidden={step !== 1}
+                        >
+                            <div class="community-identity">
+                                <button
+                                    type="button"
+                                    class="community-avatar"
+                                    aria-label="Edit community image"
+                                    aria-expanded={editingImage}
+                                    onclick={setEditingImage(!editingImage)}
+                                >
+                                    <span class="community-avatar-emoji" aria-hidden="true">
+                                        {avatar}
+                                    </span>
+                                    <span class="community-avatar-edit">"Edit"</span>
+                                </button>
+                                <Field class="min-w-0 flex-1 gap-1">
+                                    <FieldLabel
+                                        r#for="community-name"
+                                        class="text-[15px] font-normal"
+                                    >
+                                        "Community name"
+                                    </FieldLabel>
+                                    <Input
+                                        id="community-name"
+                                        name="name"
+                                        placeholder="Enter a community name"
+                                        class="community-name-input"
+                                        attrs=@{Attrs::new().set("autocomplete", "off").set("autofocus", "").set("maxlength", "80")}
+                                        value={name}
+                                        oninput={setName(target.value)}
+                                        invalid={!!fieldErrors.name}
+                                    />
+                                    <p
+                                        class="text-xs text-busy"
+                                        role="alert"
+                                        hidden={!fieldErrors.name}
+                                    >
+                                        {fieldErrors.name?.join(" ")}
+                                    </p>
+                                </Field>
+                            </div>
+                            <div class="community-image-picker" hidden={!editingImage}>
+                                <p class="mb-2 text-sm text-muted-foreground">
+                                    "Choose a community image"
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    <template pp-for="image in COMMUNITY_IMAGES">
+                                        <button
+                                            key={image}
+                                            type="button"
+                                            class="community-image-choice"
+                                            aria-label={"Use " + image + " as community image"}
+                                            aria-pressed={avatar === image}
+                                            onclick={chooseImage(image)}
+                                        >
+                                            {image}
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                            <Field class="mt-8 gap-2">
                                 <FieldLabel
-                                    r#for="community-name"
-                                    class="text-xs text-muted-foreground"
+                                    r#for="community-description"
+                                    class="text-[15px] font-normal"
                                 >
-                                    "Community name"
+                                    "Description (optional)"
                                 </FieldLabel>
-                                <Input
-                                    id="community-name"
-                                    name="name"
-                                    placeholder="Saturday football club"
-                                    class="h-10! text-[13px]"
-                                    attrs=@{Attrs::new().set("autocomplete", "off").set("autofocus", "")}
-                                    value={name}
-                                    oninput={setName(target.value)}
+                                <Textarea
+                                    id="community-description"
+                                    name="description"
+                                    class="community-description"
+                                    placeholder="Write a short description about your community so people know what it's about."
+                                    attrs=@{Attrs::new().set("maxlength", "1000")}
+                                    value={description}
+                                    oninput={setDescription(target.value)}
                                 />
-                            </Field>
-                            <DialogFooter class="mt-8">
-                                <DialogClose class=@{cancel.as_str()}>"Cancel"</DialogClose>
-                                <Button
-                                    class="text-[13px] font-semibold"
-                                    attrs=@{submit()}
-                                    disabled={name.trim().length === 0}
+                                <p
+                                    class="text-xs text-busy"
+                                    role="alert"
+                                    hidden={!fieldErrors.description}
                                 >
-                                    "Next"
+                                    {fieldErrors.description?.join(" ")}
+                                </p>
+                            </Field>
+                            <div class="mt-8">
+                                <div class="mb-2 flex items-center justify-between gap-4">
+                                    <label for="community-guidelines" class="text-[15px]">
+                                        "Community guidelines"
+                                    </label>
+                                    <button
+                                        type="button"
+                                        class="community-guidelines-edit"
+                                        aria-label={editingGuidelines ? "Done editing community guidelines" : "Edit community guidelines"}
+                                        aria-expanded={editingGuidelines}
+                                        onclick={toggleGuidelines()}
+                                    >
+                                        <span hidden={editingGuidelines}>
+                                            <Icon name="edit" class="size-5" />
+                                        </span>
+                                        <span hidden={!editingGuidelines}>"Done"</span>
+                                    </button>
+                                </div>
+                                <p class="community-guidelines-preview" hidden={editingGuidelines}>
+                                    {guidelines}
+                                </p>
+                                <textarea
+                                    id="community-guidelines"
+                                    name="guidelines"
+                                    class="community-description w-full focus-visible:outline-2 focus-visible:outline-brand-ink"
+                                    maxlength="2000"
+                                    pp-ref={guidelinesInput}
+                                    value={guidelines}
+                                    oninput={setGuidelines(target.value)}
+                                    hidden={!editingGuidelines}
+                                >
+                                </textarea>
+                                <p
+                                    class="text-xs text-busy"
+                                    role="alert"
+                                    hidden={!fieldErrors.guidelines}
+                                >
+                                    {fieldErrors.guidelines?.join(" ")}
+                                </p>
+                            </div>
+                            <p class="mt-4 text-sm text-busy" role="alert" hidden={!error}>
+                                {error}
+                            </p>
+                            <DialogFooter class="community-create-footer">
+                                <Button
+                                    class="min-w-32 text-[15px] font-semibold"
+                                    attrs=@{submit()}
+                                    disabled={saving || name.trim().length < 2}
+                                >
+                                    {saving ? "Creating…" : template ? "Create" : "Next"}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -270,6 +392,41 @@ pub async fn page() -> Html {
                         </div>
                     </DialogContent>
                 </Dialog>
+                <style>r##"
+                    .community-create-dialog {
+                        width: min(800px, calc(100vw - 40px)); max-width: 800px;
+                        min-height: min(740px, calc(100dvh - 40px));
+                        max-height: calc(100dvh - 40px); overflow-y: auto;
+                        padding: 32px; border: 1px solid #d6d6d6; border-radius: 5px;
+                        background: #292929; color: #f5f5f5; gap: 34px;
+                        grid-template-rows: auto 1fr;
+                    }
+                    .community-create-close { color: #ccc; padding: 4px; border-radius: 4px; }
+                    .community-create-close:hover { background: #3d3d3d; }
+                    .community-create-form { display: flex; flex-direction: column; min-height: 0; }
+                    .community-identity { display: flex; align-items: center; gap: 26px; }
+                    .community-avatar { position: relative; flex-shrink: 0; width: 118px; height: 118px; overflow: hidden; border: 1px solid #777; border-radius: 5px; background: linear-gradient(140deg, #faedcf, #eccc83); }
+                    .community-avatar-emoji { display: grid; place-items: center; height: 100%; padding-bottom: 12px; font-size: 65px; }
+                    .community-avatar-edit { position: absolute; bottom: 0; inset-inline: 0; background: #625332cc; padding: 3px; color: white; font-size: 16px; }
+                    .community-name-input { height: 58px; border: 0; border-bottom: 1px solid #939393; border-radius: 0; background: transparent; padding: 4px 12px; font-size: 30px; font-weight: 700; box-shadow: none; }
+                    .community-name-input:focus-visible { border-color: #a6a0ff; outline: 2px solid #a6a0ff; outline-offset: 2px; }
+                    .community-description { min-height: 110px; resize: vertical; border: 0; border-radius: 5px; background: #202020; padding: 12px 16px; font-size: 16px; line-height: 1.5; }
+                    .community-description::placeholder { color: #999; }
+                    .community-guidelines-preview { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 1.5; padding-right: 24px; }
+                    .community-guidelines-edit { color: #ccc; padding: 4px; border-radius: 4px; font-size: 13px; }
+                    .community-guidelines-edit:hover { background: #3d3d3d; }
+                    .community-create-footer { margin-top: auto; padding-top: 40px; }
+                    .community-image-picker { margin-top: 16px; padding: 12px; border: 1px solid #555; border-radius: 5px; }
+                    .community-image-choice { padding: 8px; font-size: 28px; border-radius: 4px; border: 2px solid transparent; }
+                    .community-image-choice:hover, .community-image-choice[aria-pressed=true] { border-color: #a6a0ff; background: #3d3d3d; }
+                    @media (max-width: 540px) {
+                        .community-create-dialog { padding: 22px; gap: 26px; }
+                        .community-identity { gap: 16px; }
+                        .community-avatar { width: 84px; height: 84px; }
+                        .community-avatar-emoji { font-size: 44px; }
+                        .community-name-input { font-size: 23px; }
+                    }
+                "##</style>
                 <script>r##"
                     const [communities, setCommunities] = pp.state([]);
                     const searchStore = pp.context(window.UpurnakaSearchContext);
@@ -292,6 +449,18 @@ pub async fn page() -> Html {
                         "Family and friends", "Group projects", "Individual projects",
                         "Hobbies", "Events", "Gaming or recreation",
                     ];
+                    const DEFAULT_GUIDELINES = "Be kind and respectful to your fellow community members. Don't be rude or cruel. Participate as yourself and don't post anything that violates community guidelines.";
+                    const COMMUNITY_IMAGES = ["🎓", "🏪", "🏅", "👥", "🌱", "⚽", "🎨", "💡"];
+                    const guidelinesInput = pp.ref(null);
+                    const [description, setDescription] = pp.state("");
+                    const [guidelines, setGuidelines] = pp.state(DEFAULT_GUIDELINES);
+                    const [avatar, setAvatar] = pp.state("👥");
+                    const [editingImage, setEditingImage] = pp.state(false);
+                    const [editingGuidelines, setEditingGuidelines] = pp.state(false);
+                    pp.effect(() => {
+                        if (editingGuidelines) guidelinesInput.current?.focus();
+                    }, [editingGuidelines]);
+                    const [fieldErrors, setFieldErrors] = pp.state({});
                     const [step, setStep] = pp.state(1);
                     const [name, setName] = pp.state("");
                     const [template, setTemplate] = pp.state("");
@@ -300,16 +469,33 @@ pub async fn page() -> Html {
 
                     function openCreate(fromTemplate) {
                         setTemplate(fromTemplate);
-                        setName(fromTemplate ? fromTemplate + " community" : "");
+                        setName(fromTemplate);
+                        setDescription("");
+                        setGuidelines(DEFAULT_GUIDELINES);
+                        setAvatar({School:"🎓",Business:"🏪",Life:"🏅"}[fromTemplate] || "👥");
+                        setEditingImage(false);
+                        setEditingGuidelines(false);
+                        setFieldErrors({});
                         setError("");
                         setStep(1);
                         createOpener.current?.click();
                     }
 
+                    function chooseImage(image) {
+                        setAvatar(image);
+                        setEditingImage(false);
+                    }
+
+                    function toggleGuidelines() {
+                        const editing = !editingGuidelines;
+                        setEditingGuidelines(editing);
+                    }
+
                     function goToCategory(event) {
                         event.preventDefault();
-                        if (name.trim().length === 0) return;
-                        setStep(2);
+                        if (saving || name.trim().length < 2) return;
+                        if (template) create(template);
+                        else setStep(2);
                     }
 
                     async function create(category) {
@@ -320,11 +506,16 @@ pub async fn page() -> Html {
                             const community = await pp.rpc("create_community", {
                                 name: name.trim(),
                                 category: category,
+                                description: description.trim(),
+                                guidelines: guidelines.trim(),
+                                avatar: avatar,
                             });
                             setCommunities((current) => current.concat([community]));
                             createCloser.current?.click();
                         } catch (failure) {
+                            setFieldErrors(failure.errors || {});
                             setError(failure.message || "The community could not be created.");
+                            if (failure.errors && !failure.errors.category) setStep(1);
                         } finally {
                             setSaving(false);
                         }
@@ -341,23 +532,42 @@ pub struct Community {
     pub id: String,
     pub name: String,
     pub category: String,
+    pub description: String,
+    pub guidelines: String,
+    pub avatar: String,
 }
 
 /// The categories the create flow offers. A value outside this list is a 422,
 /// so a hand-made request cannot invent one.
-const CATEGORIES: [&str; 6] = [
+const CATEGORIES: [&str; 9] = [
     "Family and friends",
     "Group projects",
     "Individual projects",
     "Hobbies",
     "Events",
     "Gaming or recreation",
+    "School",
+    "Business",
+    "Life",
 ];
 
 #[rpc(auth)]
-pub async fn create_community(name: String, category: String) -> Result<Community> {
+pub async fn create_community(
+    name: String,
+    category: String,
+    description: Option<String>,
+    guidelines: Option<String>,
+    avatar: Option<String>,
+) -> Result<Community> {
     let name = name.trim().to_string();
     let category = category.trim().to_string();
+    let description = description.unwrap_or_default().trim().to_string();
+    let guidelines = guidelines.unwrap_or_default().trim().to_string();
+    let avatar = avatar.unwrap_or_else(|| "👥".to_string());
+    let allowed_images: Vec<String> = ["🎓", "🏪", "🏅", "👥", "🌱", "⚽", "🎨", "💡"]
+        .iter()
+        .map(|value| value.to_string())
+        .collect();
     let allowed: Vec<String> = CATEGORIES.iter().map(|value| value.to_string()).collect();
 
     let mut validator = Validator::new();
@@ -365,10 +575,20 @@ pub async fn create_community(name: String, category: String) -> Result<Communit
         .required("name", &name)
         .min_chars("name", &name, 2)
         .max_chars("name", &name, 80)
-        .one_of("category", &category, &allowed);
+        .one_of("category", &category, &allowed)
+        .max_chars("description", &description, 1000)
+        .max_chars("guidelines", &guidelines, 2000)
+        .one_of("avatar", &avatar, &allowed_images);
     validator.finish()?;
 
     let id = format!("{:x}", crate::rahti::time::now().timestamp_micros());
 
-    Ok(Community { id, name, category })
+    Ok(Community {
+        id,
+        name,
+        category,
+        description,
+        guidelines,
+        avatar,
+    })
 }
