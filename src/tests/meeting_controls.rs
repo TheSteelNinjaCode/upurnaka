@@ -3,6 +3,7 @@ use super::*;
 use crate::models::meeting_visit as visit;
 use rahti::serde_json::{Value, json};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, sea_query::Expr};
+use std::time::Duration;
 
 async fn guest() -> Client {
     let mut client = Client::new().await;
@@ -899,6 +900,38 @@ async fn browsers_can_use_lobby_and_host_controls_without_replacing_video_elemen
     let _:bool = host_browser.eval("window.testTileVideo = document.querySelector('.room-person-video:not([hidden]) video'); true").await.unwrap();
     host_browser
         .click(".room-person-video:not([hidden]) button")
+        .await
+        .unwrap();
+    assert_tile_menu_beside(&mut host_browser, ".room-person-video:not([hidden]) button").await;
+    // The same button closes it, and stays closed.
+    host_browser
+        .click(".room-person-video:not([hidden]) button")
+        .await
+        .unwrap();
+    host_browser.pause(Duration::from_millis(300)).await;
+    assert!(
+        host_browser
+            .eval::<bool>("document.querySelector('.room-tile-menu').hidden")
+            .await
+            .unwrap(),
+        "a second click on the options button must close the menu"
+    );
+    // Another tile's button moves it there instead.
+    host_browser
+        .click("button[aria-label='Options for your video']")
+        .await
+        .unwrap();
+    assert_tile_menu_beside(
+        &mut host_browser,
+        "button[aria-label='Options for your video']",
+    )
+    .await;
+    host_browser
+        .click(".room-person-video:not([hidden]) button")
+        .await
+        .unwrap();
+    host_browser
+        .wait_for("document.querySelector('.room-tile-menu').textContent.includes('Other User')")
         .await
         .unwrap();
     assert_tile_menu_beside(&mut host_browser, ".room-person-video:not([hidden]) button").await;

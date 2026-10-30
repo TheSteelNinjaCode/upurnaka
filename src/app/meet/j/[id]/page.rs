@@ -2297,6 +2297,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
                     function dismissRoomMenusOutside(event) {
                         if (tileMenuElement.current?.contains(event.target)) return;
+                        // An options button toggles the menu on its own click; closing it
+                        // here first would make that click open it again.
+                        if (event.target.closest("[aria-label^='Options for ']")) return;
                         if (tileMenu) setTileMenu(null);
                         if ([reactionTrigger, moreTrigger, reactionMenu, moreMenu].some(ref => ref.current?.contains(event.target))) return;
                         dismissRoomMenus();
