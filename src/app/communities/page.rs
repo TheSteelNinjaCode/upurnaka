@@ -369,7 +369,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         <div
                             class="community-cover"
                             data-cover={activeCommunity?.cover || "mint"}
-                            hidden={activeTab !== "posts"}
+                            hidden={activeTab !== "posts" || !!manageTab}
                         >
                             <img
                                 class="community-cover-image"
@@ -393,28 +393,29 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                         class="community-saved-picture"
                                         src={activeCommunity?.picture || "/images/upurnaka-logo.png"}
                                         alt=""
-                                        hidden={!activeCommunity?.picture || !!activeChannel}
+                                        hidden={!activeCommunity?.picture || (!!activeChannel && !manageTab)}
                                     />
                                     <img
                                         class="channel-header-emoji"
                                         src={channelEmojiImage(activeChannel?.icon) || "/favicon.ico"}
                                         alt=""
-                                        hidden={!activeChannel || !channelEmojiImage(activeChannel.icon)}
+                                        hidden={!activeChannel || !!manageTab || !channelEmojiImage(activeChannel.icon)}
                                     />
                                     <span
-                                        hidden={activeChannel ? !!channelEmojiImage(activeChannel.icon) : !!activeCommunity?.picture}
+                                        hidden={activeChannel && !manageTab ? !!channelEmojiImage(activeChannel.icon) : !!activeCommunity?.picture}
                                     >
-                                        {activeChannel?.icon || activeCommunity?.avatar || "👥"}
+                                        {(manageTab ? "" : activeChannel?.icon) || activeCommunity?.avatar || "👥"}
                                     </span>
                                 </span>
                                 <h2>
-                                    {activeChannel?.name || activeCommunity?.name || "Community"}
+                                    {(manageTab ? "" : activeChannel?.name) || activeCommunity?.name || "Community"}
                                 </h2>
                             </div>
                             <div
                                 class="community-tabs"
                                 role="tablist"
                                 aria-label="Community content"
+                                hidden={!!manageTab}
                                 onkeydown={handleCommunityTabKeys(event)}
                             >
                                 <button
@@ -451,6 +452,28 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                     "Photos"
                                 </button>
                             </div>
+                            <div
+                                class="community-tabs"
+                                role="tablist"
+                                aria-label="Manage community"
+                                hidden={!manageTab}
+                                onkeydown={handleManageTabKeys(event)}
+                            >
+                                <template pp-for="tab in manageTabs">
+                                    <button
+                                        key={tab.key}
+                                        role="tab"
+                                        type="button"
+                                        value={tab.key}
+                                        aria-selected={manageTab === tab.key}
+                                        aria-controls="community-manage"
+                                        tabindex={manageTab === tab.key ? 0 : -1}
+                                        onclick={showManageTab(event.currentTarget.value)}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                </template>
+                            </div>
                             <div class="community-header-actions">
                                 <button
                                     type="button"
@@ -478,7 +501,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                         type="button"
                                         aria-label="Copy link"
                                         title="Copy link"
-                                        hidden={!activeCommunity?.is_owner}
+                                        hidden={!activeCommunity?.can_share_link}
                                         onclick={openAction("share", selectedCommunity)}
                                     >
                                         <Icon name="link" class="size-5" />
@@ -486,9 +509,9 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                     <button
                                         type="button"
                                         aria-label="Community details and members"
-                                        title="Settings"
-                                        aria-expanded={detailsOpen}
-                                        onclick={setDetailsOpen(!detailsOpen)}
+                                        title="Manage community"
+                                        aria-pressed={!!manageTab}
+                                        onclick={toggleManage()}
                                     >
                                         <Icon name="settings" class="size-5" />
                                     </button>
@@ -518,7 +541,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             aria-labelledby="community-tab-posts"
                             role="tabpanel"
                             class="community-content"
-                            hidden={activeTab !== "posts"}
+                            hidden={activeTab !== "posts" || !!manageTab}
                         >
                             <form
                                 class="community-composer"
@@ -1257,7 +1280,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             aria-labelledby="community-tab-files"
                             role="tabpanel"
                             class="community-files"
-                            hidden={activeTab !== "files"}
+                            hidden={activeTab !== "files" || !!manageTab}
                         >
                             <input
                                 type="file"
@@ -1389,7 +1412,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             aria-labelledby="community-tab-photos"
                             role="tabpanel"
                             class="community-photos"
-                            hidden={activeTab !== "photos"}
+                            hidden={activeTab !== "photos" || !!manageTab}
                         >
                             <section
                                 class="community-photos-empty"
@@ -1431,6 +1454,475 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                         </span>
                                     </a>
                                 </template>
+                            </section>
+                        </div>
+                        <div
+                            id="community-manage"
+                            role="tabpanel"
+                            class="community-manage"
+                            aria-label={manageTabLabel}
+                            hidden={!manageTab}
+                        >
+                            <p class="community-manage-error" role="alert" hidden={!manageError}>
+                                {manageError}
+                            </p>
+                            <p class="community-manage-notice" role="status" hidden={!manageNotice}>
+                                {manageNotice}
+                            </p>
+                            <p
+                                class="community-manage-notice"
+                                role="status"
+                                hidden={!manageLoading}
+                            >
+                                "Loading members…"
+                            </p>
+                            <section
+                                class="community-manage-members"
+                                hidden={manageTab !== "members"}
+                            >
+                                <div class="community-manage-confirm" hidden={!manageTransfer}>
+                                    <p>
+                                        {"Make " + manageTransferName + " the owner? You'll become a member and lose owner controls."}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        class="community-manage-primary"
+                                        disabled={manageWorking}
+                                        onclick={confirmManageTransfer()}
+                                    >
+                                        "Make owner"
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="community-manage-secondary"
+                                        onclick={setManageTransfer("")}
+                                    >
+                                        "Cancel"
+                                    </button>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="community-manage-group"
+                                    aria-expanded={ownersOpen}
+                                    onclick={setOwnersOpen(!ownersOpen)}
+                                >
+                                    <Icon name="chevron-down" class="size-4" />
+                                    {"Owners (" + managedOwners.length + ")"}
+                                </button>
+                                <div class="community-manage-table" hidden={!ownersOpen}>
+                                    <div class="community-manage-head" aria-hidden="true">
+                                        <span>"Name"</span>
+                                        <span>"Role"</span>
+                                    </div>
+                                    <template pp-for="person in managedOwners">
+                                        <div key={person.id} class="community-manage-row">
+                                            <div class="community-manage-person">
+                                                <span
+                                                    class="community-manage-avatar"
+                                                    aria-hidden="true"
+                                                >
+                                                    {personInitials(person)}
+                                                </span>
+                                                <span class="community-manage-name">
+                                                    <strong>
+                                                        {person.nickname || person.name}
+                                                    </strong>
+                                                    <small hidden={!person.nickname}>
+                                                        {person.name}
+                                                    </small>
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    class="community-manage-nickname"
+                                                    hidden={!person.is_me || nicknameEditing}
+                                                    onclick={startNickname()}
+                                                >
+                                                    <Icon name="edit" class="size-4" />
+                                                    {person.nickname ? "Change nickname" : "Set nickname"}
+                                                </button>
+                                                <form
+                                                    class="community-manage-nickname-form"
+                                                    hidden={!person.is_me || !nicknameEditing}
+                                                    onsubmit={saveNickname(event)}
+                                                >
+                                                    <input
+                                                        name="nickname"
+                                                        maxlength="60"
+                                                        autocomplete="off"
+                                                        aria-label="Nickname"
+                                                        placeholder="Nickname"
+                                                        value={nicknameDraft}
+                                                        oninput={setNicknameDraft(target.value)}
+                                                        onkeydown={nicknameKey(event)}
+                                                    />
+                                                    <button
+                                                        type="submit"
+                                                        class="community-manage-primary"
+                                                        disabled={manageWorking}
+                                                    >
+                                                        "Save"
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="community-manage-secondary"
+                                                        onclick={setNicknameEditing(false)}
+                                                    >
+                                                        "Cancel"
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            <span class="community-manage-role">"Owner"</span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="community-manage-group"
+                                    aria-expanded={membersOpen}
+                                    onclick={setMembersOpen(!membersOpen)}
+                                >
+                                    <Icon name="chevron-down" class="size-4" />
+                                    {"Members (" + managedMembers.length + ")"}
+                                </button>
+                                <div
+                                    class="community-manage-table"
+                                    hidden={!membersOpen || managedMembers.length === 0}
+                                >
+                                    <div class="community-manage-head" aria-hidden="true">
+                                        <span>"Name"</span>
+                                        <span>"Role"</span>
+                                    </div>
+                                    <template pp-for="person in managedMembers">
+                                        <div key={person.id} class="community-manage-row">
+                                            <div class="community-manage-person">
+                                                <span
+                                                    class="community-manage-avatar"
+                                                    aria-hidden="true"
+                                                >
+                                                    {personInitials(person)}
+                                                </span>
+                                                <span class="community-manage-name">
+                                                    <strong>
+                                                        {person.nickname || person.name}
+                                                    </strong>
+                                                    <small
+                                                        hidden={!person.nickname && !person.email}
+                                                    >
+                                                        {person.nickname ? person.name : person.email}
+                                                    </small>
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    class="community-manage-nickname"
+                                                    hidden={!person.is_me || nicknameEditing}
+                                                    onclick={startNickname()}
+                                                >
+                                                    <Icon name="edit" class="size-4" />
+                                                    {person.nickname ? "Change nickname" : "Set nickname"}
+                                                </button>
+                                                <form
+                                                    class="community-manage-nickname-form"
+                                                    hidden={!person.is_me || !nicknameEditing}
+                                                    onsubmit={saveNickname(event)}
+                                                >
+                                                    <input
+                                                        name="nickname"
+                                                        maxlength="60"
+                                                        autocomplete="off"
+                                                        aria-label="Nickname"
+                                                        placeholder="Nickname"
+                                                        value={nicknameDraft}
+                                                        oninput={setNicknameDraft(target.value)}
+                                                        onkeydown={nicknameKey(event)}
+                                                    />
+                                                    <button
+                                                        type="submit"
+                                                        class="community-manage-primary"
+                                                        disabled={manageWorking}
+                                                    >
+                                                        "Save"
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="community-manage-secondary"
+                                                        onclick={setNicknameEditing(false)}
+                                                    >
+                                                        "Cancel"
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            <div class="community-manage-role">
+                                                <select
+                                                    aria-label={"Role for " + person.name}
+                                                    hidden={!activeCommunity?.is_owner}
+                                                    data-person={person.id}
+                                                    disabled={manageWorking}
+                                                    onchange={chooseRole(event)}
+                                                >
+                                                    <option value="member" selected>
+                                                        "Member"
+                                                    </option>
+                                                    <option value="owner">"Owner"</option>
+                                                </select>
+                                                <span hidden={!!activeCommunity?.is_owner}>
+                                                    "Member"
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    class="community-manage-secondary"
+                                                    hidden={!activeCommunity?.is_owner}
+                                                    value={person.id}
+                                                    disabled={manageWorking}
+                                                    onclick={removeManaged(event.currentTarget.value)}
+                                                >
+                                                    "Remove"
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="community-manage-secondary"
+                                                    hidden={!activeCommunity?.is_owner}
+                                                    value={person.id}
+                                                    disabled={manageWorking}
+                                                    onclick={blockManaged(event.currentTarget.value)}
+                                                >
+                                                    "Block"
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </section>
+                            <section
+                                class="community-manage-pending"
+                                hidden={manageTab !== "pending"}
+                            >
+                                <div
+                                    class="community-manage-empty"
+                                    hidden={manageLoading || managedPending.length > 0}
+                                >
+                                    <img
+                                        src="/images/community-pending-empty.svg"
+                                        alt=""
+                                        width="300"
+                                        height="300"
+                                    />
+                                    <h3>"No pending members"</h3>
+                                    <p>
+                                        "Invite members to your community. Pending invite and join requests will show up here."
+                                    </p>
+                                    <button
+                                        type="button"
+                                        class="community-manage-primary community-manage-wide"
+                                        onclick={openAction("invite", selectedCommunity)}
+                                    >
+                                        "Invite members"
+                                    </button>
+                                </div>
+                                <div hidden={managedPending.length === 0}>
+                                    <div class="community-manage-toolbar">
+                                        <button
+                                            type="button"
+                                            class="community-manage-primary"
+                                            onclick={openAction("invite", selectedCommunity)}
+                                        >
+                                            <Icon name="person-add" class="size-4" />
+                                            "Invite members"
+                                        </button>
+                                    </div>
+                                    <div class="community-manage-table">
+                                        <div class="community-manage-head" aria-hidden="true">
+                                            <span>"Name"</span>
+                                            <span>"Status"</span>
+                                        </div>
+                                        <template pp-for="person in managedPending">
+                                            <div key={person.id} class="community-manage-row">
+                                                <div class="community-manage-person">
+                                                    <span
+                                                        class="community-manage-avatar"
+                                                        aria-hidden="true"
+                                                    >
+                                                        {personInitials(person)}
+                                                    </span>
+                                                    <span class="community-manage-name">
+                                                        <strong>{person.name}</strong>
+                                                        <small>{person.email}</small>
+                                                    </span>
+                                                </div>
+                                                <div class="community-manage-role">
+                                                    <span>
+                                                        {person.state === "requested" ? "Requested to join" : "Invited"}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        class="community-manage-primary"
+                                                        hidden={person.state !== "requested"}
+                                                        value={person.id}
+                                                        disabled={manageWorking}
+                                                        onclick={approveManaged(event.currentTarget.value)}
+                                                    >
+                                                        "Approve"
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="community-manage-secondary"
+                                                        value={person.id}
+                                                        disabled={manageWorking}
+                                                        onclick={declineManaged(event.currentTarget.value)}
+                                                    >
+                                                        {person.state === "requested" ? "Decline" : "Cancel invite"}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="community-manage-secondary"
+                                                        hidden={person.state !== "requested"}
+                                                        value={person.id}
+                                                        disabled={manageWorking}
+                                                        onclick={blockManaged(event.currentTarget.value)}
+                                                    >
+                                                        "Block"
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </section>
+                            <section
+                                class="community-manage-blocked"
+                                hidden={manageTab !== "blocked"}
+                            >
+                                <div
+                                    class="community-manage-empty"
+                                    hidden={manageLoading || managedBlocked.length > 0}
+                                >
+                                    <img
+                                        src="/images/community-blocked-empty.svg"
+                                        alt=""
+                                        width="300"
+                                        height="300"
+                                    />
+                                    <h3>"No blocked contacts"</h3>
+                                    <p>
+                                        "Blocked contacts will not be able to search for or join this community."
+                                    </p>
+                                </div>
+                                <div
+                                    class="community-manage-table"
+                                    hidden={managedBlocked.length === 0}
+                                >
+                                    <div class="community-manage-head" aria-hidden="true">
+                                        <span>"Name"</span>
+                                        <span></span>
+                                    </div>
+                                    <template pp-for="person in managedBlocked">
+                                        <div key={person.id} class="community-manage-row">
+                                            <div class="community-manage-person">
+                                                <span
+                                                    class="community-manage-avatar"
+                                                    aria-hidden="true"
+                                                >
+                                                    {personInitials(person)}
+                                                </span>
+                                                <span class="community-manage-name">
+                                                    <strong>{person.name}</strong>
+                                                    <small>{person.email}</small>
+                                                </span>
+                                            </div>
+                                            <div class="community-manage-role">
+                                                <button
+                                                    type="button"
+                                                    class="community-manage-secondary"
+                                                    value={person.id}
+                                                    disabled={manageWorking}
+                                                    onclick={unblockManaged(event.currentTarget.value)}
+                                                >
+                                                    "Unblock"
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </section>
+                            <section
+                                class="community-manage-settings"
+                                hidden={manageTab !== "settings"}
+                            >
+                                <button
+                                    type="button"
+                                    class="community-manage-group"
+                                    aria-expanded={linkSettingsOpen}
+                                    onclick={setLinkSettingsOpen(!linkSettingsOpen)}
+                                >
+                                    <Icon name="chevron-down" class="size-4" />
+                                    "Link settings"
+                                </button>
+                                <div class="community-manage-options" hidden={!linkSettingsOpen}>
+                                    <div class="community-manage-option">
+                                        <div>
+                                            <h4>"Create new link"</h4>
+                                            <p>"Existing community links will be disabled."</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            class="community-manage-secondary community-manage-outline"
+                                            disabled={manageWorking}
+                                            onclick={createNewLink()}
+                                        >
+                                            "Create new link"
+                                        </button>
+                                    </div>
+                                    <label class="community-manage-option">
+                                        <div>
+                                            <h4>
+                                                "Allow members to share a link to this community"
+                                            </h4>
+                                            <p>
+                                                "Members can invite others to the community via a share link."
+                                            </p>
+                                        </div>
+                                        <span class="community-event-switch">
+                                            <input
+                                                type="checkbox"
+                                                role="switch"
+                                                aria-label="Allow members to share a link to this community"
+                                                checked={!!activeCommunity?.members_can_share}
+                                                disabled={manageWorking}
+                                                onchange={saveCommunitySetting("members_can_share", event.currentTarget.checked)}
+                                            />
+                                            <span aria-hidden="true"></span>
+                                        </span>
+                                    </label>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="community-manage-group"
+                                    aria-expanded={joinSettingsOpen}
+                                    onclick={setJoinSettingsOpen(!joinSettingsOpen)}
+                                >
+                                    <Icon name="chevron-down" class="size-4" />
+                                    "Join settings"
+                                </button>
+                                <div class="community-manage-options" hidden={!joinSettingsOpen}>
+                                    <label class="community-manage-option">
+                                        <div>
+                                            <h4>"Require approval to join"</h4>
+                                            <p>
+                                                "Community owners must approve new members before they can join."
+                                            </p>
+                                        </div>
+                                        <span class="community-event-switch">
+                                            <input
+                                                type="checkbox"
+                                                role="switch"
+                                                aria-label="Require approval to join"
+                                                checked={!!activeCommunity?.require_approval}
+                                                disabled={manageWorking}
+                                                onchange={saveCommunitySetting("require_approval", event.currentTarget.checked)}
+                                            />
+                                            <span aria-hidden="true"></span>
+                                        </span>
+                                    </label>
+                                </div>
                             </section>
                         </div>
                     </section>
@@ -2718,7 +3210,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                     <div>
                                         <strong>{member.name}</strong>
                                         <p>
-                                            {member.is_owner ? "Owner" : member.state === "invited" ? "Invitation pending" : "Member"}
+                                            {member.is_owner ? "Owner" : member.state === "invited" ? "Invitation pending" : member.state === "requested" ? "Requested to join" : member.state === "blocked" ? "Blocked" : "Member"}
                                         </p>
                                     </div>
                                     <div hidden={!actionCommunity?.is_owner || member.is_owner}>
@@ -3124,6 +3616,54 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-identity-title { display:flex;align-items:center;gap:12px;min-width:0; }
                     .community-identity-title h2 { font-size:20px;font-weight:700;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
                     .community-tabs { display:flex;gap:20px;align-self:stretch; }
+                    .community-tabs[hidden],.community-manage[hidden],.community-manage > section[hidden],.community-manage-table[hidden],.community-manage-options[hidden],.community-manage-empty[hidden],.community-manage-confirm[hidden],.community-manage-error[hidden],.community-manage-notice[hidden],.community-manage-nickname[hidden],.community-manage-nickname-form[hidden],.community-manage-role [hidden],.community-manage-name small[hidden],.community-manage-pending > div[hidden] { display:none; }
+                    .community-header-group button[aria-pressed=true] { background:#333;color:#a7acf4; }
+                    .community-manage { min-height:calc(100% - var(--community-header,72px));display:flex;flex-direction:column;padding:24px clamp(18px,3vw,32px) 40px; }
+                    .community-manage > section { display:flex;flex-direction:column;flex:1; }
+                    .community-manage-error { margin-bottom:12px;padding:8px 12px;border-radius:4px;border:1px solid #6b2a33;background:#3e1f25;color:#f1a7ae;font-size:14px; }
+                    .community-manage-notice { margin-bottom:12px;font-size:13px;color:#c4d8bc; }
+                    .community-manage-group { display:flex;align-items:center;gap:10px;align-self:flex-start;padding:10px 4px;font-size:14px;font-weight:700;color:#fff; }
+                    .community-manage-group svg { transition:transform .15s; }
+                    .community-manage-group[aria-expanded=false] svg { transform:rotate(-90deg); }
+                    .community-manage-group + .community-manage-table,.community-manage-group + .community-manage-options { margin-bottom:28px; }
+                    .community-manage-table { display:flex;flex-direction:column; }
+                    .community-manage-head,.community-manage-row { display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,38%);align-items:center;gap:16px;padding:0 18px; }
+                    .community-manage-head { min-height:40px;font-size:12px;font-weight:600;color:#d6d6d6; }
+                    .community-manage-row { min-height:62px;border-bottom:1px solid #3a3a3a; }
+                    .community-manage-person { display:flex;flex-wrap:wrap;align-items:center;gap:12px;min-width:0;padding:10px 0; }
+                    .community-manage-avatar { display:grid;place-items:center;flex-shrink:0;width:32px;height:32px;border-radius:50%;background:#c5cbfa;color:#444791;font-size:12px;font-weight:700; }
+                    .community-manage-name { display:flex;flex-direction:column;min-width:0; }
+                    .community-manage-name strong { font-size:14px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+                    .community-manage-name small { font-size:12px;color:#adadad;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+                    .community-manage-nickname { display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border-radius:4px;font-size:13px;color:#d6d6d6; }
+                    .community-manage-nickname:hover { background:#333;color:#fff; }
+                    .community-manage-nickname-form { display:flex;flex-wrap:wrap;align-items:center;gap:8px; }
+                    .community-manage-nickname-form input { height:30px;width:200px;padding:0 10px;border:0;border-bottom:2px solid #7f85f5;border-radius:4px 4px 0 0;background:#2e2e2e;color:#fff;font-size:14px;outline:none; }
+                    .community-manage-role { display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;color:#f2f2f2; }
+                    .community-manage-role select { height:32px;min-width:140px;padding:0 8px;border:0;border-radius:4px;background:transparent;color:#f2f2f2;font-size:14px;cursor:pointer; }
+                    .community-manage-role select:hover:not(:disabled) { background:#333; }
+                    .community-manage-role select option { background:#2b2b2b;color:#f2f2f2; }
+                    .community-manage-primary,.community-manage-secondary { display:inline-flex;align-items:center;justify-content:center;gap:8px;height:32px;padding:0 14px;border-radius:4px;font-size:14px;font-weight:600; }
+                    .community-manage-primary { background:#5b5fc7;color:#fff; }
+                    .community-manage-primary:hover:not(:disabled) { background:#4f52b2; }
+                    .community-manage-secondary { color:#e6e6e6; }
+                    .community-manage-secondary:hover:not(:disabled) { background:#333; }
+                    .community-manage-outline { border:1px solid #5c5c5c; }
+                    .community-manage-primary:disabled,.community-manage-secondary:disabled { opacity:.5; }
+                    .community-manage-wide { min-width:300px;margin-top:20px; }
+                    .community-manage-confirm { display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px;padding:12px 16px;border-radius:6px;background:#2e2e2e;border:1px solid #444;font-size:14px;color:#f2f2f2; }
+                    .community-manage-confirm p { flex:1;min-width:240px; }
+                    .community-manage-toolbar { display:flex;justify-content:flex-end;margin-bottom:12px; }
+                    .community-manage-empty { flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:40px 16px; }
+                    .community-manage-empty img { width:300px;height:300px;max-width:70vw;max-height:70vw; }
+                    .community-manage-empty h3 { margin-top:24px;font-size:18px;font-weight:700;color:#fff; }
+                    .community-manage-empty p { max-width:640px;font-size:14px;color:#e6e6e6; }
+                    .community-manage-options { display:flex;flex-direction:column;gap:20px;padding:4px 4px 0; }
+                    .community-manage-option { display:flex;align-items:center;justify-content:space-between;gap:24px; }
+                    label.community-manage-option { cursor:pointer; }
+                    .community-manage-option h4 { font-size:15px;font-weight:600;color:#fff; }
+                    .community-manage-option p { margin-top:4px;font-size:14px;color:#e6e6e6; }
+                    @media(max-width:700px) { .community-manage-head,.community-manage-row { grid-template-columns:minmax(0,1fr);gap:4px;padding:0 4px; } .community-manage-head span:last-child { display:none; } .community-manage-row { padding-bottom:10px; } .community-manage-wide { min-width:0;width:100%; } }
                     .community-tabs button { position:relative;font-size:14px;color:#c4c4c4;padding:18px 0; }
                     .community-tabs button[aria-selected=true] { color:white;font-weight:600; }
                     .community-tabs button[aria-selected=true]::after { content:"";position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:3px;background:#9186ef; }
@@ -3622,7 +4162,159 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false); setEventsView('');
                         const url = new URL(location.href); url.searchParams.set('community', id); history.replaceState(null, '', url);
                     }
-                    function selectChannel(id) { setChannelId(id); setActiveTab('posts'); setWorkspaceError(''); setEventsView(''); }
+                    function selectChannel(id) { setChannelId(id); setActiveTab('posts'); setWorkspaceError(''); setEventsView(''); setManageTab(''); }
+                    // Manage community: the gear swaps the channel tabs for Teams'
+                    // Members, Pending members, Blocked and Settings. Only owners see
+                    // past Members.
+                    const [manageTab, setManageTab] = pp.state('');
+                    const [managed, setManaged] = pp.state([]);
+                    const [manageLoading, setManageLoading] = pp.state(false);
+                    const [manageWorking, setManageWorking] = pp.state(false);
+                    const [manageError, setManageError] = pp.state('');
+                    const [manageNotice, setManageNotice] = pp.state('');
+                    const [manageTransfer, setManageTransfer] = pp.state('');
+                    const [ownersOpen, setOwnersOpen] = pp.state(true);
+                    const [membersOpen, setMembersOpen] = pp.state(true);
+                    const [linkSettingsOpen, setLinkSettingsOpen] = pp.state(true);
+                    const [joinSettingsOpen, setJoinSettingsOpen] = pp.state(true);
+                    const [nicknameEditing, setNicknameEditing] = pp.state(false);
+                    const [nicknameDraft, setNicknameDraft] = pp.state('');
+                    const manageTicket = pp.ref(0);
+                    const allManageTabs = [{key:'members', label:'Members'}, {key:'pending', label:'Pending members'}, {key:'blocked', label:'Blocked'}, {key:'settings', label:'Settings'}];
+                    const manageTabs = activeCommunity?.is_owner ? allManageTabs : allManageTabs.slice(0, 1);
+                    const manageTabLabel = (allManageTabs.find(tab => tab.key === manageTab) || allManageTabs[0]).label;
+                    const managedOwners = managed.filter(person => person.is_owner);
+                    const managedMembers = managed.filter(person => !person.is_owner && person.state === 'joined');
+                    const managedPending = managed.filter(person => person.state === 'invited' || person.state === 'requested');
+                    const managedBlocked = managed.filter(person => person.state === 'blocked');
+                    const manageTransferName = (() => { const person = managed.find(p => p.id === manageTransfer); return person ? person.nickname || person.name : ''; })();
+                    function personInitials(person) {
+                        return String(person.nickname || person.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('') || '?';
+                    }
+                    const loadManaged = pp.event(async function loadManaged() {
+                        const id = selectedCommunity, ticket = ++manageTicket.current;
+                        if (!id) return;
+                        setManageLoading(true); setManageError('');
+                        try {
+                            const people = await pp.rpc('community_members', {id});
+                            if (ticket === manageTicket.current) setManaged(people);
+                            return people;
+                        } catch (failure) {
+                            if (ticket === manageTicket.current) setManageError(failure.message || 'Members could not be loaded.');
+                        } finally {
+                            if (ticket === manageTicket.current) setManageLoading(false);
+                        }
+                    });
+                    function toggleManage() {
+                        if (manageTab) { setManageTab(''); return; }
+                        setDetailsOpen(false); setEventsView(''); setManageNotice(''); setManageTransfer(''); setNicknameEditing(false); setManaged([]);
+                        setManageTab('members'); loadManaged();
+                    }
+                    function showManageTab(key) {
+                        if (!manageTabs.some(tab => tab.key === key)) return;
+                        setManageTab(key); setManageNotice(''); setManageError(''); setManageTransfer('');
+                    }
+                    function handleManageTabKeys(event) {
+                        const keys = manageTabs.map(tab => tab.key);
+                        let index = keys.indexOf(manageTab);
+                        if (event.key === 'ArrowRight') index = (index + 1) % keys.length;
+                        else if (event.key === 'ArrowLeft') index = (index + keys.length - 1) % keys.length;
+                        else if (event.key === 'Home') index = 0;
+                        else if (event.key === 'End') index = keys.length - 1;
+                        else return;
+                        event.preventDefault(); showManageTab(keys[index]);
+                        const tabs = event.currentTarget.querySelectorAll('[role=tab]');
+                        requestAnimationFrame(() => tabs[index]?.focus());
+                    }
+                    // Each owner action reloads the people, so every tab stays current.
+                    const manageAction = pp.event(async function manageAction(call, notice) {
+                        if (manageWorking) return;
+                        const id = selectedCommunity;
+                        setManageWorking(true); setManageError(''); setManageNotice('');
+                        try {
+                            await call(id);
+                            setManageNotice(notice);
+                            const people = await loadManaged();
+                            if (people) updateCommunity(id, () => ({member_count: Math.max(people.filter(person => person.state === 'joined').length, 1)}));
+                        } catch (failure) { setManageError(failure.message || 'That change could not be saved.'); }
+                        finally { setManageWorking(false); }
+                    });
+                    function nameOf(target) { const person = managed.find(p => p.id === target); return person ? person.nickname || person.name : 'This person'; }
+                    function removeManaged(target) { manageAction(id => pp.rpc('remove_community_member', {id, target}), nameOf(target) + ' was removed from the community.'); }
+                    function blockManaged(target) { manageAction(id => pp.rpc('block_community_member', {id, target}), nameOf(target) + ' was blocked.'); }
+                    function unblockManaged(target) { manageAction(id => pp.rpc('unblock_community_member', {id, target}), nameOf(target) + ' was unblocked.'); }
+                    function approveManaged(target) { manageAction(id => pp.rpc('approve_community_member', {id, target}), nameOf(target) + ' joined the community.'); }
+                    function declineManaged(target) {
+                        const person = managed.find(p => p.id === target);
+                        manageAction(id => pp.rpc('decline_community_member', {id, target}), person?.state === 'requested' ? 'Request declined.' : 'Invitation canceled.');
+                    }
+                    function chooseRole(event) {
+                        const select = event.currentTarget, target = select.dataset.person;
+                        if (select.value === 'owner') setManageTransfer(target);
+                        select.value = 'member';
+                    }
+                    const confirmManageTransfer = pp.event(async function confirmManageTransfer() {
+                        if (manageWorking || !manageTransfer) return;
+                        const id = selectedCommunity, target = manageTransfer, name = manageTransferName;
+                        setManageWorking(true); setManageError('');
+                        try {
+                            await pp.rpc('transfer_community_ownership', {id, target});
+                            updateCommunity(id, () => ({is_owner:false}));
+                            setManageTransfer(''); setManageTab('members');
+                            setManageNotice(name + ' is now the owner. You are a member.');
+                            await loadManaged();
+                        } catch (failure) { setManageError(failure.message || 'Ownership could not be transferred.'); }
+                        finally { setManageWorking(false); }
+                    });
+                    function startNickname() {
+                        const me = managed.find(person => person.is_me);
+                        setNicknameDraft(me?.nickname || ''); setNicknameEditing(true);
+                    }
+                    function nicknameKey(event) {
+                        if (event.key !== 'Escape') return;
+                        event.preventDefault(); setNicknameEditing(false);
+                    }
+                    const saveNickname = pp.event(async function saveNickname(event) {
+                        event.preventDefault();
+                        if (manageWorking) return;
+                        const id = selectedCommunity;
+                        setManageWorking(true); setManageError('');
+                        try {
+                            const nickname = await pp.rpc('set_community_nickname', {id, nickname:nicknameDraft});
+                            setNicknameEditing(false);
+                            setManageNotice(nickname ? 'Your nickname is now ' + nickname + '.' : 'Nickname removed.');
+                            await loadManaged();
+                        } catch (failure) {
+                            setManageError(failure.errors?.nickname?.[0] || failure.message || 'Your nickname could not be saved.');
+                        } finally { setManageWorking(false); }
+                    });
+                    const createNewLink = pp.event(async function createNewLink() {
+                        if (manageWorking) return;
+                        const id = selectedCommunity;
+                        setManageWorking(true); setManageError(''); setManageNotice('');
+                        try {
+                            const link = await pp.rpc('community_join_link', {id, reset:true});
+                            const url = location.origin + link;
+                            try { await navigator.clipboard.writeText(url); setManageNotice('New link created and copied. Previous links no longer work.'); }
+                            catch (_) { setManageNotice('New link created: ' + url); }
+                        } catch (failure) { setManageError(failure.message || 'A new link could not be created.'); }
+                        finally { setManageWorking(false); }
+                    });
+                    const saveCommunitySetting = pp.event(async function saveCommunitySetting(name, value) {
+                        const community = activeCommunity;
+                        if (!community || manageWorking) return;
+                        const next = {members_can_share: community.members_can_share, require_approval: community.require_approval, [name]: value};
+                        setManageWorking(true); setManageError(''); setManageNotice('');
+                        updateCommunity(community.id, () => next);
+                        try {
+                            const saved = await pp.rpc('save_community_settings', {id:community.id, ...next});
+                            updateCommunity(community.id, () => ({members_can_share:saved.members_can_share, require_approval:saved.require_approval, can_share_link:saved.can_share_link}));
+                            setManageNotice('Settings saved.');
+                        } catch (failure) {
+                            updateCommunity(community.id, () => ({members_can_share:community.members_can_share, require_approval:community.require_approval}));
+                            setManageError(failure.message || 'Settings could not be saved.');
+                        } finally { setManageWorking(false); }
+                    });
                     // Events: Teams' "Community events" view in place of the channel,
                     // and its New event form. Each occurrence is listed until it ends.
                     const eventBanners = @{Json(&communities::BANNERS)};
@@ -4714,6 +5406,9 @@ pub async fn create_community(
         is_owner: true,
         notifications: "all".into(),
         member_count: 1,
+        can_share_link: true,
+        members_can_share: true,
+        require_approval: false,
     })
     .await
 }
@@ -4892,6 +5587,38 @@ pub async fn transfer_community_ownership(id: String, target: String) -> Result<
 #[rpc(auth)]
 pub async fn remove_community_member(id: String, target: String) -> Result<bool> {
     communities::remove_member(id, target).await
+}
+/// "Set nickname" on the viewer's own row of the Members tab.
+#[rpc(auth)]
+pub async fn set_community_nickname(id: String, nickname: String) -> Result<String> {
+    communities::set_nickname(id, nickname).await
+}
+/// The owner's Settings tab toggles.
+#[rpc(auth)]
+pub async fn save_community_settings(
+    id: String,
+    members_can_share: bool,
+    require_approval: bool,
+) -> Result<Community> {
+    communities::settings(id, members_can_share, require_approval).await
+}
+/// Pending members: approve a request to join.
+#[rpc(auth)]
+pub async fn approve_community_member(id: String, target: String) -> Result<bool> {
+    communities::approve(id, target).await
+}
+/// Pending members: decline a request, or withdraw an invitation.
+#[rpc(auth)]
+pub async fn decline_community_member(id: String, target: String) -> Result<bool> {
+    communities::decline(id, target).await
+}
+#[rpc(auth)]
+pub async fn block_community_member(id: String, target: String) -> Result<bool> {
+    communities::block(id, target).await
+}
+#[rpc(auth)]
+pub async fn unblock_community_member(id: String, target: String) -> Result<bool> {
+    communities::unblock(id, target).await
 }
 #[rpc(auth)]
 pub async fn leave_community(id: String) -> Result<bool> {

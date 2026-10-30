@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" fill="none">
+  <defs>
+    <linearGradient id="carved" x1="70" y1="60" x2="150" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e1e1e"/>
+      <stop offset="1" stop-color="#363636"/>
+    </linearGradient>
+    <radialGradient id="stone" cx="190" cy="110" r="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7a7a7a"/>
+      <stop offset="1" stop-color="#3a3a3a"/>
+    </radialGradient>
+    <linearGradient id="toggle" x1="70" y1="246" x2="170" y2="246" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3fb6ff"/>
+      <stop offset="0.5" stop-color="#9ee38a"/>
+      <stop offset="1" stop-color="#d6ee5a"/>
+    </linearGradient>
+    <radialGradient id="knob" cx="86" cy="240" r="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f0b6ff"/>
+      <stop offset="1" stop-color="#8a2be2"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".55"/>
+    </filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#ffffff" flood-opacity=".18"/>
+    </filter>
+  </defs>
+  <g filter="url(#glow)">
+    <circle cx="110" cy="62" r="24" fill="url(#carved)" stroke="#4a4a4a" stroke-width="2"/>
+    <path d="M70 140a40 40 0 0 1 80 0v58a12 12 0 0 1-12 12H82a12 12 0 0 1-12-12z" fill="url(#carved)" stroke="#4a4a4a" stroke-width="2"/>
+  </g>
+  <circle cx="198" cy="100" r="22" fill="url(#stone)" filter="url(#shadow)"/>
+  <path d="M160 160c0-18 12-28 28-28h28c18 0 32 10 32 28v46c0 26-18 42-44 42s-44-16-44-42z" fill="url(#stone)" filter="url(#shadow)"/>
+  <rect x="68" y="226" width="104" height="40" rx="20" fill="url(#toggle)" filter="url(#shadow)"/>
+  <circle cx="90" cy="246" r="15" fill="url(#knob)"/>
+</svg>

@@ -187,6 +187,10 @@ pub struct Community {
     pub is_owner: bool,
     pub notifications: String,
     pub member_count: usize,
+    /// The viewer may copy the join link: owners always, members when allowed.
+    pub can_share_link: bool,
+    pub members_can_share: bool,
+    pub require_approval: bool,
 }
 pub(crate) fn owner() -> Result<String> {
     auth::ready()?;
@@ -238,6 +242,21 @@ pub(crate) async fn author_name(id: &str) -> Result<String> {
         .await?
         .map(|u| u.name)
         .unwrap_or_else(|| "Former member".into()))
+}
+/// What `user` is called in `community`: their nickname there, else their name.
+pub(crate) async fn display_name(community: &str, user: &str) -> Result<String> {
+    let nickname = member::Entity::find()
+        .filter(member::Column::CommunityId.eq(community))
+        .filter(member::Column::UserId.eq(user))
+        .one(db::db())
+        .await?
+        .map(|m| m.nickname)
+        .unwrap_or_default();
+    if nickname.is_empty() {
+        author_name(user).await
+    } else {
+        Ok(nickname)
+    }
 }
 async fn shown(row: row::Model) -> Result<Community> {
     let user = owner()?;
@@ -296,7 +315,7 @@ async fn shown(row: row::Model) -> Result<Community> {
         } else {
             &p.author_id
         };
-        let name = author_name(author).await?;
+        let name = display_name(&row.id, author).await?;
         let is_owner = *author == row.owner_id;
         let mine: Vec<_> = reactions.iter().filter(|r| r.post_id == p.id).collect();
         let mut replies = Vec::new();
@@ -305,7 +324,7 @@ async fn shown(row: row::Model) -> Result<Community> {
                 id: r.id.clone(),
                 body: r.body.clone(),
                 created_at: r.created_at,
-                author_name: author_name(&r.author_id).await?,
+                author_name: display_name(&row.id, &r.author_id).await?,
                 author_is_owner: r.author_id == row.owner_id,
             });
         }
@@ -320,6 +339,9 @@ async fn shown(row: row::Model) -> Result<Community> {
     }
     let is_owner = row.owner_id == user;
     Ok(Community {
+        can_share_link: is_owner || row.members_can_share,
+        members_can_share: row.members_can_share,
+        require_approval: row.require_approval,
         id: row.id,
         name: row.name,
         category: row.category,
@@ -375,6 +397,8 @@ pub async fn save(community: Community) -> Result<Community> {
         created_at: Set(crate::rahti::time::now().timestamp_micros()),
         join_token: Set(String::new()),
         deleted_at: Set(None),
+        members_can_share: Set(true),
+        require_approval: Set(false),
     }
     .insert(db::db())
     .await?;
@@ -556,7 +580,7 @@ pub async fn publish(
     }
     .insert(db::db())
     .await?;
-    let name = author_name(&row.author_id).await?;
+    let name = display_name(&community_row.id, &row.author_id).await?;
     let is_owner = row.author_id == community_row.owner_id;
     let viewer = row.author_id.clone();
     Ok(shown_post(
@@ -571,7 +595,7 @@ pub async fn publish(
 }
 async fn shown_file(f: shared::Model) -> Result<SharedFile> {
     Ok(SharedFile {
-        uploader_name: author_name(&f.uploader_id).await?,
+        uploader_name: display_name(&f.community_id, &f.uploader_id).await?,
         id: f.id,
         post_id: f.post_id,
         name: f.name,
@@ -817,13 +841,13 @@ async fn reloaded(community_row: &row::Model, post_id: &str) -> Result<Post> {
             id: r.id,
             body: r.body,
             created_at: r.created_at,
-            author_name: author_name(&r.author_id).await?,
+            author_name: display_name(&community_row.id, &r.author_id).await?,
             author_is_owner: r.author_id == community_row.owner_id,
         });
     }
     Ok(shown_post(
         p,
-        author_name(&author).await?,
+        display_name(&community_row.id, &author).await?,
         author == community_row.owner_id,
         summarize(&reactions.iter().collect::<Vec<_>>(), &viewer),
         replies,
@@ -982,43 +1006,203 @@ pub async fn reply(community: String, post_id: String, body: String) -> Result<R
         id: saved.id,
         body: saved.body,
         created_at: saved.created_at,
-        author_name: author_name(&user).await?,
+        author_name: display_name(&community_row.id, &user).await?,
         author_is_owner: user == community_row.owner_id,
     })
 }
 
+/// One person on the Members, Pending members or Blocked tab. `state` is
+/// `joined`, `invited` (an owner invited them), `requested` (they asked to
+/// join by link) or `blocked`; owners see every state, members only `joined`.
 #[derive(Serialize)]
 pub struct Member {
     pub id: String,
     pub name: String,
+    /// Their nickname in this community, or empty.
+    pub nickname: String,
+    pub email: String,
     pub state: String,
     pub is_owner: bool,
+    pub is_me: bool,
 }
 pub async fn members(community: String) -> Result<Vec<Member>> {
     let row = accessible(&community).await?;
+    let viewer = owner()?;
+    let rows = member::Entity::find()
+        .filter(member::Column::CommunityId.eq(&community))
+        .all(db::db())
+        .await?;
+    let account = |id: &str| {
+        let id = id.to_string();
+        async move { account::Entity::find_by_id(id).one(db::db()).await }
+    };
+    let owner_account = account(&row.owner_id).await?;
     let mut result = vec![Member {
         id: row.owner_id.clone(),
-        name: author_name(&row.owner_id).await?,
+        name: owner_account
+            .as_ref()
+            .map(|a| a.name.clone())
+            .unwrap_or_else(|| "Former member".into()),
+        nickname: rows
+            .iter()
+            .find(|m| m.user_id == row.owner_id)
+            .map(|m| m.nickname.clone())
+            .unwrap_or_default(),
+        email: if row.owner_id == viewer {
+            owner_account.map(|a| a.email).unwrap_or_default()
+        } else {
+            String::new()
+        },
         state: "joined".into(),
         is_owner: true,
+        is_me: row.owner_id == viewer,
     }];
-    for m in member::Entity::find()
-        .filter(member::Column::CommunityId.eq(community))
-        .filter(member::Column::UserId.ne(&row.owner_id))
-        .all(db::db())
-        .await?
-    {
-        if row.owner_id != owner()? && m.state != "joined" {
+    for m in rows.into_iter().filter(|m| m.user_id != row.owner_id) {
+        if row.owner_id != viewer && m.state != "joined" {
             continue;
         }
+        if !matches!(
+            m.state.as_str(),
+            "joined" | "invited" | "requested" | "blocked"
+        ) {
+            continue;
+        }
+        let person = account(&m.user_id).await?;
         result.push(Member {
-            name: author_name(&m.user_id).await?,
+            name: person
+                .as_ref()
+                .map(|a| a.name.clone())
+                .unwrap_or_else(|| "Former member".into()),
+            // Only owners manage people by address; members see names.
+            email: if row.owner_id == viewer {
+                person.map(|a| a.email).unwrap_or_default()
+            } else {
+                String::new()
+            },
+            is_me: m.user_id == viewer,
             id: m.user_id,
+            nickname: m.nickname,
             state: m.state,
             is_owner: false,
         });
     }
     Ok(result)
+}
+/// Set or clear the viewer's own nickname in a community.
+pub async fn set_nickname(community: String, nickname: String) -> Result<String> {
+    let nickname = nickname.trim().to_string();
+    let mut v = Validator::new();
+    v.max_chars("nickname", &nickname, 60).check(
+        "nickname",
+        !nickname.chars().any(char::is_control),
+        "Nicknames can't contain control characters.",
+    );
+    v.finish()?;
+    let row = accessible(&community).await?;
+    let user = owner()?;
+    if row.owner_id == user {
+        // The owner's preferences row exists only once they set something.
+        membership(&community, &user, "preferences", None).await?;
+    }
+    member::Entity::update_many()
+        .col_expr(member::Column::Nickname, Expr::value(&nickname))
+        .filter(member::Column::CommunityId.eq(&community))
+        .filter(member::Column::UserId.eq(&user))
+        .exec(db::db())
+        .await?;
+    Ok(nickname)
+}
+/// The owner's Settings tab: who may share the join link, and whether
+/// joining by link needs approval.
+pub async fn settings(
+    community: String,
+    members_can_share: bool,
+    require_approval: bool,
+) -> Result<Community> {
+    owned(&community).await?;
+    row::Entity::update_many()
+        .col_expr(row::Column::MembersCanShare, Expr::value(members_can_share))
+        .col_expr(row::Column::RequireApproval, Expr::value(require_approval))
+        .filter(row::Column::Id.eq(&community))
+        .filter(row::Column::OwnerId.eq(owner()?))
+        .exec(db::db())
+        .await?;
+    shown(owned(&community).await?).await
+}
+/// The person `target` in `community` in one of `states`, for an owner action.
+async fn pending(community: &str, target: &str, states: &[&str]) -> Result<member::Model> {
+    member::Entity::find()
+        .filter(member::Column::CommunityId.eq(community))
+        .filter(member::Column::UserId.eq(target))
+        .filter(member::Column::State.is_in(states.iter().copied()))
+        .one(db::db())
+        .await?
+        .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "This person is no longer pending."))
+}
+/// Approve a request to join: the person becomes a member.
+pub async fn approve(community: String, target: String) -> Result<bool> {
+    owned(&community).await?;
+    pending(&community, &target, &["requested"]).await?;
+    member::Entity::update_many()
+        .col_expr(member::Column::State, Expr::value("joined"))
+        .filter(member::Column::CommunityId.eq(&community))
+        .filter(member::Column::UserId.eq(&target))
+        .filter(member::Column::State.eq("requested"))
+        .exec(db::db())
+        .await?;
+    Ok(true)
+}
+/// Decline a request to join, or withdraw an invitation.
+pub async fn decline(community: String, target: String) -> Result<bool> {
+    owned(&community).await?;
+    pending(&community, &target, &["requested", "invited"]).await?;
+    member::Entity::delete_many()
+        .filter(member::Column::CommunityId.eq(&community))
+        .filter(member::Column::UserId.eq(&target))
+        .filter(member::Column::State.is_in(["requested", "invited"]))
+        .exec(db::db())
+        .await?;
+    Ok(true)
+}
+/// Block someone: they leave the community and can't join or be invited.
+pub async fn block(community: String, target: String) -> Result<bool> {
+    let row = owned(&community).await?;
+    if target == row.owner_id {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            "The owner cannot be blocked.",
+        ));
+    }
+    if account::Entity::find_by_id(&target)
+        .one(db::db())
+        .await?
+        .is_none()
+    {
+        return Err(Error::new(StatusCode::NOT_FOUND, "Person not found."));
+    }
+    membership(&community, &target, "blocked", None).await?;
+    Ok(true)
+}
+/// Unblock someone, who may then be invited or join again.
+pub async fn unblock(community: String, target: String) -> Result<bool> {
+    owned(&community).await?;
+    pending(&community, &target, &["blocked"]).await?;
+    member::Entity::delete_many()
+        .filter(member::Column::CommunityId.eq(&community))
+        .filter(member::Column::UserId.eq(&target))
+        .filter(member::Column::State.eq("blocked"))
+        .exec(db::db())
+        .await?;
+    Ok(true)
+}
+async fn is_blocked(community: &str, user: &str) -> Result<bool> {
+    Ok(member::Entity::find()
+        .filter(member::Column::CommunityId.eq(community))
+        .filter(member::Column::UserId.eq(user))
+        .filter(member::Column::State.eq("blocked"))
+        .one(db::db())
+        .await?
+        .is_some())
 }
 pub async fn edit(
     community: String,
@@ -1099,25 +1283,35 @@ async fn membership(
         user_id: Set(user.into()),
         state: Set(state.into()),
         notifications: Set(notifications.unwrap_or("all").into()),
+        nickname: Set(String::new()),
     })
     .on_conflict(conflict.to_owned())
     .exec(db::db())
     .await?;
     Ok(())
 }
+/// The join link. Owners may always copy it and replace it (`reset`);
+/// members may copy it while the owner allows them to share it.
 pub async fn join_link(community: String, reset: bool) -> Result<String> {
-    owned(&community).await?;
+    let row = accessible(&community).await?;
+    let is_owner = row.owner_id == owner()?;
+    if !is_owner && (reset || !row.members_can_share) {
+        return Err(Error::new(
+            StatusCode::FORBIDDEN,
+            "Only community owners can share this link.",
+        ));
+    }
     let mut update = row::Entity::update_many()
         .col_expr(row::Column::JoinToken, Expr::value(id()))
         .filter(row::Column::Id.eq(&community))
-        .filter(row::Column::OwnerId.eq(owner()?));
+        .filter(row::Column::DeletedAt.is_null());
     if !reset {
         update = update.filter(row::Column::JoinToken.eq(""));
     }
     update.exec(db::db()).await?;
     Ok(format!(
         "/communities?join={}",
-        owned(&community).await?.join_token
+        accessible(&community).await?.join_token
     ))
 }
 #[derive(Serialize)]
@@ -1185,6 +1379,12 @@ pub async fn invite(community: String, email: String) -> Result<bool> {
                 "No active account matches this email.",
             )
         })?;
+    if is_blocked(&community, &target.id).await? {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            "This person is blocked. Unblock them before inviting them.",
+        ));
+    }
     if target.id == row.owner_id
         || member::Entity::find()
             .filter(member::Column::CommunityId.eq(&community))
@@ -1204,6 +1404,7 @@ pub async fn invite(community: String, email: String) -> Result<bool> {
         user_id: Set(target.id),
         state: Set("invited".into()),
         notifications: Set("all".into()),
+        nickname: Set(String::new()),
     })
     .on_conflict(
         OnConflict::columns([member::Column::CommunityId, member::Column::UserId])
@@ -1241,6 +1442,21 @@ pub async fn join(community: String, token: Option<String>) -> Result<Community>
         return Err(Error::new(
             StatusCode::FORBIDDEN,
             "A valid invitation is required.",
+        ));
+    }
+    if row.owner_id != user && is_blocked(&community, &user).await? {
+        return Err(Error::new(
+            StatusCode::FORBIDDEN,
+            "You can't join this community.",
+        ));
+    }
+    // Joining by link waits for an owner when the community asks for approval;
+    // an invitation was the owner's approval already.
+    if row.owner_id != user && !invited && row.require_approval {
+        membership(&community, &user, "requested", None).await?;
+        return Err(Error::new(
+            StatusCode::FORBIDDEN,
+            "Your request to join was sent. A community owner must approve it.",
         ));
     }
     membership(&community, &user, "joined", None).await?;

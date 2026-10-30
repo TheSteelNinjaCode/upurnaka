@@ -511,6 +511,244 @@ async fn post_edit_delete_and_pin_respect_authors_and_owners() {
 }
 
 #[tokio::test]
+async fn community_manage_tabs_handle_nicknames_settings_requests_and_blocks() {
+    setup().await;
+    let mut owner = super::auth::Client::new().await;
+    owner.with_cookie(test_cookie());
+    owner.request("/communities", None).await;
+    let mut other = super::auth::Client::new().await;
+    other.with_cookie(super::support::cookie_for(
+        "other-user",
+        "Other User",
+        "other@example.com",
+    ));
+    other.request("/communities", None).await;
+    let (_, created) = community_call(
+        &mut owner,
+        "create_community",
+        json!({"name":"Managed school","category":"School"}),
+    )
+    .await;
+    let id = created["id"].as_str().unwrap();
+    assert_eq!(created["members_can_share"], true);
+    assert_eq!(created["require_approval"], false);
+
+    // Settings: approval required, members may not share the link.
+    let (status, saved) = community_call(
+        &mut owner,
+        "save_community_settings",
+        json!({"id":id,"members_can_share":false,"require_approval":true}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["require_approval"], true);
+    assert_eq!(saved["members_can_share"], false);
+    let (_, link) = community_call(
+        &mut owner,
+        "community_join_link",
+        json!({"id":id,"reset":false}),
+    )
+    .await;
+    let token = link.as_str().unwrap().split("join=").nth(1).unwrap();
+
+    // Joining by link now becomes a request the owner approves.
+    let (status, body) =
+        community_call(&mut other, "join_community", json!({"id":id,"token":token})).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert!(body.to_string().contains("request to join was sent"));
+    assert_eq!(
+        community_call(&mut other, "community_members", json!({"id":id}))
+            .await
+            .0,
+        StatusCode::NOT_FOUND,
+        "a requester is not a member yet"
+    );
+    let (_, people) = community_call(&mut owner, "community_members", json!({"id":id})).await;
+    let requester = people
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "other-user")
+        .unwrap();
+    assert_eq!(requester["state"], "requested");
+    assert_eq!(requester["email"], "other@example.com");
+    assert_eq!(
+        community_call(
+            &mut other,
+            "approve_community_member",
+            json!({"id":id,"target":"other-user"})
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND,
+        "only owners approve"
+    );
+    let (status, _) = community_call(
+        &mut owner,
+        "approve_community_member",
+        json!({"id":id,"target":"other-user"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = community_call(&mut other, "community_members", json!({"id":id})).await;
+    assert_eq!(status, StatusCode::OK);
+    // Sharing is off, so the member can't copy the link.
+    assert_eq!(
+        community_call(
+            &mut other,
+            "community_join_link",
+            json!({"id":id,"reset":false})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+
+    // A nickname shows on the member's posts and in the member list.
+    let (status, nickname) = community_call(
+        &mut other,
+        "set_community_nickname",
+        json!({"id":id,"nickname":"  Coach O  "}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(nickname, "Coach O");
+    let (_, post) = community_call(
+        &mut other,
+        "publish_community_post",
+        json!({"id":id,"channel":"","body":"Practice at 5","announcement":false}),
+    )
+    .await;
+    assert_eq!(post["author_name"], "Coach O");
+    let (_, people) = community_call(&mut other, "community_members", json!({"id":id})).await;
+    let me = people
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["is_me"] == true)
+        .unwrap();
+    assert_eq!(me["nickname"], "Coach O");
+    assert_eq!(me["email"], "", "members don't see addresses");
+    let (status, _) = community_call(
+        &mut owner,
+        "set_community_nickname",
+        json!({"id":id,"nickname":"Principal"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, people) = community_call(&mut owner, "community_members", json!({"id":id})).await;
+    assert_eq!(people[0]["is_owner"], true);
+    assert_eq!(people[0]["nickname"], "Principal");
+    assert_eq!(
+        community_call(
+            &mut other,
+            "set_community_nickname",
+            json!({"id":id,"nickname":"x".repeat(61)})
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+
+    // Blocking removes the member and keeps them out until unblocked.
+    let (status, _) = community_call(
+        &mut owner,
+        "block_community_member",
+        json!({"id":id,"target":"other-user"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        community_call(&mut other, "community_members", json!({"id":id}))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    let (status, body) =
+        community_call(&mut other, "join_community", json!({"id":id,"token":token})).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert!(body.to_string().contains("can't join"), "{body}");
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "invite_community_member",
+            json!({"id":id,"email":"other@example.com"})
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "block_community_member",
+            json!({"id":id,"target":"legacy-test-user"})
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT,
+        "the owner can't be blocked"
+    );
+    let (status, _) = community_call(
+        &mut owner,
+        "unblock_community_member",
+        json!({"id":id,"target":"other-user"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // An invitation is pending until the owner withdraws it.
+    let (status, _) = community_call(
+        &mut owner,
+        "invite_community_member",
+        json!({"id":id,"email":"other@example.com"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, people) = community_call(&mut owner, "community_members", json!({"id":id})).await;
+    assert!(
+        people
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["id"] == "other-user" && p["state"] == "invited")
+    );
+    let (status, _) = community_call(
+        &mut owner,
+        "decline_community_member",
+        json!({"id":id,"target":"other-user"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "decline_community_member",
+            json!({"id":id,"target":"other-user"})
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        community_call(
+            &mut other,
+            "save_community_settings",
+            json!({"id":id,"members_can_share":true,"require_approval":false})
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        community_call(&mut owner, "save_community_settings", json!({"id":id}))
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[tokio::test]
 async fn community_events_schedule_for_members_and_list_upcoming() {
     setup().await;
     let mut owner = super::auth::Client::new().await;
@@ -1010,8 +1248,26 @@ async fn community_actions_enforce_roles_invites_links_and_owner_transfer() {
     )
     .await;
     assert_eq!(post["author_name"], "Other User");
+    // Members may copy the join link while sharing is allowed, never replace it.
+    let (status, shared) = community_call(
+        &mut other,
+        "community_join_link",
+        json!({"id":id,"reset":false}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(shared.as_str().unwrap().starts_with("/communities?join="));
+    assert_eq!(
+        community_call(
+            &mut other,
+            "community_join_link",
+            json!({"id":id,"reset":true})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
     for (name, args) in [
-        ("community_join_link", json!({"id":id,"reset":true})),
         ("delete_community", json!({"id":id})),
         (
             "create_community_channel",
@@ -2411,6 +2667,45 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .wait_for("!document.querySelector('.community-detail').hidden && document.querySelector('.community-events').hidden")
         .await
         .unwrap();
+    // The gear swaps the channel tabs for Teams' manage tabs.
+    browser
+        .click("button[aria-label='Community details and members']")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('#community-manage').hidden && document.querySelector('.community-cover').hidden && Array.from(document.querySelectorAll('[aria-label=\"Manage community\"] [role=tab]')).map(tab => tab.textContent.trim()).join('|') === 'Members|Pending members|Blocked|Settings' && document.querySelector('.community-manage-members .community-manage-group').textContent.includes('Owners (1)') && document.querySelectorAll('.community-manage-members .community-manage-row').length === 1").await.unwrap();
+    browser.click(".community-manage-nickname").await.unwrap();
+    browser
+        .click(".community-manage-nickname-form input")
+        .await
+        .unwrap();
+    browser.type_text("Coach").await.unwrap();
+    browser.press("Enter").await.unwrap();
+    browser.wait_for("document.querySelector('.community-manage-name strong').textContent === 'Coach' && document.querySelector('.community-manage-nickname-form').hidden").await.unwrap();
+    browser
+        .click("[aria-label='Manage community'] [role=tab][value=pending]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.community-manage-pending').hidden && document.querySelector('.community-manage-pending h3').textContent === 'No pending members'").await.unwrap();
+    browser
+        .click("[aria-label='Manage community'] [role=tab][value=blocked]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.community-manage-blocked').hidden && document.querySelector('.community-manage-blocked h3').textContent === 'No blocked contacts'").await.unwrap();
+    browser
+        .click("[aria-label='Manage community'] [role=tab][value=settings]")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.community-manage-settings').hidden && !document.querySelector('input[aria-label=\"Require approval to join\"]').checked && document.querySelector('input[aria-label=\"Allow members to share a link to this community\"]').checked").await.unwrap();
+    browser
+        .click("input[aria-label='Require approval to join'] + span")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('input[aria-label=\"Require approval to join\"]').checked && document.querySelector('.community-manage-notice').textContent === 'Settings saved.'").await.unwrap();
+    browser
+        .click("button[aria-label='Community details and members']")
+        .await
+        .unwrap();
+    browser.wait_for("document.querySelector('#community-manage').hidden && !document.querySelector('[aria-label=\"Community content\"]').hidden && !document.querySelector('#community-photos').hidden").await.unwrap();
     // Like Teams, the posts pane scrolls on its own: the banner leaves, while
     // the header and the collapsed composer stay pinned.
     browser

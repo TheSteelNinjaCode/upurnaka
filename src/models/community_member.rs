@@ -8,6 +8,8 @@ pub struct Model {
     pub user_id: String,
     pub state: String,
     pub notifications: String,
+    /// What this member is called in the community, or empty for their account name.
+    pub nickname: String,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}

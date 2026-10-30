@@ -17,6 +17,10 @@ pub struct Model {
     pub created_at: i64,
     pub join_token: String,
     pub deleted_at: Option<i64>,
+    /// Members, not only owners, may copy the join link.
+    pub members_can_share: bool,
+    /// Joining by link asks an owner, who approves or declines the request.
+    pub require_approval: bool,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
