@@ -362,7 +362,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         <div
                             class="community-cover"
                             data-cover={activeCommunity?.cover || "mint"}
-                            hidden={activeTab === "files"}
+                            hidden={activeTab !== "posts"}
                         >
                             <img
                                 class="community-cover-image"
@@ -1352,19 +1352,50 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             id="community-photos"
                             aria-labelledby="community-tab-photos"
                             role="tabpanel"
-                            class="community-empty-tab"
+                            class="community-photos"
                             hidden={activeTab !== "photos"}
                         >
-                            <Icon name="image" class="size-12" />
-                            <h3>
-                                {activeCommunity?.picture ? "Community photo" : "No photos in this community yet"}
-                            </h3>
-                            <img
-                                src={activeCommunity?.picture || "/images/upurnaka-logo.png"}
-                                alt="Community photo"
-                                hidden={!activeCommunity?.picture}
-                                class="community-photo"
-                            />
+                            <section
+                                class="community-photos-empty"
+                                hidden={activePhotos.length > 0}
+                            >
+                                <img
+                                    src="/images/community-photos-empty.svg"
+                                    alt=""
+                                    width="184"
+                                    height="184"
+                                />
+                                <h3>"No photos shared in the community"</h3>
+                                <p>"Photos added to community automatically show up here."</p>
+                            </section>
+                            <section
+                                class="community-photos-grid"
+                                aria-label="Photos"
+                                hidden={activePhotos.length === 0}
+                            >
+                                <template pp-for="photo in activePhotos">
+                                    <a
+                                        key={photo.id}
+                                        class="community-photo"
+                                        href={"/communities/files/" + photo.id}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={photo.name}
+                                    >
+                                        <img
+                                            src={"/communities/files/" + photo.id}
+                                            alt={photo.name}
+                                            loading="lazy"
+                                        />
+                                        <span class="community-photo-caption">
+                                            <strong>{photo.name}</strong>
+                                            <small>
+                                                {photo.uploader_name + " · " + fileDate(photo.created_at)}
+                                            </small>
+                                        </span>
+                                    </a>
+                                </template>
+                            </section>
                         </div>
                     </section>
                 </div>
@@ -2506,8 +2537,21 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-file-card strong { font-size:14px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
                     .community-file-card small { font-size:12px;color:#adadad; }
                     @media(max-width:700px) { .community-files-list th:nth-child(3),.community-files-list td:nth-child(3),.community-files-list th:nth-child(4),.community-files-list td:nth-child(4) { display:none; } }
-                    .community-empty-tab { display:flex;align-items:center;flex-direction:column;gap:16px;padding:70px 24px;text-align:center;color:#bbb; }
-                    .community-photo { width:200px;height:200px;object-fit:cover;border-radius:10px; }
+                    .community-photos { min-height:calc(100% - var(--community-header,72px));display:flex;flex-direction:column;padding:24px clamp(18px,4vw,48px) 40px; }
+                    .community-photos[hidden],.community-photos-empty[hidden],.community-photos-grid[hidden] { display:none; }
+                    .community-photos-empty { flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 16px; }
+                    .community-photos-empty img { width:184px;height:184px; }
+                    .community-photos-empty h3 { margin-top:56px;font-size:18px;font-weight:700;color:#fff; }
+                    .community-photos-empty p { margin-top:12px;font-size:14px;color:#fff; }
+                    .community-photos-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px; }
+                    .community-photo { position:relative;display:block;aspect-ratio:1;overflow:hidden;border-radius:6px;background:#333; }
+                    .community-photo img { width:100%;height:100%;object-fit:cover;transition:transform .2s; }
+                    .community-photo:hover img { transform:scale(1.03); }
+                    .community-photo:focus-visible { outline:2px solid #7f85f5;outline-offset:2px; }
+                    .community-photo-caption { position:absolute;inset:auto 0 0;display:flex;flex-direction:column;gap:2px;padding:24px 10px 8px;background:linear-gradient(transparent,#000c);color:#fff;opacity:0;transition:opacity .15s; }
+                    .community-photo:hover .community-photo-caption,.community-photo:focus-visible .community-photo-caption { opacity:1; }
+                    .community-photo-caption strong { overflow:hidden;font-size:13px;font-weight:600;text-overflow:ellipsis;white-space:nowrap; }
+                    .community-photo-caption small { font-size:12px;color:#d6d6d6; }
                     .community-workspace-error { margin:16px 24px;padding:12px;border:1px solid #b76a6a;border-radius:6px;color:#ffbaba; }
                     @media(max-width:1000px) { .community-workspace { grid-template-columns:240px minmax(0,1fr); } .community-detail-header { gap:12px;padding:10px 16px 0; } .community-content { padding:22px; } .community-header-actions { margin-bottom:10px; } }
                     @media(max-width:700px) { .community-workspace { display:block; } .community-sidebar { padding:16px; } .community-sidebar-heading { margin-bottom:12px; } .community-sidebar nav { display:flex;gap:8px;overflow:auto; } .community-nav-item { min-width:150px; } .community-channel-list { padding-left:8px; } .community-detail { margin:0;border-radius:12px 12px 0 0; } .community-quick-actions { grid-template-columns:1fr; } .community-cover { height:150px; } .community-banner-dialog { padding:24px 16px !important; } .community-banner-grid { gap:14px; } .community-detail-header { gap:12px; } .community-identity-title { width:100%; } }
@@ -2988,6 +3032,8 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     const fileKinds = {pdf:'pdf',doc:'word',docx:'word',rtf:'word',odt:'word',xls:'excel',xlsx:'excel',csv:'excel',ods:'excel',ppt:'powerpoint',pptx:'powerpoint',odp:'powerpoint',zip:'archive',rar:'archive','7z':'archive',gz:'archive',txt:'text',md:'text',json:'code',js:'code',rs:'code',html:'code',css:'code',mp4:'video',mov:'video',webm:'video',mp3:'audio',wav:'audio'};
                     function fileExtension(file) { const name = String(file.name || ''); const dot = name.lastIndexOf('.'); return dot > 0 ? name.slice(dot + 1).toLowerCase() : ''; }
                     function fileKind(file) { return String(file.content_type || '').startsWith('image/') ? 'image' : fileKinds[fileExtension(file)] || 'file'; }
+                    // Photos tab: every image shared in this channel, newest first.
+                    const activePhotos = activeFiles.filter(file => fileKind(file) === 'image');
                     function fileBadge(file) { return (fileExtension(file) || 'file').slice(0, 4).toUpperCase(); }
                     function fileSize(bytes) {
                         if (bytes < 1024) return bytes + ' B';

@@ -2181,7 +2181,7 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .await
         .unwrap();
     browser
-        .wait_for("!document.querySelector('#community-photos').hidden")
+        .wait_for("!document.querySelector('#community-photos').hidden && document.querySelector('.community-cover').hidden && !document.querySelector('.community-photos-empty').hidden && document.querySelector('.community-photos-empty h3').textContent === 'No photos shared in the community'")
         .await
         .unwrap();
     assert!(browser.eval::<bool>("document.querySelector('.community-detail').getBoundingClientRect().right <= innerWidth + 1").await.unwrap());
