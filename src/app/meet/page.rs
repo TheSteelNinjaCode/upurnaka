@@ -54,7 +54,7 @@ pub async fn page() -> Result {
     let join_link = button_variants(
         ButtonVariant::Secondary,
         ButtonSize::Default,
-        "h-9 min-w-0 flex-1 rounded-lg bg-raised text-[13px] font-semibold hover:bg-hover",
+        "h-9 min-w-0 flex-1 rounded-md bg-foreground/10 text-[13px] font-semibold hover:bg-foreground/15",
     );
     let cancel = button_variants(
         ButtonVariant::Outline,

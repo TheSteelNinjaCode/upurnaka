@@ -578,6 +578,32 @@ async fn renaming_rejects_invalid_payloads_and_unavailable_links() {
 }
 
 #[tokio::test]
+async fn meeting_link_actions_stand_out_from_their_card_in_both_appearances() {
+    let id = mint("Visible actions").await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/meet"))
+        .await
+        .unwrap();
+    let card = format!("document.querySelector(\"[data-meeting-id='{id}']\")");
+    let contrast = format!(
+        "(() => {{ const card = {card}; const fill = (element) => getComputedStyle(element).backgroundColor; const join = card.querySelector('a'); const share = [...card.querySelectorAll('button')].find((button) => button.textContent.includes('Share link')); return fill(join) === fill(share) && fill(join) !== fill(card) && join.offsetHeight === share.offsetHeight && join.offsetWidth === share.offsetWidth; }})()"
+    );
+    browser.wait_for(&contrast).await.unwrap();
+    browser
+        .wait_for(&format!(
+            "(document.documentElement.dataset.appearance = 'light', {contrast})"
+        ))
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn meeting_name_editor_selects_saves_and_cancels() {
     let id = mint("Name editor original").await;
     let address = rahti::browser::serve(crate::routes::router()).await;
