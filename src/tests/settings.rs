@@ -338,11 +338,11 @@ async fn saved_devices_and_audio_processing_apply_to_new_meetings() {
         .await
         .unwrap();
     browser.wait_for("getComputedStyle(document.querySelector('[aria-label=\"Camera preview\"] video')).filter.includes('1.2')").await.unwrap();
+    // One step: a re-render between enabling and clicking disables it again.
     let _: bool = browser
-        .eval("document.querySelector('.meeting-primary').disabled=false; true")
+        .eval("(() => { const join = document.querySelector('.meeting-primary'); join.disabled = false; join.click(); return true; })()")
         .await
         .unwrap();
-    browser.click(".meeting-primary").await.unwrap();
     browser
         .wait_for(
             "!!window.roomFixture?.audioInput && window.roomFixture.audioOutput === 'speaker-test'",

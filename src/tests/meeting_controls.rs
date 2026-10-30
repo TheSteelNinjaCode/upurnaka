@@ -791,16 +791,36 @@ fn browser_router() -> axum::Router {
 }
 use axum::response::IntoResponse;
 
+/// The open tile menu touches the button that opened it and stays on the stage.
+async fn assert_tile_menu_beside(browser: &mut rahti::browser::Browser, trigger: &str) {
+    browser
+        .wait_for(&format!(
+            r#"(() => {{
+                const menu = document.querySelector(".room-tile-menu");
+                if (menu.hidden) return false;
+                const box = menu.getBoundingClientRect();
+                const button = document.querySelector("{}").getBoundingClientRect();
+                const stage = document.querySelector(".room-stage").getBoundingClientRect();
+                const tall = Math.min(Math.abs(box.bottom - button.top), Math.abs(box.top - button.bottom)) <= 12;
+                const wide = box.right >= button.left && box.left <= button.right;
+                return tall && wide && box.left >= stage.left && box.right <= stage.right && box.top >= stage.top && box.bottom <= stage.bottom;
+            }})()"#,
+            trigger.replace('"', "\\\"")
+        ))
+        .await
+        .unwrap();
+}
+
 async fn browser_join(browser: &mut rahti::browser::Browser) {
     browser
         .wait_for("document.querySelector('.meeting-primary') !== null")
         .await
         .unwrap();
+    // One step: a re-render between enabling and clicking disables it again.
     let _: bool = browser
-        .eval("document.querySelector('.meeting-primary').disabled = false; true")
+        .eval("(() => { const join = document.querySelector('.meeting-primary'); join.disabled = false; join.click(); return true; })()")
         .await
         .unwrap();
-    browser.click(".meeting-primary").await.unwrap();
 }
 
 #[tokio::test]
@@ -881,6 +901,7 @@ async fn browsers_can_use_lobby_and_host_controls_without_replacing_video_elemen
         .click(".room-person-video:not([hidden]) button")
         .await
         .unwrap();
+    assert_tile_menu_beside(&mut host_browser, ".room-person-video:not([hidden]) button").await;
     host_browser
         .click(".room-tile-menu [data-action=pin]")
         .await
@@ -994,6 +1015,11 @@ async fn browsers_can_use_lobby_and_host_controls_without_replacing_video_elemen
         .click("button[aria-label='Options for your video']")
         .await
         .unwrap();
+    assert_tile_menu_beside(
+        &mut host_browser,
+        "button[aria-label='Options for your video']",
+    )
+    .await;
     host_browser
         .click(".room-tile-menu [data-action=switch-camera]")
         .await

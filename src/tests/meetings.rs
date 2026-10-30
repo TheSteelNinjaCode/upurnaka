@@ -123,11 +123,11 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .unwrap();
     // Unit-test startup intentionally has no provider. Supply its successful
     // boundary response above and enable the button for this UI test only.
+    // One step: a re-render between enabling and clicking disables it again.
     let _: bool = browser
-        .eval("document.querySelector('.meeting-primary').disabled=false; true")
+        .eval("(() => { const join = document.querySelector('.meeting-primary'); join.disabled = false; join.click(); return true; })()")
         .await
         .unwrap();
-    browser.click(".meeting-primary").await.unwrap();
     browser.wait_for("!document.querySelector('.meeting-room').hidden && document.querySelector('.room-waiting').textContent.includes('Waiting for others to join')").await.unwrap();
     let setup_hidden: bool = browser
         .eval("document.querySelector('.meeting-body').hidden")

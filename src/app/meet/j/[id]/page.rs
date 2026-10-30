@@ -810,7 +810,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                             hidden={slot.content}
                                             value={slot.attendeeId}
                                             name={slot.name}
-                                            onclick={openTileMenu(event.currentTarget.value, event.currentTarget.name)}
+                                            onclick={openTileMenu(event.currentTarget.value, event.currentTarget.name, event.currentTarget)}
                                         >
                                             <Icon name="more" class="size-4" />
                                         </Button>
@@ -849,7 +849,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                             attrs=@{bound("aria-label", ui_expr!(aria-label={"Options for " + person.name}))}
                                             value={person.id}
                                             name={person.name}
-                                            onclick={openTileMenu(event.currentTarget.value, event.currentTarget.name)}
+                                            onclick={openTileMenu(event.currentTarget.value, event.currentTarget.name, event.currentTarget)}
                                         >
                                             <Icon name="more" class="size-4" />
                                         </Button>
@@ -899,7 +899,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     size="icon-xs"
                                     class="ml-2 size-5! text-white hover:bg-white/15"
                                     attrs=@{labelled("Options for your video")}
-                                    onclick={openTileMenu(selfAttendeeId, displayName)}
+                                    onclick={openTileMenu(selfAttendeeId, displayName, event.currentTarget)}
                                 >
                                     <Icon name="more" class="size-4" />
                                 </Button>
@@ -915,7 +915,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             </span>
                         </div>
                         <section
-                            class="room-tile-menu absolute bottom-16 left-5 z-5 grid w-64 gap-1 rounded-lg border border-edge bg-raised p-2 text-sm shadow-2xl"
+                            class="room-tile-menu absolute z-5 grid w-64 gap-1 overflow-y-auto rounded-lg border border-edge bg-raised p-2 text-sm shadow-2xl"
+                            pp-style={tileMenu ? tileMenu.style : ""}
                             pp-ref={tileMenuElement}
                             hidden={!tileMenu}
                             aria-label="Participant options"
@@ -1111,7 +1112,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         attrs=@{bound("aria-label", ui_expr!(aria-label={"Options for " + person.name}))}
                                         value={person.id}
                                         name={person.name}
-                                        onclick={openTileMenu(event.currentTarget.value, event.currentTarget.name)}
+                                        onclick={openTileMenu(event.currentTarget.value, event.currentTarget.name, event.currentTarget)}
                                     >
                                         <Icon name="more" class="size-4" />
                                     </Button>
@@ -1708,7 +1709,25 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             catch (failure) { setError(failure.body?.error || failure.message); }
                         }
                     }
-                    const openTileMenu = pp.event(function openTileMenu(id, name) { setMoreOpen(false); setReactionsOpen(false); setTileMenu(tileMenu?.id === id ? null : {id,name}); });
+                    // Beside the button that asked, on whichever side has more room.
+                    function tileMenuPlace(trigger) {
+                        const gap = 8;
+                        const width = 256; // `w-64`; the menu is still hidden, so it cannot be measured.
+                        const stage = tileMenuElement.current.closest(".room-stage").getBoundingClientRect();
+                        const anchor = trigger.getBoundingClientRect();
+                        const left = Math.max(gap, Math.min(anchor.left - stage.left, stage.width - width - gap));
+                        const above = anchor.top - stage.top;
+                        const below = stage.bottom - anchor.bottom;
+                        const side = above >= below ? "bottom:" + (stage.bottom - anchor.top + gap) : "top:" + (anchor.bottom - stage.top + gap);
+                        return "left:" + left + "px;" + side + "px;max-height:" + (Math.max(above, below) - gap * 2) + "px";
+                    }
+                    const openTileMenu = pp.event(function openTileMenu(id, name, trigger) { setMoreOpen(false); setReactionsOpen(false); setTileMenu(tileMenu?.id === id ? null : {id,name,style:tileMenuPlace(trigger)}); });
+                    pp.effect(() => {
+                        if (!tileMenu) return;
+                        const close = () => setTileMenu(null);
+                        window.addEventListener("resize", close);
+                        return () => window.removeEventListener("resize", close);
+                    }, [tileMenu !== null]);
                     function pinTile() { if (tileMenu) setPinnedId(pinnedId === tileMenu.id ? '' : tileMenu.id); setTileMenu(null); }
                     function fitTile() { if (tileMenu) { const id = tileMenu.id; setTileFits(current => ({...current,[id]:current[id] === false})); } setTileMenu(null); }
                     function hideMyTile() { setHideSelf(true); if (pinnedId === selfAttendeeId) setPinnedId(''); setTileMenu(null); }
