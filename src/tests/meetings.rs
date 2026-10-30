@@ -578,6 +578,97 @@ async fn renaming_rejects_invalid_payloads_and_unavailable_links() {
 }
 
 #[tokio::test]
+async fn pre_join_audio_selects_name_the_default_device() {
+    let id = mint("Audio device names").await;
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+        eprintln!("Skipping audio device test: Chrome or Edge is not installed.");
+        return;
+    };
+    authenticate_browser(&mut browser, address).await;
+    browser
+        .goto(&format!("http://{address}/meet/j/{id}"))
+        .await
+        .unwrap();
+    let shown = |label: &str, text: &str| {
+        format!(
+            "(() => {{ const select = document.querySelector(\"select[aria-label='{label}']\"); return select.selectedIndex >= 0 && select.selectedOptions[0].textContent.trim() === '{text}'; }})()"
+        )
+    };
+
+    // Before the browser lists anything, the fallback option is still chosen.
+    browser
+        .wait_for(&shown("Microphone device", "Default microphone"))
+        .await
+        .unwrap();
+    browser
+        .wait_for(&shown("Speakers", "Default speakers"))
+        .await
+        .unwrap();
+
+    // Chromium's list, once the page may read labels.
+    let _: bool = browser
+        .eval(
+            r#"(() => {
+        const device = (kind, deviceId, label) => ({ kind, deviceId, label });
+        navigator.mediaDevices.enumerateDevices = async () => [
+            device("audioinput", "default", "Default - Microphone Array"),
+            device("audioinput", "communications", "Communications - Microphone Array"),
+            device("audioinput", "array", "Microphone Array"),
+            device("audioinput", "headset", "Headset Microphone"),
+            device("audiooutput", "default", "Default - SoundWire Speakers"),
+            device("audiooutput", "soundwire", "SoundWire Speakers"),
+        ];
+        navigator.mediaDevices.dispatchEvent(new Event("devicechange"));
+        return true;
+    })()"#,
+        )
+        .await
+        .unwrap();
+    browser
+        .wait_for(&shown("Microphone device", "Microphone Array"))
+        .await
+        .unwrap();
+    browser
+        .wait_for(&shown("Speakers", "SoundWire Speakers"))
+        .await
+        .unwrap();
+    let options: usize = browser
+        .eval("document.querySelector(\"select[aria-label='Microphone device']\").options.length")
+        .await
+        .unwrap();
+    assert_eq!(options, 3, "the default device is listed once");
+
+    // A device that was chosen and then unplugged falls back to the default.
+    let _: bool = browser
+        .eval(
+            r#"(() => {
+        const select = document.querySelector("select[aria-label='Microphone device']");
+        select.value = "headset";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+    })()"#,
+        )
+        .await
+        .unwrap();
+    browser
+        .wait_for(&shown("Microphone device", "Headset Microphone"))
+        .await
+        .unwrap();
+    let _: bool = browser.eval(r#"(() => {
+        const list = navigator.mediaDevices.enumerateDevices;
+        navigator.mediaDevices.enumerateDevices = async () => (await list()).filter((device) => device.deviceId !== "headset");
+        navigator.mediaDevices.dispatchEvent(new Event("devicechange"));
+        return true;
+    })()"#).await.unwrap();
+    browser
+        .wait_for(&shown("Microphone device", "Microphone Array"))
+        .await
+        .unwrap();
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+#[tokio::test]
 async fn meeting_link_actions_stand_out_from_their_card_in_both_appearances() {
     let id = mint("Visible actions").await;
     let address = rahti::browser::serve(crate::routes::router()).await;

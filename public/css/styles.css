@@ -827,6 +827,9 @@
   .flex {
     display: flex;
   }
+  .flex\! {
+    display: flex !important;
+  }
   .flow-root {
     display: flow-root;
   }

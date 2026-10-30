@@ -46,7 +46,7 @@ const ROOM_TOOL: &str = "h-[60px]! min-w-14 flex-col gap-[5px] px-2.5! py-1.5 te
 const ROOM_LEAVE: &str = "ml-3.5 text-danger-ink! hover:bg-destructive/40! max-[1000px]:ml-1";
 
 /// A device picker on the pre-join screen.
-const DEVICE_SELECT: &str = "w-full min-w-0 border-transparent bg-transparent text-base shadow-none \
+const DEVICE_SELECT: &str = "max-w-full min-w-0 text-ellipsis border-transparent bg-transparent text-base shadow-none \
                              dark:bg-transparent \
                              min-[1101px]:group-data-[backgrounds=true]/body:text-sm";
 
@@ -268,17 +268,19 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 hidden={audioMode !== "computer"}
                             >
                                 <div class={DEVICE_ROW}>
-                                    <Icon name="mic" class="h-6 w-6" />
+                                    <Icon name="mic" class="h-6 w-6 shrink-0" />
                                     <Select
                                         class=@{DEVICE_SELECT}
                                         attrs=@{named("Microphone device")}
-                                        value={microphoneDevice}
+                                        value={availableDevice(microphoneDevice, audioInputs)}
                                         onfocus={refreshDevices()}
                                         onchange={setMicrophoneDevice(target.value)}
                                         disabled={session !== null}
                                     >
-                                        <SelectItem value="">"Default microphone"</SelectItem>
-                                        <template pp-for="device in audioInputs">
+                                        <SelectItem value="">
+                                            {defaultDeviceName(audioInputs, "Default microphone")}
+                                        </SelectItem>
+                                        <template pp-for="device in selectableDevices(audioInputs)">
                                             <SelectItem
                                                 key={device.deviceId}
                                                 value={device.deviceId}
@@ -288,6 +290,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         </template>
                                     </Select>
                                     <Switch
+                                        class="ml-auto"
                                         attrs=@{named("Microphone")}
                                         checked={microphone}
                                         onchange={toggleMicrophone()}
@@ -298,13 +301,17 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     <Select
                                         class=@{DEVICE_SELECT}
                                         attrs=@{named("Speakers")}
-                                        value={speakerDevice}
+                                        value={availableDevice(speakerDevice, audioOutputs)}
                                         onfocus={refreshDevices()}
                                         onchange={setSpeakerDevice(target.value)}
                                         disabled={session !== null}
                                     >
-                                        <SelectItem value="">"Default speakers"</SelectItem>
-                                        <template pp-for="device in audioOutputs">
+                                        <SelectItem value="">
+                                            {defaultDeviceName(audioOutputs, "Default speakers")}
+                                        </SelectItem>
+                                        <template
+                                            pp-for="device in selectableDevices(audioOutputs)"
+                                        >
                                             <SelectItem
                                                 key={device.deviceId}
                                                 value={device.deviceId}
@@ -316,7 +323,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 </div>
                                 <Button
                                     variant="link"
-                                    class="mb-0.5 ml-auto mt-4 flex h-auto! px-0! text-[15px] text-link min-[851px]:mt-2.5"
+                                    class="mb-0.5 ml-auto mt-4 flex! h-auto! w-fit px-0! text-[15px] text-link min-[851px]:mt-2.5"
                                     onclick={testSpeaker()}
                                 >
                                     "Test speaker"
@@ -1316,7 +1323,6 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const AUDIO_CARD = "overflow-hidden rounded-md border border-edge bg-raised";
                     const AUDIO_CHOICE = "flex min-h-[66px] cursor-pointer items-center gap-4 px-[26px] py-[23px] text-[17px] max-[480px]:p-5 min-[851px]:min-h-14 min-[851px]:shrink-0 min-[851px]:px-6 min-[851px]:py-4 min-[851px]:text-base min-[1101px]:group-data-[backgrounds=true]/body:px-4";
                     const DEVICE_ROW = "flex min-h-[47px] items-center gap-4 text-ink min-[851px]:min-h-[42px] min-[1101px]:group-data-[backgrounds=true]/body:gap-2";
-                    const DEVICE_SELECT = "w-full min-w-0 text-ellipsis bg-transparent py-1.5 text-base text-ink [&_option]:bg-raised min-[1101px]:group-data-[backgrounds=true]/body:text-sm";
                     const ROOM_TOOL = "flex h-[60px] min-w-14 cursor-pointer flex-col items-center justify-center gap-[5px] rounded-md px-2.5 py-1.5 text-xs text-ink hover:bg-hover aria-pressed:bg-hover aria-pressed:shadow-[inset_0_-2px_var(--color-brand-ink)] disabled:cursor-not-allowed disabled:opacity-40 max-[1000px]:min-w-[45px] max-[1000px]:p-1.5 max-[1000px]:text-[11px] max-[650px]:h-[52px] max-[650px]:min-w-10";
                     const ROOM_LEAVE = twMerge(ROOM_TOOL + " ml-3.5 text-danger-ink hover:bg-destructive/40 max-[1000px]:ml-1");
                     const GALLERY = "grid h-full auto-rows-[minmax(0,1fr)] grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-3 p-[18px]";
@@ -2106,7 +2112,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         }
                     }
 
-                    async function refreshDevices() {
+                    const refreshDevices = pp.event(async () => {
                         try {
                             const available = await navigator.mediaDevices.enumerateDevices();
                             setAudioInputs(available.filter(device => device.kind === "audioinput" && device.deviceId));
@@ -2114,6 +2120,25 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         } catch (failure) {
                             setError("Audio devices could not be listed. Check your browser permissions.");
                         }
+                    });
+                    pp.effect(() => {
+                        refreshDevices();
+                        navigator.mediaDevices?.addEventListener("devicechange", refreshDevices);
+                        return () => navigator.mediaDevices?.removeEventListener("devicechange", refreshDevices);
+                    }, [refreshDevices]);
+
+                    // Chromium lists the default device a second time under these ids. The
+                    // empty option already stands for it, so it takes the device's name.
+                    const DEVICE_ALIASES = ["default", "communications"];
+                    function selectableDevices(devices) {
+                        return devices.filter(device => !DEVICE_ALIASES.includes(device.deviceId));
+                    }
+                    function defaultDeviceName(devices, fallback) {
+                        const device = devices.find(item => item.deviceId === "default");
+                        return device?.label ? device.label.replace(/^Default - /, "") : fallback;
+                    }
+                    function availableDevice(id, devices) {
+                        return selectableDevices(devices).some(device => device.deviceId === id) ? id : "";
                     }
 
                     function backgroundEffect(id) {

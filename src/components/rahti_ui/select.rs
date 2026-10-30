@@ -693,7 +693,12 @@ pub fn SelectItem(
         .selected(selected)
         .disabled(disabled);
 
-    if !value.is_empty() {
+    // Every option has a value, as Radix's does. `value=""` is a real choice,
+    // the one a `<Select value={…}>` lands on when its state is empty, and a tag
+    // cannot tell it from an unwritten prop, so both write the attribute. An
+    // option without one would answer to its text and leave that select blank.
+    // A `{…}` value is in `bindings` and is not written twice.
+    if !value.is_empty() || !bindings.iter().any(|(name, _)| name == "value") {
         props = props.value(value);
     }
     if !id.is_empty() {
@@ -1171,6 +1176,41 @@ mod tests {
             select_props().render(Html::empty()).into_test_string(),
             SelectProps::new().render(Html::empty()).into_test_string()
         );
+    }
+
+    /// `<SelectItem value="">` is the choice an empty `<Select value={…}>` shows.
+    /// Dropping the attribute leaves that select with nothing selected.
+    #[test]
+    fn an_empty_option_value_is_written() {
+        let markup = SelectItem(
+            "",
+            "",
+            "",
+            false,
+            false,
+            crate::rahti::Bindings::__from_html(&[]),
+            Attrs::new(),
+            Html::escape("Default"),
+        )
+        .into_test_string();
+        assert!(markup.contains(r#"value="""#), "{markup}");
+    }
+
+    /// A bound option keeps one `value`: the binding.
+    #[test]
+    fn a_bound_option_value_is_not_written_twice() {
+        let markup = SelectItem(
+            "",
+            "",
+            "",
+            false,
+            false,
+            crate::rahti::Bindings::__from_html(&[("value", "device.id")]),
+            Attrs::new(),
+            Html::escape("Device"),
+        )
+        .into_test_string();
+        assert_eq!(markup.matches(" value=").count(), 1, "{markup}");
     }
 
     /// `<Select value={fruit} onchange={setFruit(target.value)}>`: the
