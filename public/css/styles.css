@@ -1526,6 +1526,9 @@
   .max-w-\[calc\(100vw-32px\)\] {
     max-width: calc(100vw - 32px);
   }
+  .max-w-\[calc\(100vw-48px\)\] {
+    max-width: calc(100vw - 48px);
+  }
   .max-w-\[calc\(100vw-100px\)\] {
     max-width: calc(100vw - 100px);
   }
@@ -4677,6 +4680,9 @@
   }
   .aria-checked\:outline-ink[aria-checked="true"] {
     outline-color: var(--ink);
+  }
+  .aria-disabled\:opacity-40[aria-disabled="true"] {
+    opacity: 40%;
   }
   .aria-expanded\:bg-hover[aria-expanded="true"] {
     background-color: var(--hover);

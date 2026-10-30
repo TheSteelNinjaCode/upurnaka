@@ -36,7 +36,7 @@ use crate::rahti::{Error, Html, Json, Metadata, Page, Result, RpcUpload, Validat
 
 /// A tool in the meeting toolbar: an icon over its label, underlined while on.
 const ROOM_TOOL: &str = "h-[60px]! min-w-14 flex-col gap-[5px] px-2.5! py-1.5 text-xs font-normal \
-                         text-ink aria-pressed:bg-hover \
+                         text-ink aria-pressed:bg-hover aria-disabled:opacity-40 \
                          aria-pressed:shadow-[inset_0_-2px_var(--color-brand-ink)] \
                          max-[1000px]:min-w-[45px] max-[1000px]:p-1.5! max-[1000px]:text-[11px] \
                          max-[650px]:h-[52px]! max-[650px]:min-w-10 \
@@ -581,7 +581,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         <Button
                             variant="ghost"
                             class=@{ROOM_TOOL}
-                            attrs=@{named("Share screen").merge(&bound("aria-pressed", ui_expr!(aria-pressed={sharingScreen})))}
+                            attrs=@{named("Share screen").merge(&bound("aria-pressed", ui_expr!(aria-pressed={sharingScreen}))).merge(&bound("aria-disabled", ui_expr!(aria-disabled={!canShareScreen()})))}
                             disabled={connectionStatus !== "connected" || startingShare}
                             onclick={toggleScreenShare()}
                         >
@@ -1306,7 +1306,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             </aside>
             <NotificationSound />
             <div
-                class="fixed bottom-6 left-6 rounded-md border border-edge bg-raised px-5 py-3.5 text-sm"
+                class="fixed bottom-6 left-6 max-w-[calc(100vw-48px)] rounded-md border border-edge bg-raised px-5 py-3.5 text-sm"
                 role="status"
                 hidden={!toast}
             >
@@ -1943,9 +1943,18 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         } catch (failure) { setError(failure.message); }
                     }
 
+                    // Phone browsers do not offer screen capture to web pages at all.
+                    function canShareScreen() {
+                        return typeof navigator.mediaDevices?.getDisplayMedia === "function";
+                    }
+
                     async function toggleScreenShare() {
                         const live = call.current;
                         if (!live || startingShare) return;
+                        if (!canShareScreen()) {
+                            setToast("This browser can't share your screen. Join from a computer to share.");
+                            return;
+                        }
                         if (sharingScreen) {
                             live.av.stopContentShare();
                             if (shareStream.current) shareStream.current.getTracks().forEach(track => track.stop());

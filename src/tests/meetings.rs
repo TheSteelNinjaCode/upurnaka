@@ -511,6 +511,20 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         )
         .await
         .unwrap();
+    // A phone browser has no screen capture: it says so, without a raw error.
+    let _: bool = browser
+        .eval("window.realShare = navigator.mediaDevices.getDisplayMedia; navigator.mediaDevices.getDisplayMedia = undefined; true")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Share screen']")
+        .await
+        .unwrap();
+    browser.wait_for("[...document.querySelectorAll('[role=status]')].some(status => !status.hidden && status.textContent.includes('Join from a computer to share')) && !document.body.textContent.includes('is not a function') && document.querySelector('button[aria-label=\"Share screen\"]').getAttribute('aria-pressed') !== 'true'").await.unwrap();
+    let _: bool = browser
+        .eval("navigator.mediaDevices.getDisplayMedia = window.realShare; true")
+        .await
+        .unwrap();
     browser
         .click("button[aria-label='Share screen']")
         .await
