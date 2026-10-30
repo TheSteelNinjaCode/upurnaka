@@ -76,7 +76,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
     let date_trigger = button_variants(
         ButtonVariant::Ghost,
         ButtonSize::Sm,
-        "calendar-date-trigger ml-2 text-[15px] font-semibold",
+        "calendar-date-trigger ml-2 text-[15px] font-semibold aria-expanded:text-brand-ink",
     );
     Ok(html! {
         <AppShell active="calendar">
@@ -147,14 +147,19 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                 <PopoverContent
                                     name="calendar-date"
                                     align="start"
-                                    class="calendar-date-picker"
+                                    class="calendar-date-picker w-[304px] max-w-[calc(100vw-32px)] rounded-[5px] border border-line bg-popover p-[18px] text-ink shadow-xl shadow-black/30"
                                     ontoggle={toggleDatePicker(event.newState)}
                                     attrs=@{named("Choose calendar date")}
                                 >
-                                    <div class="calendar-picker-header">
-                                        <h2 aria-live="polite">{pickerTitle}</h2>
+                                    <div
+                                        class="calendar-picker-header mb-3.5 flex items-center gap-2.5"
+                                    >
+                                        <h2 class="flex-1 text-base font-bold" aria-live="polite">
+                                            {pickerTitle}
+                                        </h2>
                                         <button
                                             type="button"
+                                            class="grid size-[30px] place-items-center rounded-[3px] text-ink hover:bg-hover"
                                             aria-label="Previous month"
                                             onclick={movePickerMonth(-1)}
                                         >
@@ -162,17 +167,18 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                         </button>
                                         <button
                                             type="button"
+                                            class="grid size-[30px] place-items-center rounded-[3px] text-ink hover:bg-hover"
                                             aria-label="Next month"
                                             onclick={movePickerMonth(1)}
                                         >
                                             <Icon name="chevron-right" class="size-5" />
                                         </button>
                                     </div>
-                                    <div class="calendar-picker-grid">
+                                    <div class="calendar-picker-grid grid grid-cols-7">
                                         <template pp-for="weekday in PICKER_WEEKDAYS">
                                             <span
                                                 key={weekday.name}
-                                                class="calendar-picker-weekday"
+                                                class="calendar-picker-weekday grid h-8 place-items-center text-sm"
                                                 title={weekday.name}
                                             >
                                                 {weekday.short}
@@ -275,7 +281,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                             key={cell.key}
                                             type="button"
                                             value={cell.key}
-                                            class={"calendar-grid-slot" + (cell.half % 2 ? " calendar-hour-end" : "") + (selectedSlot === cell.key ? " calendar-slot-selected" : "")}
+                                            class={slotClass(cell)}
                                             tabindex={selectedSlot === cell.key ? "0" : "-1"}
                                             aria-label={cell.label}
                                             aria-pressed={selectedSlot === cell.key}
@@ -314,9 +320,19 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                     pp-style={nowStyle}
                                     hidden={!showNow}
                                 >
-                                    <div class="calendar-now-guide" pp-style={nowGuideStyle}></div>
-                                    <div class="calendar-now-today" pp-style={nowTodayStyle}>
-                                        <span class="calendar-now-dot"></span>
+                                    <div
+                                        class="calendar-now-guide absolute left-0 border-t border-dashed border-now"
+                                        pp-style={nowGuideStyle}
+                                    >
+                                    </div>
+                                    <div
+                                        class="calendar-now-today absolute border-t-2 border-now"
+                                        pp-style={nowTodayStyle}
+                                    >
+                                        <span
+                                            class="calendar-now-dot absolute -left-0.5 -top-[3px] size-1 rounded-full bg-now"
+                                        >
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -656,33 +672,22 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-                <style>r##"
-                    .calendar-date-trigger[aria-expanded=true] { color: #9690ff; }
-                    .calendar-date-picker { width: 304px; max-width: calc(100vw - 32px); padding: 18px; border: 1px solid #222; border-radius: 5px; background: #292929; color: #f5f5f5; box-shadow: 0 8px 24px #0005; }
-                    .calendar-picker-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-                    .calendar-picker-header h2 { flex: 1; font-size: 16px; font-weight: 700; }
-                    .calendar-picker-header button { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 3px; color: #ddd; }
-                    .calendar-picker-header button:hover { background: #3c3c3c; }
-                    .calendar-picker-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-                    .calendar-picker-weekday { display: grid; place-items: center; height: 32px; font-size: 14px; }
-                    .calendar-picker-day { display: grid; place-items: center; height: 38px; min-width: 0; font-size: 14px; }
-                    .calendar-picker-day.calendar-picker-outside { color: #aaa; }
-                    .calendar-picker-day.calendar-picker-range { background: #4e478b; color: white; }
-                    .calendar-picker-day span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; }
-                    .calendar-picker-day.calendar-picker-selected span { background: #8880f5; color: white; }
-                    .calendar-picker-day[aria-current=date]:not(.calendar-picker-selected) span { box-shadow: inset 0 0 0 1px #9690ff; color: #b4afff; }
-                    .calendar-picker-day:hover:not(.calendar-picker-selected) span { background: #ffffff20; }
-                    .calendar-picker-day:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
-                    .calendar-grid-slot { position: relative; height: 28px; min-width: 0; padding: 0; border-left: 1px solid var(--color-line); border-bottom: 1px dotted var(--color-line); cursor: default; }
-                    .calendar-grid-slot.calendar-hour-end { border-bottom-style: solid; }
-                    .calendar-grid-slot:hover { background: rgb(255 255 255 / 7%); }
-                    .calendar-grid-slot.calendar-slot-selected { z-index: 1; outline: 2px solid #f5f5f5; outline-offset: -2px; border-radius: 2px; }
-                    .calendar-grid-slot:focus-visible { outline: 2px solid #fff; outline-offset: -2px; z-index: 1; }
-                    .calendar-now-guide { position: absolute; left: 0; border-top: 1px dashed #d65a38; }
-                    .calendar-now-today { position: absolute; border-top: 2px solid #d65a38; }
-                    .calendar-now-dot { position: absolute; left: -2px; top: -3px; width: 4px; height: 4px; border-radius: 50%; background: #d65a38; }
-                "##</style>
                 <script>r##"
+                    const PICKER_DAY = 'calendar-picker-day grid h-[38px] min-w-0 place-items-center text-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink [&>span]:grid [&>span]:size-[34px] [&>span]:place-items-center [&>span]:rounded-full';
+                    function pickerDayClass(outside, inRange, selected) {
+                        return PICKER_DAY
+                            + (outside ? ' calendar-picker-outside' : '')
+                            + (inRange ? ' calendar-picker-range bg-brand-soft text-ink' : outside ? ' text-muted-foreground' : '')
+                            + (selected
+                                ? ' calendar-picker-selected [&>span]:bg-brand [&>span]:text-brand-foreground'
+                                : ' hover:[&>span]:bg-hover aria-[current=date]:[&>span]:text-brand-ink aria-[current=date]:[&>span]:shadow-[inset_0_0_0_1px_var(--color-brand-ink)]');
+                    }
+                    const SLOT = 'calendar-grid-slot relative h-7 min-w-0 cursor-default border-b border-l border-line p-0 hover:bg-hover focus-visible:z-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink';
+                    function slotClass(cell) {
+                        return SLOT
+                            + (cell.half % 2 ? ' calendar-hour-end' : ' [border-bottom-style:dotted]')
+                            + (selectedSlot === cell.key ? ' calendar-slot-selected z-1 rounded-[2px] outline-2 -outline-offset-2 outline-ink' : '');
+                    }
                     const HEAD_ON = "flex flex-col border-l border-l-line border-t-2 border-t-brand px-3 py-2.5 text-brand-ink";
                     const HEAD_OFF = "flex flex-col border-l border-l-line px-3 py-2.5 text-muted-foreground";
                     const HOUR_HEIGHT = 56;
@@ -835,7 +840,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         const key = dayKey(date);
                         const selected = key === activePickerDate;
                         const inRange = view === 'Day' ? selected : date >= rangeFirst && date <= rangeLast;
-                        pickerDates.push({key,number:date.getDate(),selected,today:key === todayKey,label:date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),classes:'calendar-picker-day' + (date.getMonth() !== pickerBase.getMonth() ? ' calendar-picker-outside' : '') + (inRange ? ' calendar-picker-range' : '') + (selected ? ' calendar-picker-selected' : '')});
+                        pickerDates.push({key,number:date.getDate(),selected,today:key === todayKey,label:date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),classes:pickerDayClass(date.getMonth() !== pickerBase.getMonth(), inRange, selected)});
                     }
 
                     const pickerTabDate = pickerDates.some(date => date.key === pickerFocus) ? pickerFocus : pickerMonth;

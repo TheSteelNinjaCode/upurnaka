@@ -2,86 +2,264 @@
 @import "./_vendor/tw-animate-css.css";
 @source "../";
 
-@custom-variant dark (&:is(.dark *));
+/* The root layout always carries `.dark`; the account's light appearance is
+   `data-appearance="light"` on the same element, so `dark:` must yield to it. */
+@custom-variant dark (&:is(.dark:not([data-appearance="light"]) *));
 
 /* shadcn's short orientation variants, which the rahti-ui Field and Separator
    are written in. `:where()` keeps them at zero specificity. */
 @custom-variant data-horizontal (&:where([data-orientation="horizontal"]));
 @custom-variant data-vertical (&:where([data-orientation="vertical"]));
 
-/* The Teams-style dark palette. Every surface in the shell names one of these
-   tokens rather than a hex value, so a theme change is one block. */
-@theme {
-  /* Rahti UI semantic tokens, mapped to the application palette. */
-  --color-background: #0b0b0d;
-  --color-foreground: #f3f3f5;
-  --color-card: #161619;
-  --color-card-foreground: #f3f3f5;
-  --color-popover: #1d1d22;
-  --color-popover-foreground: #f3f3f5;
-  --color-primary: #5b5fc7;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #1d1d22;
-  --color-secondary-foreground: #f3f3f5;
-  --color-muted: #26262d;
-  --color-muted-foreground: #b2b2bb;
-  --color-accent: #26262d;
-  --color-accent-foreground: #f3f3f5;
-  --color-destructive: #c4314b;
-  --color-border: #26262c;
-  --color-input: #37373f;
-  --color-ring: #8b8ff0;
-  --color-sidebar: #0f0f12;
-  --color-sidebar-foreground: #f3f3f5;
-  --color-sidebar-accent: #26262d;
-  --color-sidebar-accent-foreground: #f3f3f5;
-  --color-sidebar-border: #26262c;
-  --color-sidebar-ring: #8b8ff0;
-  --color-chrome: #0b0b0d;
-  --color-pane: #0f0f12;
-  --color-surface: #161619;
-  --color-raised: #1d1d22;
-  --color-hover: #26262d;
-  --color-sunken: #121216;
-  --color-line: #26262c;
-  --color-edge: #37373f;
-  --color-ink: #f3f3f5;
-  --color-subtle: #82828d;
-  --color-brand: #5b5fc7;
-  --color-brand-hover: #6a6edb;
-  --color-brand-press: #4b4fae;
-  --color-brand-soft: #2c2d57;
-  --color-brand-ink: #8b8ff0;
-  --color-link: #a9aae4;
-  --color-online: #6bb700;
-  --color-away: #eaa300;
-  --color-busy: #c4314b;
-  --color-danger-ink: #ffb0ba;
-  --color-offline: #8a8886;
-  --color-avatar: #c7cbe8;
-  --color-avatar-ink: #26263a;
-  --color-now: #d9544a;
-
-  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-}
-
-html,
-body {
-  height: 100%;
-}
-
-/* shadcn's unprefixed variables, which a few rahti-ui utilities read raw —
-   the Switch thumb, the radius — aliased to the brand tokens above. */
+/* ── Brand ──────────────────────────────────────────────────────────────────
+   The single source of the palette, laid out the way shadcn does it: raw
+   variables on :root (dark, the default appearance), the light appearance
+   overriding them, and `@theme inline` below naming them as Tailwind colors.
+   Pages and components use the utilities (`bg-surface`, `text-brand-ink`,
+   `border-edge`), never a hex value, so a palette change happens here. */
 :root {
   color-scheme: dark;
-  --background: var(--color-background);
-  --foreground: var(--color-foreground);
-  --primary: var(--color-primary);
-  --primary-foreground: var(--color-primary-foreground);
-  --popover: var(--color-popover);
-  --popover-foreground: var(--color-popover-foreground);
-  --muted-foreground: var(--color-muted-foreground);
   --radius: 0.5rem;
+
+  /* shadcn / rahti-ui semantic tokens */
+  --background: #0b0b0d;
+  --foreground: #f3f3f5;
+  --card: #161619;
+  --card-foreground: #f3f3f5;
+  --popover: #1d1d22;
+  --popover-foreground: #f3f3f5;
+  --primary: #5b5fc7;
+  --primary-foreground: #ffffff;
+  --secondary: #1d1d22;
+  --secondary-foreground: #f3f3f5;
+  --muted: #26262d;
+  --muted-foreground: #b2b2bb;
+  --accent: #26262d;
+  --accent-foreground: #f3f3f5;
+  --destructive: #c4314b;
+  --border: #26262c;
+  --input: #37373f;
+  --ring: #8b8ff0;
+  --sidebar: #0f0f12;
+  --sidebar-foreground: #f3f3f5;
+  --sidebar-accent: #26262d;
+  --sidebar-accent-foreground: #f3f3f5;
+  --sidebar-border: #26262c;
+  --sidebar-ring: #8b8ff0;
+
+  /* Application surfaces, from the window chrome inward. */
+  --chrome: #0b0b0d;
+  --pane: #0f0f12;
+  --surface: #161619;
+  --raised: #1d1d22;
+  --hover: #26262d;
+  --sunken: #121216;
+  --line: #26262c;
+  --edge: #37373f;
+  --ink: #f3f3f5;
+  --subtle: #82828d;
+  --scrollbar: #3c3c46;
+
+  /* Brand */
+  --brand: #5b5fc7;
+  --brand-hover: #6a6edb;
+  --brand-press: #4b4fae;
+  --brand-soft: #2c2d57;
+  --brand-ink: #8b8ff0;
+  --brand-foreground: #ffffff;
+  --link: #a9aae4;
+
+  /* Status */
+  --online: #6bb700;
+  --away: #eaa300;
+  --busy: #c4314b;
+  --offline: #8a8886;
+  --now: #d9544a;
+  --success-ink: #c4d8bc;
+  --success-soft: #253323;
+  --danger-ink: #ffb0ba;
+  --danger-soft: #3e1f25;
+  --danger-line: #6b2a33;
+
+  /* Icon tints: the fixed hues that mark a kind of thing (a folder, an
+     image, a meeting) in both appearances. */
+  --tint-gold: #f5c451;
+  --tint-amber: #e3a72f;
+  --tint-blue: #4aa3df;
+  --tint-red: #d9544a;
+  --tint-pink: #d58bc4;
+  --tint-sky: #80b5df;
+
+  /* People */
+  --avatar: #c7cbe8;
+  --avatar-ink: #26263a;
+
+  /* File kinds: the Office-style document colors, shared by both appearances. */
+  --file-pdf: #c4314b;
+  --file-word: #185abd;
+  --file-excel: #107c41;
+  --file-powerpoint: #c43e1c;
+  --file-image: #8764b8;
+  --file-archive: #986f0b;
+  --file-media: #0078d4;
+  --file-code: #4a5a6a;
+  --file-other: #5c5c5c;
+
+  /* Announcement banner accents, chosen per post. */
+  --banner-blue: #004578;
+  --banner-teal: #005b70;
+  --banner-green: #0b6a0b;
+  --banner-purple: #4f3f99;
+  --banner-magenta: #8c1a6b;
+  --banner-red: #a4262c;
+  --banner-orange: #a74109;
+  --banner-slate: #3b4a5a;
+
+  /* The window's ambient light: the faint violet wash behind the chrome. */
+  --glow-1: rgb(126 108 240 / 0.18);
+  --glow-2: rgb(91 95 199 / 0.14);
+  --glow-strong-1: rgb(141 112 255 / 0.42);
+  --glow-strong-2: rgb(104 86 214 / 0.34);
+  --glow-strong-3: rgb(86 72 186 / 0.26);
+}
+
+/* Account-scoped light appearance, applied by UserPreferences. */
+html[data-appearance="light"] {
+  color-scheme: light;
+  --background: #fafafa;
+  --foreground: #242424;
+  --card: #ffffff;
+  --card-foreground: #242424;
+  --popover: #ffffff;
+  --popover-foreground: #242424;
+  --secondary: #f0f0f4;
+  --secondary-foreground: #242424;
+  --muted: #ebebef;
+  --muted-foreground: #61616b;
+  --accent: #e7e7ee;
+  --accent-foreground: #242424;
+  --border: #dedee5;
+  --input: #bcbcc7;
+  --sidebar: #f5f5fa;
+  --sidebar-foreground: #242424;
+  --sidebar-accent: #e7e7ee;
+  --sidebar-accent-foreground: #242424;
+  --sidebar-border: #dedee5;
+
+  --chrome: #f5f5fa;
+  --pane: #f5f5fa;
+  --surface: #ffffff;
+  --raised: #f0f0f4;
+  --hover: #e7e7ee;
+  --sunken: #f7f7fa;
+  --line: #dedee5;
+  --edge: #bcbcc7;
+  --ink: #242424;
+  --subtle: #6e6e78;
+  --scrollbar: #c4c4cf;
+
+  --brand-ink: #5155ad;
+  --brand-soft: #e6e6fb;
+  --link: #4b4fae;
+
+  --success-ink: #2e6b2a;
+  --success-soft: #e3f1df;
+  --danger-ink: #a1233c;
+  --danger-soft: #fde7ea;
+  --danger-line: #f1b3bd;
+
+  --glow-1: rgb(126 108 240 / 0.08);
+  --glow-2: rgb(91 95 199 / 0.06);
+  --glow-strong-1: rgb(141 112 255 / 0.18);
+  --glow-strong-2: rgb(104 86 214 / 0.14);
+  --glow-strong-3: rgb(86 72 186 / 0.1);
+}
+
+/* `static` keeps every `--color-*` emitted, because page scripts and the
+   rules below read them with `var()` as well as through utilities. */
+@theme inline static {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-chrome: var(--chrome);
+  --color-pane: var(--pane);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-edge: var(--edge);
+  --color-ink: var(--ink);
+  --color-subtle: var(--subtle);
+  --color-scrollbar: var(--scrollbar);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-press: var(--brand-press);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-link: var(--link);
+
+  --color-online: var(--online);
+  --color-away: var(--away);
+  --color-busy: var(--busy);
+  --color-offline: var(--offline);
+  --color-now: var(--now);
+  --color-success-ink: var(--success-ink);
+  --color-success-soft: var(--success-soft);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+
+  --color-tint-gold: var(--tint-gold);
+  --color-tint-amber: var(--tint-amber);
+  --color-tint-blue: var(--tint-blue);
+  --color-tint-red: var(--tint-red);
+  --color-tint-pink: var(--tint-pink);
+  --color-tint-sky: var(--tint-sky);
+
+  --color-avatar: var(--avatar);
+  --color-avatar-ink: var(--avatar-ink);
+
+  --color-file-pdf: var(--file-pdf);
+  --color-file-word: var(--file-word);
+  --color-file-excel: var(--file-excel);
+  --color-file-powerpoint: var(--file-powerpoint);
+  --color-file-image: var(--file-image);
+  --color-file-archive: var(--file-archive);
+  --color-file-media: var(--file-media);
+  --color-file-code: var(--file-code);
+  --color-file-other: var(--file-other);
+
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 @layer base {
@@ -89,64 +267,113 @@ body {
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body {
+    @apply h-full;
+  }
+
+  body {
+    @apply m-0 overflow-hidden bg-chrome font-ui text-ink antialiased;
+  }
+
   /* The open list of a native <select> is the browser's; Chromium and Firefox
      honor colors written on the options, so the rows stay on the brand. */
   select option,
   select optgroup {
-    background-color: var(--color-popover);
-    color: var(--color-popover-foreground);
+    @apply bg-popover text-popover-foreground;
   }
 
   select option:disabled {
-    color: var(--color-muted-foreground);
+    @apply text-muted-foreground;
   }
 }
 
-body {
-  margin: 0;
-  overflow: hidden;
-  background-color: var(--color-chrome);
-  color: var(--color-ink);
-  font-family: var(--font-ui);
-  -webkit-font-smoothing: antialiased;
-}
+/* ── Shared utilities ───────────────────────────────────────────────────────
+   Patterns used across pages that a utility string cannot express on its
+   own. Everything else belongs in the markup as Tailwind classes. */
 
-/* The window's ambient light: the faint violet wash the desktop client puts
-   behind its chrome. Two radials rather than one, so the corner nearest the
-   title bar reads brighter than the body. */
-.ambient {
-  background-color: var(--color-chrome);
+@utility ambient {
+  background-color: var(--chrome);
   background-image:
-    radial-gradient(860px 460px at 78% 6%, rgba(126, 108, 240, 0.18), transparent 62%),
-    radial-gradient(680px 460px at 10% 98%, rgba(91, 95, 199, 0.14), transparent 60%);
+    radial-gradient(860px 460px at 78% 6%, var(--glow-1), transparent 62%),
+    radial-gradient(680px 460px at 10% 98%, var(--glow-2), transparent 60%);
 }
 
 /* The community hero carries the same wash at full strength. */
-.ambient-strong {
-  background-color: var(--color-surface);
+@utility ambient-strong {
+  background-color: var(--surface);
   background-image:
-    radial-gradient(1100px 760px at 68% 38%, rgba(141, 112, 255, 0.42), transparent 66%),
-    radial-gradient(900px 640px at 8% 98%, rgba(104, 86, 214, 0.34), transparent 64%),
-    radial-gradient(700px 520px at 96% 96%, rgba(86, 72, 186, 0.26), transparent 62%);
+    radial-gradient(1100px 760px at 68% 38%, var(--glow-strong-1), transparent 66%),
+    radial-gradient(900px 640px at 8% 98%, var(--glow-strong-2), transparent 64%),
+    radial-gradient(700px 520px at 96% 96%, var(--glow-strong-3), transparent 62%);
 }
 
-.scroll-thin {
+@utility scroll-thin {
   scrollbar-width: thin;
-  scrollbar-color: #3c3c46 transparent;
+  scrollbar-color: var(--scrollbar) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar);
+    border-radius: 9999px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
-.scroll-thin::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* A banner whose accent the author picks: `data-accent` names the swatch and
+   `bg-banner` paints it. */
+[data-accent="blue"] { --banner: var(--banner-blue); }
+[data-accent="teal"] { --banner: var(--banner-teal); }
+[data-accent="green"] { --banner: var(--banner-green); }
+[data-accent="purple"] { --banner: var(--banner-purple); }
+[data-accent="magenta"] { --banner: var(--banner-magenta); }
+[data-accent="red"] { --banner: var(--banner-red); }
+[data-accent="orange"] { --banner: var(--banner-orange); }
+[data-accent="slate"] { --banner: var(--banner-slate); }
+
+@utility bg-banner {
+  background-color: var(--banner, var(--banner-blue));
 }
 
-.scroll-thin::-webkit-scrollbar-thumb {
-  background-color: #3c3c46;
-  border-radius: 9999px;
+/* A file-type tile colored by `data-kind`. */
+@utility file-kind {
+  background-color: var(--file-other);
+  color: #fff;
+
+  &[data-kind="pdf"] { background-color: var(--file-pdf); }
+  &[data-kind="word"] { background-color: var(--file-word); }
+  &[data-kind="excel"] { background-color: var(--file-excel); }
+  &[data-kind="powerpoint"] { background-color: var(--file-powerpoint); }
+  &[data-kind="image"] { background-color: var(--file-image); }
+  &[data-kind="archive"] { background-color: var(--file-archive); }
+  &:is([data-kind="video"], [data-kind="audio"]) { background-color: var(--file-media); }
+  &:is([data-kind="code"], [data-kind="text"]) { background-color: var(--file-code); }
 }
 
-.scroll-thin::-webkit-scrollbar-track {
-  background: transparent;
+/* ProseMirror owns the editor's DOM, so its content is styled by descendant
+   selectors rather than classes in markup. */
+@utility prose-editor {
+  & .ProseMirror {
+    outline: none;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow-y: auto;
+  }
+  & .ProseMirror p { margin: 0; min-height: 1.6em; }
+  & .ProseMirror ul { list-style: disc; padding-left: 24px; }
+  & .ProseMirror ol { list-style: decimal; padding-left: 24px; }
+  & .ProseMirror blockquote { border-left: 3px solid var(--edge); padding-left: 12px; color: var(--muted-foreground); }
+  & .ProseMirror pre { background: var(--sunken); padding: 8px 10px; border-radius: 4px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  & .ProseMirror code { background: var(--sunken); border-radius: 3px; padding: 0 4px; font-family: ui-monospace, Consolas, monospace; }
+  & .ProseMirror a { color: var(--link); text-decoration: underline; }
 }
 
 /* The title bar's pane toggle. The list pane belongs to the page, not to the
@@ -239,43 +466,9 @@ body {
 }
 
 /* Account-scoped appearance preferences, applied by UserPreferences. */
+
+/* Account-scoped appearance preferences, applied by UserPreferences. */
 .user-preferences > pp-context-provider { display: contents; }
-html[data-appearance="light"] {
-  color-scheme: light;
-  --color-background: #fafafa;
-  --color-foreground: #242424;
-  --color-card: #ffffff;
-  --color-card-foreground: #242424;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #242424;
-  --color-secondary: #f0f0f4;
-  --color-secondary-foreground: #242424;
-  --color-muted: #ebebef;
-  --color-muted-foreground: #61616b;
-  --color-accent: #e7e7ee;
-  --color-accent-foreground: #242424;
-  --color-border: #dedee5;
-  --color-input: #bcbcc7;
-  --color-sidebar: #f5f5fa;
-  --color-sidebar-foreground: #242424;
-  --color-sidebar-accent: #e7e7ee;
-  --color-sidebar-accent-foreground: #242424;
-  --color-sidebar-border: #dedee5;
-  --color-chrome: #f5f5fa;
-  --color-pane: #f5f5fa;
-  --color-surface: #ffffff;
-  --color-raised: #f0f0f4;
-  --color-hover: #e7e7ee;
-  --color-sunken: #f7f7fa;
-  --color-line: #dedee5;
-  --color-edge: #bcbcc7;
-  --color-ink: #242424;
-  --color-subtle: #6e6e78;
-  --color-brand-ink: #5155ad;
-  --color-brand-soft: #e6e6fb;
-  --color-link: #4b4fae;
-  --color-danger-ink: #a1233c;
-}
 html[data-text-size="large"] { font-size: 18px; }
 html[data-text-size="large"] [class*="text-[13px]"] { font-size: 15px; }
 html[data-reduced-motion="true"] *,
@@ -329,7 +522,7 @@ html[data-reduced-motion="true"] *::after {
 .settings-storage-dot { width: 7px; height: 7px; border-radius: 100%; background: var(--color-brand-ink); }
 .settings-secondary, .settings-primary { border: 1px solid var(--color-edge); border-radius: 4px; padding: 6px 14px; font-size: 12px; cursor: pointer; background: var(--color-raised); color: var(--color-ink); }
 .settings-secondary:hover { background: var(--color-hover); }
-.settings-primary { background: var(--color-brand); color: #fff; border-color: var(--color-brand); }
+.settings-primary { background: var(--color-brand); color: var(--color-brand-foreground); border-color: var(--color-brand); }
 @media (min-width: 1600px) { .settings-sidebar { width: 420px; } }
 @media (max-width: 1000px) {
   .settings-sidebar { width: 220px; padding-left: 10px; padding-right: 10px; }
@@ -430,7 +623,7 @@ html[data-reduced-motion="true"] *::after {
 .notification-toast.at-top-right { right: 16px; top: 16px; }
 .notification-toast.at-bottom-left { left: 16px; bottom: 16px; }
 .notification-toast.at-top-left { left: 16px; top: 16px; }
-.notification-toast-avatar { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: var(--color-brand); color: #fff; font-weight: 600; }
+.notification-toast-avatar { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: var(--color-brand); color: var(--color-brand-foreground); font-weight: 600; }
 .notification-toast strong { display: block; font-weight: 600; }
 .notification-toast-body { display: block; margin-top: 2px; color: var(--color-muted-foreground); line-height: 1.45; }
 .notification-toast-close { flex-shrink: 0; border-radius: 4px; padding: 2px; color: var(--color-muted-foreground); cursor: pointer; }

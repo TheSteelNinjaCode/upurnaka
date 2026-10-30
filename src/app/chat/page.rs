@@ -54,7 +54,7 @@ const CLOUD_ROW: &str = "group grid w-full grid-cols-[28px_40px_minmax(0,1fr)_11
 const CLOUD_CHECK: &str = "flex size-[18px] items-center justify-center justify-self-center rounded-full border border-edge text-white opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-data-[selected=true]:border-brand group-data-[selected=true]:bg-brand group-data-[selected=true]:opacity-100 max-sm:opacity-100";
 const CLOUD_NOTE: &str = "px-3 py-3 text-sm text-muted-foreground";
 /// A folder drawn filled, as drives draw them.
-const FOLDER_ICON: &str = "size-7 fill-[#f5c451] text-[#e3a72f]";
+const FOLDER_ICON: &str = "size-7 fill-tint-gold text-tint-amber";
 /// An attachment waiting in the composer.
 const FILE_CHIP: &str = "chat-draft-file flex w-[240px] max-w-full items-center gap-2.5 rounded-md border border-edge bg-raised py-2 pl-3 pr-1.5";
 /// An attachment on a sent message; opens the file.
@@ -121,7 +121,13 @@ pub async fn page() -> Html {
         "text-muted-foreground",
     );
     // Composer tools read brighter than other muted chrome, as in Teams.
-    let composer_button = button_variants(ButtonVariant::Ghost, ButtonSize::IconSm, "text-ink/85");
+    // They turn brand on hover, focus and while their menu is open; the emoji
+    // face fills in, its features cut out of the composer behind it.
+    let composer_button = button_variants(
+        ButtonVariant::Ghost,
+        ButtonSize::IconSm,
+        "text-ink not-disabled:hover:bg-transparent! not-disabled:hover:text-brand-ink! not-disabled:focus-visible:text-brand-ink! not-disabled:aria-expanded:bg-transparent! not-disabled:aria-expanded:text-brand-ink! not-disabled:hover:[&_svg_circle]:fill-current not-disabled:hover:[&_svg_path]:stroke-popover not-disabled:aria-expanded:[&_svg_circle]:fill-current not-disabled:aria-expanded:[&_svg_path]:stroke-popover",
+    );
     // The fields below are elements rather than `<Input>` tags because each one
     // is focused from a script — opening a search, starting a new chat — and a
     // ref is a binding a component tag cannot carry. They wear the same class
@@ -133,7 +139,9 @@ pub async fn page() -> Html {
     let folder_field = input_variants("h-8! text-sm");
     let cancel_button = button_variants(ButtonVariant::Outline, ButtonSize::Default, "");
     let emoji_search = input_group_input_variants("text-sm");
-    let composer_field = input_group_textarea_variants("min-h-9 py-2 text-[13px]");
+    let composer_field = input_group_textarea_variants(
+        "h-[42px] min-h-[42px] w-0 min-w-0 flex-[1_1_0] resize-none px-3 py-[11px] text-[13px] leading-5 text-ink placeholder:text-muted-foreground placeholder:opacity-100",
+    );
     let share_button = button_variants(
         ButtonVariant::Outline,
         ButtonSize::Default,
@@ -1086,7 +1094,9 @@ pub async fn page() -> Html {
                             onchange={uploadFiles(event.currentTarget)}
                         />
                         <form onsubmit={send(event)} pp-ref={composerForm} novalidate>
-                            <InputGroup class="chat-composer h-auto! flex-wrap px-1">
+                            <InputGroup
+                                class="chat-composer h-auto! min-h-11 flex-wrap rounded-[5px] border-edge! bg-popover! px-1 opacity-100! [box-shadow:none]! has-[>textarea:focus]:[box-shadow:inset_0_-2px_var(--color-brand-ink)]! has-[.ProseMirror:focus]:[box-shadow:inset_0_-2px_var(--color-brand-ink)]!"
+                            >
                                 <div
                                     class="flex w-full items-center gap-2 border-b border-line px-3 py-2 text-xs font-semibold text-danger-ink"
                                     hidden={!draftImportant}
@@ -1223,7 +1233,7 @@ pub async fn page() -> Html {
                                     </button>
                                 </div>
                                 <div
-                                    class="chat-rich-host w-full"
+                                    class="chat-rich-host prose-editor w-full [&_.ProseMirror]:max-h-[300px] [&_.ProseMirror]:min-h-[120px] [&_.ProseMirror]:px-3 [&_.ProseMirror]:pb-4 [&_.ProseMirror]:pt-1 [&_.ProseMirror]:text-[13px] [&_.ProseMirror:has(>p:only-child>br:only-child)]:before:pointer-events-none [&_.ProseMirror:has(>p:only-child>br:only-child)]:before:absolute [&_.ProseMirror:has(>p:only-child>br:only-child)]:before:text-muted-foreground [&_.ProseMirror:has(>p:only-child>br:only-child)]:before:content-['Type_a_message']"
                                     hidden={!expandedCompose}
                                     onkeydown={handleComposerKey(event)}
                                 >
@@ -1251,7 +1261,7 @@ pub async fn page() -> Html {
                                 </textarea>
                                 <InputGroupAddon
                                     align="inline-end"
-                                    class="chat-composer-tools ml-auto shrink-0 gap-0 self-end py-0"
+                                    class="chat-composer-tools ml-auto h-[42px] shrink-0 items-center gap-0 self-end py-0"
                                 >
                                     <Popover>
                                         <PopoverTrigger
@@ -1625,7 +1635,7 @@ pub async fn page() -> Html {
                                             menu="chat-compose-actions"
                                             side="top"
                                             align="end"
-                                            class="chat-compose-menu w-[252px] rounded-sm border-0 bg-raised py-2 shadow-xl"
+                                            class="chat-compose-menu w-[252px] rounded-sm border-0 bg-raised py-2 shadow-xl [&_[role=menuitem]]:cursor-pointer"
                                             attrs=@{named("Message actions")}
                                         >
                                             <DropdownMenuItem
@@ -1690,7 +1700,7 @@ pub async fn page() -> Html {
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
-                                        class="text-ink/85 disabled:opacity-100!"
+                                        class="text-ink disabled:opacity-100! not-disabled:hover:bg-transparent! not-disabled:hover:text-brand-ink! not-disabled:focus-visible:text-brand-ink! not-disabled:aria-expanded:bg-transparent! not-disabled:aria-expanded:text-brand-ink!"
                                         attrs=@{labelled("Send").merge(&submit())}
                                         disabled={(!draft.trim() && !draftGif && draftFiles.length === 0) || sending || uploads.length > 0 || (newChat && recipients.length === 0)}
                                     >
@@ -1961,7 +1971,7 @@ pub async fn page() -> Html {
                                                 class="flex justify-center"
                                                 hidden={row.icon !== "image"}
                                             >
-                                                <Icon name="image" class="size-6 text-[#4aa3df]" />
+                                                <Icon name="image" class="size-6 text-tint-blue" />
                                             </span>
                                             <span
                                                 class="flex justify-center"
@@ -1969,7 +1979,7 @@ pub async fn page() -> Html {
                                             >
                                                 <Icon
                                                     name="file-text"
-                                                    class="size-6 text-[#d9544a]"
+                                                    class="size-6 text-tint-red"
                                                 />
                                             </span>
                                             <span
@@ -2020,30 +2030,6 @@ pub async fn page() -> Html {
                         </section>
                     </DialogContent>
                 </Dialog>
-                <style>r##"
-                    .chat-composer[data-slot=input-group] { min-height:44px; border-radius:5px; border-color:var(--color-edge); background:var(--color-surface); box-shadow:none; opacity:1; }
-                    .chat-composer[data-slot=input-group]:has(> textarea:focus, .chat-rich-host .ProseMirror:focus) { box-shadow:inset 0 -2px var(--color-brand-ink); }
-                    .chat-composer > textarea { width:0; min-width:0; min-height:42px; height:42px; flex:1 1 0; resize:none; padding:11px 12px; line-height:20px; }
-                    .chat-composer > .chat-composer-tools { height:42px; align-items:center; padding-top:0; padding-bottom:0; }
-                    .dark .chat-composer[data-slot=input-group] { background:#292929; border-color:#525252; }
-                    .dark .chat-composer > textarea { color:#f5f5f5; }
-                    .dark .chat-composer > textarea::placeholder { color:#bdbdbd; opacity:1; }
-                    .dark .chat-composer-tools > button, .dark .chat-composer-tools [data-slot=dropdown-menu-trigger], .dark .chat-composer-tools [data-slot=popover-trigger] { color:#c8c8c8; }
-                    .chat-composer-tools :is([data-slot=popover-trigger], [data-slot=dropdown-menu-trigger], button[aria-label=Send]):not(:disabled):is(:hover, :focus-visible, [aria-expanded=true]) { color:var(--color-brand-ink); background:transparent; }
-                    .chat-composer-tools button[aria-label=Emoji]:is(:hover, :focus-visible, [aria-expanded=true]) svg circle { fill:currentColor; }
-                    .chat-composer-tools button[aria-label=Emoji]:is(:hover, :focus-visible, [aria-expanded=true]) svg path { stroke:var(--color-surface); }
-                    .dark .chat-composer-tools button[aria-label=Emoji]:is(:hover, :focus-visible, [aria-expanded=true]) svg path { stroke:#292929; }
-                    .chat-rich-host .ProseMirror { min-height:120px; max-height:300px; overflow-y:auto; padding:4px 12px 16px; outline:none; font-size:13px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
-                    .chat-rich-host .ProseMirror p { margin:0; min-height:1.6em; }
-                    .chat-rich-host .ProseMirror:has(> p:only-child > br:only-child)::before { content:'Type a message'; position:absolute; color:var(--color-muted-foreground); pointer-events:none; }
-                    .chat-rich-host .ProseMirror ul { list-style:disc; padding-left:24px; }
-                    .chat-rich-host .ProseMirror ol { list-style:decimal; padding-left:24px; }
-                    .chat-rich-host .ProseMirror blockquote { border-left:2px solid var(--color-edge); padding-left:12px; }
-                    .chat-rich-host .ProseMirror pre { background:var(--color-sunken); padding:8px; font-family:monospace; }
-                    .chat-rich-host .ProseMirror a { color:var(--color-link); text-decoration:underline; }
-                    .chat-rich-host .ProseMirror code { background:var(--color-sunken); font-family:monospace; }
-                    .chat-compose-menu [role=menuitem] { cursor:pointer; }
-                "##</style>
                 <script>r##"
                     const shortcuts = pp.context(window.UpurnakaShortcutContext);
                     const globalSearchStore = pp.context(window.UpurnakaSearchContext);

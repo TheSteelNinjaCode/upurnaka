@@ -54,7 +54,7 @@ pub async fn page() -> Result {
     let join_link = button_variants(
         ButtonVariant::Secondary,
         ButtonSize::Default,
-        "h-9 min-w-0 flex-1 rounded-lg bg-[#3d3d3d] text-[13px] font-semibold hover:bg-[#4a4a4a]",
+        "h-9 min-w-0 flex-1 rounded-lg bg-raised text-[13px] font-semibold hover:bg-hover",
     );
     let cancel = button_variants(
         ButtonVariant::Outline,
@@ -133,7 +133,7 @@ pub async fn page() -> Result {
                                 class=@{action_trigger.as_str()}
                                 attrs=@{Attrs::new().set("aria-controls", "dropdown-menu-meeting-schedule")}
                             >
-                                <Icon name="calendar-day" class="text-[#d58bc4]" />
+                                <Icon name="calendar-day" class="text-tint-pink" />
                                 "Schedule a meeting"
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
@@ -172,7 +172,7 @@ pub async fn page() -> Result {
                                 class=@{action_trigger.as_str()}
                                 attrs=@{Attrs::new().set("aria-controls", "popover-meeting-join")}
                             >
-                                <Icon name="hash" class="text-[#80b5df]" />
+                                <Icon name="hash" class="text-tint-sky" />
                                 "Join with a meeting ID"
                             </PopoverTrigger>
                             <PopoverContent

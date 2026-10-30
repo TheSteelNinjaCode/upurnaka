@@ -14,7 +14,7 @@ use crate::{
 #[component]
 pub fn ChannelEmojiPicker(bindings: Bindings) -> Html {
     html! {
-        <div class="channel-emoji-picker" @{..bindings}>
+        <div class="channel-emoji-picker shrink-0" @{..bindings}>
             <Popover id="channel-icon">
                 <PopoverTrigger
                     name="channel-icon"
@@ -29,14 +29,14 @@ pub fn ChannelEmojiPicker(bindings: Bindings) -> Html {
                         src={selectedEmoji?.image || "/favicon.ico"}
                         alt=""
                         hidden={selected === "💬" || !selectedEmoji}
-                        class="channel-selected-emoji"
+                        class="channel-selected-emoji size-[22px] object-contain"
                     />
                     <span class="sr-only" hidden={selected === "💬"}>{selected}</span>
                     <Icon name="chevron-down" class="size-3" />
                 </PopoverTrigger>
                 <PopoverContent
                     name="channel-icon"
-                    class="community-channel-icon-options"
+                    class="community-channel-icon-options w-[420px] max-w-[calc(100vw-24px)] rounded-[5px] border border-edge bg-popover p-[22px] text-ink shadow-xl shadow-black/40 max-[440px]:p-3.5"
                     side="top"
                     align="start"
                     ontoggle={onPickerToggle(event)}
@@ -54,14 +54,11 @@ pub fn ChannelEmojiPicker(bindings: Bindings) -> Html {
                 </PopoverContent>
             </Popover>
             <style>r##"
-                .channel-emoji-picker { flex-shrink:0; }
-                .community-channel-icon-trigger .channel-selected-emoji { width:22px;height:22px;object-fit:contain; }
-                .community-channel-icon-options { width:420px;max-width:calc(100vw - 24px);padding:22px;background:#292929;color:#eee;border:1px solid #383838;border-radius:5px;box-shadow:0 12px 32px #0006; }
+                /* Anchor fallbacks have no utility form. */
                 @supports (position-anchor:--popover-channel-icon) {
                     .community-channel-icon-options { position-try-fallbacks:--channel-emoji-beside,flip-block,flip-inline !important; }
                     @position-try --channel-emoji-beside { position-area:inline-end;margin:0 0 0 6px; }
                 }
-                @media(max-width:440px) { .community-channel-icon-options { padding:14px; } }
             "##</style>
             <script>r##"
                 const catalog = pp.memo(() => @{Json(&crate::emoji::catalog())}, []);

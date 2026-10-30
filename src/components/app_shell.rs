@@ -397,7 +397,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         onfocusout={globalSearchBlur(event)}
                     >
                         <InputGroup
-                            class="global-search-input h-8! border-transparent bg-raised dark:bg-raised"
+                            class="global-search-input h-8! border-edge bg-popover shadow-none dark:bg-popover"
                         >
                             <InputGroupAddon>
                                 <Icon name="search" class="size-4" />
@@ -588,7 +588,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     </shortcutcontext.provider>
                 </div>
                 <section
-                    class="global-search-view flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-tl-xl border-l border-t border-line bg-surface"
+                    class="global-search-view flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-tl-xl border-l border-t border-line bg-popover [&_[role=tablist]]:overflow-x-auto [&_[role=tablist]]:p-0.5"
                     hidden={!searchView}
                     aria-label="Search results"
                 >
@@ -610,7 +610,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                     aria-controls="global-search-panel"
                                     tabindex={searchTab === tab.id ? 0 : -1}
                                     pp-ref={element => searchTabRefs.current[tab.id] = element}
-                                    class="global-search-tab shrink-0 rounded-full border-2 border-transparent bg-sunken px-3.5 py-1.5 text-[13px] font-semibold hover:bg-hover aria-selected:border-brand-ink aria-selected:bg-brand-soft aria-selected:text-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                    class="global-search-tab h-9 shrink-0 rounded-full border-2 border-transparent bg-sunken px-3.5 py-0 text-[13px] leading-5 text-ink font-semibold hover:bg-hover aria-selected:border-brand-ink aria-selected:bg-brand-soft aria-selected:text-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                                     onclick={setSearchTab(tab.id)}
                                     onkeydown={searchTabKey(event)}
                                 >
@@ -620,7 +620,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         </div>
                     </header>
                     <div
-                        class="global-search-filters shrink-0 border-b border-line px-5"
+                        class="global-search-filters shrink-0 border-b border-edge px-5 [&>div]:overflow-x-auto"
                         hidden={searchTab !== "messages" && searchTab !== "files"}
                         aria-label="Search filters"
                     >
@@ -631,7 +631,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             <Popover>
                                 <PopoverTrigger
                                     name="search-from"
-                                    class="global-search-filter-trigger"
+                                    class="global-search-filter-trigger inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-[3px] px-3 text-[13px] hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink text-muted-foreground"
                                     attrs=@{labelled("Filter messages by sender")}
                                 >
                                     <span>
@@ -642,12 +642,12 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                 <PopoverContent
                                     name="search-from"
                                     align="start"
-                                    class="message-from-picker w-[350px] max-w-[calc(100vw-24px)] p-3"
+                                    class="message-from-picker bg-popover text-ink [&_.message-filter-input:focus-visible]:border-transparent [&_.message-filter-input:focus-visible]:shadow-[inset_0_-2px_var(--color-brand-ink)] w-[350px] max-w-[calc(100vw-24px)] p-3"
                                     ontoggle={searchFilterToggled("from", event.newState)}
                                 >
                                     <input
                                         type="search"
-                                        class="message-filter-input w-full"
+                                        class="message-filter-input h-[34px] rounded-[3px] border border-transparent bg-sunken px-2 text-[13px] outline-none focus-visible:border-brand-ink w-full"
                                         placeholder="Enter name, email or phone number"
                                         aria-label="Find message sender"
                                         value={senderQuery}
@@ -699,7 +699,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             <Popover>
                                 <PopoverTrigger
                                     name="search-message-date"
-                                    class="global-search-filter-trigger"
+                                    class="global-search-filter-trigger inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-[3px] px-3 text-[13px] hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink text-muted-foreground"
                                     attrs=@{labelled("Filter messages by date")}
                                     onclick={prepareMessageDates()}
                                 >
@@ -709,7 +709,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                 <PopoverContent
                                     name="search-message-date"
                                     align="start"
-                                    class="message-date-picker w-[300px] max-w-[calc(100vw-24px)] p-0"
+                                    class="message-date-picker rounded-[3px] border-edge bg-popover text-ink w-[300px] max-w-[calc(100vw-24px)] p-0"
                                     ontoggle={searchFilterToggled("message-date", event.newState)}
                                 >
                                     <div class="px-4 pb-3 pt-4">
@@ -727,11 +727,13 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                         </template>
                                     </div>
                                     <div class="space-y-3 border-t border-line px-4 pb-3 pt-4">
-                                        <label class="message-date-field relative block text-xs">
+                                        <label
+                                            class="message-date-field group/date relative block text-xs"
+                                        >
                                             "From"
                                             <input
                                                 type="date"
-                                                class={messageDateFrom ? "message-filter-input mt-1 w-full" : "message-filter-input message-date-empty mt-1 w-full"}
+                                                class={messageDateFrom ? "message-filter-input h-[34px] rounded-[3px] border border-transparent bg-sunken px-2 text-[13px] outline-none focus-visible:border-brand-ink mt-1 w-full" : "message-filter-input h-[34px] rounded-[3px] border border-transparent bg-sunken px-2 text-[13px] outline-none focus-visible:border-brand-ink message-date-empty [&:not(:focus)::-webkit-datetime-edit]:text-transparent mt-1 w-full"}
                                                 aria-label="Message date from"
                                                 value={messageDateFrom}
                                                 oninput={changeMessageDateFrom(event)}
@@ -739,7 +741,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                                 max={messageDateTo || null}
                                             />
                                             <span
-                                                class="message-date-placeholder pointer-events-none absolute bottom-2 left-2 text-[13px]"
+                                                class="message-date-placeholder group-focus-within/date:hidden pointer-events-none absolute bottom-2 left-2 text-[13px]"
                                                 hidden={!!messageDateFrom}
                                             >
                                                 "Select a Date"
@@ -749,7 +751,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                             "To"
                                             <input
                                                 type="date"
-                                                class="message-filter-input mt-1 w-full"
+                                                class="message-filter-input h-[34px] rounded-[3px] border border-transparent bg-sunken px-2 text-[13px] outline-none focus-visible:border-brand-ink mt-1 w-full"
                                                 aria-label="Message date to"
                                                 value={messageDateTo}
                                                 oninput={changeMessageDateTo(event)}
@@ -797,14 +799,14 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             </Popover>
                             <Dialog>
                                 <DialogTrigger
-                                    class="global-search-filter-trigger"
+                                    class="global-search-filter-trigger inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-[3px] px-3 text-[13px] hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink text-muted-foreground"
                                     attrs=@{labelled("More message filters")}
                                     onclick={prepareMoreMessageFilters()}
                                 >
                                     {messageFilters.attachments || messageFilters.mentions ? "More · " + (Number(messageFilters.attachments) + Number(messageFilters.mentions)) : "More"}
                                 </DialogTrigger>
                                 <DialogContent
-                                    class="message-more-dialog w-[400px] max-w-[calc(100vw-32px)] gap-7 rounded-sm p-8 sm:max-w-[400px]"
+                                    class="message-more-dialog bg-popover text-ink [&>[data-slot=dialog-close]]:right-6 [&>[data-slot=dialog-close]]:top-6 w-[400px] max-w-[calc(100vw-32px)] gap-7 rounded-sm p-8 sm:max-w-[400px]"
                                     onclose={setMoreMessageFiltersOpen(false)}
                                 >
                                     <DialogHeader>
@@ -857,7 +859,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             </Dialog>
                             <button
                                 type="button"
-                                class="global-search-filter-trigger text-link"
+                                class="global-search-filter-trigger inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-[3px] px-3 text-[13px] hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink text-link"
                                 hidden={!messageFiltersActive}
                                 onclick={resetMessageFilters()}
                             >
@@ -871,7 +873,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             <DropdownMenu>
                                 <DropdownMenuTrigger
                                     menu="search-file-type"
-                                    class="global-search-filter-trigger"
+                                    class="global-search-filter-trigger inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-[3px] px-3 text-[13px] hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink text-muted-foreground"
                                     attrs=@{labelled("Filter files by type")}
                                 >
                                     <span>
@@ -882,13 +884,13 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                 <DropdownMenuContent
                                     menu="search-file-type"
                                     align="start"
-                                    class="search-file-type-menu w-40 rounded-sm border-0 p-1"
+                                    class="search-file-type-menu w-40 rounded-sm border-0 bg-popover p-1"
                                     ontoggle={searchFilterToggled("file-type", event.newState)}
                                 >
                                     <template pp-for="option in searchFileTypes">
                                         <DropdownMenuItem
                                             key={option.id}
-                                            class="search-file-type-option gap-2"
+                                            class="search-file-type-option min-h-[38px] gap-2 px-2.5 py-2 text-[13px] focus:rounded-[3px] focus:bg-popover focus:outline-2 focus:-outline-offset-2 focus:outline-ink"
                                             onclick={setFileFilter("type", fileFilters.type === option.id ? "all" : option.id)}
                                         >
                                             <span
@@ -945,7 +947,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             <Popover>
                                 <PopoverTrigger
                                     name="search-file-owner"
-                                    class="global-search-filter-trigger"
+                                    class="global-search-filter-trigger inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-[3px] px-3 text-[13px] hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink text-muted-foreground"
                                     attrs=@{labelled("Filter files by sender")}
                                 >
                                     <span>
@@ -956,12 +958,12 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                 <PopoverContent
                                     name="search-file-owner"
                                     align="start"
-                                    class="message-from-picker file-owner-picker w-[350px] max-w-[calc(100vw-24px)] px-3 py-4"
+                                    class="message-from-picker bg-popover text-ink [&_.message-filter-input:focus-visible]:border-transparent [&_.message-filter-input:focus-visible]:shadow-[inset_0_-2px_var(--color-brand-ink)] file-owner-picker w-[350px] max-w-[calc(100vw-24px)] px-3 py-4"
                                     ontoggle={searchFilterToggled("file-owner", event.newState)}
                                 >
                                     <input
                                         type="search"
-                                        class="message-filter-input w-full"
+                                        class="message-filter-input h-[34px] rounded-[3px] border border-transparent bg-sunken px-2 text-[13px] outline-none focus-visible:border-brand-ink w-full"
                                         placeholder="Enter name, email or phone number"
                                         aria-label="Find file sender"
                                         autocomplete="off"
@@ -1008,7 +1010,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             <Popover>
                                 <PopoverTrigger
                                     name="search-file-date"
-                                    class="global-search-filter-trigger"
+                                    class="global-search-filter-trigger inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-[3px] px-3 text-[13px] hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink text-muted-foreground"
                                     attrs=@{labelled("Filter files by date")}
                                     onclick={prepareFileDates()}
                                 >
@@ -1018,7 +1020,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                 <PopoverContent
                                     name="search-file-date"
                                     align="start"
-                                    class="message-date-picker file-date-picker w-[300px] max-w-[calc(100vw-24px)] p-0"
+                                    class="message-date-picker rounded-[3px] border-edge bg-popover text-ink file-date-picker w-[300px] max-w-[calc(100vw-24px)] p-0"
                                     ontoggle={searchFilterToggled("file-date", event.newState)}
                                 >
                                     <div class="px-4 pb-3 pt-4">
@@ -1036,11 +1038,13 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                         </template>
                                     </div>
                                     <div class="space-y-3 border-t border-line px-4 pb-3 pt-4">
-                                        <label class="message-date-field relative block text-xs">
+                                        <label
+                                            class="message-date-field group/date relative block text-xs"
+                                        >
                                             "From"
                                             <input
                                                 type="date"
-                                                class={fileDateFrom ? "message-filter-input mt-1 w-full" : "message-filter-input message-date-empty mt-1 w-full"}
+                                                class={fileDateFrom ? "message-filter-input h-[34px] rounded-[3px] border border-transparent bg-sunken px-2 text-[13px] outline-none focus-visible:border-brand-ink mt-1 w-full" : "message-filter-input h-[34px] rounded-[3px] border border-transparent bg-sunken px-2 text-[13px] outline-none focus-visible:border-brand-ink message-date-empty [&:not(:focus)::-webkit-datetime-edit]:text-transparent mt-1 w-full"}
                                                 aria-label="File date from"
                                                 value={fileDateFrom}
                                                 oninput={changeFileDateFrom(event)}
@@ -1048,17 +1052,19 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                                 max={fileDateTo || null}
                                             />
                                             <span
-                                                class="message-date-placeholder pointer-events-none absolute bottom-2 left-2 text-[13px]"
+                                                class="message-date-placeholder group-focus-within/date:hidden pointer-events-none absolute bottom-2 left-2 text-[13px]"
                                                 hidden={!!fileDateFrom}
                                             >
                                                 "Select a Date"
                                             </span>
                                         </label>
-                                        <label class="message-date-field relative block text-xs">
+                                        <label
+                                            class="message-date-field group/date relative block text-xs"
+                                        >
                                             "To"
                                             <input
                                                 type="date"
-                                                class="message-filter-input calendar-date-pretty mt-1 w-full"
+                                                class="message-filter-input h-[34px] rounded-[3px] border border-transparent bg-sunken px-2 text-[13px] outline-none focus-visible:border-brand-ink calendar-date-pretty [&:not(:focus)::-webkit-datetime-edit]:text-transparent mt-1 w-full"
                                                 aria-label="File date to"
                                                 value={fileDateTo}
                                                 oninput={changeFileDateTo(event)}
@@ -1066,7 +1072,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                                 min={fileDateFrom || null}
                                             />
                                             <span
-                                                class="calendar-date-display pointer-events-none absolute bottom-2 left-2 right-8 truncate text-[13px]"
+                                                class="calendar-date-display group-focus-within/date:hidden pointer-events-none absolute bottom-2 left-2 right-8 truncate text-[13px]"
                                             >
                                                 {fileDateTo ? formatCalendarDate(fileDateTo) : "Select a Date"}
                                             </span>
@@ -1111,7 +1117,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             </Popover>
                             <button
                                 type="button"
-                                class="global-search-filter-trigger text-link"
+                                class="global-search-filter-trigger inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-[3px] px-3 text-[13px] hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink text-link"
                                 hidden={!fileFiltersActive}
                                 onclick={resetFileFilters()}
                             >
@@ -1136,7 +1142,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                     <button
                                         type="button"
                                         key={row.key}
-                                        class="global-search-card flex min-h-[72px] w-full items-center gap-3 rounded-lg border border-line bg-raised px-4 py-3 text-left hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
+                                        class="global-search-card flex min-h-[72px] w-full items-center gap-3 rounded-lg border border-line bg-popover px-4 py-3 text-left hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
                                         onclick={openSearchRow(row)}
                                     >
                                         <span
@@ -1308,39 +1314,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     <KeyboardShortcuts />
                 </DialogContent>
             </Dialog>
-            <style>r##"
-                .global-search-input[data-slot=input-group] { box-shadow:none; }
-                .dark .global-search-input[data-slot=input-group] { background:#292929; border-color:#3d3d3d; }
-                .dark .global-search-view { background:#1f1f1f; }
-                .dark .global-search-card { background:#292929; border-color:#171717; }
-                .dark .global-search-card:hover { background:#333; }
-                .global-search-view [role=tablist] { overflow-x:auto; padding:2px; }
-                .global-search-tab { height:36px; padding:0 14px; line-height:20px; }
-                .global-search-filter-trigger { display:inline-flex; height:40px; align-items:center; gap:4px; border-radius:3px; padding:0 12px; font-size:13px; color:var(--color-muted-foreground); white-space:nowrap; }
-                .global-search-filter-trigger:hover { background:var(--color-hover); color:var(--color-ink); }
-                .global-search-filter-trigger:focus-visible { outline:2px solid var(--color-brand-ink); outline-offset:-2px; }
-                .global-search-filters > div { overflow-x:auto; }
-                .dark .global-search-header { border-color:#141414; }
-                .dark .global-search-filters { border-color:#383838; }
-                .dark .global-search-tab { background:#141414; color:#f5f5f5; }
-                .dark .global-search-tab:hover { background:#2f2f2f; }
-                .dark .global-search-tab[aria-selected=true] { background:#3e3d6c; border-color:#deddea; color:#b7b6f5; }
-                .message-filter-input { height:34px; border:1px solid transparent; border-radius:3px; padding:0 8px; background:var(--color-sunken); font-size:13px; outline:none; }
-                .message-filter-input:focus-visible { border-color:var(--color-brand-ink); }
-                .dark :is(.message-from-picker, .message-date-picker, .message-more-dialog) { background:#292929; color:#f5f5f5; }
-                .dark .message-from-picker .message-filter-input { background:#141414; }
-                .dark .message-date-picker { border-color:#666; border-radius:3px; }
-                .dark .message-date-picker .message-filter-input { background:#202020; color-scheme:dark; }
-                .message-date-empty:not(:focus)::-webkit-datetime-edit { color:transparent; }
-                .message-date-field:focus-within .message-date-placeholder { display:none; }
-                .calendar-date-pretty:not(:focus)::-webkit-datetime-edit { color:transparent; }
-                .message-date-field:focus-within .calendar-date-display { display:none; }
-                .message-from-picker .message-filter-input:focus-visible { border-color:transparent; box-shadow:inset 0 -2px var(--color-brand-ink); }
-                .dark .search-file-type-menu { background:#292929; }
-                .search-file-type-option { min-height:38px; padding:8px 10px; font-size:13px; }
-                .dark .search-file-type-option:focus { background:#292929; outline:2px solid #f5f5f5; outline-offset:-2px; border-radius:3px; }
-                .message-more-dialog > [data-slot=dialog-close] { top:24px; right:24px; }
-            "##</style>
             <script>r##"
                 const ShortcutContext = window.UpurnakaShortcutContext ||= pp.createContext(null);
                 const SearchContext = window.UpurnakaSearchContext ||= pp.createContext(null);

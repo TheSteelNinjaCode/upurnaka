@@ -3,6 +3,8 @@ use crate::{
     rahti::{Bindings, Html, Json, component, html},
 };
 
+const CATEGORY_TAB: &str = "grid h-10 min-w-0 place-items-center rounded text-muted-foreground hover:bg-hover aria-selected:bg-hover aria-selected:text-brand-ink max-[440px]:h-9 max-[440px]:[&>svg]:size-[18px]";
+
 /// The Fluent emoji panel: search, Recent and nine categories. Hosts open it
 /// in their own popover, pass `open` while it shows, bump `session` from the
 /// click that opens it (the panel then starts over from Recent with an empty
@@ -22,9 +24,12 @@ pub fn EmojiPanel(
     let storage_key = format!("upurnaka.{recent_key}.recent.{user}");
     html! {
         <div class="emoji-panel" @{..bindings}>
-            <div class="channel-emoji-search-wrap">
+            <div
+                class="channel-emoji-search-wrap flex items-center gap-2.5 rounded border-b-2 border-brand-ink bg-sunken px-3 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
+            >
                 <input
                     type="search"
+                    class="h-10 w-full min-w-0 border-0 bg-transparent text-[15px] text-ink outline-none focus-visible:shadow-none focus-visible:outline-none"
                     aria-label="Search emoji"
                     placeholder=@{placeholder}
                     value={query}
@@ -35,13 +40,21 @@ pub fn EmojiPanel(
                 />
                 <Icon name="search" class="size-5" />
             </div>
-            <h3 class="channel-emoji-heading">{heading}</h3>
-            <div class="channel-emoji-scroll" pp-ref={emojiScroll} aria-label="Emoji choices">
-                <div class="community-channel-icon-grid" onkeydown={gridKey(event)}>
+            <h3 class="channel-emoji-heading mb-3 mt-[22px] text-base font-semibold">{heading}</h3>
+            <div
+                class="channel-emoji-scroll scroll-thin h-[242px] overflow-y-auto overscroll-contain"
+                pp-ref={emojiScroll}
+                aria-label="Emoji choices"
+            >
+                <div
+                    class="community-channel-icon-grid grid grid-cols-6 gap-1.5"
+                    onkeydown={gridKey(event)}
+                >
                     <template pp-for="emoji in visibleEmojis">
                         <button
                             key={emoji.glyph}
                             type="button"
+                            class="grid h-12 min-w-0 place-items-center rounded border border-transparent p-[5px] hover:border-brand-ink hover:bg-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink aria-pressed:border-brand-ink aria-pressed:bg-hover"
                             aria-label={actionLabel(emoji.glyph)}
                             title={emoji.name}
                             aria-pressed={normalize(selected) === normalize(emoji.glyph)}
@@ -55,6 +68,7 @@ pub fn EmojiPanel(
                         >
                             <img
                                 src={emoji.image}
+                                class="pointer-events-none size-[38px] object-contain"
                                 alt=""
                                 width="38"
                                 height="38"
@@ -64,13 +78,16 @@ pub fn EmojiPanel(
                         </button>
                     </template>
                 </div>
-                <p class="channel-emoji-empty" hidden={visibleEmojis.length !== 0}>
+                <p
+                    class="channel-emoji-empty px-3 py-[60px] text-center text-sm text-muted-foreground"
+                    hidden={visibleEmojis.length !== 0}
+                >
                     "No emoji found. Try another search."
                 </p>
             </div>
             <p class="sr-only" role="status">{visibleEmojis.length + " emoji available"}</p>
             <div
-                class="channel-emoji-categories"
+                class="channel-emoji-categories mt-3.5 grid grid-cols-10 gap-0.5 border-t border-edge pt-2"
                 role="tablist"
                 aria-label="Emoji categories"
                 onkeydown={categoryKey(event)}
@@ -78,6 +95,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="Recent"
                     aria-label="Recent emoji"
                     aria-selected={category === "recent" && !query.trim()}
@@ -90,6 +108,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="Smileys and emotions"
                     aria-label="Smileys and emotions"
                     aria-selected={category === "smileys" && !query.trim()}
@@ -102,6 +121,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="Hands and gestures"
                     aria-label="Hands and gestures"
                     aria-selected={category === "gestures" && !query.trim()}
@@ -114,6 +134,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="People"
                     aria-label="People emoji"
                     aria-selected={category === "people" && !query.trim()}
@@ -126,6 +147,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="Animals and nature"
                     aria-label="Animals and nature"
                     aria-selected={category === "animals" && !query.trim()}
@@ -138,6 +160,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="Food and drink"
                     aria-label="Food and drink"
                     aria-selected={category === "food" && !query.trim()}
@@ -150,6 +173,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="Travel and places"
                     aria-label="Travel and places"
                     aria-selected={category === "travel" && !query.trim()}
@@ -162,6 +186,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="Objects"
                     aria-label="Objects emoji"
                     aria-selected={category === "objects" && !query.trim()}
@@ -174,6 +199,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="Activities"
                     aria-label="Activities emoji"
                     aria-selected={category === "activities" && !query.trim()}
@@ -186,6 +212,7 @@ pub fn EmojiPanel(
                 <button
                     type="button"
                     role="tab"
+                    class=@{CATEGORY_TAB}
                     title="Symbols"
                     aria-label="Symbols emoji"
                     aria-selected={category === "symbols" && !query.trim()}
@@ -196,25 +223,6 @@ pub fn EmojiPanel(
                     <Icon name="hash" class="size-5" />
                 </button>
             </div>
-            <style>r##"
-                .channel-emoji-search-wrap { display:flex;align-items:center;gap:10px;background:#202020;border-bottom:2px solid #9b8aef;border-radius:4px;padding:0 12px; }
-                .channel-emoji-search-wrap input { width:100%;min-width:0;height:40px;background:transparent;border:0;outline:none;color:#eee;font-size:15px; }
-                .channel-emoji-search-wrap input:focus-visible { outline:none;box-shadow:none; }
-                .channel-emoji-search-wrap svg { flex-shrink:0;color:#bbb; }
-                .channel-emoji-heading { margin:22px 0 12px;font-size:16px;font-weight:600; }
-                .channel-emoji-scroll { height:242px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#777 transparent; }
-                .community-channel-icon-grid { display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px; }
-                .community-channel-icon-grid button { display:grid;place-items:center;height:48px;min-width:0;padding:5px;border:1px solid transparent;border-radius:4px; }
-                .community-channel-icon-grid button img { width:38px;height:38px;object-fit:contain;pointer-events:none; }
-                .community-channel-icon-grid button:hover,.community-channel-icon-grid button[aria-pressed=true] { background:#48444d;border-color:#aaa0ef; }
-                .community-channel-icon-grid button:focus-visible { outline:2px solid #aaa0ef;outline-offset:-2px; }
-                .channel-emoji-empty { padding:60px 12px;text-align:center;font-size:14px;color:#aaa; }
-                .channel-emoji-categories { display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:2px;border-top:1px solid #555;margin-top:14px;padding-top:8px; }
-                .channel-emoji-categories button { display:grid;place-items:center;height:40px;min-width:0;color:#aaa;border-radius:4px; }
-                .channel-emoji-categories button:hover { background:#3b3b3b; }
-                .channel-emoji-categories button[aria-selected=true] { color:#a69bff;background:#3b3b3b; }
-                @media(max-width:440px) { .channel-emoji-categories button { height:36px; } .channel-emoji-categories svg { width:18px;height:18px; } }
-            "##</style>
             <script>r##"
                 const catalog = pp.memo(() => @{Json(&crate::emoji::catalog())}, []);
                 function normalize(glyph) { return String(glyph || '').replace(/\uFE0F/g, ''); }

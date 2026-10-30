@@ -34,7 +34,7 @@ async fn composer_popovers_do_not_flash_the_input_border() {
             .wait_for("window.composerFrames.length >= 12")
             .await
             .unwrap();
-        let stable: bool = browser.eval("window.composerFrames.every(frame => frame.shadow === 'none' && frame.border === 'rgb(82, 82, 82)')").await.unwrap();
+        let stable: bool = browser.eval("window.composerFrames.every(frame => frame.shadow === 'none' && frame.border === 'rgb(55, 55, 63)')").await.unwrap();
         assert!(
             stable,
             "{label} must not flash the message field's focus border"
@@ -149,9 +149,9 @@ async fn composer_actions_format_send_and_preserve_drafts() {
         .move_mouse(emoji_center[0], emoji_center[1])
         .await
         .unwrap();
-    browser.wait_for("(() => {const button=document.querySelector('button[aria-label=Emoji]'); const style=getComputedStyle(button); return style.color === 'rgb(139, 143, 240)' && style.backgroundColor === 'rgba(0, 0, 0, 0)' && getComputedStyle(button.querySelector('circle')).fill === style.color && getComputedStyle(button.querySelector('path')).stroke === 'rgb(41, 41, 41)';})()").await.unwrap();
+    browser.wait_for("(() => {const button=document.querySelector('button[aria-label=Emoji]'); const style=getComputedStyle(button); return style.color === 'rgb(139, 143, 240)' && style.backgroundColor === 'rgba(0, 0, 0, 0)' && getComputedStyle(button.querySelector('circle')).fill === style.color && getComputedStyle(button.querySelector('path')).stroke === 'rgb(29, 29, 34)';})()").await.unwrap();
     browser.move_mouse(0.0, 0.0).await.unwrap();
-    browser.wait_for("getComputedStyle(document.querySelector('button[aria-label=Emoji]')).color === 'rgb(200, 200, 200)' && getComputedStyle(document.querySelector('button[aria-label=Emoji] circle')).fill === 'none'").await.unwrap();
+    browser.wait_for("getComputedStyle(document.querySelector('button[aria-label=Emoji]')).color === 'rgb(243, 243, 245)' && getComputedStyle(document.querySelector('button[aria-label=Emoji] circle')).fill === 'none'").await.unwrap();
     browser
         .click("button[aria-label='More actions']")
         .await

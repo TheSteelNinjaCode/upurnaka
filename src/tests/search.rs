@@ -273,7 +273,7 @@ async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
     browser.press("Enter").await.unwrap();
     browser.click("#global-search-tab-messages").await.unwrap();
     browser.wait_for("document.querySelectorAll('.global-search-card').length === 2 && !document.querySelector('.global-search-filters').hidden").await.unwrap();
-    let matches: bool = browser.eval("(() => {const header=document.querySelector('.global-search-header').getBoundingClientRect(); const row=document.querySelector('.global-search-filters').getBoundingClientRect();const tab=document.querySelector('#global-search-tab-messages');const style=getComputedStyle(tab);return header.height===60 && row.height===41 && row.top===header.bottom && style.borderColor==='rgb(222, 221, 234)' && style.backgroundColor==='rgb(62, 61, 108)';})()").await.unwrap();
+    let matches: bool = browser.eval("(() => {const header=document.querySelector('.global-search-header').getBoundingClientRect(); const row=document.querySelector('.global-search-filters').getBoundingClientRect();const tab=document.querySelector('#global-search-tab-messages');const style=getComputedStyle(tab);return header.height===60 && row.height===41 && row.top===header.bottom && style.borderColor==='rgb(139, 143, 240)' && style.backgroundColor==='rgb(44, 45, 87)';})()").await.unwrap();
     assert!(
         matches,
         "search tabs and filter strip must match the Teams layout"
