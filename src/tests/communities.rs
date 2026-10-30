@@ -612,6 +612,54 @@ async fn community_events_schedule_for_members_and_list_upcoming() {
             .0,
         StatusCode::BAD_REQUEST
     );
+    // Details keep the editor's formatting, which must match their text.
+    let mut formatted = input("Formatted", "none", 1);
+    formatted["details"] = json!("Agenda\nBring notes");
+    formatted["formatting"] = json!([
+        {"kind":"paragraph","runs":[{"text":"Agenda","bold":true}]},
+        {"kind":"bullet","runs":[{"text":"Bring notes","link":"https://example.com"}]}
+    ]);
+    let (status, saved) = community_call(
+        &mut owner,
+        "create_community_event",
+        json!({"id":id,"input":formatted.clone()}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved[0]["formatting"][0]["runs"][0]["bold"], true);
+    assert_eq!(saved[0]["formatting"][1]["kind"], "bullet");
+    let (_, listed) = community_call(&mut owner, "community_events", json!({"id":id})).await;
+    assert!(
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|event| event["title"] == "Formatted"
+                && event["formatting"][0]["runs"][0]["text"] == "Agenda")
+    );
+    formatted["details"] = json!("Something else");
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "create_community_event",
+            json!({"id":id,"input":formatted.clone()})
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    formatted["details"] = json!("Agenda\nBring notes");
+    formatted["formatting"][1]["runs"][0]["link"] = json!("javascript:alert(1)");
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "create_community_event",
+            json!({"id":id,"input":formatted})
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
     // Outsiders neither see nor schedule a community's events.
     assert_eq!(
         community_call(&mut outsider, "community_events", json!({"id":id}))
@@ -2320,10 +2368,44 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .wait_for("document.querySelector('.community-event-error').textContent === 'Add a title for the event.'")
         .await
         .unwrap();
+    // Like Teams, the form takes the whole page beside the app rail.
+    assert!(
+        browser
+            .eval::<bool>(
+                "getComputedStyle(document.querySelector('.community-sidebar')).display === 'none'"
+            )
+            .await
+            .unwrap()
+    );
     browser.click(".community-event-title").await.unwrap();
     browser.type_text("Parent night").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.community-event-editor .ProseMirror') !== null")
+        .await
+        .unwrap();
+    browser
+        .click(".community-event-editor .ProseMirror")
+        .await
+        .unwrap();
+    browser
+        .click(".community-event-toolbar button[aria-label='Bold']")
+        .await
+        .unwrap();
+    browser.type_text("Agenda").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.community-event-placeholder').hidden && document.querySelector('.community-event-toolbar button[aria-label=Bold]').getAttribute('aria-pressed') === 'true'")
+        .await
+        .unwrap();
     browser.click(".community-event-send").await.unwrap();
-    browser.wait_for("document.querySelector('.community-event-form').hidden && document.querySelectorAll('.community-event-card').length === 1 && document.querySelector('.community-event-card h3').textContent === 'Parent night' && !document.querySelector('.community-event-join').hidden").await.unwrap();
+    browser.wait_for("document.querySelector('.community-event-form').hidden && document.querySelectorAll('.community-event-card').length === 1 && document.querySelector('.community-event-card h3').textContent === 'Parent night' && !document.querySelector('.community-event-join').hidden && document.querySelector('.community-event-card .community-rich-message .font-bold')?.textContent.includes('Agenda')").await.unwrap();
+    assert!(
+        browser
+            .eval::<bool>(
+                "getComputedStyle(document.querySelector('.community-sidebar')).display !== 'none'"
+            )
+            .await
+            .unwrap()
+    );
     browser.click(".community-events-back").await.unwrap();
     browser
         .wait_for("!document.querySelector('.community-detail').hidden && document.querySelector('.community-events').hidden")

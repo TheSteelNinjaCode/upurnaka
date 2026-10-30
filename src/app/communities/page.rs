@@ -266,7 +266,11 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         </div>
                     </div>
                 </div>
-                <div class="community-workspace" hidden={communities.length === 0}>
+                <div
+                    class="community-workspace"
+                    data-events={eventsView}
+                    hidden={communities.length === 0}
+                >
                     <aside class="community-sidebar" aria-label="Your communities">
                         <header class="community-sidebar-heading">
                             <h1>"Communities"</h1>
@@ -1535,10 +1539,59 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                             </p>
                                             <p
                                                 class="community-event-details"
-                                                hidden={!item.details}
+                                                hidden={!item.details || !!item.formatting}
                                             >
                                                 {item.details}
                                             </p>
+                                            <div
+                                                class="community-event-details community-rich-message"
+                                                hidden={!item.formatting}
+                                            >
+                                                <template
+                                                    pp-for="(line, lineIndex) in item.formatting || []"
+                                                >
+                                                    <div
+                                                        key={lineIndex}
+                                                        class={postLineClass(line.kind)}
+                                                    >
+                                                        <span
+                                                            hidden={line.kind !== "bullet"}
+                                                            aria-hidden="true"
+                                                        >
+                                                            "• "
+                                                        </span>
+                                                        <span
+                                                            hidden={line.kind !== "ordered"}
+                                                            aria-hidden="true"
+                                                        >
+                                                            {postListNumber(item.formatting, lineIndex)}
+                                                            ". "
+                                                        </span>
+                                                        <template
+                                                            pp-for="(run, runIndex) in line.runs"
+                                                        >
+                                                            <span
+                                                                key={runIndex}
+                                                                class={postRunClass(run)}
+                                                                pp-style={postRunStyle(run)}
+                                                            >
+                                                                <a
+                                                                    href={run.link || "#"}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    hidden={!run.link}
+                                                                >
+                                                                    {run.text}
+                                                                </a>
+                                                                <span hidden={!!run.link}>
+                                                                    {run.text}
+                                                                </span>
+                                                            </span>
+                                                        </template>
+                                                        <br hidden={line.runs.length > 0} />
+                                                    </div>
+                                                </template>
+                                            </div>
                                             <p class="community-event-organizer">
                                                 {"Organized by " + item.organizer_name}
                                             </p>
@@ -1601,7 +1654,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 <p class="community-event-error" role="alert" hidden={!eventError}>
                                     {eventError}
                                 </p>
-                                <div class="community-event-row">
+                                <div class="community-event-row" data-align="top">
                                     <button
                                         type="button"
                                         class="community-event-row-icon"
@@ -1752,19 +1805,366 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                         "Online event"
                                     </label>
                                 </div>
-                                <div class="community-event-row">
+                                <div class="community-event-row" data-align="top">
                                     <span class="community-event-row-icon">
                                         <Icon name="list" class="size-5" />
                                     </span>
-                                    <textarea
-                                        class="community-event-input community-event-details-input"
-                                        name="details"
-                                        maxlength="8000"
-                                        rows="5"
-                                        placeholder="Type details for this new event"
-                                        aria-label="Details"
-                                    >
-                                    </textarea>
+                                    <div class="community-event-details-field">
+                                        <div
+                                            class="community-event-toolbar"
+                                            role="toolbar"
+                                            aria-label="Formatting options"
+                                        >
+                                            <button
+                                                type="button"
+                                                aria-label="Bold"
+                                                title="Bold (Ctrl+B)"
+                                                aria-pressed={!!eventFormats.strong}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("strong")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="bold" class="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Italic"
+                                                title="Italic (Ctrl+I)"
+                                                aria-pressed={!!eventFormats.em}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("em")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="italic" class="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Underline"
+                                                title="Underline (Ctrl+U)"
+                                                aria-pressed={!!eventFormats.underline}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("underline")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="underline" class="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Strikethrough"
+                                                title="Strikethrough"
+                                                aria-pressed={!!eventFormats.strike}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("strike")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="strikethrough" class="size-4" />
+                                            </button>
+                                            <span
+                                                class="community-toolbar-divider"
+                                                aria-hidden="true"
+                                            >
+                                            </span>
+                                            <button
+                                                type="button"
+                                                aria-label="Highlight"
+                                                title="Highlight"
+                                                aria-expanded={eventStylePanel === "highlight"}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={toggleEventPanel("highlight")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="highlight" class="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Font color"
+                                                title="Font color"
+                                                aria-expanded={eventStylePanel === "color"}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={toggleEventPanel("color")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="font-color" class="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Font size"
+                                                title="Font size"
+                                                aria-expanded={eventStylePanel === "size"}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={toggleEventPanel("size")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="font-size" class="size-4" />
+                                            </button>
+                                            <select
+                                                class="community-event-block"
+                                                aria-label="Paragraph style"
+                                                value={eventBlockStyle}
+                                                onchange={setEventBlock(event.currentTarget.value)}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <option value="paragraph">"Paragraph"</option>
+                                                <option value="quote">"Quote"</option>
+                                                <option value="code">"Code"</option>
+                                            </select>
+                                            <span
+                                                class="community-toolbar-divider"
+                                                aria-hidden="true"
+                                            >
+                                            </span>
+                                            <button
+                                                type="button"
+                                                aria-label="Decrease indent"
+                                                title="Decrease indent"
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("outdent")}
+                                                disabled={!eventEditorReady || !eventFormats.list_item}
+                                            >
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.6"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M21 5H11M21 12H11M21 19H3M3 5h4M7 9l-4 3 4 3"
+                                                    />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Increase indent"
+                                                title="Increase indent"
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("indent")}
+                                                disabled={!eventEditorReady || !eventFormats.list_item}
+                                            >
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.6"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M21 5H11M21 12H11M21 19H3M3 9l4 3-4 3"
+                                                    />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Bulleted list"
+                                                title="Bulleted list"
+                                                aria-pressed={!!eventFormats.bullet_list}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("bullet_list")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="list" class="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Numbered list"
+                                                title="Numbered list"
+                                                aria-pressed={!!eventFormats.ordered_list}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("ordered_list")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="list-ordered" class="size-4" />
+                                            </button>
+                                            <span
+                                                class="community-toolbar-divider"
+                                                aria-hidden="true"
+                                            >
+                                            </span>
+                                            <button
+                                                type="button"
+                                                aria-label="Quote"
+                                                title="Quote"
+                                                aria-pressed={!!eventFormats.blockquote}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("blockquote")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="quote" class="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Insert link"
+                                                title="Insert link"
+                                                aria-expanded={eventStylePanel === "link"}
+                                                onmousedown={event.preventDefault()}
+                                                onclick={openEventLink()}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <Icon name="link" class="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Clear formatting"
+                                                title="Clear formatting"
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("clear")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.6"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M4 4h12M10 4l-4 16M4 20h8M15 14l6 6M21 14l-6 6"
+                                                    />
+                                                </svg>
+                                            </button>
+                                            <span
+                                                class="community-toolbar-divider"
+                                                aria-hidden="true"
+                                            >
+                                            </span>
+                                            <button
+                                                type="button"
+                                                aria-label="Undo"
+                                                title="Undo (Ctrl+Z)"
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("undo")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.6"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"
+                                                    />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Redo"
+                                                title="Redo (Ctrl+Y)"
+                                                onmousedown={event.preventDefault()}
+                                                onclick={formatEvent("redo")}
+                                                disabled={!eventEditorReady}
+                                            >
+                                                <svg
+                                                    class="size-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.6"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13"
+                                                    />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <div
+                                            class="community-event-style-panel"
+                                            hidden={!eventStylePanel}
+                                        >
+                                            <div
+                                                hidden={eventStylePanel !== "highlight" && eventStylePanel !== "color"}
+                                            >
+                                                <template pp-for="swatch in eventSwatches">
+                                                    <button
+                                                        key={swatch.value}
+                                                        type="button"
+                                                        class="community-swatch"
+                                                        value={swatch.value}
+                                                        aria-label={swatch.label}
+                                                        title={swatch.label}
+                                                        pp-style={"background:" + swatch.value}
+                                                        onmousedown={event.preventDefault()}
+                                                        onclick={styleEvent(eventStylePanel, event.currentTarget.value)}
+                                                    >
+                                                    </button>
+                                                </template>
+                                            </div>
+                                            <div hidden={eventStylePanel !== "size"}>
+                                                <button
+                                                    type="button"
+                                                    class="community-style-option"
+                                                    onmousedown={event.preventDefault()}
+                                                    onclick={styleEvent("size", "small")}
+                                                >
+                                                    "Small"
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="community-style-option"
+                                                    onmousedown={event.preventDefault()}
+                                                    onclick={styleEvent("size", "normal")}
+                                                >
+                                                    "Medium"
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="community-style-option"
+                                                    onmousedown={event.preventDefault()}
+                                                    onclick={styleEvent("size", "large")}
+                                                >
+                                                    "Large"
+                                                </button>
+                                            </div>
+                                            <div hidden={eventStylePanel !== "link"}>
+                                                <input
+                                                    type="url"
+                                                    aria-label="Link address"
+                                                    placeholder="https://example.com"
+                                                    value={eventLinkUrl}
+                                                    oninput={setEventLinkUrl(target.value)}
+                                                    onkeydown={eventLinkKey(event)}
+                                                    pp-ref={eventLinkInput}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    class="community-style-option"
+                                                    onclick={saveEventLink()}
+                                                >
+                                                    "Insert"
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="community-event-editor-wrap">
+                                            <span
+                                                class="community-event-placeholder"
+                                                aria-hidden="true"
+                                                hidden={!!eventDetailsText || eventHasList}
+                                            >
+                                                "Type details for this new meeting"
+                                            </span>
+                                            <div
+                                                class="community-event-editor"
+                                                pp-ref={eventEditorHost}
+                                            >
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </form>
@@ -2769,46 +3169,73 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-event-organizer { font-size:12px;color:#9e9e9e; }
                     .community-event-join { display:inline-flex;align-items:center;height:32px;padding:0 16px;border-radius:4px;background:#5b5fc7;color:#fff;font-size:14px;font-weight:600; }
                     .community-event-join:hover { background:#4f52b2; }
+                    .community-workspace[data-events=new] { grid-template-columns:minmax(0,1fr); }
+                    .community-workspace[data-events=new] .community-sidebar { display:none; }
                     .community-event-form { display:flex;flex-direction:column;min-height:100%; }
-                    .community-event-form-header { position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;min-height:64px;padding:8px 24px;background:#262626;border-bottom:1px solid #ffffff12; }
-                    .community-event-form-icon { display:grid;place-items:center;width:32px;height:32px;border-radius:6px;background:#5b5fc7;color:#fff; }
-                    .community-event-form-header h2 { font-size:20px;font-weight:700;color:#fff; }
-                    .community-event-form-tab { position:relative;align-self:stretch;display:flex;align-items:center;font-size:14px;font-weight:600;color:#fff; }
-                    .community-event-form-tab::after { content:'';position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px;background:#7f85f5; }
-                    .community-event-send { margin-left:auto;height:32px;padding:0 16px;border-radius:4px;background:#5b5fc7;color:#fff;font-size:14px;font-weight:600; }
+                    .community-event-form-header { position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;min-height:60px;padding:0 28px 0 36px;background:#262626;border-bottom:1px solid #ffffff12; }
+                    .community-event-form-icon { display:grid;place-items:center;width:28px;height:28px;border-radius:4px;background:#5b5fc7;color:#fff; }
+                    .community-event-form-header h2 { font-size:18px;font-weight:700;color:#fff; }
+                    .community-event-form-tab { position:relative;align-self:stretch;display:flex;align-items:center;margin-left:4px;font-size:14px;font-weight:600;color:#fff; }
+                    .community-event-form-tab::after { content:"";position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px 3px 0 0;background:#7f85f5; }
+                    .community-event-send { margin-left:auto;height:32px;padding:0 14px;border-radius:4px;background:#5b5fc7;color:#fff;font-size:14px;font-weight:600; }
                     .community-event-send:hover:not(:disabled) { background:#4f52b2; }
                     .community-event-send:disabled { opacity:.6; }
-                    .community-event-close { height:32px;padding:0 16px;border-radius:4px;border:1px solid #555;color:#fff;font-size:14px;font-weight:600; }
+                    .community-event-close { height:32px;padding:0 14px;border-radius:4px;border:1px solid #5c5c5c;color:#fff;font-size:14px;font-weight:600; }
                     .community-event-close:hover { background:#333; }
-                    .community-event-fields { display:flex;flex-direction:column;gap:14px;width:100%;max-width:1220px;padding:20px 24px 40px; }
-                    .community-event-zone { display:flex;align-items:center;gap:4px;font-size:14px;color:#d6d6d6; }
-                    .community-event-zone select { background:transparent;color:#d6d6d6;border:0;padding:4px;font-size:14px;max-width:min(100%,360px); }
-                    .community-event-zone select option,.community-event-times select option { background:#2b2b2b;color:#f2f2f2; }
-                    .community-event-error { padding:10px 12px;border-radius:4px;background:#3e1f25;color:#f1a7ae;font-size:13px; }
-                    .community-event-error[hidden],.community-event-count[hidden],.community-event-duration[hidden],.community-event-times select[hidden] { display:none; }
-                    .community-event-row { display:grid;grid-template-columns:32px minmax(0,1fr);align-items:center;gap:20px; }
+                    .community-event-fields { display:flex;flex-direction:column;gap:16px;width:100%;max-width:1200px;padding:16px 28px 40px 36px; }
+                    .community-event-zone { display:flex;align-items:center;gap:2px;font-size:14px;color:#d6d6d6; }
+                    .community-event-zone select { field-sizing:content;max-width:100%;padding:4px 4px 4px 2px;border:0;border-radius:4px;background:transparent;color:#d6d6d6;font-size:14px;cursor:pointer; }
+                    .community-event-zone select:hover { background:#333; }
+                    .community-event-zone select option,.community-event-times select option,.community-event-block option { background:#2b2b2b;color:#f2f2f2; }
+                    .community-event-error { margin-left:48px;padding:8px 12px;border-radius:4px;border:1px solid #6b2a33;background:#3e1f25;color:#f1a7ae;font-size:14px; }
+                    .community-event-error[hidden],.community-event-count[hidden],.community-event-duration[hidden],.community-event-times select[hidden],.community-event-style-panel[hidden],.community-event-placeholder[hidden] { display:none; }
+                    .community-event-row { display:grid;grid-template-columns:32px minmax(0,1fr);align-items:center;gap:16px; }
+                    .community-event-row[data-align=top] { align-items:start; }
                     .community-event-row-icon { display:grid;place-items:center;width:32px;height:32px;border-radius:4px;color:#d6d6d6; }
                     button.community-event-row-icon:hover { background:#333; }
                     .community-event-banner-pick { display:block;width:100%;border-radius:12px;overflow:hidden; }
-                    .community-event-banner-pick img { width:100%;height:clamp(120px,22vw,270px);object-fit:cover; }
-                    .community-event-title { height:40px;padding:0 12px;border:0;border-bottom:2px solid #7f85f5;border-radius:4px 4px 0 0;background:#2e2e2e;color:#fff;font-size:16px;outline:none; }
-                    .community-event-input { min-height:48px;padding:12px;border:0;border-bottom:2px solid transparent;border-radius:4px;background:#2e2e2e;color:#fff;font-size:15px;outline:none; }
-                    .community-event-input:focus,.community-event-title:focus { border-bottom-color:#7f85f5; }
-                    .community-event-details-input { min-height:110px;resize:vertical; }
+                    .community-event-banner-pick img { display:block;width:100%;aspect-ratio:4.3/1;object-fit:cover; }
+                    .community-event-title,.community-event-input { height:32px;padding:0 12px;border:0;border-bottom:2px solid transparent;border-radius:4px;background:#2e2e2e;color:#fff;font-size:14px;outline:none; }
+                    .community-event-input { height:44px; }
+                    .community-event-title:focus,.community-event-input:focus { border-bottom-color:#7f85f5;border-radius:4px 4px 0 0; }
+                    .community-event-title::placeholder,.community-event-input::placeholder { color:#adadad; }
                     .community-event-times { display:flex;flex-wrap:wrap;align-items:center;gap:10px; }
-                    .community-event-times input[type=date],.community-event-times select,.community-event-count input { height:40px;padding:0 12px;border:0;border-radius:4px;background:#2e2e2e;color:#fff;font-size:15px;color-scheme:dark; }
-                    .community-event-times input[type=date] { width:200px; }
+                    .community-event-times input[type=date],.community-event-times select,.community-event-count input { height:32px;padding:0 10px;border:0;border-radius:4px;background:#2e2e2e;color:#fff;font-size:14px;color-scheme:dark; }
+                    .community-event-times input[type=date] { position:relative;width:176px; }
+                    .community-event-times input[type=date]::-webkit-calendar-picker-indicator { position:absolute;inset:0;width:auto;height:auto;opacity:0;cursor:pointer; }
+                    .community-event-times select { min-width:96px;cursor:pointer; }
                     .community-event-count { display:flex;align-items:center;gap:8px;font-size:14px;color:#d6d6d6; }
-                    .community-event-count input { width:80px; }
-                    .community-event-duration { font-size:15px;color:#d6d6d6; }
-                    .community-event-switch { display:inline-flex;align-items:center;gap:10px;font-size:15px;color:#f2f2f2;cursor:pointer; }
+                    .community-event-count input { width:72px; }
+                    .community-event-duration { font-size:14px;color:#d6d6d6; }
+                    .community-event-switch { display:inline-flex;align-items:center;gap:10px;font-size:14px;color:#f2f2f2;cursor:pointer; }
                     .community-event-switch input { position:absolute;opacity:0;width:1px;height:1px; }
                     .community-event-switch span { position:relative;width:40px;height:20px;border-radius:10px;border:1px solid #adadad;transition:background .15s; }
-                    .community-event-switch span::after { content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:#d6d6d6;transition:transform .15s; }
+                    .community-event-switch span::after { content:"";position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:#d6d6d6;transition:transform .15s; }
                     .community-event-switch input:checked + span { background:#7f85f5;border-color:#7f85f5; }
                     .community-event-switch input:checked + span::after { transform:translateX(20px);background:#fff; }
                     .community-event-switch input:focus-visible + span { outline:2px solid #fff;outline-offset:2px; }
-                    @media(max-width:700px) { .community-events { margin:0;border-radius:12px 12px 0 0; } .community-event-card { grid-template-columns:56px minmax(0,1fr); } .community-event-banner { display:none; } .community-event-join { grid-column:2; justify-self:start; } .community-event-row { gap:10px; } .community-event-form-header { flex-wrap:wrap;padding:8px 16px; } .community-event-fields { padding:16px; } .community-event-times input[type=date] { width:auto; } }
+                    .community-event-details-field { display:flex;flex-direction:column;gap:6px;min-width:0; }
+                    .community-event-toolbar { display:flex;flex-wrap:wrap;align-items:center;gap:2px;min-height:32px;color:#d6d6d6; }
+                    .community-event-toolbar button { display:grid;place-items:center;width:32px;height:32px;border-radius:4px; }
+                    .community-event-toolbar button:hover:not(:disabled) { background:#3b3b3b; }
+                    .community-event-toolbar button[aria-pressed=true],.community-event-toolbar button[aria-expanded=true] { background:#3b3b3b;color:#a7acf4; }
+                    .community-event-toolbar button:disabled,.community-event-block:disabled { opacity:.45; }
+                    .community-event-block { height:32px;margin:0 2px;padding:0 6px;border:0;border-radius:4px;background:transparent;color:#d6d6d6;font-size:13px;cursor:pointer; }
+                    .community-event-block:hover:not(:disabled) { background:#3b3b3b; }
+                    .community-event-style-panel { display:flex;flex-wrap:wrap;gap:6px;padding:6px;border-radius:6px;background:#2e2e2e; }
+                    .community-event-style-panel > div { display:flex;flex-wrap:wrap;align-items:center;gap:6px; }
+                    .community-event-style-panel > div[hidden] { display:none; }
+                    .community-event-style-panel input { height:30px;min-width:min(320px,60vw);padding:0 10px;border:1px solid #555;border-radius:4px;background:#1f1f1f;color:#fff;font-size:14px; }
+                    .community-event-editor-wrap { position:relative;border-radius:4px;background:#2e2e2e; }
+                    .community-event-editor-wrap:focus-within { box-shadow:inset 0 -2px #7f85f5; }
+                    .community-event-placeholder { position:absolute;top:12px;left:14px;font-size:14px;color:#adadad;pointer-events:none; }
+                    .community-event-editor .ProseMirror { min-height:96px;max-height:420px;overflow-y:auto;padding:12px 14px;color:#f2f2f2;font-size:14px;line-height:1.6;outline:none;white-space:pre-wrap;overflow-wrap:anywhere; }
+                    .community-event-editor .ProseMirror ul { list-style:disc;padding-left:22px; }
+                    .community-event-editor .ProseMirror ol { list-style:decimal;padding-left:22px; }
+                    .community-event-editor .ProseMirror blockquote { padding-left:12px;border-left:3px solid #7f85f5;color:#d6d6d6; }
+                    .community-event-editor .ProseMirror pre { padding:8px 10px;border-radius:4px;background:#1f1f1f;font-family:ui-monospace,Consolas,monospace;font-size:13px; }
+                    .community-event-editor .ProseMirror a { color:#a7acf4;text-decoration:underline; }
+                    @media(max-width:700px) { .community-events { margin:0;border-radius:12px 12px 0 0; } .community-event-card { grid-template-columns:56px minmax(0,1fr); } .community-event-banner { display:none; } .community-event-join { grid-column:2; justify-self:start; } .community-event-row { gap:10px; } .community-event-form-header { flex-wrap:wrap;padding:8px 16px; } .community-event-fields { padding:16px; } .community-event-error { margin-left:42px; } .community-event-times input[type=date] { width:150px; } }
                     .community-content { max-width:1140px;margin:auto;padding:24px clamp(18px,5vw,90px) 50px; }
                     .community-composer,.community-post { border:1px solid #222;border-radius:8px;background:#282828;padding:18px;box-shadow:0 2px 4px #0003; }
                     .community-composer-heading { display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;color:#ddd; }
@@ -3275,11 +3702,11 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         setEventEndDate(localDay(end)); setEventEndTime(twoDigits(end.getHours()) + ':' + twoDigits(end.getMinutes()));
                         setEventZone(localZone); setEventAllDay(false); setEventRepeat('none'); setEventOccurrences(4); setEventOnline(true);
                         setEventBanner(eventBanners[Math.floor(Math.random() * eventBanners.length)]);
-                        setEventError(''); setEventNotice(''); setEventsView('new');
+                        setEventError(''); setEventNotice(''); setEventsView('new'); clearEventEditor();
                         setTimeout(() => {
                             const input = eventTitleInput.current, form = input?.form;
                             if (!input) return;
-                            ['title', 'location', 'details'].forEach(name => { if (form.elements[name]) form.elements[name].value = ''; });
+                            ['title', 'location'].forEach(name => { if (form.elements[name]) form.elements[name].value = ''; });
                             input.focus();
                         }, 0);
                     }
@@ -3287,7 +3714,9 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     function closeEventForm() { setEventsView('list'); setEventError(''); }
                     function eventFormKey(event) {
                         if (event.key !== 'Escape' || eventSaving) return;
-                        event.preventDefault(); closeEventForm();
+                        event.preventDefault();
+                        if (eventStylePanel) { setEventStylePanel(''); eventEditor.current?.focus(); return; }
+                        closeEventForm();
                     }
                     async function sendEvent(event) {
                         event.preventDefault();
@@ -3298,7 +3727,8 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         setEventSaving(true); setEventError('');
                         try {
                             const created = await pp.rpc('create_community_event', {id, input:{
-                                title:data.title, location:data.location || '', details:data.details || '', timezone:eventZone,
+                                title:data.title, location:data.location || '', timezone:eventZone,
+                                details:eventDetailsText, formatting:eventDetailsText ? eventLines : null,
                                 start_date:eventStartDate, start_time:eventStartTime, end_date:eventEndDate, end_time:eventEndTime,
                                 all_day:eventAllDay, recurrence:eventRepeat, occurrences:eventRepeat === 'none' ? 1 : Number(eventOccurrences) || 1,
                                 online:eventOnline, banner:eventBanner,
@@ -3884,6 +4314,130 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     function postListNumber(lines,index) { let start = index; while (start > 0 && lines[start-1].kind === 'ordered') start--; return index - start + 1; }
                     function postRunClass(run) { return [run.bold?'font-bold':'',run.italic?'italic':'',run.underline?'underline':'',run.strike?'line-through':'',run.code?'community-inline-code':'',run.link?'community-post-link':''].join(' '); }
                     function postRunStyle(run) { return (run.color?'color:'+run.color+';':'')+(run.highlight?'background-color:'+run.highlight+';color:#111;':'')+(run.size?'font-size:'+({small:'12px',normal:'14px',large:'20px'}[run.size] || '14px')+';':''); }
+                    // The New event details: a second ProseMirror editor with Teams'
+                    // toolbar. Like a post, the details travel as chat_format lines.
+                    const eventEditorHost = pp.ref(null), eventEditor = pp.ref(null), eventLinkInput = pp.ref(null), eventLinkSelection = pp.ref(null);
+                    const [eventEditorReady, setEventEditorReady] = pp.state(false);
+                    const [eventRich, setEventRich] = pp.state(null);
+                    const [eventFormats, setEventFormats] = pp.state({});
+                    const [eventStylePanel, setEventStylePanel] = pp.state('');
+                    const [eventLinkUrl, setEventLinkUrl] = pp.state('');
+                    const eventSwatches = eventStylePanel === 'highlight' ? highlightSwatches : colorSwatches;
+                    const eventLines = eventRich ? formattedLines(eventRich) : [];
+                    const eventDetailsText = eventLines.map(line => line.runs.map(run => run.text).join('')).join('\n').trim();
+                    const eventHasList = eventLines.some(line => line.kind !== 'paragraph');
+                    const eventBlockStyle = eventFormats.code_block ? 'code' : eventFormats.blockquote ? 'quote' : 'paragraph';
+                    function updateEventFormats() {
+                        const view = eventEditor.current;
+                        if (!view) return;
+                        const {state} = view, {$from,empty,from,to} = state.selection;
+                        const marks = state.storedMarks || $from.marks();
+                        const active = {};
+                        for (const name of ['strong','em','underline','strike']) active[name] = empty ? marks.some(mark => mark.type.name === name) : state.doc.rangeHasMark(from,to,state.schema.marks[name]);
+                        for (let depth = $from.depth; depth > 0; depth--) active[$from.node(depth).type.name] = true;
+                        setEventFormats(active);
+                    }
+                    const eventEditorDispatch = pp.event(transaction => {
+                        const view = eventEditor.current;
+                        if (!view) return;
+                        view.updateState(view.state.apply(transaction));
+                        if (transaction.docChanged) { setEventRich(view.state.doc.toJSON()); setEventError(''); }
+                        updateEventFormats();
+                    });
+                    const pasteEventText = pp.event((view,event) => {
+                        event.preventDefault();
+                        const text = event.clipboardData?.getData('text/plain') || '';
+                        if (!eventSaving && text) view.dispatch(view.state.tr.insertText(text));
+                        return true;
+                    });
+                    pp.effect(() => {
+                        let disposed = false;
+                        import('/js/vendor/chat-editor.js').then(lib => {
+                            if (disposed || !eventEditorHost.current) return;
+                            editorLibrary.current = lib;
+                            const simple = name => ({parseDOM:[{tag:name === 'underline' ? 'u' : 's'}],toDOM:() => [name === 'underline' ? 'u' : 's',0]});
+                            let marks = lib.schema.spec.marks.addToEnd('underline',simple('underline')).addToEnd('strike',simple('strike'));
+                            for (const name of ['color','highlight','size']) marks = marks.addToEnd(name,{attrs:{value:{}},toDOM:mark => ['span',{style:name === 'color' ? 'color:'+mark.attrs.value : name === 'highlight' ? 'background-color:'+mark.attrs.value+';color:#111' : 'font-size:'+({small:'12px',normal:'14px',large:'20px'}[mark.attrs.value] || '14px')},0]});
+                            const nodes = lib.addListNodes(lib.schema.spec.nodes,'paragraph block*','block').remove('image').remove('horizontal_rule').remove('heading');
+                            const schema = new lib.Schema({nodes,marks});
+                            eventEditor.current = new lib.EditorView(eventEditorHost.current,{
+                                state:lib.EditorState.create({schema,plugins:[lib.history(),lib.keymap({'Mod-z':lib.undo,'Mod-y':lib.redo,'Mod-Shift-z':lib.redo,'Mod-b':lib.toggleMark(schema.marks.strong),'Mod-i':lib.toggleMark(schema.marks.em),'Mod-u':lib.toggleMark(schema.marks.underline),'Enter':lib.splitListItem(schema.nodes.list_item),'Tab':lib.sinkListItem(schema.nodes.list_item),'Shift-Tab':lib.liftListItem(schema.nodes.list_item)}),lib.keymap(lib.baseKeymap)]}),
+                                attributes:{'aria-label':'Details','role':'textbox','aria-multiline':'true'},
+                                dispatchTransaction:eventEditorDispatch,
+                                handleDOMEvents:{paste:pasteEventText,drop:(_view,event) => {event.preventDefault(); return true;}}
+                            });
+                            setEventEditorReady(true);
+                        }).catch(() => { if (!disposed) setEventError('The formatting editor could not be loaded. Try again.'); });
+                        return () => { disposed = true; eventEditor.current?.destroy(); eventEditor.current = null; };
+                    }, []);
+                    pp.effect(() => { eventEditor.current?.setProps({editable:() => !eventSaving}); }, [eventSaving, eventEditorReady]);
+                    function clearEventEditor() {
+                        const view = eventEditor.current, lib = editorLibrary.current;
+                        if (view && lib) view.updateState(lib.EditorState.create({schema:view.state.schema,plugins:view.state.plugins}));
+                        setEventRich(null); setEventFormats({}); setEventStylePanel('');
+                    }
+                    function toggleEventPanel(name) { setEventStylePanel(eventStylePanel === name ? '' : name); }
+                    function formatEvent(name) {
+                        const view = eventEditor.current, lib = editorLibrary.current;
+                        if (!view || !lib || eventSaving) return;
+                        const {state} = view, nodes = state.schema.nodes;
+                        let command;
+                        if (state.schema.marks[name]) command = lib.toggleMark(state.schema.marks[name]);
+                        else if (name === 'bullet_list' || name === 'ordered_list') command = eventFormats[name] ? lib.liftListItem(nodes.list_item) : lib.wrapInList(nodes[name]);
+                        else if (name === 'blockquote') command = eventFormats.blockquote ? lib.lift : lib.wrapIn(nodes.blockquote);
+                        else if (name === 'indent') command = lib.sinkListItem(nodes.list_item);
+                        else if (name === 'outdent') command = lib.liftListItem(nodes.list_item);
+                        else if (name === 'undo') command = lib.undo;
+                        else if (name === 'redo') command = lib.redo;
+                        else if (name === 'clear') {
+                            const {from,to,empty} = state.selection;
+                            view.dispatch(empty ? state.tr.setStoredMarks([]) : state.tr.removeMark(from,to));
+                        }
+                        if (command) command(state,view.dispatch);
+                        setEventStylePanel(''); view.focus(); updateEventFormats();
+                    }
+                    function setEventBlock(style) {
+                        const view = eventEditor.current, lib = editorLibrary.current;
+                        if (!view || !lib) return;
+                        const nodes = view.state.schema.nodes;
+                        if (eventFormats.blockquote) lib.lift(view.state,view.dispatch);
+                        if (style === 'code') lib.setBlockType(nodes.code_block)(view.state,view.dispatch);
+                        else lib.setBlockType(nodes.paragraph)(view.state,view.dispatch);
+                        if (style === 'quote') lib.wrapIn(nodes.blockquote)(view.state,view.dispatch);
+                        view.focus(); updateEventFormats();
+                    }
+                    function styleEvent(name, value) {
+                        const view = eventEditor.current;
+                        if (!view || eventSaving) return;
+                        const {from,to,empty} = view.state.selection, mark = view.state.schema.marks[name];
+                        const tr = name === 'color' && value === '#e8ebfa' ? view.state.tr.removeMark(from,to,mark).removeStoredMark(mark)
+                            : empty ? view.state.tr.addStoredMark(mark.create({value})) : view.state.tr.addMark(from,to,mark.create({value}));
+                        view.dispatch(tr); setEventStylePanel(''); view.focus();
+                    }
+                    function openEventLink() {
+                        const view = eventEditor.current;
+                        if (!view || eventSaving) return;
+                        if (eventStylePanel === 'link') { setEventStylePanel(''); return; }
+                        eventLinkSelection.current = view.state.selection;
+                        const mark = view.state.selection.$from.marks().find(mark => mark.type.name === 'link');
+                        setEventLinkUrl(mark?.attrs.href || ''); setEventStylePanel('link');
+                        requestAnimationFrame(() => eventLinkInput.current?.focus());
+                    }
+                    function eventLinkKey(event) {
+                        if (event.key === 'Enter') { event.preventDefault(); saveEventLink(); }
+                        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setEventStylePanel(''); eventEditor.current?.focus(); }
+                    }
+                    function saveEventLink() {
+                        const view = eventEditor.current, href = eventLinkUrl.trim();
+                        if (!view || !eventLinkSelection.current) return;
+                        if (href && !/^https?:\/\/[^\s]+$/i.test(href)) { setEventError('Enter a full http:// or https:// link.'); return; }
+                        const {from,to,empty} = eventLinkSelection.current;
+                        let tr = view.state.tr;
+                        if (!href) tr = tr.removeMark(from,to,view.state.schema.marks.link);
+                        else if (empty) tr = tr.insertText(href,from).addMark(from,from+href.length,view.state.schema.marks.link.create({href}));
+                        else tr = tr.addMark(from,to,view.state.schema.marks.link.create({href}));
+                        view.dispatch(tr); setEventStylePanel(''); setEventError(''); view.focus();
+                    }
                     const banners = @{Json(&banners)};
                     const bannerOpener = pp.ref(null), bannerCloser = pp.ref(null), bannerInput = pp.ref(null);
                     const [bannerCommunityId, setBannerCommunityId] = pp.state('');

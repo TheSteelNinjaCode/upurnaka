@@ -19,6 +19,8 @@ pub struct Model {
     pub location: String,
     pub online: bool,
     pub details: String,
+    /// The details' chat_format lines as JSON, or empty when unformatted.
+    pub formatting: String,
     pub banner: String,
     pub created_at: i64,
 }

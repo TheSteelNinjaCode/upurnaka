@@ -2,6 +2,7 @@
 //! Any member may schedule one; every member sees the upcoming ones. Wall-clock
 //! inputs are resolved once in the chosen time zone and stored in UTC.
 use crate::{
+    chat_format,
     communities::{self, BANNERS},
     db,
     models::{community_event as event, meeting_link},
@@ -31,6 +32,9 @@ pub struct EventInput {
     pub location: String,
     pub online: bool,
     pub details: String,
+    /// The details as the formatting editor wrote them; `details` is their text.
+    #[serde(default)]
+    pub formatting: Option<Vec<chat_format::Line>>,
     pub banner: String,
 }
 
@@ -49,6 +53,7 @@ pub struct CommunityEvent {
     /// Where an online event is joined, `/meet/j/{id}`.
     pub join_url: Option<String>,
     pub details: String,
+    pub formatting: Option<Vec<chat_format::Line>>,
     pub banner: String,
     pub organizer_name: String,
     pub is_mine: bool,
@@ -80,6 +85,11 @@ async fn shown(rows: Vec<event::Model>, viewer: &str) -> Result<Vec<CommunityEve
             recurrence: row.recurrence,
             location: row.location,
             details: row.details,
+            formatting: if row.formatting.is_empty() {
+                None
+            } else {
+                Some(rahti::serde_json::from_str(&row.formatting)?)
+            },
             banner: row.banner,
         });
     }
@@ -106,12 +116,13 @@ pub async fn create(community: String, input: EventInput) -> Result<Vec<Communit
     let organizer = communities::owner()?;
     let title = input.title.trim().to_string();
     let location = input.location.trim().to_string();
+    let details = input.details.trim().to_string();
     let mut validator = Validator::new();
     validator
         .required("title", &title)
         .max_chars("title", &title, 120)
         .max_chars("location", &location, 300)
-        .max_chars("details", &input.details, 8000)
+        .max_chars("details", &details, 8000)
         .one_of(
             "recurrence",
             &input.recurrence.as_str(),
@@ -128,6 +139,13 @@ pub async fn create(community: String, input: EventInput) -> Result<Vec<Communit
             "Choose one of the event banners.",
         );
     validator.finish()?;
+    if let Some(lines) = &input.formatting {
+        chat_format::validate_within(lines, &details, 8000)?;
+    }
+    let formatting = match &input.formatting {
+        Some(lines) => rahti::serde_json::to_string(lines)?,
+        None => String::new(),
+    };
     let zone: rahti::time::Tz = input
         .timezone
         .parse()
@@ -208,7 +226,8 @@ pub async fn create(community: String, input: EventInput) -> Result<Vec<Communit
             recurrence: input.recurrence.clone(),
             location: location.clone(),
             online: input.online,
-            details: input.details.clone(),
+            details: details.clone(),
+            formatting: formatting.clone(),
             banner: input.banner.clone(),
             created_at,
         });
