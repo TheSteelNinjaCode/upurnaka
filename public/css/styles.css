@@ -312,6 +312,9 @@
   .inset-y-0 {
     inset-block: 0px;
   }
+  .-top-1\.5 {
+    top: calc(var(--spacing) * -1.5);
+  }
   .-top-2 {
     top: calc(var(--spacing) * -2);
   }
@@ -371,6 +374,9 @@
   }
   .-right-0\.5 {
     right: calc(var(--spacing) * -0.5);
+  }
+  .-right-2\.5 {
+    right: calc(var(--spacing) * -2.5);
   }
   .right-0 {
     right: 0px;
@@ -1543,6 +1549,9 @@
   }
   .min-w-0 {
     min-width: 0px;
+  }
+  .min-w-4 {
+    min-width: calc(var(--spacing) * 4);
   }
   .min-w-5 {
     min-width: calc(var(--spacing) * 5);
@@ -3239,6 +3248,10 @@
   }
   .text-\[clamp\(50px\,6vw\,86px\)\] {
     font-size: clamp(50px, 6vw, 86px);
+  }
+  .leading-4 {
+    --tw-leading: calc(var(--spacing) * 4);
+    line-height: calc(var(--spacing) * 4);
   }
   .leading-5 {
     --tw-leading: calc(var(--spacing) * 5);

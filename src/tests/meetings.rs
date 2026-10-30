@@ -97,6 +97,12 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
             if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("resume_meeting_audio") {
                 return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from("true")).unwrap();
             }
+            if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("meeting_chat_history") {
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"[{"id":"saved-1","name":"Sammy","text":"From the last call","at":1793000000000}]"#)).unwrap();
+            }
+            if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("send_meeting_chat") {
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"id":"sent-1","name":"Administrator","text":"Hello from the meeting","at":1793000001000}"#)).unwrap();
+            }
             if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("join_meeting") {
                 return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"meeting":{"MeetingId":"fixture"},"attendee":{"AttendeeId":"self","ExternalUserId":"Jefferson Abraham#fixture"}}"#)).unwrap();
             }
@@ -223,10 +229,30 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.room-person-off[data-attendee-id=guest] .room-hand-indicator').hidden").await.unwrap();
-    browser
-        .click("button[aria-label='Meeting chat']")
+    // A message arriving with the panel closed says so on the Chat button.
+    let _: bool = browser
+        .eval(
+            r#"(() => {
+        const say = id => window.roomFixture.message({
+            throttled: false,
+            data: new Uint8Array(1),
+            senderAttendeeId: "guest",
+            senderExternalUserId: "Sammy#12345678",
+            json: () => ({ kind: "chat", id, text: "Are you there?" }),
+        });
+        say("live-1"); say("live-2");
+        return true;
+    })()"#,
+        )
         .await
         .unwrap();
+    browser.wait_for("(() => { const badge = document.querySelector('.room-chat-unread'); return !badge.hidden && badge.textContent.trim() === '2' && document.querySelector('button[aria-label=\"Meeting chat, 2 unread\"]') !== null && [...document.querySelectorAll('[role=status]')].some(status => !status.hidden && status.textContent.includes('Sammy: Are you there?')); })()").await.unwrap();
+    browser
+        .click("button[aria-label=\"Meeting chat, 2 unread\"]")
+        .await
+        .unwrap();
+    // Opening the panel clears the count and shows what the last call said.
+    browser.wait_for("document.querySelector('.room-chat-unread').hidden && document.querySelector('.room-chat-messages').textContent.includes('From the last call') && document.querySelector('.room-chat-messages').textContent.includes('Are you there?')").await.unwrap();
     browser
         .click("input[aria-label='Message everyone']")
         .await
@@ -575,6 +601,116 @@ async fn renaming_rejects_invalid_payloads_and_unavailable_links() {
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// A visit that is in the call, or waiting to be let in.
+async fn visit(id: &str, name: &str, state: &str) -> String {
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+    let ticket = format!("ticket-{}", crate::meetings::mint_id());
+    crate::models::meeting_visit::ActiveModel {
+        id: Set(ticket.clone()),
+        meeting_id: Set(id.into()),
+        user_id: Set(format!("guest:{ticket}")),
+        name: Set(name.into()),
+        state: Set(state.into()),
+        lease_until: Set(rahti::time::Utc::now().timestamp() + 90),
+        attendee_id: Set(None),
+        provider_meeting_id: Set(None),
+        muted_by_host: Set(false),
+    }
+    .insert(crate::db::db())
+    .await
+    .unwrap();
+    ticket
+}
+
+#[tokio::test]
+async fn meeting_chat_is_still_there_on_the_next_join() {
+    let id = mint("Kept chat").await;
+    let page = format!("/meet/j/{id}");
+    let first = visit(&id, "Sammy", "joined").await;
+    let payload = format!(r#"{{"id":"{id}","ticket":"{first}","text":"  See you tomorrow  "}}"#);
+    let (status, body) = rpc(&page, "send_meeting_chat", &payload).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(r#""name":"Sammy""#), "{body}");
+
+    let (status, _) = rpc(
+        &page,
+        "leave_meeting_entry",
+        &format!(r#"{{"id":"{id}","ticket":"{first}"}}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let next = visit(&id, "Sammy", "joined").await;
+    let (status, body) = rpc(
+        &page,
+        "meeting_chat_history",
+        &format!(r#"{{"id":"{id}","ticket":"{next}"}}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(r#""text":"See you tomorrow""#), "{body}");
+}
+
+#[tokio::test]
+async fn meeting_chat_is_only_for_people_in_the_call() {
+    let id = mint("Private chat").await;
+    let page = format!("/meet/j/{id}");
+    let inside = visit(&id, "Sammy", "joined").await;
+    let waiting = visit(&id, "Stranger", "waiting").await;
+    let elsewhere = visit(&mint("Other room").await, "Stranger", "joined").await;
+    let (status, _) = rpc(
+        &page,
+        "send_meeting_chat",
+        &format!(r#"{{"id":"{id}","ticket":"{inside}","text":"Secret"}}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    for ticket in [waiting.as_str(), elsewhere.as_str(), "no-such-ticket"] {
+        let (status, body) = rpc(
+            &page,
+            "meeting_chat_history",
+            &format!(r#"{{"id":"{id}","ticket":"{ticket}"}}"#),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+        assert!(!body.contains("Secret"), "{body}");
+        let (status, _) = rpc(
+            &page,
+            "send_meeting_chat",
+            &format!(r#"{{"id":"{id}","ticket":"{ticket}","text":"Forged"}}"#),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+    }
+}
+
+#[tokio::test]
+async fn meeting_chat_refuses_bad_messages_and_ends_with_the_link() {
+    let id = mint("Short chat").await;
+    let page = format!("/meet/j/{id}");
+    let ticket = visit(&id, "Sammy", "joined").await;
+    let send = |text: String| format!(r#"{{"id":"{id}","ticket":"{ticket}","text":"{text}"}}"#);
+
+    let (status, _) = rpc(&page, "send_meeting_chat", &send("   ".into())).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let (status, _) = rpc(&page, "send_meeting_chat", &send("a".repeat(501))).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let (status, _) = rpc(&page, "send_meeting_chat", r#"{"id":1}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    let (status, _) = rpc(&page, "send_meeting_chat", &send("Goodbye".into())).await;
+    assert_eq!(status, StatusCode::OK);
+    crate::meetings::revoke(&id).await.unwrap();
+    use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+    let left = crate::models::meeting_message::Entity::find()
+        .filter(crate::models::meeting_message::Column::MeetingId.eq(&id))
+        .count(crate::db::db())
+        .await
+        .unwrap();
+    assert_eq!(left, 0, "a revoked link keeps no conversation");
 }
 
 #[tokio::test]

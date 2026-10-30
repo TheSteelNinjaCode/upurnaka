@@ -32,6 +32,7 @@
 //! moment a connection string is configured and `db::migrate()` has run, the
 //! same calls write rows.
 
+pub mod chat;
 pub mod chime;
 pub mod lobby;
 pub mod recording;
@@ -321,6 +322,7 @@ pub async fn revoke(id: &str) -> Result<bool> {
         }
         .update(db::db())
         .await?;
+        chat::clear(id).await?;
 
         return Ok(true);
     }

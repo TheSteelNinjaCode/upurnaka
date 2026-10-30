@@ -463,10 +463,18 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         <Button
                             variant="ghost"
                             class=@{ROOM_TOOL}
-                            attrs=@{named("Meeting chat").merge(&bound("aria-pressed", ui_expr!(aria-pressed={roomPanel === "chat"})))}
+                            attrs=@{bound("aria-label", ui_expr!(aria-label={chatUnread > 0 ? "Meeting chat, " + chatUnread + " unread" : "Meeting chat"})).merge(&bound("aria-pressed", ui_expr!(aria-pressed={roomPanel === "chat"})))}
                             onclick={toggleRoomPanel("chat")}
                         >
-                            <Icon name="chat" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
+                            <span class="relative">
+                                <Icon name="chat" class="h-6 w-6 max-[650px]:h-5 max-[650px]:w-5" />
+                                <span
+                                    hidden={chatUnread === 0}
+                                    class="room-chat-unread absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-destructive px-1 text-center text-[10px] font-semibold leading-4 text-white"
+                                >
+                                    {chatUnread > 99 ? "99+" : chatUnread}
+                                </span>
+                            </span>
                             <span>"Chat"</span>
                         </Button>
                         <Button
@@ -1155,19 +1163,29 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <div
                                 class="room-chat-messages flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto px-[18px]"
                                 aria-live="polite"
+                                pp-ref={chatLog}
                             >
                                 <p
                                     class="text-[13px] leading-relaxed text-muted-foreground"
                                     hidden={chatMessages.length > 0}
                                 >
-                                    "Chat with everyone in this meeting. Messages are available during the call."
+                                    "Chat with everyone in this meeting. Messages stay with this meeting link."
                                 </p>
                                 <template pp-for="message in chatMessages">
                                     <article
                                         key={message.id}
                                         class="rounded-md bg-raised p-3 text-[13px] wrap-anywhere"
                                     >
-                                        <strong class="text-xs text-link">{message.name}</strong>
+                                        <div class="flex items-baseline justify-between gap-2">
+                                            <strong class="min-w-0 truncate text-xs text-link">
+                                                {message.name}
+                                            </strong>
+                                            <time
+                                                class="shrink-0 text-[11px] text-muted-foreground"
+                                            >
+                                                {chatTime(message.at)}
+                                            </time>
+                                        </div>
                                         <p class="mt-[5px] whitespace-pre-wrap">{message.text}</p>
                                     </article>
                                 </template>
@@ -1300,6 +1318,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         try { saved = JSON.parse(localStorage.getItem('upurnaka.settings.v1.' + @{user.id.as_str()}) || '{}') || {}; } catch (_) {}
                         return {
                             microphoneId:typeof saved.microphoneId === 'string' ? saved.microphoneId : '',
+                            notifySound:saved.notifySound !== false,
                             speakerId:typeof saved.speakerId === 'string' ? saved.speakerId : '',
                             cameraId:typeof saved.cameraId === 'string' ? saved.cameraId : '',
                             autoGainControl:saved.autoGainControl !== false,
@@ -1464,6 +1483,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const [startingShare, setStartingShare] = pp.state(false);
                     const [chatMessages, setChatMessages] = pp.state([]);
                     const [chatDraft, setChatDraft] = pp.state("");
+                    const [chatUnread, setChatUnread] = pp.state(0);
+                    const chatLog = pp.ref(null);
                     const [displayName, setDisplayName] = pp.state(@{user.name.as_str()});
                     const [joining, setJoining] = pp.state(false);
                     const [session, setSession] = pp.state(null);
@@ -1791,6 +1812,41 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setChatMessages(current => current.some(item => item.id === message.id) ? current : [...current.slice(-199), message]);
                     }
 
+                    // What was said before this join, merged with anything that
+                    // arrived while the request was on its way.
+                    const loadChat = pp.event(async ticket => {
+                        try {
+                            const saved = await pp.rpc("meeting_chat_history", { id: code, ticket });
+                            const known = new Set(saved.map(message => message.id));
+                            setChatMessages(current => [...saved, ...current.filter(message => !known.has(message.id))].sort((a, b) => a.at - b.at).slice(-200));
+                        } catch (failure) {
+                            // Live messages keep arriving; opening the panel asks again.
+                        }
+                    });
+
+                    function chatTime(at) {
+                        const sent = new Date(at);
+                        const today = sent.toDateString() === new Date().toDateString();
+                        const time = { hour: "numeric", minute: "2-digit" };
+                        return sent.toLocaleString([], today ? time : { month: "short", day: "numeric", ...time });
+                    }
+
+                    pp.effect(() => {
+                        if (roomPanel !== "chat") return;
+                        setChatUnread(0);
+                        if (admission) loadChat(admission);
+                    }, [roomPanel]);
+                    pp.effect(() => {
+                        if (roomPanel === "chat" && chatLog.current) chatLog.current.scrollTop = chatLog.current.scrollHeight;
+                    }, [roomPanel, chatMessages.length]);
+
+                    function announceChat(name, text) {
+                        if (roomPanel === "chat") return;
+                        setChatUnread(count => count + 1);
+                        setToast(name + ": " + (text.length > 80 ? text.slice(0, 80) + "…" : text));
+                        if (devicePreferences.notifySound) window.UpurnakaNotificationSound?.play(devicePreferences.notifySoundName);
+                    }
+
                     const onRoomMessage = pp.event(message => {
                         if (message.throttled || message.data.length > 4096) return;
                         try {
@@ -1799,7 +1855,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             if (!sender || sender.includes("#content")) return;
                             const name = attendeeNameFrom(message.senderExternalUserId);
                             if (payload.kind === "chat" && typeof payload.text === "string" && payload.text.trim() && typeof payload.id === "string") {
-                                appendChat({ id: sender + ":" + payload.id.slice(0, 64), name, text: payload.text.slice(0, 500) });
+                                const text = payload.text.slice(0, 500);
+                                appendChat({ id: payload.id.slice(0, 64), name, text, at: Date.now() });
+                                announceChat(name, text);
                             } else if (payload.kind === "hand" && typeof payload.raised === "boolean") {
                                 if (payload.raised && !people.find(person => person.id === sender)?.raised) setHandNotice(name);
                                 setPeople(current => current.map(person => person.id === sender ? { ...person, raised: payload.raised } : person));
@@ -1817,16 +1875,22 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         }
                     });
 
-                    function sendChat(event) {
+                    async function sendChat(event) {
                         event.preventDefault();
                         const text = chatDraft.trim().slice(0, 500);
                         if (!text) return;
+                        setChatDraft("");
+                        let message;
                         try {
-                            const id = crypto.randomUUID();
-                            sendMeetingEvent({ kind: "chat", id, text });
-                            appendChat({ id: selfAttendeeId + ":" + id, name: displayName, text });
-                            setChatDraft("");
-                        } catch (failure) { setError(failure.message); }
+                            message = await pp.rpc("send_meeting_chat", { id: code, ticket: admission, text });
+                        } catch (failure) {
+                            setChatDraft(text);
+                            setError(failure.body?.error || failure.message);
+                            return;
+                        }
+                        appendChat(message);
+                        try { sendMeetingEvent({ kind: "chat", id: message.id, text: message.text }); }
+                        catch (failure) { setError(failure.message); }
                     }
 
                     function raiseHand() {
@@ -2457,6 +2521,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setSharingScreen(false);
                         setChatMessages([]);
                         setChatDraft("");
+                        setChatUnread(0);
                         setElapsed(0);
                         startedAt.current = 0;
                         if (shareStream.current) shareStream.current.getTracks().forEach(track => track.stop());
@@ -2696,7 +2761,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         try {
                             const info = await pp.rpc('join_meeting', {id:code,display_name:displayName,admission:ticket});
                             if (disposed.current) return;
-                            await connect(info); setBackgroundsOpen(false); setSession(info);
+                            await connect(info); setBackgroundsOpen(false); setSession(info); loadChat(ticket);
                         } catch(failure) {
                             setAdmission(''); await teardown(); setError(failure.body?.error || failure.message || 'Could not join this meeting.');
                         } finally { connecting.current = false; setJoining(false); }
@@ -2856,6 +2921,23 @@ pub async fn spotlight_participant(id: String, attendee: Option<String>) -> Resu
 pub async fn mute_participant(id: String, attendee: String) -> Result<bool> {
     meetings::lobby::mute(id, attendee).await
 }
+#[rpc]
+pub async fn meeting_chat_history(
+    id: String,
+    ticket: String,
+) -> Result<Vec<meetings::chat::Message>> {
+    meetings::chat::history(id, ticket).await
+}
+
+#[rpc]
+pub async fn send_meeting_chat(
+    id: String,
+    ticket: String,
+    text: String,
+) -> Result<meetings::chat::Message> {
+    meetings::chat::send(id, ticket, text).await
+}
+
 #[rpc]
 pub async fn resume_meeting_audio(id: String, ticket: String) -> Result<bool> {
     meetings::lobby::resume_audio(id, ticket).await
