@@ -598,16 +598,7 @@ pub async fn share_file(
         )
         .check("file", !name.is_empty(), "The file needs a name.");
     v.finish()?;
-    let community_row = accessible(&community).await?;
-    if !channel_id.is_empty()
-        && channel::Entity::find_by_id(&channel_id)
-            .filter(channel::Column::CommunityId.eq(&community))
-            .one(db::db())
-            .await?
-            .is_none()
-    {
-        return Err(Error::new(StatusCode::NOT_FOUND, "Channel not found."));
-    }
+    let community_row = sharing_into(&community, &channel_id).await?;
     if !recording::is_configured() {
         return Err(Error::public(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -649,6 +640,87 @@ pub async fn share_file(
             "The file could not be uploaded to storage. Try again shortly.",
         )
     })?;
+    let stored = Stored {
+        name,
+        content_type,
+        bytes,
+        file_id: stored.id,
+        file_key: stored.key,
+    };
+    post_file(&community_row, channel_id, user, file_row_id, stored).await
+}
+/// Share files from the uploader's Dilnaka Storage. Each becomes a post that
+/// carries it, as a device upload does, and reads the same storage object.
+pub async fn share_cloud_files(
+    community: String,
+    channel_id: String,
+    files: Vec<String>,
+) -> Result<Vec<Post>> {
+    let mut v = Validator::new();
+    v.check("files", !files.is_empty(), "Choose at least one file.")
+        .check(
+            "files",
+            files.len() <= CLOUD_SHARE_LIMIT,
+            "Share up to 10 files at a time.",
+        );
+    v.finish()?;
+    let community_row = sharing_into(&community, &channel_id).await?;
+    let user = owner()?;
+    let mut posts = Vec::new();
+    for row in crate::chat_files::owned_rows(&files).await? {
+        let stored = Stored {
+            name: row.name,
+            content_type: row.content_type,
+            bytes: row.bytes,
+            file_id: row.file_id,
+            file_key: row.file_key,
+        };
+        posts.push(
+            post_file(
+                &community_row,
+                channel_id.clone(),
+                user.clone(),
+                id(),
+                stored,
+            )
+            .await?,
+        );
+    }
+    Ok(posts)
+}
+/// How many cloud files one share may carry.
+pub const CLOUD_SHARE_LIMIT: usize = 10;
+/// A file already in storage, ready to be shared.
+struct Stored {
+    name: String,
+    content_type: String,
+    bytes: i64,
+    file_id: String,
+    file_key: String,
+}
+/// The community a member shares into, refusing a channel it does not hold.
+async fn sharing_into(community: &str, channel_id: &str) -> Result<row::Model> {
+    let community_row = accessible(community).await?;
+    if !channel_id.is_empty()
+        && channel::Entity::find_by_id(channel_id)
+            .filter(channel::Column::CommunityId.eq(community))
+            .one(db::db())
+            .await?
+            .is_none()
+    {
+        return Err(Error::new(StatusCode::NOT_FOUND, "Channel not found."));
+    }
+    Ok(community_row)
+}
+/// The post that carries a shared file, written with the file in one transaction.
+async fn post_file(
+    community_row: &row::Model,
+    channel_id: String,
+    user: String,
+    file_row_id: String,
+    stored: Stored,
+) -> Result<Post> {
+    let community = community_row.id.clone();
     let now = crate::rahti::time::now().timestamp_millis();
     let post_id = id();
     let transaction = db::db().begin().await?;
@@ -676,17 +748,17 @@ pub async fn share_file(
         community_id: Set(community),
         post_id: Set(post_id.clone()),
         uploader_id: Set(user),
-        name: Set(name),
-        content_type: Set(content_type),
-        bytes: Set(bytes),
-        file_id: Set(stored.id),
-        file_key: Set(stored.key),
+        name: Set(stored.name),
+        content_type: Set(stored.content_type),
+        bytes: Set(stored.bytes),
+        file_id: Set(stored.file_id),
+        file_key: Set(stored.file_key),
         created_at: Set(now),
     }
     .insert(&transaction)
     .await?;
     transaction.commit().await?;
-    reloaded(&community_row, &post_id).await
+    reloaded(community_row, &post_id).await
 }
 /// A short-lived link to a shared file, for members of its community while
 /// its post is not deleted.

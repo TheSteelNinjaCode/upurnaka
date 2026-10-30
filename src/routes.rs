@@ -59,6 +59,7 @@ const PAGE_RPCS: &[&str] = &[
     "append_meeting_recording",
     "change_community_cover",
     "chat_cloud_files",
+    "community_cloud_files",
     "community_join_link",
     "community_members",
     "create_chat_folder",
@@ -102,6 +103,7 @@ const PAGE_RPCS: &[&str] = &[
     "send_message",
     "set_community_notifications",
     "set_user_active",
+    "share_community_cloud_files",
     "spotlight_participant",
     "start_meeting_recording",
     "transfer_community_ownership",
@@ -183,6 +185,10 @@ async fn rpc_p_communities(req: axum::extract::Request) -> axum::response::Respo
         "delete_community_post" => p_communities::__rahti_rpc_delete_community_post(req).await,
         "pin_community_post" => p_communities::__rahti_rpc_pin_community_post(req).await,
         "upload_community_file" => p_communities::__rahti_rpc_upload_community_file(req).await,
+        "share_community_cloud_files" => {
+            p_communities::__rahti_rpc_share_community_cloud_files(req).await
+        }
+        "community_cloud_files" => p_communities::__rahti_rpc_community_cloud_files(req).await,
         "reply_to_community_post" => p_communities::__rahti_rpc_reply_to_community_post(req).await,
         "change_community_cover" => p_communities::__rahti_rpc_change_community_cover(req).await,
         "edit_community" => p_communities::__rahti_rpc_edit_community(req).await,
@@ -309,7 +315,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: schedule_meeting, create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/settings` [GET, POST] — src/app/settings/page.rs (layouts: src/app/layout.rs)
-/// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community, create_community_channel, publish_community_post, react_to_community_post, edit_community_post, delete_community_post, pin_community_post, upload_community_file, reply_to_community_post, change_community_cover, edit_community, community_members, community_join_link, invite_community_member, join_community, set_community_notifications, transfer_community_ownership, remove_community_member, leave_community, delete_community, report_community)
+/// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community, create_community_channel, publish_community_post, react_to_community_post, edit_community_post, delete_community_post, pin_community_post, upload_community_file, share_community_cloud_files, community_cloud_files, reply_to_community_post, change_community_cover, edit_community, community_members, community_join_link, invite_community_member, join_community, set_community_notifications, transfer_community_ownership, remove_community_member, leave_community, delete_community, report_community)
 /// - `/profile-picture` [GET] — src/app/profile-picture/route.rs
 /// - `/communities/reports` [GET, POST] — src/app/communities/reports/page.rs (layouts: src/app/layout.rs)
 /// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)

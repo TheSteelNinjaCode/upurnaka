@@ -1,11 +1,12 @@
 //! Communities: the invitation to start one, and the ones already started.
 
+use crate::chat_files;
 use crate::communities::{self, Community};
 use axum::extract::Query;
 use serde::Deserialize;
 
 use crate::components::app_shell::AppShell;
-use crate::components::aria::{hidden, submit};
+use crate::components::aria::{hidden, named, submit};
 use crate::components::channel_emoji_picker::ChannelEmojiPicker;
 use crate::components::emoji_panel::EmojiPanel;
 use crate::components::fluent_emoji_grid::FluentEmojiGrid;
@@ -13,7 +14,11 @@ use crate::components::icon::Icon;
 use crate::components::rahti_ui::attrs::Attrs;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
 use crate::components::rahti_ui::dialog::{
-    Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+    Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    DialogTrigger,
+};
+use crate::components::rahti_ui::dropdown_menu::{
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 };
 use crate::components::rahti_ui::field::{Field, FieldLabel};
 use crate::components::rahti_ui::input::Input;
@@ -28,6 +33,18 @@ pub fn metadata() -> Metadata {
 
 /// A template chip under "Create with a template".
 const TEMPLATE: &str = "rounded-full text-[13px] font-semibold";
+
+// The Dilnaka Storage picker behind "Attach cloud files", laid out as Chat's:
+// places on the left, the folder being shown on the right.
+const CLOUD_DIALOG: &str = "community-cloud-dialog h-[min(640px,calc(100dvh-32px))] grid-rows-[auto_minmax(0,1fr)] gap-0! overflow-hidden bg-surface! p-0! sm:max-w-[960px]! sm:grid-cols-[216px_minmax(0,1fr)] sm:grid-rows-1";
+const CLOUD_NAV: &str = "flex gap-1 overflow-x-auto border-b border-line bg-pane px-3 py-2 sm:flex-col sm:overflow-visible sm:border-b-0 sm:border-r sm:px-3 sm:py-6";
+const CLOUD_NAV_ITEM: &str = "relative flex shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm text-ink/85 hover:bg-hover before:absolute before:inset-y-2 before:-left-3 before:w-[3px] before:rounded-full before:content-[''] max-sm:before:hidden data-[active=true]:bg-hover data-[active=true]:font-semibold data-[active=true]:text-ink data-[active=true]:before:bg-brand-ink [&[data-active=true]_svg]:text-brand-ink";
+const CLOUD_HEAD: &str = "grid grid-cols-[28px_40px_minmax(0,1fr)_110px] items-center border-b border-line px-2 py-1.5 text-xs font-medium text-ink/85 sm:grid-cols-[28px_44px_minmax(0,1fr)_150px_120px] sm:text-[13px]";
+const CLOUD_ROW: &str = "group grid w-full grid-cols-[28px_40px_minmax(0,1fr)_110px] items-center border-b border-line px-2 py-2.5 text-left hover:bg-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[selected=true]:bg-brand-soft/70 sm:grid-cols-[28px_44px_minmax(0,1fr)_150px_120px]";
+const CLOUD_CHECK: &str = "flex size-[18px] items-center justify-center justify-self-center rounded-full border border-edge text-white opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-data-[selected=true]:border-brand group-data-[selected=true]:bg-brand group-data-[selected=true]:opacity-100 max-sm:opacity-100";
+const CLOUD_NOTE: &str = "px-3 py-3 text-sm text-muted-foreground";
+/// A folder drawn filled, as drives draw them.
+const FOLDER_ICON: &str = "size-7 fill-[#f5c451] text-[#e3a72f]";
 
 /// A preset tile in the Edit banner dialog.
 #[derive(serde::Serialize)]
@@ -96,6 +113,12 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
         ButtonVariant::Link,
         ButtonSize::Default,
         "text-[13px] text-link",
+    );
+    let cancel_button = button_variants(ButtonVariant::Outline, ButtonSize::Default, "");
+    let upload_button = button_variants(
+        ButtonVariant::Default,
+        ButtonSize::Default,
+        "community-files-upload",
     );
     Ok(html! {
         <AppShell active="communities">
@@ -1220,25 +1243,61 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 <p>
                                     "When you upload files to this tab, they’ll show up in posts."
                                 </p>
-                                <Button
-                                    class="community-files-upload"
-                                    onclick={pickFiles()}
-                                    disabled={uploading}
-                                >
-                                    <Icon name="upload" class="size-4" />
-                                    {uploading ? "Uploading…" : "Upload"}
-                                </Button>
-                            </section>
-                            <section class="community-files-list" hidden={activeFiles.length === 0}>
-                                <div class="community-files-toolbar">
-                                    <Button
-                                        class="community-files-upload"
-                                        onclick={pickFiles()}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger
+                                        menu="community-upload"
+                                        class=@{upload_button.as_str()}
                                         disabled={uploading}
                                     >
                                         <Icon name="upload" class="size-4" />
                                         {uploading ? "Uploading…" : "Upload"}
-                                    </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                        menu="community-upload"
+                                        side="bottom"
+                                        align="start"
+                                        class="community-upload-menu w-60"
+                                        attrs=@{named("Upload")}
+                                    >
+                                        <DropdownMenuItem onclick={openCloudFiles()}>
+                                            <Icon name="cloud" class="size-4" />
+                                            "Attach cloud files"
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onclick={pickFiles()}>
+                                            <Icon name="upload" class="size-4" />
+                                            "Upload from this device"
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </section>
+                            <section class="community-files-list" hidden={activeFiles.length === 0}>
+                                <div class="community-files-toolbar">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger
+                                            menu="community-upload-more"
+                                            class=@{upload_button.as_str()}
+                                            disabled={uploading}
+                                        >
+                                            <Icon name="upload" class="size-4" />
+                                            {uploading ? "Uploading…" : "Upload"}
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            menu="community-upload-more"
+                                            side="bottom"
+                                            align="start"
+                                            class="community-upload-menu w-60"
+                                            attrs=@{named("Upload")}
+                                        >
+                                            <DropdownMenuItem onclick={openCloudFiles()}>
+                                                <Icon name="cloud" class="size-4" />
+                                                "Attach cloud files"
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onclick={pickFiles()}>
+                                                <Icon name="upload" class="size-4" />
+                                                "Upload from this device"
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                                 <table>
                                     <thead>
@@ -1309,6 +1368,210 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         </div>
                     </section>
                 </div>
+                <Dialog>
+                    <DialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={cloudOpener}></span>
+                    </DialogTrigger>
+                    <DialogContent
+                        class=@{CLOUD_DIALOG}
+                        hide_close=@{true}
+                        attrs=@{named("Attach cloud files")}
+                    >
+                        <nav class=@{CLOUD_NAV} aria-label="Storage">
+                            <DialogTitle class="mb-4 hidden px-2 text-xl! font-semibold sm:block">
+                                "Dilnaka Storage"
+                            </DialogTitle>
+                            <DialogDescription class="sr-only">
+                                "Choose files from your Dilnaka Storage to share in this channel."
+                            </DialogDescription>
+                            <button
+                                type="button"
+                                class=@{CLOUD_NAV_ITEM}
+                                data-active={cloudView === "files"}
+                                onclick={showCloudView("files")}
+                            >
+                                <Icon name="folder" class="size-[18px] shrink-0" />
+                                "My files"
+                            </button>
+                            <button
+                                type="button"
+                                class=@{CLOUD_NAV_ITEM}
+                                data-active={cloudView === "recent"}
+                                onclick={showCloudView("recent")}
+                            >
+                                <Icon name="clock" class="size-[18px] shrink-0" />
+                                "Recent"
+                            </button>
+                            <button
+                                type="button"
+                                class=@{CLOUD_NAV_ITEM}
+                                data-active={cloudView === "photos"}
+                                onclick={showCloudView("photos")}
+                            >
+                                <Icon name="image" class="size-[18px] shrink-0" />
+                                "Photos"
+                            </button>
+                        </nav>
+                        <section class="flex min-h-0 min-w-0 flex-col">
+                            <header class="flex items-center gap-4 px-4 pb-3 pt-4 sm:px-6 sm:pt-6">
+                                <h3
+                                    class="community-cloud-path flex min-w-0 flex-1 items-center gap-1 text-lg font-semibold sm:text-xl"
+                                >
+                                    <button
+                                        type="button"
+                                        class="truncate rounded px-1 text-subtle hover:bg-hover hover:text-ink"
+                                        hidden={cloudView !== "files" || !cloudFolder}
+                                        onclick={openCloudFolder("")}
+                                    >
+                                        "My files"
+                                    </button>
+                                    <template pp-for="crumb in cloudPath.slice(0, -1)">
+                                        <span
+                                            key={crumb.id}
+                                            class="flex min-w-0 items-center gap-1"
+                                        >
+                                            <Icon
+                                                name="chevron-right"
+                                                class="size-4 shrink-0 text-subtle"
+                                            />
+                                            <button
+                                                type="button"
+                                                class="truncate rounded px-1 text-subtle hover:bg-hover hover:text-ink"
+                                                value={crumb.id}
+                                                onclick={openCloudFolder(event.currentTarget.value)}
+                                            >
+                                                {crumb.name}
+                                            </button>
+                                        </span>
+                                    </template>
+                                    <span
+                                        class="flex min-w-0 items-center gap-1"
+                                        hidden={cloudView !== "files" || !cloudFolder}
+                                    >
+                                        <Icon
+                                            name="chevron-right"
+                                            class="size-4 shrink-0 text-subtle"
+                                        />
+                                    </span>
+                                    <span class="truncate px-1">{cloudHeading}</span>
+                                </h3>
+                            </header>
+                            <div
+                                class="min-h-0 flex-1 overflow-y-auto px-2 scroll-thin sm:px-4"
+                                role="group"
+                                aria-label="Cloud files"
+                            >
+                                <div class=@{CLOUD_HEAD} role="presentation">
+                                    <Icon name="file" class="col-start-2 size-4 text-subtle" />
+                                    <span class="px-1">"Name"</span>
+                                    <span class="px-1">"Modified"</span>
+                                    <span class="hidden px-1 sm:block">"Size"</span>
+                                </div>
+                                <p
+                                    class="px-3 py-1 text-xs text-danger-ink"
+                                    role="alert"
+                                    hidden={!cloudError}
+                                >
+                                    {cloudError}
+                                </p>
+                                <p class=@{CLOUD_NOTE} role="status" hidden={!cloudLoading}>
+                                    "Loading your files…"
+                                </p>
+                                <div
+                                    class="community-cloud-empty flex flex-col items-center gap-2 px-6 py-16 text-center"
+                                    hidden={cloudLoading || cloudRows.length > 0 || !!cloudError}
+                                >
+                                    <Icon name="cloud" class="size-10 text-subtle" />
+                                    <p class="text-sm text-ink">{cloudEmpty}</p>
+                                </div>
+                                <div
+                                    class="community-cloud-files"
+                                    role="list"
+                                    hidden={cloudLoading}
+                                >
+                                    <template pp-for="row in cloudRows">
+                                        <button
+                                            key={row.key}
+                                            type="button"
+                                            role="listitem"
+                                            class=@{CLOUD_ROW}
+                                            value={row.key}
+                                            data-selected={cloudPicked.includes(row.id)}
+                                            aria-label={row.kind === "folder" ? "Open folder " + row.name : (cloudPicked.includes(row.id) ? "Deselect " : "Select ") + row.name}
+                                            onclick={pickCloudRow(event.currentTarget.value)}
+                                        >
+                                            <span
+                                                class=@{CLOUD_CHECK}
+                                                hidden={row.kind === "folder"}
+                                            >
+                                                <span hidden={!cloudPicked.includes(row.id)}>
+                                                    <Icon name="check" class="size-3" />
+                                                </span>
+                                            </span>
+                                            <span hidden={row.kind !== "folder"}></span>
+                                            <span
+                                                class="flex justify-center"
+                                                hidden={row.icon !== "folder"}
+                                            >
+                                                <Icon name="folder" class=@{FOLDER_ICON} />
+                                            </span>
+                                            <span
+                                                class="flex justify-center"
+                                                hidden={row.icon !== "image"}
+                                            >
+                                                <Icon name="image" class="size-6 text-[#4aa3df]" />
+                                            </span>
+                                            <span
+                                                class="flex justify-center"
+                                                hidden={row.icon !== "doc"}
+                                            >
+                                                <Icon
+                                                    name="file-text"
+                                                    class="size-6 text-[#d9544a]"
+                                                />
+                                            </span>
+                                            <span
+                                                class="flex justify-center"
+                                                hidden={row.icon !== "file"}
+                                            >
+                                                <Icon name="file" class="size-6 text-brand-ink" />
+                                            </span>
+                                            <span class="min-w-0 truncate px-1 text-sm text-ink">
+                                                {row.name}
+                                            </span>
+                                            <span class="truncate px-1 text-sm text-ink/85">
+                                                {row.modified}
+                                            </span>
+                                            <span
+                                                class="hidden truncate px-1 text-sm text-ink/85 sm:block"
+                                            >
+                                                {row.detail}
+                                            </span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                            <footer
+                                class="flex items-center gap-3 border-t border-line px-4 py-3 sm:px-6 sm:py-4"
+                            >
+                                <p class="min-w-0 flex-1 truncate text-xs text-subtle">
+                                    {cloudPicked.length === 0 ? "" : cloudPicked.length + " selected"}
+                                </p>
+                                <Button
+                                    class="community-cloud-share"
+                                    disabled={cloudPicked.length === 0 || cloudSharing}
+                                    onclick={shareCloudFiles()}
+                                >
+                                    {cloudSharing ? "Sharing…" : cloudPicked.length > 1 ? "Share " + cloudPicked.length + " files" : "Share"}
+                                </Button>
+                                <DialogClose class=@{cancel_button.as_str()}>
+                                    <span pp-ref={cloudCloser}></span>
+                                    "Cancel"
+                                </DialogClose>
+                            </footer>
+                        </section>
+                    </DialogContent>
+                </Dialog>
                 <Dialog>
                     <DialogTrigger attrs=@{hidden()}>
                         <span pp-ref={channelOpener}></span>
@@ -2760,6 +3023,85 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             setFileError((done ? done + ' uploaded. ' : '') + (failure.errors?.file?.join(' ') || failure.message || 'The file could not be uploaded.'));
                         } finally { setUploading(false); }
                     }
+                    // "Attach cloud files": pick from the uploader's Dilnaka Storage.
+                    // Each pick becomes a post carrying the file, like a device upload.
+                    const cloudShareLimit = @{communities::CLOUD_SHARE_LIMIT};
+                    const cloudOpener = pp.ref(null);
+                    const cloudCloser = pp.ref(null);
+                    const cloudTicket = pp.ref(0);
+                    const [cloudView, setCloudView] = pp.state('files');
+                    const [cloudFolder, setCloudFolder] = pp.state('');
+                    const [cloudPath, setCloudPath] = pp.state([]);
+                    const [cloudListing, setCloudListing] = pp.state({folders:[], files:[]});
+                    const [cloudPicked, setCloudPicked] = pp.state([]);
+                    const [cloudLoading, setCloudLoading] = pp.state(false);
+                    const [cloudSharing, setCloudSharing] = pp.state(false);
+                    const [cloudError, setCloudError] = pp.state('');
+                    const openCloudFiles = pp.event(function openCloudFiles() {
+                        if (uploading) return;
+                        setCloudPicked([]); setCloudError('');
+                        setTimeout(() => cloudOpener.current?.click(), 0);
+                        loadCloud('files', '');
+                    });
+                    // Only the newest request may fill the list, so a slow folder
+                    // never replaces the one the person moved on to.
+                    const loadCloud = pp.event(async function loadCloud(view, folder) {
+                        const ticket = ++cloudTicket.current;
+                        if (view !== cloudView || folder !== cloudFolder) { setCloudListing({folders:[], files:[]}); setCloudPath([]); }
+                        setCloudView(view); setCloudFolder(folder); setCloudError(''); setCloudLoading(true);
+                        try {
+                            const listing = await pp.rpc('community_cloud_files', {view, folder: folder || null});
+                            if (ticket !== cloudTicket.current) return;
+                            setCloudListing(listing); setCloudPath(listing.path);
+                        } catch (failure) {
+                            if (ticket === cloudTicket.current) setCloudError(failure.message || 'Your cloud files could not be loaded.');
+                        } finally {
+                            if (ticket === cloudTicket.current) setCloudLoading(false);
+                        }
+                    });
+                    function showCloudView(view) { loadCloud(view, ''); }
+                    function openCloudFolder(id) { loadCloud('files', id); }
+                    function cloudIcon(file) {
+                        const type = file.content_type || '';
+                        if (type.startsWith('image/')) return 'image';
+                        if (type === 'application/pdf' || type.startsWith('text/') || /word|document|sheet|presentation/.test(type)) return 'doc';
+                        return 'file';
+                    }
+                    // Folders first, as drives list them; then by name.
+                    const cloudRows = pp.memo(() => {
+                        const byName = (a, b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'});
+                        const folders = cloudListing.folders.map(folder => ({kind:'folder', key:'d:' + folder.id, id:folder.id, name:folder.name, icon:'folder', modified:folder.modified, detail:folder.items === 0 ? 'Empty' : fileSize(folder.bytes)})).sort(byName);
+                        const files = cloudListing.files.map(file => ({kind:'file', key:'f:' + file.id, id:file.id, name:file.name, icon:cloudIcon(file), modified:file.uploaded, detail:fileSize(file.bytes)}));
+                        return [...folders, ...(cloudView === 'files' ? files.sort(byName) : files)];
+                    }, [cloudListing, cloudView]);
+                    const cloudHeading = cloudView === 'files' ? (cloudPath.length ? cloudPath[cloudPath.length - 1].name : 'My files') : {recent:'Recent', photos:'Photos'}[cloudView];
+                    const cloudEmpty = {
+                        files: cloudFolder ? 'This folder is empty.' : 'Nothing here yet. Files you add to Dilnaka Storage will show up here.',
+                        recent: 'Files you upload to Dilnaka Storage will show up here.',
+                        photos: 'Images you upload to Dilnaka Storage will show up here.',
+                    }[cloudView];
+                    const pickCloudRow = pp.event(function pickCloudRow(key) {
+                        const row = cloudRows.find(item => item.key === key);
+                        if (!row) return;
+                        if (row.kind === 'folder') { openCloudFolder(row.id); return; }
+                        if (cloudPicked.includes(row.id)) { setCloudPicked(cloudPicked.filter(id => id !== row.id)); setCloudError(''); return; }
+                        if (cloudPicked.length >= cloudShareLimit) { setCloudError('Share up to ' + cloudShareLimit + ' files at a time.'); return; }
+                        setCloudPicked([...cloudPicked, row.id]);
+                    });
+                    const shareCloudFiles = pp.event(async function shareCloudFiles() {
+                        if (!cloudPicked.length || cloudSharing) return;
+                        const id = selectedCommunity, channel = channelId, files = cloudPicked;
+                        setCloudSharing(true); setCloudError('');
+                        try {
+                            const posts = await pp.rpc('share_community_cloud_files', {id, channel, files});
+                            updateCommunity(id, c => ({posts: [...posts.slice().reverse(), ...c.posts]}));
+                            setFileError('');
+                            setUploadStatus(posts.length === 1 ? 'File shared and posted.' : posts.length + ' files shared and posted.');
+                            cloudCloser.current?.click();
+                        } catch (failure) {
+                            setCloudError(failure.errors?.files?.join(' ') || failure.message || 'The files could not be shared.');
+                        } finally { setCloudSharing(false); }
+                    });
                     // Reactions and replies under each post, as in a Teams channel.
                     const reactionChoices = @{Json(&communities::REACTIONS)};
                     const reactionNames = {'👍':'Like','❤️':'Heart','😆':'Laugh','😮':'Surprised','😢':'Sad','😠':'Angry'};
@@ -3278,6 +3620,23 @@ pub async fn upload_community_file(
     file: RpcFile,
 ) -> Result<communities::Post> {
     communities::share_file(id, channel, file).await
+}
+/// Share files picked from the uploader's Dilnaka Storage to the Files tab.
+#[rpc(auth)]
+pub async fn share_community_cloud_files(
+    id: String,
+    channel: String,
+    files: Vec<String>,
+) -> Result<Vec<communities::Post>> {
+    communities::share_cloud_files(id, channel, files).await
+}
+/// One view of the Dilnaka Storage picker: My files (a folder), Recent or Photos.
+#[rpc(auth)]
+pub async fn community_cloud_files(
+    view: String,
+    folder: Option<String>,
+) -> Result<chat_files::Listing> {
+    chat_files::browse(&view, folder).await
 }
 #[rpc(auth)]
 pub async fn reply_to_community_post(

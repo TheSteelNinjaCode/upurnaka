@@ -363,6 +363,16 @@ pub async fn store(file: RpcFile, folder: Option<String>) -> Result<Attachment> 
 
 /// The attachments a message names, refusing any this person does not own.
 pub async fn owned(ids: &[String]) -> Result<Vec<Attachment>> {
+    Ok(owned_rows(ids)
+        .await?
+        .into_iter()
+        .map(Attachment::from)
+        .collect())
+}
+
+/// The stored files `ids` names, in that order, refusing any this person
+/// does not own. Sharing one elsewhere reuses its storage object.
+pub async fn owned_rows(ids: &[String]) -> Result<Vec<chat_file::Model>> {
     if ids.is_empty() {
         return Ok(Vec::new());
     }
@@ -371,13 +381,12 @@ pub async fn owned(ids: &[String]) -> Result<Vec<Attachment>> {
         .filter(chat_file::Column::Id.is_in(ids.iter().cloned()))
         .all(db::db())
         .await?;
-    // Keep the order the composer showed them in.
+    // Keep the order the picker showed them in.
     ids.iter()
         .map(|id| {
             rows.iter()
                 .find(|row| &row.id == id)
                 .cloned()
-                .map(Attachment::from)
                 .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "An attached file was not found."))
         })
         .collect()

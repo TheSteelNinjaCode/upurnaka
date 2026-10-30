@@ -640,6 +640,99 @@ async fn community_files_upload_as_posts_and_download_only_for_members() {
         StatusCode::BAD_REQUEST
     );
 
+    // "Attach cloud files" shares from the uploader's Dilnaka Storage.
+    member.request("/chat", None).await;
+    let (status, body) = member
+        .upload(
+            "/chat",
+            "upload_chat_file",
+            json!({}),
+            ("file", "application/pdf", b"%PDF-1.4 syllabus"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let cloud: Value = serde_json::from_str(&body).unwrap();
+    let cloud_id = cloud["id"].as_str().unwrap();
+    let (status, listing) = community_call(
+        &mut member,
+        "community_cloud_files",
+        json!({"view":"recent"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        listing["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|file| file["id"] == cloud_id)
+    );
+    let (status, posts) = community_call(
+        &mut member,
+        "share_community_cloud_files",
+        json!({"id":id,"channel":"","files":[cloud_id]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{posts}");
+    let shared = &posts[0]["files"][0];
+    assert_eq!(shared["content_type"], "application/pdf");
+    assert_eq!(shared["bytes"], 17);
+    assert_eq!(shared["uploader_name"], "Other User");
+    let (status, headers, _) = owner
+        .request(
+            &format!("/communities/files/{}", shared["id"].as_str().unwrap()),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::FOUND);
+    assert!(
+        headers["location"]
+            .to_str()
+            .unwrap()
+            .starts_with("https://storage.test/")
+    );
+    // Nobody shares another person's storage, or into a community they are not in.
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "share_community_cloud_files",
+            json!({"id":id,"channel":"","files":[cloud_id]}),
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        community_call(
+            &mut outsider,
+            "share_community_cloud_files",
+            json!({"id":id,"channel":"","files":[cloud_id]}),
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        community_call(
+            &mut member,
+            "share_community_cloud_files",
+            json!({"id":id,"channel":"","files":[]}),
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(
+        community_call(
+            &mut member,
+            "share_community_cloud_files",
+            json!({"id":id,"channel":""}),
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+
     // Deleting the post withdraws its file.
     community_call(
         &mut owner,
