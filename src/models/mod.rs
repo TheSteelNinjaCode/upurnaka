@@ -15,6 +15,7 @@ pub mod chat_file;
 pub mod chat_folder;
 pub mod community;
 pub mod community_channel;
+pub mod community_event;
 pub mod community_file;
 pub mod community_member;
 pub mod community_post;

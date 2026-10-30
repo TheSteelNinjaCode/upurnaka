@@ -188,7 +188,7 @@ pub struct Community {
     pub notifications: String,
     pub member_count: usize,
 }
-fn owner() -> Result<String> {
+pub(crate) fn owner() -> Result<String> {
     auth::ready()?;
     let id = auth::current()
         .map(|u| u.id)
@@ -196,7 +196,7 @@ fn owner() -> Result<String> {
     crate::rahti::authorization::authorize_resource("communities.manage", &id)?;
     Ok(id)
 }
-fn id() -> String {
+pub(crate) fn id() -> String {
     use rand::TryRng;
     let mut bytes = [0; 16];
     rand::rngs::SysRng
@@ -212,7 +212,7 @@ async fn owned(id: &str) -> Result<row::Model> {
         .await?
         .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "Community not found."))
 }
-async fn accessible(id: &str) -> Result<row::Model> {
+pub(crate) async fn accessible(id: &str) -> Result<row::Model> {
     let user = owner()?;
     let row = row::Entity::find_by_id(id)
         .filter(row::Column::DeletedAt.is_null())
@@ -232,7 +232,7 @@ async fn accessible(id: &str) -> Result<row::Model> {
     }
     Ok(row)
 }
-async fn author_name(id: &str) -> Result<String> {
+pub(crate) async fn author_name(id: &str) -> Result<String> {
     Ok(account::Entity::find_by_id(id)
         .one(db::db())
         .await?

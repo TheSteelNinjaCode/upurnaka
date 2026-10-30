@@ -2,6 +2,7 @@
 
 use crate::chat_files;
 use crate::communities::{self, Community};
+use crate::community_events;
 use axum::extract::Query;
 use serde::Deserialize;
 
@@ -115,6 +116,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
         "text-[13px] text-link",
     );
     let cancel_button = button_variants(ButtonVariant::Outline, ButtonSize::Default, "");
+    let app_zone = crate::rahti::time::timezone().name();
     let upload_button = button_variants(
         ButtonVariant::Default,
         ButtonSize::Default,
@@ -357,6 +359,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     <section
                         class="community-detail scroll-thin"
                         aria-label="Selected community"
+                        hidden={!!eventsView}
                         pp-style={"--community-header:" + headerHeight + "px"}
                     >
                         <div
@@ -445,18 +448,47 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 </button>
                             </div>
                             <div class="community-header-actions">
-                                <a href="/calendar?new=1" class="community-event-link">
+                                <button
+                                    type="button"
+                                    class="community-event-link"
+                                    onclick={openEvents()}
+                                >
                                     <Icon name="calendar" class="size-4" />
                                     "Events"
-                                </a>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    attrs=@{Attrs::new().set("aria-label", "Community details and members")}
-                                    onclick={setDetailsOpen(!detailsOpen)}
+                                </button>
+                                <div
+                                    class="community-header-group"
+                                    role="group"
+                                    aria-label="Community actions"
                                 >
-                                    <Icon name="settings" class="size-4" />
-                                </Button>
+                                    <button
+                                        type="button"
+                                        aria-label="Add people"
+                                        title="Add people"
+                                        hidden={!activeCommunity?.is_owner}
+                                        onclick={openAction("invite", selectedCommunity)}
+                                    >
+                                        <Icon name="person-add" class="size-5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        aria-label="Copy link"
+                                        title="Copy link"
+                                        hidden={!activeCommunity?.is_owner}
+                                        onclick={openAction("share", selectedCommunity)}
+                                    >
+                                        <Icon name="link" class="size-5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        aria-label="Community details and members"
+                                        title="Settings"
+                                        aria-expanded={detailsOpen}
+                                        onclick={setDetailsOpen(!detailsOpen)}
+                                    >
+                                        <Icon name="settings" class="size-5" />
+                                    </button>
+                                </div>
                             </div>
                         </header>
                         <div class="community-details-panel" hidden={!detailsOpen}>
@@ -1397,6 +1429,345 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 </template>
                             </section>
                         </div>
+                    </section>
+                    <section
+                        class="community-events scroll-thin"
+                        aria-label="Community events"
+                        hidden={!eventsView}
+                    >
+                        <header class="community-events-header" hidden={eventsView !== "list"}>
+                            <button
+                                type="button"
+                                class="community-events-back"
+                                aria-label="Back to community"
+                                title="Back"
+                                onclick={closeEvents()}
+                            >
+                                <Icon name="arrow-right" class="size-5 rotate-180" />
+                            </button>
+                            <span class="community-small-avatar">
+                                <img
+                                    src={activeCommunity?.picture || "/images/upurnaka-logo.png"}
+                                    alt=""
+                                    hidden={!activeCommunity?.picture}
+                                />
+                                <span hidden={!!activeCommunity?.picture}>
+                                    {activeCommunity?.avatar || "👥"}
+                                </span>
+                            </span>
+                            <div class="community-events-title">
+                                <h2>"Community events"</h2>
+                                <p>{activeCommunity?.name}</p>
+                            </div>
+                            <button
+                                type="button"
+                                class="community-events-create"
+                                data-outlined="true"
+                                onclick={newEvent()}
+                            >
+                                <Icon name="plus" class="size-4" />
+                                "Create event"
+                            </button>
+                        </header>
+                        <div class="community-events-body" hidden={eventsView !== "list"}>
+                            <p class="community-events-note" role="status" hidden={!eventsLoading}>
+                                "Loading events…"
+                            </p>
+                            <p class="community-events-error" role="alert" hidden={!eventsError}>
+                                {eventsError}
+                            </p>
+                            <p class="community-events-note" role="status" hidden={!eventNotice}>
+                                {eventNotice}
+                            </p>
+                            <div
+                                class="community-events-empty"
+                                hidden={eventsLoading || !!eventsError || events.length > 0}
+                            >
+                                <img
+                                    src="/images/community-events-empty.svg"
+                                    alt=""
+                                    width="200"
+                                    height="200"
+                                />
+                                <h3>
+                                    "Schedule new events and see all your upcoming events in one view."
+                                </h3>
+                                <button
+                                    type="button"
+                                    class="community-events-create"
+                                    onclick={newEvent()}
+                                >
+                                    <Icon name="plus" class="size-4" />
+                                    "Create event"
+                                </button>
+                            </div>
+                            <ol class="community-events-list" hidden={events.length === 0}>
+                                <template pp-for="item in events">
+                                    <li key={item.id} class="community-event-card">
+                                        <img
+                                            class="community-event-banner"
+                                            src={"/images/banners/" + item.banner + ".svg"}
+                                            alt=""
+                                        />
+                                        <div class="community-event-date" aria-hidden="true">
+                                            <small>{eventMonth(item)}</small>
+                                            <strong>{eventDay(item)}</strong>
+                                        </div>
+                                        <div class="community-event-info">
+                                            <h3>{item.title}</h3>
+                                            <p class="community-event-when">
+                                                <Icon name="clock" class="size-4" />
+                                                {eventWhen(item)}
+                                            </p>
+                                            <p
+                                                class="community-event-where"
+                                                hidden={!item.location}
+                                            >
+                                                <Icon name="location" class="size-4" />
+                                                {item.location}
+                                            </p>
+                                            <p
+                                                class="community-event-where"
+                                                hidden={!item.join_url}
+                                            >
+                                                <Icon name="video" class="size-4" />
+                                                "Online event"
+                                            </p>
+                                            <p
+                                                class="community-event-details"
+                                                hidden={!item.details}
+                                            >
+                                                {item.details}
+                                            </p>
+                                            <p class="community-event-organizer">
+                                                {"Organized by " + item.organizer_name}
+                                            </p>
+                                        </div>
+                                        <a
+                                            class="community-event-join"
+                                            href={item.join_url || "#"}
+                                            hidden={!item.join_url}
+                                        >
+                                            "Join"
+                                        </a>
+                                    </li>
+                                </template>
+                            </ol>
+                        </div>
+                        <form
+                            class="community-event-form"
+                            hidden={eventsView !== "new"}
+                            onsubmit={sendEvent(event)}
+                            onkeydown={eventFormKey(event)}
+                        >
+                            <header class="community-event-form-header">
+                                <span class="community-event-form-icon">
+                                    <Icon name="calendar-day" class="size-5" />
+                                </span>
+                                <h2>"New event"</h2>
+                                <span class="community-event-form-tab" aria-current="page">
+                                    "Details"
+                                </span>
+                                <button
+                                    type="submit"
+                                    class="community-event-send"
+                                    disabled={eventSaving}
+                                >
+                                    {eventSaving ? "Sending…" : "Send"}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="community-event-close"
+                                    onclick={closeEventForm()}
+                                >
+                                    "Close"
+                                </button>
+                            </header>
+                            <div class="community-event-fields">
+                                <label class="community-event-zone">
+                                    "Time zone: "
+                                    <select
+                                        name="timezone"
+                                        value={eventZone}
+                                        onchange={setEventZone(event.currentTarget.value)}
+                                    >
+                                        <template pp-for="zone in eventZones">
+                                            <option key={zone.value} value={zone.value}>
+                                                {zone.label}
+                                            </option>
+                                        </template>
+                                    </select>
+                                </label>
+                                <p class="community-event-error" role="alert" hidden={!eventError}>
+                                    {eventError}
+                                </p>
+                                <div class="community-event-row">
+                                    <button
+                                        type="button"
+                                        class="community-event-row-icon"
+                                        aria-label="Change banner"
+                                        title="Change banner"
+                                        onclick={nextEventBanner()}
+                                    >
+                                        <Icon name="image" class="size-5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="community-event-banner-pick"
+                                        aria-label="Change banner"
+                                        onclick={nextEventBanner()}
+                                    >
+                                        <img
+                                            src={"/images/banners/" + eventBanner + ".svg"}
+                                            alt=""
+                                        />
+                                    </button>
+                                </div>
+                                <div class="community-event-row">
+                                    <span class="community-event-row-icon">
+                                        <Icon name="edit" class="size-5" />
+                                    </span>
+                                    <input
+                                        class="community-event-title"
+                                        name="title"
+                                        maxlength="120"
+                                        autocomplete="off"
+                                        placeholder="Add title"
+                                        aria-label="Title"
+                                        pp-ref={eventTitleInput}
+                                    />
+                                </div>
+                                <div class="community-event-row">
+                                    <span class="community-event-row-icon">
+                                        <Icon name="clock" class="size-5" />
+                                    </span>
+                                    <div class="community-event-times">
+                                        <input
+                                            type="date"
+                                            aria-label="Start date"
+                                            value={eventStartDate}
+                                            onchange={moveEventStart(event.currentTarget.value, eventStartTime)}
+                                        />
+                                        <select
+                                            aria-label="Start time"
+                                            value={eventStartTime}
+                                            hidden={eventAllDay}
+                                            onchange={moveEventStart(eventStartDate, event.currentTarget.value)}
+                                        >
+                                            <template pp-for="slot in timeSlots">
+                                                <option key={slot.value} value={slot.value}>
+                                                    {slot.label}
+                                                </option>
+                                            </template>
+                                        </select>
+                                        <Icon name="arrow-right" class="size-4 text-subtle" />
+                                        <input
+                                            type="date"
+                                            aria-label="End date"
+                                            value={eventEndDate}
+                                            onchange={setEventEndDate(event.currentTarget.value)}
+                                        />
+                                        <select
+                                            aria-label="End time"
+                                            value={eventEndTime}
+                                            hidden={eventAllDay}
+                                            onchange={setEventEndTime(event.currentTarget.value)}
+                                        >
+                                            <template pp-for="slot in timeSlots">
+                                                <option key={slot.value} value={slot.value}>
+                                                    {slot.label}
+                                                </option>
+                                            </template>
+                                        </select>
+                                        <span class="community-event-duration" hidden={eventAllDay}>
+                                            {eventDuration}
+                                        </span>
+                                        <label class="community-event-switch">
+                                            <input
+                                                type="checkbox"
+                                                role="switch"
+                                                checked={eventAllDay}
+                                                onchange={setEventAllDay(event.currentTarget.checked)}
+                                            />
+                                            <span aria-hidden="true"></span>
+                                            "All day"
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="community-event-row">
+                                    <span class="community-event-row-icon">
+                                        <Icon name="repeat" class="size-5" />
+                                    </span>
+                                    <div class="community-event-times">
+                                        <select
+                                            aria-label="Repeat"
+                                            value={eventRepeat}
+                                            onchange={setEventRepeat(event.currentTarget.value)}
+                                        >
+                                            <option value="none">"Does not repeat"</option>
+                                            <option value="daily">"Every day"</option>
+                                            <option value="weekly">"Every week"</option>
+                                            <option value="monthly">"Every month"</option>
+                                        </select>
+                                        <label
+                                            class="community-event-count"
+                                            hidden={eventRepeat === "none"}
+                                        >
+                                            "For"
+                                            <input
+                                                type="number"
+                                                min="2"
+                                                max="52"
+                                                aria-label="Number of occurrences"
+                                                value={eventOccurrences}
+                                                onchange={setEventOccurrences(Number(event.currentTarget.value))}
+                                            />
+                                            "occurrences"
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="community-event-row">
+                                    <span class="community-event-row-icon">
+                                        <Icon name="location" class="size-5" />
+                                    </span>
+                                    <input
+                                        class="community-event-input"
+                                        name="location"
+                                        maxlength="300"
+                                        autocomplete="off"
+                                        placeholder="Add location"
+                                        aria-label="Location"
+                                    />
+                                </div>
+                                <div class="community-event-row">
+                                    <span class="community-event-row-icon"></span>
+                                    <label class="community-event-switch">
+                                        <input
+                                            type="checkbox"
+                                            role="switch"
+                                            checked={eventOnline}
+                                            onchange={setEventOnline(event.currentTarget.checked)}
+                                        />
+                                        <span aria-hidden="true"></span>
+                                        "Online event"
+                                    </label>
+                                </div>
+                                <div class="community-event-row">
+                                    <span class="community-event-row-icon">
+                                        <Icon name="list" class="size-5" />
+                                    </span>
+                                    <textarea
+                                        class="community-event-input community-event-details-input"
+                                        name="details"
+                                        maxlength="8000"
+                                        rows="5"
+                                        placeholder="Type details for this new event"
+                                        aria-label="Details"
+                                    >
+                                    </textarea>
+                                </div>
+                            </div>
+                        </form>
                     </section>
                 </div>
                 <Dialog>
@@ -2357,7 +2728,87 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                     .community-tabs button[aria-selected=true] { color:white;font-weight:600; }
                     .community-tabs button[aria-selected=true]::after { content:"";position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:3px;background:#9186ef; }
                     .community-header-actions { display:flex;align-items:center;gap:8px;margin-left:auto; }
-                    .community-event-link { display:flex;align-items:center;gap:8px;border:1px solid #555;border-radius:4px;padding:8px 12px;font-size:14px; }
+                    .community-event-link { display:flex;align-items:center;gap:8px;height:32px;border:1px solid #555;border-radius:4px;padding:0 12px;font-size:14px;font-weight:600;color:#f2f2f2; }
+                    .community-event-link:hover { background:#333; }
+                    .community-header-group { display:flex;border:1px solid #555;border-radius:4px;overflow:hidden; }
+                    .community-header-group button { display:grid;place-items:center;width:32px;height:30px;color:#e6e6e6; }
+                    .community-header-group button[hidden] { display:none; }
+                    .community-header-group button + button { border-left:1px solid #555; }
+                    .community-header-group button:hover,.community-header-group button[aria-expanded=true] { background:#333; }
+                    .community-detail[hidden],.community-events[hidden] { display:none; }
+                    .community-events { position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;background:#262626;border-radius:12px 0 0 0;margin:10px 0 0;overflow-y:auto;overscroll-behavior:contain; }
+                    .community-events-header { position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 16px;background:#262626;border-bottom:1px solid #ffffff12; }
+                    .community-events-header[hidden],.community-events-body[hidden],.community-event-form[hidden] { display:none; }
+                    .community-events-back { display:grid;place-items:center;width:32px;height:32px;border-radius:4px;color:#d6d6d6; }
+                    .community-events-back:hover { background:#333; }
+                    .community-events-header .community-small-avatar { width:32px;height:32px;font-size:20px; }
+                    .community-events-title { min-width:0;flex:1; }
+                    .community-events-title h2 { font-size:14px;font-weight:600;color:#fff; }
+                    .community-events-title p { font-size:12px;color:#adadad;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+                    .community-events-create { display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 14px;border-radius:4px;background:#5b5fc7;color:#fff;font-size:14px;font-weight:600; }
+                    .community-events-create:hover { background:#4f52b2; }
+                    .community-events-create[data-outlined=true] { box-shadow:0 0 0 2px #262626,0 0 0 3px #fff0; }
+                    .community-events-body { flex:1;display:flex;flex-direction:column;padding:24px clamp(18px,4vw,48px) 40px; }
+                    .community-events-note { margin-bottom:12px;font-size:13px;color:#c4d8bc; }
+                    .community-events-note[hidden],.community-events-error[hidden],.community-events-empty[hidden],.community-events-list[hidden] { display:none; }
+                    .community-events-error { margin-bottom:12px;font-size:13px;color:#f1707b; }
+                    .community-events-empty { flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;text-align:center;padding:40px 16px; }
+                    .community-events-empty img { width:200px;height:200px; }
+                    .community-events-empty h3 { font-size:18px;font-weight:700;color:#fff; }
+                    .community-events-list { display:flex;flex-direction:column;gap:12px;max-width:960px; }
+                    .community-event-card { display:grid;grid-template-columns:120px 56px minmax(0,1fr) auto;align-items:start;gap:16px;padding:12px;border-radius:8px;background:#2e2e2e;border:1px solid #ffffff0f; }
+                    .community-event-banner { width:120px;height:72px;border-radius:6px;object-fit:cover; }
+                    .community-event-date { display:flex;flex-direction:column;align-items:center;padding:6px 0;border-radius:6px;background:#383838; }
+                    .community-event-date small { font-size:11px;font-weight:700;color:#7f85f5; }
+                    .community-event-date strong { font-size:22px;line-height:1.1;color:#fff; }
+                    .community-event-info { min-width:0;display:flex;flex-direction:column;gap:4px; }
+                    .community-event-info h3 { font-size:15px;font-weight:600;color:#fff;overflow-wrap:anywhere; }
+                    .community-event-when,.community-event-where { display:flex;align-items:center;gap:6px;font-size:13px;color:#d6d6d6; }
+                    .community-event-where[hidden],.community-event-details[hidden],.community-event-join[hidden] { display:none; }
+                    .community-event-details { font-size:13px;color:#bdbdbd;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden; }
+                    .community-event-organizer { font-size:12px;color:#9e9e9e; }
+                    .community-event-join { display:inline-flex;align-items:center;height:32px;padding:0 16px;border-radius:4px;background:#5b5fc7;color:#fff;font-size:14px;font-weight:600; }
+                    .community-event-join:hover { background:#4f52b2; }
+                    .community-event-form { display:flex;flex-direction:column;min-height:100%; }
+                    .community-event-form-header { position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;min-height:64px;padding:8px 24px;background:#262626;border-bottom:1px solid #ffffff12; }
+                    .community-event-form-icon { display:grid;place-items:center;width:32px;height:32px;border-radius:6px;background:#5b5fc7;color:#fff; }
+                    .community-event-form-header h2 { font-size:20px;font-weight:700;color:#fff; }
+                    .community-event-form-tab { position:relative;align-self:stretch;display:flex;align-items:center;font-size:14px;font-weight:600;color:#fff; }
+                    .community-event-form-tab::after { content:'';position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px;background:#7f85f5; }
+                    .community-event-send { margin-left:auto;height:32px;padding:0 16px;border-radius:4px;background:#5b5fc7;color:#fff;font-size:14px;font-weight:600; }
+                    .community-event-send:hover:not(:disabled) { background:#4f52b2; }
+                    .community-event-send:disabled { opacity:.6; }
+                    .community-event-close { height:32px;padding:0 16px;border-radius:4px;border:1px solid #555;color:#fff;font-size:14px;font-weight:600; }
+                    .community-event-close:hover { background:#333; }
+                    .community-event-fields { display:flex;flex-direction:column;gap:14px;width:100%;max-width:1220px;padding:20px 24px 40px; }
+                    .community-event-zone { display:flex;align-items:center;gap:4px;font-size:14px;color:#d6d6d6; }
+                    .community-event-zone select { background:transparent;color:#d6d6d6;border:0;padding:4px;font-size:14px;max-width:min(100%,360px); }
+                    .community-event-zone select option,.community-event-times select option { background:#2b2b2b;color:#f2f2f2; }
+                    .community-event-error { padding:10px 12px;border-radius:4px;background:#3e1f25;color:#f1a7ae;font-size:13px; }
+                    .community-event-error[hidden],.community-event-count[hidden],.community-event-duration[hidden],.community-event-times select[hidden] { display:none; }
+                    .community-event-row { display:grid;grid-template-columns:32px minmax(0,1fr);align-items:center;gap:20px; }
+                    .community-event-row-icon { display:grid;place-items:center;width:32px;height:32px;border-radius:4px;color:#d6d6d6; }
+                    button.community-event-row-icon:hover { background:#333; }
+                    .community-event-banner-pick { display:block;width:100%;border-radius:12px;overflow:hidden; }
+                    .community-event-banner-pick img { width:100%;height:clamp(120px,22vw,270px);object-fit:cover; }
+                    .community-event-title { height:40px;padding:0 12px;border:0;border-bottom:2px solid #7f85f5;border-radius:4px 4px 0 0;background:#2e2e2e;color:#fff;font-size:16px;outline:none; }
+                    .community-event-input { min-height:48px;padding:12px;border:0;border-bottom:2px solid transparent;border-radius:4px;background:#2e2e2e;color:#fff;font-size:15px;outline:none; }
+                    .community-event-input:focus,.community-event-title:focus { border-bottom-color:#7f85f5; }
+                    .community-event-details-input { min-height:110px;resize:vertical; }
+                    .community-event-times { display:flex;flex-wrap:wrap;align-items:center;gap:10px; }
+                    .community-event-times input[type=date],.community-event-times select,.community-event-count input { height:40px;padding:0 12px;border:0;border-radius:4px;background:#2e2e2e;color:#fff;font-size:15px;color-scheme:dark; }
+                    .community-event-times input[type=date] { width:200px; }
+                    .community-event-count { display:flex;align-items:center;gap:8px;font-size:14px;color:#d6d6d6; }
+                    .community-event-count input { width:80px; }
+                    .community-event-duration { font-size:15px;color:#d6d6d6; }
+                    .community-event-switch { display:inline-flex;align-items:center;gap:10px;font-size:15px;color:#f2f2f2;cursor:pointer; }
+                    .community-event-switch input { position:absolute;opacity:0;width:1px;height:1px; }
+                    .community-event-switch span { position:relative;width:40px;height:20px;border-radius:10px;border:1px solid #adadad;transition:background .15s; }
+                    .community-event-switch span::after { content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:#d6d6d6;transition:transform .15s; }
+                    .community-event-switch input:checked + span { background:#7f85f5;border-color:#7f85f5; }
+                    .community-event-switch input:checked + span::after { transform:translateX(20px);background:#fff; }
+                    .community-event-switch input:focus-visible + span { outline:2px solid #fff;outline-offset:2px; }
+                    @media(max-width:700px) { .community-events { margin:0;border-radius:12px 12px 0 0; } .community-event-card { grid-template-columns:56px minmax(0,1fr); } .community-event-banner { display:none; } .community-event-join { grid-column:2; justify-self:start; } .community-event-row { gap:10px; } .community-event-form-header { flex-wrap:wrap;padding:8px 16px; } .community-event-fields { padding:16px; } .community-event-times input[type=date] { width:auto; } }
                     .community-content { max-width:1140px;margin:auto;padding:24px clamp(18px,5vw,90px) 50px; }
                     .community-composer,.community-post { border:1px solid #222;border-radius:8px;background:#282828;padding:18px;box-shadow:0 2px 4px #0003; }
                     .community-composer-heading { display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;color:#ddd; }
@@ -2741,10 +3192,137 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                         catch(failure){setNotice(failure.message);}finally{setWorking(false);}
                     }
                     function selectCommunity(id) {
-                        setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false);
+                        setSelectedCommunity(id); selectChannel(''); setDetailsOpen(false); setEventsView('');
                         const url = new URL(location.href); url.searchParams.set('community', id); history.replaceState(null, '', url);
                     }
-                    function selectChannel(id) { setChannelId(id); setActiveTab('posts'); setWorkspaceError(''); }
+                    function selectChannel(id) { setChannelId(id); setActiveTab('posts'); setWorkspaceError(''); setEventsView(''); }
+                    // Events: Teams' "Community events" view in place of the channel,
+                    // and its New event form. Each occurrence is listed until it ends.
+                    const eventBanners = @{Json(&communities::BANNERS)};
+                    const eventTitleInput = pp.ref(null);
+                    const eventsTicket = pp.ref(0);
+                    const [eventsView, setEventsView] = pp.state('');
+                    const [events, setEvents] = pp.state([]);
+                    const [eventsLoading, setEventsLoading] = pp.state(false);
+                    const [eventsError, setEventsError] = pp.state('');
+                    const [eventNotice, setEventNotice] = pp.state('');
+                    const [eventSaving, setEventSaving] = pp.state(false);
+                    const [eventError, setEventError] = pp.state('');
+                    const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+                    const [eventZone, setEventZone] = pp.state(localZone);
+                    const [eventBanner, setEventBanner] = pp.state(eventBanners[0]);
+                    const [eventStartDate, setEventStartDate] = pp.state('');
+                    const [eventStartTime, setEventStartTime] = pp.state('09:00');
+                    const [eventEndDate, setEventEndDate] = pp.state('');
+                    const [eventEndTime, setEventEndTime] = pp.state('09:30');
+                    const [eventAllDay, setEventAllDay] = pp.state(false);
+                    const [eventRepeat, setEventRepeat] = pp.state('none');
+                    const [eventOccurrences, setEventOccurrences] = pp.state(4);
+                    const [eventOnline, setEventOnline] = pp.state(true);
+                    function zoneLabel(zone) {
+                        try {
+                            const offset = new Intl.DateTimeFormat('en-US', {timeZone:zone, timeZoneName:'longOffset'}).formatToParts(new Date()).find(part => part.type === 'timeZoneName')?.value || 'GMT';
+                            return '(' + (offset === 'GMT' ? 'UTC' : offset.replace('GMT', 'UTC')) + ') ' + zone.replace(/_/g, ' ');
+                        } catch (_) { return zone; }
+                    }
+                    const eventZones = Array.from(new Set([localZone, @{app_zone},'UTC', 'America/Managua', 'America/Mexico_City', 'America/New_York', 'America/Los_Angeles', 'Europe/London', 'Europe/Madrid', 'Asia/Tokyo'])).filter(zone => zone).map(value => ({value, label: zoneLabel(value)}));
+                    function twoDigits(value) { return String(value).padStart(2, '0'); }
+                    function slotLabel(value) {
+                        const [hour, minute] = value.split(':').map(Number);
+                        return twoDigits(hour % 12 || 12) + ':' + twoDigits(minute) + (hour < 12 ? ' AM' : ' PM');
+                    }
+                    const timeSlots = Array.from({length:48}, (_, index) => { const value = twoDigits(Math.floor(index / 2)) + ':' + (index % 2 ? '30' : '00'); return {value, label:slotLabel(value)}; });
+                    function localDay(date) { return date.getFullYear() + '-' + twoDigits(date.getMonth() + 1) + '-' + twoDigits(date.getDate()); }
+                    function wallClock(day, time) { const [y, m, d] = day.split('-').map(Number); const [h, min] = time.split(':').map(Number); return new Date(y, m - 1, d, h, min); }
+                    function eventMinutes() {
+                        if (!eventStartDate || !eventEndDate) return 0;
+                        return Math.round((wallClock(eventEndDate, eventEndTime) - wallClock(eventStartDate, eventStartTime)) / 60000);
+                    }
+                    const eventDuration = (() => {
+                        const minutes = eventMinutes();
+                        if (minutes <= 0) return '';
+                        const hours = Math.floor(minutes / 60), rest = minutes % 60;
+                        return (hours ? hours + 'h' : '') + (hours && rest ? ' ' : '') + (rest ? rest + 'm' : '');
+                    })();
+                    // Moving the start keeps the length, as Teams does.
+                    function moveEventStart(day, time) {
+                        if (!day) return;
+                        const length = Math.max(eventMinutes(), 30);
+                        const end = new Date(wallClock(day, time).getTime() + length * 60000);
+                        setEventStartDate(day); setEventStartTime(time);
+                        setEventEndDate(localDay(end)); setEventEndTime(twoDigits(end.getHours()) + ':' + twoDigits(end.getMinutes()));
+                    }
+                    const loadEvents = pp.event(async function loadEvents() {
+                        const id = selectedCommunity, ticket = ++eventsTicket.current;
+                        if (!id) return;
+                        setEventsLoading(true); setEventsError('');
+                        try {
+                            const listed = await pp.rpc('community_events', {id});
+                            if (ticket === eventsTicket.current) setEvents(listed);
+                        } catch (failure) {
+                            if (ticket === eventsTicket.current) setEventsError(failure.message || 'Events could not be loaded.');
+                        } finally {
+                            if (ticket === eventsTicket.current) setEventsLoading(false);
+                        }
+                    });
+                    function openEvents() { setDetailsOpen(false); setEventNotice(''); setEvents([]); setEventsView('list'); loadEvents(); }
+                    function closeEvents() { setEventsView(''); }
+                    function newEvent() {
+                        const start = new Date(); start.setSeconds(0, 0);
+                        start.setMinutes(start.getMinutes() < 30 ? 30 : 60);
+                        const end = new Date(start.getTime() + 30 * 60000);
+                        setEventStartDate(localDay(start)); setEventStartTime(twoDigits(start.getHours()) + ':' + twoDigits(start.getMinutes()));
+                        setEventEndDate(localDay(end)); setEventEndTime(twoDigits(end.getHours()) + ':' + twoDigits(end.getMinutes()));
+                        setEventZone(localZone); setEventAllDay(false); setEventRepeat('none'); setEventOccurrences(4); setEventOnline(true);
+                        setEventBanner(eventBanners[Math.floor(Math.random() * eventBanners.length)]);
+                        setEventError(''); setEventNotice(''); setEventsView('new');
+                        setTimeout(() => {
+                            const input = eventTitleInput.current, form = input?.form;
+                            if (!input) return;
+                            ['title', 'location', 'details'].forEach(name => { if (form.elements[name]) form.elements[name].value = ''; });
+                            input.focus();
+                        }, 0);
+                    }
+                    function nextEventBanner() { setEventBanner(eventBanners[(eventBanners.indexOf(eventBanner) + 1) % eventBanners.length]); }
+                    function closeEventForm() { setEventsView('list'); setEventError(''); }
+                    function eventFormKey(event) {
+                        if (event.key !== 'Escape' || eventSaving) return;
+                        event.preventDefault(); closeEventForm();
+                    }
+                    async function sendEvent(event) {
+                        event.preventDefault();
+                        if (eventSaving) return;
+                        const data = Object.fromEntries(new FormData(event.currentTarget));
+                        if (!String(data.title || '').trim()) { setEventError('Add a title for the event.'); eventTitleInput.current?.focus(); return; }
+                        const id = selectedCommunity;
+                        setEventSaving(true); setEventError('');
+                        try {
+                            const created = await pp.rpc('create_community_event', {id, input:{
+                                title:data.title, location:data.location || '', details:data.details || '', timezone:eventZone,
+                                start_date:eventStartDate, start_time:eventStartTime, end_date:eventEndDate, end_time:eventEndTime,
+                                all_day:eventAllDay, recurrence:eventRepeat, occurrences:eventRepeat === 'none' ? 1 : Number(eventOccurrences) || 1,
+                                online:eventOnline, banner:eventBanner,
+                            }});
+                            if (id === selectedCommunity) {
+                                setEvents(current => [...current, ...created].sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at)));
+                                setEventNotice(created.length === 1 ? 'Event scheduled.' : created.length + ' events scheduled.');
+                                setEventsView('list');
+                            }
+                        } catch (failure) {
+                            const fields = failure.errors || {};
+                            setEventError(Object.values(fields).flat()[0] || failure.message || 'The event could not be scheduled.');
+                        } finally { setEventSaving(false); }
+                    }
+                    function eventMonth(item) { return new Date(item.starts_at).toLocaleDateString([], {month:'short'}).toUpperCase(); }
+                    function eventDay(item) { return new Date(item.starts_at).getDate(); }
+                    function eventWhen(item) {
+                        const start = new Date(item.starts_at), end = new Date(item.ends_at);
+                        const day = start.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'});
+                        if (item.all_day) return day + ' · All day';
+                        const clock = {hour:'numeric', minute:'2-digit'};
+                        const sameDay = start.toDateString() === end.toDateString();
+                        return day + ' · ' + start.toLocaleTimeString([], clock) + ' – ' + (sameDay ? '' : end.toLocaleDateString([], {month:'short', day:'numeric'}) + ' ') + end.toLocaleTimeString([], clock);
+                    }
                     function updateCommunity(id, changes) { setCommunities(current => current.map(c => c.id === id ? {...c, ...changes(c)} : c)); }
                     async function addChannel(event) {
                         event.preventDefault(); if (working || channelAtLimit) return;
@@ -3666,6 +4244,19 @@ pub async fn upload_community_file(
     file: RpcFile,
 ) -> Result<communities::Post> {
     communities::share_file(id, channel, file).await
+}
+/// The Events view: a community's events that have not ended yet.
+#[rpc(auth)]
+pub async fn community_events(id: String) -> Result<Vec<community_events::CommunityEvent>> {
+    community_events::upcoming(id).await
+}
+/// "Send" on the New event form.
+#[rpc(auth)]
+pub async fn create_community_event(
+    id: String,
+    input: community_events::EventInput,
+) -> Result<Vec<community_events::CommunityEvent>> {
+    community_events::create(id, input).await
 }
 /// Share files picked from the uploader's Dilnaka Storage to the Files tab.
 #[rpc(auth)]

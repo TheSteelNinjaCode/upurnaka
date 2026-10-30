@@ -511,6 +511,127 @@ async fn post_edit_delete_and_pin_respect_authors_and_owners() {
 }
 
 #[tokio::test]
+async fn community_events_schedule_for_members_and_list_upcoming() {
+    setup().await;
+    let mut owner = super::auth::Client::new().await;
+    owner.with_cookie(test_cookie());
+    owner.request("/communities", None).await;
+    let mut outsider = super::auth::Client::new().await;
+    outsider.with_cookie(super::support::cookie_for(
+        "test-admin",
+        "Test Administrator",
+        "admin-test@example.com",
+    ));
+    outsider.request("/communities", None).await;
+    let (_, created) = community_call(
+        &mut owner,
+        "create_community",
+        json!({"name":"Event planning school","category":"School"}),
+    )
+    .await;
+    let id = created["id"].as_str().unwrap();
+    let (status, listed) = community_call(&mut owner, "community_events", json!({"id":id})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(listed, json!([]));
+
+    let day = (chrono::Utc::now() + chrono::Duration::days(3))
+        .format("%Y-%m-%d")
+        .to_string();
+    let input = |title: &str, recurrence: &str, occurrences: u32| {
+        json!({
+            "title": title, "start_date": day, "start_time": "19:30", "end_date": day,
+            "end_time": "20:00", "timezone": "America/Managua", "all_day": false,
+            "recurrence": recurrence, "occurrences": occurrences, "location": "Library",
+            "online": true, "details": "Bring notes", "banner": "mint",
+        })
+    };
+    let (status, scheduled) = community_call(
+        &mut owner,
+        "create_community_event",
+        json!({"id":id,"input":input("Study night","weekly",3)}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{scheduled}");
+    let scheduled = scheduled.as_array().unwrap();
+    assert_eq!(scheduled.len(), 3);
+    assert_eq!(scheduled[0]["title"], "Study night");
+    // 19:30 in Managua (UTC-6) is 01:30 UTC the next day; the series repeats weekly.
+    let next_day =
+        chrono::NaiveDate::parse_from_str(&day, "%Y-%m-%d").unwrap() + chrono::Duration::days(1);
+    assert_eq!(
+        scheduled[0]["starts_at"],
+        format!("{next_day}T01:30:00+00:00")
+    );
+    assert_eq!(
+        scheduled[1]["starts_at"],
+        format!("{}T01:30:00+00:00", next_day + chrono::Duration::weeks(1))
+    );
+    assert_eq!(scheduled[0]["organizer_name"], "Jefferson Abraham");
+    assert_eq!(scheduled[0]["is_mine"], true);
+    let join = scheduled[0]["join_url"].as_str().unwrap();
+    assert!(join.starts_with("/meet/j/"));
+    assert_eq!(owner.request(join, None).await.0, StatusCode::OK);
+    let (_, listed) = community_call(&mut owner, "community_events", json!({"id":id})).await;
+    assert_eq!(listed.as_array().unwrap().len(), 3);
+
+    let (status, body) = community_call(
+        &mut owner,
+        "create_community_event",
+        json!({"id":id,"input":input("","none",1)}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(body["errors"]["title"].is_array(), "{body}");
+    let mut backwards = input("Backwards", "none", 1);
+    backwards["end_time"] = json!("19:00");
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "create_community_event",
+            json!({"id":id,"input":backwards})
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let mut unknown_banner = input("Banner", "none", 1);
+    unknown_banner["banner"] = json!("../secret");
+    assert_eq!(
+        community_call(
+            &mut owner,
+            "create_community_event",
+            json!({"id":id,"input":unknown_banner})
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(
+        community_call(&mut owner, "create_community_event", json!({"id":id}))
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    // Outsiders neither see nor schedule a community's events.
+    assert_eq!(
+        community_call(&mut outsider, "community_events", json!({"id":id}))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        community_call(
+            &mut outsider,
+            "create_community_event",
+            json!({"id":id,"input":input("Intruder","none",1)})
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
 async fn community_files_upload_as_posts_and_download_only_for_members() {
     setup().await;
     let mut owner = super::auth::Client::new().await;
@@ -2185,6 +2306,29 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .await
         .unwrap();
     assert!(browser.eval::<bool>("document.querySelector('.community-detail').getBoundingClientRect().right <= innerWidth + 1").await.unwrap());
+    // Events opens Teams' "Community events" view in place of the channel;
+    // Create event opens the New event form, and Send lists the event.
+    browser.click(".community-event-link").await.unwrap();
+    browser.wait_for("document.querySelector('.community-detail').hidden && !document.querySelector('.community-events').hidden && !document.querySelector('.community-events-empty').hidden && document.querySelector('.community-events-title h2').textContent === 'Community events'").await.unwrap();
+    browser
+        .click(".community-events-empty .community-events-create")
+        .await
+        .unwrap();
+    browser.wait_for("!document.querySelector('.community-event-form').hidden && document.activeElement.name === 'title' && document.querySelector('.community-event-duration').textContent === '30m'").await.unwrap();
+    browser.click(".community-event-send").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.community-event-error').textContent === 'Add a title for the event.'")
+        .await
+        .unwrap();
+    browser.click(".community-event-title").await.unwrap();
+    browser.type_text("Parent night").await.unwrap();
+    browser.click(".community-event-send").await.unwrap();
+    browser.wait_for("document.querySelector('.community-event-form').hidden && document.querySelectorAll('.community-event-card').length === 1 && document.querySelector('.community-event-card h3').textContent === 'Parent night' && !document.querySelector('.community-event-join').hidden").await.unwrap();
+    browser.click(".community-events-back").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.community-detail').hidden && document.querySelector('.community-events').hidden")
+        .await
+        .unwrap();
     // Like Teams, the posts pane scrolls on its own: the banner leaves, while
     // the header and the collapsed composer stay pinned.
     browser

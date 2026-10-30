@@ -18,6 +18,7 @@ pub mod calendar;
 pub mod chat_files;
 pub mod chat_format;
 pub mod communities;
+pub mod community_events;
 pub mod emoji;
 mod middleware;
 pub mod seed;
