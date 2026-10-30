@@ -27,13 +27,19 @@ Every prop is optional — `html!` closes a props literal with `..Default::defau
 so a tag names what it changes and nothing else. Values are Rust expressions, so a
 number is written as a string.
 
-Two things about the component boundary, because they fail in opposite ways:
+A `{…}` written on a component tag reads the state of the page that wrote it:
 
-- An **event** — `onclick={setCount(count + 1)}` — is resolved when it fires, by
-which time it reaches the calling page's state. It works.
-- An **attribute binding** — `disabled={count === 0}` on a component tag — is
-compiled against the component's own scope, finds no `count`, and quietly does
-nothing. Use the props builder and interpolate it instead:
+- An **event** — `onclick={setCount(count + 1)}` — lands on the element and runs
+in the calling page's scope.
+- An **attribute binding** — `disabled={count === 0}`, `value={query}` — lands on
+the component's root, whose attributes are evaluated where the tag was written.
+Where the bound element sits below the root (a Toggle's input inside its label),
+the component lifts it: the handler onto the root, the value onto it as a prop
+the inner element reads through `pp.props`.
+- A `{…}` between the tags reads the page too: children belong to the block that
+wrote them.
+
+The props builder is the other spelling, for an element built in Rust:
 `@{button().outline().bind("disabled", "count === 0").render(children)}`.
 
 Anything the component does not name goes through `attrs`, which is what

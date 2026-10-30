@@ -11,6 +11,33 @@ This file is the scaffold's until you edit it: `cargo rahti upgrade`
 refreshes an unedited copy as the framework evolves, and leaves an
 edited one alone.
 
+## Applying an edit
+
+Nothing you edit is real until the running server is replaced, and you
+own that step. After every batch of edits:
+
+1. `cargo rahti restart`. A compile error leaves the old server running
+and says so. Do not start a second server, and never force-kill one.
+2. Load every affected route in a browser with a full page load, and
+exercise what changed.
+3. `cargo rahti status`, or MCP `server_status`. It says whether the
+server is running the current source, which routes loaded under this
+boot with their browser errors, and how background jobs are doing. A
+route it does not list was never opened, so it proves nothing.
+
+End with what you applied: "Restarted, loaded `/todo`, saved a row;
+browser clean." If you have no browser, say so and give the exact URL.
+
+## Background jobs for agents
+
+`cargo rahti generate job <name> --params id:i64` adds a `#[job]` to
+`src/jobs.rs`. Call it as `crate::jobs::<name>::enqueue(id).await?`, after
+the write it follows commits; a wrong name or argument is a compile
+error. `jobs` in `.rahti/manifest.json`, or MCP `list_jobs`, gives each
+job's parameters, policy and exact call. Retryable jobs run more than
+once, so make them idempotent. Payloads are ids, never secrets. See
+`docs/conventions/background-jobs.md`.
+
 ## RPC work for agents
 
 Run `cargo check` after changing RPC declarations. Read `rpcContracts`

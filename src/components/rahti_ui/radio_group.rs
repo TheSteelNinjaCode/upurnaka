@@ -1,5 +1,5 @@
 // rahti-ui: radio-group
-// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.3.
+// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.5.
 //
 // This is source, not a generated file — it is the application's to read and to
 // change. `cargo rahti-ui update` re-fetches it, and leaves it alone once it has
