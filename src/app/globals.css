@@ -14,7 +14,7 @@
 /* ── Brand ──────────────────────────────────────────────────────────────────
    The single source of the palette, laid out the way shadcn does it: raw
    variables on :root (dark, the default appearance), the light appearance
-   overriding them, and `@theme inline` below naming them as Tailwind colors.
+   overriding them, and the theme block below naming them as Tailwind colors.
    Pages and components use the utilities (`bg-surface`, `text-brand-ink`,
    `border-edge`), never a hex value, so a palette change happens here. */
 :root {
@@ -175,9 +175,9 @@ html[data-appearance="light"] {
   --glow-strong-3: rgb(86 72 186 / 0.1);
 }
 
-/* `static` keeps every `--color-*` emitted, because page scripts and the
-   rules below read them with `var()` as well as through utilities. */
-@theme inline static {
+/* The Tailwind names for the variables above. Tailwind emits a `--color-*`
+   when a utility or a `var()` anywhere in the sources uses it. */
+@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
