@@ -196,6 +196,13 @@ pub fn Button(bindings: Bindings, children: Html) -> Html {
 // renders <button class="btn" onclick={save()} title={label}>Save</button>
 ```
 
+Client binding names may contain hyphens or namespace separators, just as
+HTML attributes do: `<Button aria-pressed={selected} data-state={state}
+pp-ref={button}>"Select"</Button>`. These names are entries in `Bindings`,
+not Rust parameter names. A static or server-interpolated attribute still
+uses the component's explicit `attrs` prop; ordinary typed props remain
+Rust identifiers. Unsupported directives are refused on component tags too.
+
 Each binding keeps its authored expression. A native handler (`onclick`)
 travels in inert compiler-owned `pp-on*` metadata, which PulsePoint removes
 when it installs the registered event listener. Everything else — a value, `on-select`, a
@@ -300,6 +307,13 @@ around anything that is not an expression are text
 (`data-config="{&quot;a&quot;: 1}"`). To show a brace as text, use a brace
 character reference such as `"&#123;user&#125;"`; the macro protects it so the
 browser runtime does not treat it as a binding.
+
+A dollar sign before a binding is a dollar sign and a binding: `"$"{price}`
+renders `$10.00`, as does a value ending in `$`, as in `@{symbol}{price}`, and
+a reference such as `"&#36;"{price}`. PulsePoint keeps a `${…}` it reads in a
+loop row as literal text, so `html!` writes the sign as a binding of its own,
+`{"$"}{price}`, which compiles into the client registry like any other. To show
+the placeholder itself, write `"$&#123;price&#125;"`.
 
 The root layout's `<slot />` sits inside a deferred `<template
 pp-component>`, and the browser decodes one layer of character references as

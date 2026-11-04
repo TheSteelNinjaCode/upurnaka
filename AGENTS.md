@@ -48,6 +48,17 @@ reading the Rust/Serde type. Use `pp.rpc` beside its `#[rpc]`; run
 compiler and router/browser checks. Dynamic values and response-field
 accesses are not proved by compilation. See `docs/conventions/rpc-and-uploads.md`.
 
+## Native packaging for agents
+
+This applies once the project has a `native/` shell.
+`cargo rahti native doctor --json` says whether it can build: `ready`, and
+each finding's `advice`. `cargo rahti native icon <image>` replaces the
+generated icons.
+`cargo rahti native build --target android --debug --device <serial>`
+builds for that device, installs the application and starts it.
+`native/.rahti/build.json` records what the last build produced and its
+warnings. See `docs/conventions/native-packaging.md`.
+
 ## Required Reading
 
 | Work area | Document |
