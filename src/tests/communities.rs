@@ -1740,7 +1740,7 @@ async fn canceling_channel_dialog_discards_drafts_and_errors_keep_it_open() {
         .unwrap();
     assert!(
         browser
-            .eval::<bool>("document.querySelectorAll('.community-channel').length === 4")
+            .eval::<bool>("document.querySelectorAll('.community-channel-list:not([hidden]) .community-channel').length === 4")
             .await
             .unwrap()
     );
@@ -1767,7 +1767,7 @@ async fn canceling_channel_dialog_discards_drafts_and_errors_keep_it_open() {
         .click(".community-channel-form button[type=submit]")
         .await
         .unwrap();
-    browser.wait_for("!document.querySelector('.community-channel-dialog[open]') && document.querySelectorAll('.community-channel').length === 5").await.unwrap();
+    browser.wait_for("!document.querySelector('.community-channel-dialog[open]') && document.querySelectorAll('.community-channel-list:not([hidden]) .community-channel').length === 5").await.unwrap();
     browser.click(".community-add-channel").await.unwrap();
     browser.wait_for("document.querySelector('.community-channel-dialog[open]') && document.querySelector('.community-channel-form button[type=submit]').disabled && document.querySelector('#community-channel-error').textContent.includes('5 channels')").await.unwrap();
     browser.press("Escape").await.unwrap();

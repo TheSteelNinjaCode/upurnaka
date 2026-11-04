@@ -372,10 +372,10 @@ async fn shell_dropdowns_stay_above_meet_actions() {
         unobscured,
         "header dropdown must cover the overlapping Meet action"
     );
-    browser
-        .click("button[aria-controls='popover-meeting-join']")
-        .await
-        .unwrap();
+    // Deliberately hit the covered action's coordinates. A selector click
+    // waits for an unobstructed target, which this test proves it is not.
+    let (x, y): (f64, f64) = browser.eval("(() => { const rect = document.querySelector('button[aria-controls=\"popover-meeting-join\"]').getBoundingClientRect(); return [rect.left + rect.width / 2, rect.top + rect.height / 2]; })()").await.unwrap();
+    browser.click_at(x, y, 1).await.unwrap();
     browser.wait_for("document.querySelector('button[aria-label=\"Settings and more\"]').getAttribute('aria-expanded') === 'false'").await.unwrap();
     assert!(
         browser

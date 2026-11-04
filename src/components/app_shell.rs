@@ -1349,7 +1349,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 // closed, so focus goes back to the menu's own button.
                 function restoreShortcutsFocus() {
                     setShortcutsActive(false);
-                    if (document.activeElement === document.body) moreBadge.current?.closest("button")?.focus();
+                    moreBadge.current?.closest("button")?.focus();
                 }
                 // Document-level keyboard integration must also receive keys when
                 // the body has focus. Keep ordinary controls in their markup.

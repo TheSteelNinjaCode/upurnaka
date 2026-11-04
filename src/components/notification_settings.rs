@@ -321,6 +321,8 @@ pub fn NotificationSettings() -> Html {
                 role="status"
                 aria-live="polite"
                 hidden={!toast}
+                pp-ref={toastElement}
+                popover="manual"
             >
                 <span class="notification-toast-avatar" aria-hidden="true">"U"</span>
                 <span class="min-w-0 flex-1">
@@ -349,6 +351,14 @@ pub fn NotificationSettings() -> Html {
                 ];
                 const sizes = [{key:'comfy', label:'Comfy'}, {key:'compact', label:'Compact'}];
                 const [toast, setToast] = pp.state(0);
+                const toastElement = pp.ref(null);
+                // The browser's top layer escapes the page's stacking context
+                // without moving focus away from the settings control.
+                pp.effect(() => {
+                    const element = toastElement.current;
+                    if (toast) element?.showPopover();
+                    else element?.hidePopover();
+                }, [toast]);
                 const [testMuted, setTestMuted] = pp.state(false);
                 function previewSound() { window.UpurnakaNotificationSound?.play(prefs.notifySoundName); }
                 function dismiss() { setToast(0); }
