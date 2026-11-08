@@ -4,17 +4,16 @@
 //! all — somebody who was sent one opens it here, sets their camera and
 //! microphone the way they want them, and joins.
 //!
-//! "Join now" calls [`join_meeting`], which reaches AWS Chime SDK Meetings
-//! through `crate::meetings::join`: a conference is found or created for this
+//! "Join now" calls [`join_meeting`], which reaches Dilnaka Meet through `crate::meetings::join`: a conference is found or created for this
 //! link and a seat in it is minted for this person. What comes back is a
 //! `MeetingSessionConfiguration`'s two arguments, ready for
 //! `amazon-chime-sdk-js` to open audio and video with.
 //!
 //! The media client itself is not loaded here yet — see the note in the
 //! connected panel below. Everything up to it is live, so a join either
-//! produces real Chime credentials or a real failure.
+//! produces real Dilnaka Meet credentials or a real failure.
 //!
-//! With no `CHIME_MEDIA_REGION` configured there is no provider, and the
+//! With no `DILNAKA_MEETINGS_KEY` configured there is no provider, and the
 //! button says so instead of calling one.
 
 use axum::extract::Path;
@@ -31,7 +30,7 @@ use crate::components::rahti_ui::label::Label;
 use crate::components::rahti_ui::radio_group::{RadioGroup, RadioGroupItem};
 use crate::components::rahti_ui::select::{Select, SelectItem};
 use crate::components::rahti_ui::switch::Switch;
-use crate::meetings::{self, JoinInfo, chime, recording};
+use crate::meetings::{self, JoinInfo, dilnaka_meet, recording};
 use crate::rahti::{Error, Html, Json, Metadata, Page, Result, RpcUpload, Validator, html, rpc};
 
 /// A tool in the meeting toolbar: an icon over its label, underlined while on.
@@ -82,7 +81,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
     // Decided on the server, because it is a deployment fact rather than
     // something the browser could discover: with no provider configured the
     // button must not pretend there is a call to join.
-    let provider_ready = chime::is_configured();
+    let provider_ready = dilnaka_meet::is_configured();
     let recording_ready = recording::is_configured();
 
     let room_leave = format!("{ROOM_TOOL} {ROOM_LEAVE}");
@@ -2765,7 +2764,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         }
                     }
 
-                    // The server finds or creates the Chime conference and
+                    // The server finds or creates the Dilnaka Meet conference and
                     // mints this person's seat. The join token in the reply
                     // is a credential for this browser and this attendee —
                     // it stays in this state and goes nowhere else.

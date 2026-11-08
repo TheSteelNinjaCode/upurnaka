@@ -23,8 +23,8 @@ Other workspace routes and moderator/recording RPCs still require sign-in.
 No database migration or new environment setting is required.
 
 Run `cargo test --lib app_tests::meeting_controls -- --test-threads=1` for the
-admission rules and two-browser flow. The browser test substitutes the AWS
-provider boundary with a deterministic SDK fixture; real AWS connectivity and
+admission rules and two-browser flow. The browser test substitutes the Dilnaka Meet
+provider boundary with a deterministic SDK fixture; real Dilnaka Meet connectivity and
 native installation dialogs are not exercised by the suite.
 
 Reference: [Microsoft Teams guest joining](https://support.microsoft.com/en-us/teams/meetings/join-a-meeting-without-an-account-in-microsoft-teams).

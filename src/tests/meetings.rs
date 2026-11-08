@@ -83,7 +83,7 @@ async fn meet_popovers_anchor_dismiss_and_open_the_calendar_form() {
 }
 
 /// Exercise the complete join/leave UI with a deterministic SDK transport.
-/// AWS and screen-capture permissions are not needed by this test.
+/// Dilnaka Meet and screen-capture permissions are not needed by this test.
 #[tokio::test]
 async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
     let id = mint("Room transition").await;
@@ -1035,7 +1035,7 @@ async fn a_revoked_link_stops_resolving_and_stops_being_listed() {
 
 /// The pre-join screen says plainly when no provider is wired, rather than
 /// offering a call there is nothing behind. The suite runs with no
-/// `CHIME_MEDIA_REGION`, so this is the state it sees.
+/// `DILNAKA_MEETINGS_KEY`, so this is the state it sees.
 #[tokio::test]
 async fn the_join_page_says_when_no_provider_is_configured() {
     let id = mint("Unprovisioned sync").await;
@@ -1261,9 +1261,9 @@ async fn joining_without_a_name_is_refused() {
 /// misconfiguration in the log — not a panic, and not a browser that waits
 /// forever on a call nobody is going to answer.
 ///
-/// "No provider" is guaranteed rather than assumed: `chime::settings`
+/// "No provider" is guaranteed rather than assumed: `dilnaka_meet::settings`
 /// returns `None` under `cfg(test)`, so this holds on a machine whose `.env`
-/// has a real media region in it, and the suite never calls AWS.
+/// has a real Meet key in it, and the suite never calls Dilnaka.
 #[tokio::test]
 async fn joining_without_a_provider_is_a_server_error() {
     let id = mint("Provider-less huddle").await;

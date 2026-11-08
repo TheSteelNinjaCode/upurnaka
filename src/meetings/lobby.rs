@@ -343,7 +343,7 @@ async fn target_visit(id: &str, attendee: &str) -> Result<visit::Model> {
 pub async fn mute(id: String, attendee: String) -> Result<bool> {
     host(&id).await?;
     let row = target_visit(&id, &attendee).await?;
-    super::chime::set_attendee_audio(
+    super::dilnaka_meet::set_attendee_audio(
         row.provider_meeting_id.as_deref().ok_or_else(denied)?,
         &attendee,
         false,
@@ -362,7 +362,7 @@ pub async fn resume_audio(id: String, ticket: String) -> Result<bool> {
         return Err(denied());
     }
     if row.muted_by_host {
-        super::chime::set_attendee_audio(
+        super::dilnaka_meet::set_attendee_audio(
             row.provider_meeting_id.as_deref().ok_or_else(denied)?,
             row.attendee_id.as_deref().ok_or_else(denied)?,
             true,

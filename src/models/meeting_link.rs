@@ -26,7 +26,7 @@ pub struct Model {
     pub created_at: DateTimeUtc,
     /// When the organizer revoked it, UTC. `None` while the link still works.
     pub revoked_at: Option<DateTimeUtc>,
-    /// The Chime meeting currently behind this link, if there is one.
+    /// The Dilnaka Meet meeting currently behind this link, if there is one.
     ///
     /// Nullable, and expected to be null most of the time. A Chime meeting
     /// ends when the last attendee leaves; the link outlives it and gets a

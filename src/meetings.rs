@@ -12,14 +12,14 @@
 //! them apart is most of what this module does.
 //!
 //! The link is this application's: a join code, a title, a row, reusable for
-//! as long as the organizer wants it. The conference is AWS Chime SDK
-//! Meetings' (see [`chime`]): it exists while people are in it and Chime
-//! cleans it up after the last one leaves. So a link spends most of its life
+//! as long as the organizer wants it. The conference is Dilnaka Meet's (see
+//! [`dilnaka_meet`]): it exists while people are in it and Dilnaka ends it
+//! after the last one leaves. So a link spends most of its life
 //! with no conference behind it, and [`join`] is where one is found or made.
 //! `provider_meeting_id` on the row is a cache of which conference is live,
 //! never the authority for whether the link is.
 //!
-//! With no `CHIME_MEDIA_REGION` configured there is no provider, and a link
+//! With no `DILNAKA_MEETINGS_KEY` configured there is no provider, and a link
 //! is still a link: it mints, lists, resolves and revokes, and the lobby says
 //! so rather than pretending.
 //!
@@ -33,7 +33,7 @@
 //! same calls write rows.
 
 pub mod chat;
-pub mod chime;
+pub mod dilnaka_meet;
 pub mod lobby;
 pub mod recording;
 
@@ -72,13 +72,13 @@ pub struct MeetingLink {
 /// shape: `new MeetingSessionConfiguration(meeting, attendee)`.
 #[derive(Debug, Serialize)]
 pub struct JoinInfo {
-    pub meeting: chime::MeetingResponse,
-    pub attendee: chime::AttendeeResponse,
+    pub meeting: dilnaka_meet::MeetingResponse,
+    pub attendee: dilnaka_meet::AttendeeResponse,
 }
 
 /// Mint a link and keep it.
 ///
-/// No conference yet. Chime bills and reaps by conference, and a link that
+/// No conference yet. Dilnaka Meet bills and reaps by conference, and a link that
 /// nobody has opened should cost nothing and expire from nothing — so the
 /// provider is not called until somebody actually arrives.
 pub async fn create(title: String) -> Result<MeetingLink> {
@@ -230,7 +230,8 @@ pub async fn join(id: &str, display_name: &str) -> Result<JoinInfo> {
     };
 
     let meeting = conference_for(&row).await?;
-    let attendee = chime::create_attendee(&meeting.meeting_id, &attendee_id(display_name)).await?;
+    let attendee =
+        dilnaka_meet::create_attendee(&meeting.meeting_id, &attendee_id(display_name)).await?;
 
     Ok(JoinInfo { meeting, attendee })
 }
@@ -238,19 +239,19 @@ pub async fn join(id: &str, display_name: &str) -> Result<JoinInfo> {
 /// The live conference behind a link: the one it remembers, or a new one.
 ///
 /// Three outcomes, and the middle one is the common one. The row names a
-/// conference and Chime still has it — reuse. The row names one Chime has
-/// cleaned up, or names none at all — create, and remember which. Both
+/// conference and Dilnaka still has it — reuse. The row names one that has
+/// ended, or names none at all — create, and remember which. Both
 /// writes are best-effort against the row, because the conference is already
 /// real by then and failing the join over a cache update would be worse than
 /// looking it up again next time.
-async fn conference_for(row: &meeting_link::Model) -> Result<chime::MeetingResponse> {
+async fn conference_for(row: &meeting_link::Model) -> Result<dilnaka_meet::MeetingResponse> {
     if let Some(existing) = &row.provider_meeting_id {
-        if let Some(meeting) = chime::meeting_or_none(existing).await? {
+        if let Some(meeting) = dilnaka_meet::meeting_or_none(existing).await? {
             return Ok(meeting);
         }
     }
 
-    let meeting = chime::create_meeting(&row.id).await?;
+    let meeting = dilnaka_meet::create_meeting(&row.id).await?;
     remember_conference(
         &row.id,
         Some(&meeting.meeting_id),
@@ -305,8 +306,8 @@ pub async fn revoke(id: &str) -> Result<bool> {
     crate::auth::authorize_meeting(row.owner_id.as_deref())?;
 
     if let Some(meeting_id) = &row.provider_meeting_id {
-        if chime::is_configured() {
-            chime::delete_meeting(meeting_id).await?;
+        if dilnaka_meet::is_configured() {
+            dilnaka_meet::delete_meeting(meeting_id).await?;
         }
     }
 
@@ -340,9 +341,9 @@ pub async fn revoke(id: &str) -> Result<bool> {
     Ok(true)
 }
 
-/// A Chime `ExternalUserId` for one person arriving at one meeting.
+/// A Dilnaka Meet `ExternalUserId` for one person arriving at one meeting.
 ///
-/// Chime allows 2–64 characters and treats this as opaque, so it carries the
+/// Dilnaka Meet allows 2–64 characters and treats this as opaque, so it carries the
 /// display name for the benefit of anyone reading an attendee list, plus a
 /// nonce: two people called "Jefferson Abraham" in one meeting are two
 /// attendees, and the same person in two tabs is as well.

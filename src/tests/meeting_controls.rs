@@ -341,7 +341,7 @@ async fn lobby_admission_is_required_before_credentials_and_only_owner_can_decid
         .0,
         StatusCode::CONFLICT
     );
-    // Approval gets past admission; the suite deliberately has no AWS provider.
+    // Approval gets past admission; the suite deliberately has no Dilnaka Meet provider.
     assert_eq!(
         call(
             &mut guest,
@@ -426,7 +426,7 @@ async fn spotlight_and_host_mute_are_scoped_and_unmute_belongs_to_the_participan
     let host_entry = entry(&mut host, &id, "Organizer").await;
     let guest_entry = entry(&mut guest, &id, "Guest").await;
     let ticket = guest_entry["id"].as_str().unwrap();
-    // A synthetic provider seat, without making billable AWS calls.
+    // A synthetic provider seat, without making billable Dilnaka Meet calls.
     visit::Entity::update_many()
         .col_expr(visit::Column::State, Expr::value("joined"))
         .col_expr(
@@ -609,7 +609,7 @@ async fn provider_permission_denial_preserves_mute_state_and_explains_the_failur
         body["error"]
             .as_str()
             .unwrap()
-            .contains("participant-mute permission")
+            .contains("check the Dilnaka Meet key")
     );
     assert!(
         !visit::Entity::find_by_id(ticket)
@@ -639,7 +639,7 @@ async fn provider_permission_denial_preserves_mute_state_and_explains_the_failur
         body["error"]
             .as_str()
             .unwrap()
-            .contains("participant-mute permission")
+            .contains("check the Dilnaka Meet key")
     );
     assert!(
         visit::Entity::find_by_id(ticket)

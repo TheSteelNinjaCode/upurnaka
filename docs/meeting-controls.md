@@ -3,7 +3,7 @@
 Meeting links now have a lobby. The creating account is the organizer; the
 seeded application admin moderates legacy links whose owner is absent. Other
 signed-in, active accounts request admission and wait on the setup screen.
-No Chime attendee credentials are created until the request is admitted.
+No Dilnaka Meet attendee credentials are created until the request is admitted.
 Organizers see a waiting notification, a toolbar badge, and an admit/deny list
 in People. Guests can cancel and can retry after a denied request.
 
@@ -25,36 +25,15 @@ Participant nameplates and the People panel open a participant-options menu:
   camera sent to other participants. More → Show me in gallery restores it.
 - **Spotlight for everyone / Stop spotlight:** organizer-only, backed by shared
   server state. A departed attendee no longer occupies the spotlight.
-- **Mute participant:** organizer-only, changes Chime's attendee audio capability
-  to Receive. The participant can unmute themselves, which restores SendReceive;
-  the organizer never turns on another person's microphone.
+- **Mute participant:** organizer-only, sets the attendee's audio capability to
+  Receive through Dilnaka Meet
+  (`PUT /api/v1/meetings/{id}/attendees/{attendeeId}/capabilities`), so the
+  media service enforces it. The participant can unmute themselves, which
+  restores SendReceive; the organizer never turns on another person's microphone.
 
-The AWS deployment must grant `chime:UpdateAttendeeCapabilities` in addition to
-the existing meeting/attendee permissions. Provider failures are surfaced;
-the interface never reports success before the provider accepts the action.
-See [AWS attendee capabilities](https://docs.aws.amazon.com/chime-sdk/latest/APIReference/API_meeting-chime_AttendeeCapabilities.html).
-
-### Enabling participant mute in the current AWS deployment
-
-The current `upurnaka-chime` IAM user can create meetings but AWS rejects
-`UpdateAttendeeCapabilities` with `AccessDeniedException`. An AWS administrator
-must attach [chime-moderation-policy.json](chime-moderation-policy.json) to that
-user, in addition to its existing permissions. This policy permits only the
-capability-update operation on meetings in the verified account and control-plane
-region. Deployments in another account or region must change that resource ARN.
-
-Using an administrator's AWS profile, from the project root:
-
-```powershell
-aws iam put-user-policy --user-name upurnaka-chime --policy-name UpurnakaParticipantModeration --policy-document file://docs/chime-moderation-policy.json --profile YOUR_ADMIN_PROFILE
-```
-
-The application credentials cannot inspect or manage IAM policies. Do not grant
-them IAM administration or replace their existing meeting permissions. Once the
-policy propagates, retry Mute participant; no new meeting is required. The muted
-participant can choose to unmute themselves. Permission failures now return a
-safe configuration message, and neither mute nor self-unmute changes local mute
-state when Chime rejects the request.
+Mute needs only the `DILNAKA_MEETINGS_KEY` the rest of Meet uses. Provider
+failures are surfaced as a safe message, and the interface never reports
+success, or changes local mute state, before Dilnaka Meet accepts the action.
 
 Screen sharing uses a large content area and a participant strip on desktop,
 with a stacked layout on small screens. A paused content tile stays visible

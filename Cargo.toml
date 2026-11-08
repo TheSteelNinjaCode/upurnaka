@@ -36,31 +36,10 @@ tower-http = { version = "0.7.1", features = ["catch-panic", "fs"] }
 # a version bump is a version bump.
 sea-orm = { version = "2.0.4", default-features = false, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
 sea-orm-migration = { version = "2.0.4", default-features = false, features = ["runtime-tokio-rustls", "sqlx-postgres"] }
-# AWS, with its TLS picked rather than inherited. Left on their defaults, these
-# two crates build *two* complete TLS stacks: `default-https-client` pulls
-# rustls 0.23 on aws-lc-rs — whose `aws-lc-sys` compiles ~68 MB of C through
-# CMake, the most expensive crate in this graph — while the SDK's legacy
-# `rustls` default pulls rustls 0.21 on ring alongside it. One is enough, and
-# sea-orm/sqlx already resolves to ring, so both defaults are off here and the
-# HTTPS client is chosen explicitly in `src/meetings/chime.rs`. Dropping
-# `credentials-process` or `sso` would shrink the build further, but both are
-# part of the documented credential fallback in that file, so they stay.
-aws-config = { version = "1.13.0", default-features = false, features = [
-    "behavior-version-latest",
-    "rt-tokio",
-    "credentials-process",
-    "sso",
-] }
-aws-sdk-chimesdkmeetings = { version = "1.119.0", default-features = false, features = [
-    "behavior-version-latest",
-    "rt-tokio",
-] }
-# The one HTTPS client the two above now share. Naming it here is what makes
-# `CryptoMode::Ring` available to `chime.rs` — and it is now the *only* client,
-# because `default-https-client` is what would otherwise have supplied one.
-aws-smithy-http-client = { version = "1.5.1", default-features = false, features = [
-    "rustls-ring",
-] }
+# Dilnaka Meet, the meeting provider (`src/meetings/dilnaka_meet.rs`). The
+# same reqwest and rustls the `dilnaka` crate below already brings, so this
+# adds no second TLS stack.
+reqwest = { version = "0.12.28", default-features = false, features = ["json", "rustls-tls"] }
 rahti-icons = "=0.0.33"
 argon2 = "0.6.0"
 aes-gcm = "0.11.1"

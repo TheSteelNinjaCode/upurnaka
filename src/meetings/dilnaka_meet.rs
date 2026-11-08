@@ -1,78 +1,82 @@
-//! AWS Chime SDK Meetings: the provider behind a meeting link.
+//! Dilnaka Meet: the provider behind a meeting link.
 //!
-//! Three calls do the work. `CreateMeeting` brings a conference into
-//! existence in a media region; `CreateAttendee` mints one person's seat in
-//! it, which is the join token their browser needs; `DeleteMeeting` ends it
-//! for everybody. `GetMeeting` is here because Chime meetings are not
-//! permanent and a meeting *link* is — see [`meeting_or_none`].
+//! Four calls do the work, all on `/api/v1/meetings`. Creating a meeting
+//! brings a conference into existence; adding an attendee mints one person's
+//! seat in it, which is the join token their browser needs; deleting the
+//! meeting ends it for everybody. Reading a meeting is here because
+//! conferences are not permanent and a meeting *link* is — see
+//! [`meeting_or_none`]. A fifth, the attendee's capabilities, is the host
+//! mute.
 //!
 //! ## Configuration
 //!
-//! One value turns this on: `CHIME_MEDIA_REGION`, the region the audio and
-//! video run in. Without it nothing here is called and a meeting link is
-//! still a link — it resolves, it lists, it revokes, and the lobby says no
-//! provider is connected.
+//! `DILNAKA_MEETINGS_KEY` (a `dlk_meet_…` key from the Dilnaka console) turns
+//! this on. Without it nothing here is called and a meeting link is still a
+//! link — it resolves, it lists, it revokes, and the lobby says no provider
+//! is connected. `DILNAKA_MEETINGS_URL` points at another Dilnaka deployment
+//! and defaults to production.
 //!
-//! Credentials and the control-plane region come from the ordinary AWS
-//! chain, so this file reads neither: `AWS_ACCESS_KEY_ID` /
-//! `AWS_SECRET_ACCESS_KEY` (or `AWS_PROFILE`, or an instance role) and
-//! `AWS_REGION`. A deployment on EC2, ECS or Lambda supplies all of them
-//! without a secret in a file, which is why they are not named in
-//! `rahti.config.json` and not read here by hand. The media region is the
-//! one value that is a product decision rather than a credential, so it is
-//! the one this module asks for.
+//! The key is a credential that bills the account: it stays on this server,
+//! in the ignored `.env`, and never reaches a browser or a log.
 //!
 //! ## Shapes
 //!
-//! The three response types below are not Rust's idea of a meeting — they
-//! are the JSON `amazon-chime-sdk-js` expects to be handed, field for field,
-//! which is why they are `PascalCase` and why nothing renames them on the
-//! way to the browser.
+//! Dilnaka Meet answers in Amazon Chime's own field names, which is what
+//! `amazon-chime-sdk-js` expects to be handed. The response types below keep
+//! those `PascalCase` names on the way in and on the way out to the browser.
 
 use std::sync::OnceLock;
+use std::time::Duration;
 
-use aws_config::BehaviorVersion;
-use aws_sdk_chimesdkmeetings::Client;
-use aws_sdk_chimesdkmeetings::config::{Credentials, Region};
-use aws_sdk_chimesdkmeetings::types::{Attendee, MediaPlacement, Meeting};
-use aws_smithy_http_client::tls::{self, rustls_provider::CryptoMode};
-use serde::Serialize;
-use tokio::sync::OnceCell;
+use axum::http::StatusCode;
+use rahti::serde_json::{self, Value, json};
+use reqwest::Method;
+use serde::{Deserialize, Serialize};
 
 use crate::rahti::{Error, Result};
 
-/// What this application decides about Chime, as opposed to what the AWS
-/// environment decides.
-pub struct Settings {
-    /// Where the media runs: `us-east-1`, `eu-west-1`, and so on.
-    pub media_region: String,
+const DEFAULT_URL: &str = "https://dilnaka.cloud.tsnc.tech";
+
+/// The configured client.
+struct Settings {
+    key: String,
+    base_url: String,
+    http: reqwest::Client,
 }
 
-/// The configured settings, or `None` when no provider is wired.
+/// The settings, or `None` when no provider is wired.
 ///
-/// Read once. A region that appears halfway through a process's life would
-/// mean two meetings minted minutes apart behaved differently, which is not
-/// a thing worth supporting.
-pub fn settings() -> Option<&'static Settings> {
+/// Read once. A key that appears halfway through a process's life would mean
+/// two meetings minted minutes apart behaved differently.
+fn settings() -> Option<&'static Settings> {
     static SETTINGS: OnceLock<Option<Settings>> = OnceLock::new();
 
-    // The test suite never reaches AWS. A developer's `.env` has a real media
-    // region in it, so without this line `cargo test` would create, and bill
-    // for, real Chime meetings — and the tests covering the unconfigured path
-    // would pass or fail depending on whose machine ran them. A compile-time
-    // answer rather than an environment one, because an environment this
-    // process does not control is exactly what is being guarded against.
+    // The test suite never reaches Dilnaka. A developer's `.env` has a real
+    // key in it, so without this line `cargo test` would create, and bill for,
+    // real meetings — and the tests covering the unconfigured path would pass
+    // or fail depending on whose machine ran them.
     if cfg!(test) {
         return None;
     }
 
     SETTINGS
         .get_or_init(|| {
-            // The same `.env` the database and auth read; idempotent, so it
-            // does not matter which of them got there first.
             crate::rahti::load_env();
-
-            setting("CHIME_MEDIA_REGION").map(|media_region| Settings { media_region })
+            let key = setting("DILNAKA_MEETINGS_KEY")?;
+            let base_url = setting("DILNAKA_MEETINGS_URL")
+                .unwrap_or_else(|| DEFAULT_URL.to_string())
+                .trim_end_matches('/')
+                .to_string();
+            let http = reqwest::Client::builder()
+                .timeout(Duration::from_secs(15))
+                .build()
+                .map_err(|error| eprintln!("meetings: Dilnaka Meet is not usable: {error}"))
+                .ok()?;
+            Some(Settings {
+                key,
+                base_url,
+                http,
+            })
         })
         .as_ref()
 }
@@ -82,19 +86,20 @@ pub fn is_configured() -> bool {
     settings().is_some()
 }
 
-/// A Chime meeting, in the shape `amazon-chime-sdk-js` is given it.
-#[derive(Clone, Debug, Serialize)]
+/// A meeting, in the shape `amazon-chime-sdk-js` is given it.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MeetingResponse {
     pub meeting_id: String,
     pub external_meeting_id: String,
     pub media_region: String,
+    #[serde(default)]
     pub media_placement: MediaPlacementResponse,
 }
 
 /// Where that meeting's media lives.
-#[derive(Clone, Debug, Default, Serialize)]
-#[serde(rename_all = "PascalCase")]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase", default)]
 pub struct MediaPlacementResponse {
     pub audio_host_url: String,
     pub audio_fallback_url: String,
@@ -111,7 +116,7 @@ pub struct MediaPlacementResponse {
 /// `join_token` is a credential: it is the whole of the authority to speak in
 /// this meeting as this attendee. It goes to the browser that asked for it
 /// and nowhere else — never to a log, never to a second viewer.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct AttendeeResponse {
     pub attendee_id: String,
@@ -119,180 +124,205 @@ pub struct AttendeeResponse {
     pub join_token: String,
 }
 
-/// Create a conference for one meeting link.
-///
-/// `external_id` is the link's own join code. Chime stores it verbatim and
-/// hands it back, which is what lets a meeting found in the AWS console be
-/// traced to the row that owns it.
-pub async fn create_meeting(external_id: &str) -> Result<MeetingResponse> {
-    let settings = require()?;
-
-    let output = client()
-        .await?
-        .create_meeting()
-        // Idempotency within Chime's dedupe window. The join code alone
-        // would collide with a deliberate re-create after Chime reaped the
-        // last conference, so the moment is part of the token.
-        .client_request_token(format!(
-            "{external_id}-{}",
-            crate::rahti::time::now().timestamp()
-        ))
-        .external_meeting_id(external_id)
-        .media_region(&settings.media_region)
-        .send()
-        .await
-        .map_err(provider_failed)?;
-
-    let meeting = output
-        .meeting()
-        .ok_or_else(|| Error::internal("Chime created a meeting and returned no meeting"))?;
-
-    shape(meeting)
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct MeetingEnvelope {
+    meeting: MeetingResponse,
 }
 
-/// The conference behind a stored id, or `None` if Chime no longer has one.
-///
-/// Not an error. A Chime meeting ends when the last attendee leaves and is
-/// cleaned up after that, while the link that points at it is meant to be
-/// reusable for as long as the organizer wants — so "gone" is the ordinary
-/// state of a link nobody is currently in, and the caller's answer to it is
-/// to create another.
-pub async fn meeting_or_none(meeting_id: &str) -> Result<Option<MeetingResponse>> {
-    require()?;
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct AttendeeEnvelope {
+    attendee: AttendeeResponse,
+}
 
-    let output = client()
-        .await?
-        .get_meeting()
-        .meeting_id(meeting_id)
+/// A refusal from Dilnaka Meet: its status and its `{"error": {code, message}}`.
+struct Refusal {
+    status: StatusCode,
+    code: String,
+    message: String,
+}
+
+/// One authenticated call. `Ok(None)` is an empty body (`204`).
+async fn call(
+    method: Method,
+    path: &str,
+    body: Option<Value>,
+) -> std::result::Result<Option<Value>, Refusal> {
+    let settings = settings().ok_or_else(|| Refusal {
+        status: StatusCode::SERVICE_UNAVAILABLE,
+        code: "NOT_CONFIGURED".into(),
+        message: "DILNAKA_MEETINGS_KEY is not set, so no meeting provider is configured".into(),
+    })?;
+    let mut request = settings
+        .http
+        .request(method.clone(), format!("{}{path}", settings.base_url))
+        .bearer_auth(&settings.key);
+    if let Some(body) = body {
+        request = request.json(&body);
+    }
+    let unreachable = |detail: String| Refusal {
+        status: StatusCode::BAD_GATEWAY,
+        code: "UNREACHABLE".into(),
+        message: format!("{method} {path}: {detail}"),
+    };
+    let response = request
         .send()
-        .await;
-
-    let output = match output {
-        Ok(output) => output,
-        Err(error)
-            if error
-                .as_service_error()
-                .is_some_and(|e| e.is_not_found_exception()) =>
-        {
+        .await
+        .map_err(|error| unreachable(error.to_string()))?;
+    let status = response.status();
+    let text = response
+        .text()
+        .await
+        .map_err(|error| unreachable(error.to_string()))?;
+    if status.is_success() {
+        if text.trim().is_empty() {
             return Ok(None);
         }
-        Err(error) => return Err(provider_failed(error)),
+        return serde_json::from_str(&text)
+            .map(Some)
+            .map_err(|_| unreachable("unreadable JSON".into()));
+    }
+    let error = serde_json::from_str::<Value>(&text).unwrap_or(Value::Null);
+    let field = |name: &str| {
+        error["error"][name]
+            .as_str()
+            .unwrap_or_default()
+            .to_string()
     };
+    Err(Refusal {
+        status: StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY),
+        code: field("code"),
+        message: field("message"),
+    })
+}
 
-    let Some(meeting) = output.meeting() else {
-        return Ok(None);
-    };
+/// A Dilnaka Meet refusal, as this application's error.
+///
+/// Out of minutes or over the spending cap (`402`) is the organizer's to fix,
+/// and its message is written for them, so it is shown. Anything else names
+/// the provider's internals and stays in telemetry behind the generic message.
+fn failed(refusal: Refusal) -> Error {
+    let Refusal {
+        status,
+        code,
+        message,
+    } = refusal;
+    if status == StatusCode::PAYMENT_REQUIRED && !message.is_empty() {
+        return Error::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!("Dilnaka Meet refused ({code}): {message}"),
+        )
+        .with_public_message(message);
+    }
+    Error::internal(format!(
+        "the meeting provider refused the call ({status} {code}): {message}"
+    ))
+}
 
-    shape(meeting).map(Some)
+fn parse<T: serde::de::DeserializeOwned>(value: Option<Value>, what: &str) -> Result<T> {
+    value
+        .and_then(|value| serde_json::from_value(value).ok())
+        .ok_or_else(|| Error::internal(format!("Dilnaka Meet returned no {what}")))
+}
+
+/// Create a conference for one meeting link.
+///
+/// `external_id` is the link's own join code. Dilnaka stores it and hands it
+/// back, which is what lets a meeting in the Dilnaka console be traced to the
+/// row that owns it.
+pub async fn create_meeting(external_id: &str) -> Result<MeetingResponse> {
+    let body = json!({ "ExternalMeetingId": external_id });
+    let answer = call(Method::POST, "/api/v1/meetings", Some(body))
+        .await
+        .map_err(failed)?;
+    Ok(parse::<MeetingEnvelope>(answer, "meeting")?.meeting)
+}
+
+/// The conference behind a stored id, or `None` if it has ended.
+///
+/// Not an error. A conference ends some minutes after the last attendee
+/// leaves, while the link that points at it is meant to be reusable for as
+/// long as the organizer wants — so "gone" is the ordinary state of a link
+/// nobody is currently in, and the caller's answer to it is to create another.
+pub async fn meeting_or_none(meeting_id: &str) -> Result<Option<MeetingResponse>> {
+    match call(Method::GET, &format!("/api/v1/meetings/{meeting_id}"), None).await {
+        Ok(answer) => Ok(Some(parse::<MeetingEnvelope>(answer, "meeting")?.meeting)),
+        Err(refusal) if refusal.status == StatusCode::NOT_FOUND => Ok(None),
+        Err(refusal) => Err(failed(refusal)),
+    }
 }
 
 /// Mint one person's seat.
 pub async fn create_attendee(meeting_id: &str, external_user_id: &str) -> Result<AttendeeResponse> {
-    require()?;
-
-    let output = client()
-        .await?
-        .create_attendee()
-        .meeting_id(meeting_id)
-        .external_user_id(external_user_id)
-        .send()
-        .await
-        .map_err(provider_failed)?;
-
-    let attendee = output
-        .attendee()
-        .ok_or_else(|| Error::internal("Chime created an attendee and returned none"))?;
-
-    Ok(AttendeeResponse {
-        attendee_id: required(attendee.attendee_id(), "AttendeeId")?,
-        external_user_id: Attendee::external_user_id(attendee)
-            .unwrap_or(external_user_id)
-            .to_string(),
-        join_token: required(attendee.join_token(), "JoinToken")?,
-    })
+    let body = json!({ "ExternalUserId": external_user_id });
+    let answer = call(
+        Method::POST,
+        &format!("/api/v1/meetings/{meeting_id}/attendees"),
+        Some(body),
+    )
+    .await
+    .map_err(failed)?;
+    Ok(parse::<AttendeeEnvelope>(answer, "attendee")?.attendee)
 }
 
 /// End a conference for everybody in it.
 ///
-/// A meeting Chime has already cleaned up is not an error: the caller wanted
-/// it gone, and it is gone.
+/// A meeting that has already ended is not an error: the caller wanted it
+/// gone, and it is gone.
 pub async fn delete_meeting(meeting_id: &str) -> Result<()> {
-    require()?;
-
-    let result = client()
-        .await?
-        .delete_meeting()
-        .meeting_id(meeting_id)
-        .send()
-        .await;
-
-    match result {
+    match call(
+        Method::DELETE,
+        &format!("/api/v1/meetings/{meeting_id}"),
+        None,
+    )
+    .await
+    {
         Ok(_) => Ok(()),
-        Err(error)
-            if error
-                .as_service_error()
-                .is_some_and(|e| e.is_not_found_exception()) =>
-        {
-            Ok(())
-        }
-        Err(error) => Err(provider_failed(error)),
+        Err(refusal) if refusal.status == StatusCode::NOT_FOUND => Ok(()),
+        Err(refusal) => Err(failed(refusal)),
     }
 }
 
-/// A host mute disables sending at the media service. Only that attendee can request unmute.
+/// A host mute disables sending at the media service. Only that attendee can
+/// request unmute.
 pub async fn set_attendee_audio(meeting_id: &str, attendee_id: &str, send: bool) -> Result<()> {
     if cfg!(test) {
-        // Exercise provider rejection through the real RPC without contacting AWS.
+        // Exercise provider rejection through the real RPC without contacting Dilnaka.
         if meeting_id == "denied-moderation-provider" {
-            return Err(audio_update_failed(
-                Some("AccessDeniedException"),
-                "fixture IAM denial",
-            ));
+            return Err(audio_update_failed(Refusal {
+                status: StatusCode::UNAUTHORIZED,
+                code: "UNAUTHORIZED".into(),
+                message: "fixture key refusal".into(),
+            }));
         }
         return Ok(());
     }
-    use aws_sdk_chimesdkmeetings::types::{AttendeeCapabilities, MediaCapabilities};
-    let capabilities = AttendeeCapabilities::builder()
-        .audio(if send {
-            MediaCapabilities::SendReceive
-        } else {
-            MediaCapabilities::Receive
-        })
-        .video(MediaCapabilities::SendReceive)
-        .content(MediaCapabilities::SendReceive)
-        .build()?;
-    client()
-        .await?
-        .update_attendee_capabilities()
-        .meeting_id(meeting_id)
-        .attendee_id(attendee_id)
-        .capabilities(capabilities)
-        .send()
-        .await
-        .map_err(|error| {
-            let service = error.as_service_error();
-            audio_update_failed(
-                service.and_then(|error| error.meta().code()),
-                &format!(
-                    "{error}: {}",
-                    service
-                        .and_then(|error| error.meta().message())
-                        .unwrap_or("no service detail")
-                ),
-            )
-        })?;
+    let body = json!({
+        "Capabilities": {
+            "Audio": if send { "SendReceive" } else { "Receive" },
+            "Video": "SendReceive",
+            "Content": "SendReceive",
+        }
+    });
+    call(
+        Method::PUT,
+        &format!("/api/v1/meetings/{meeting_id}/attendees/{attendee_id}/capabilities"),
+        Some(body),
+    )
+    .await
+    .map_err(audio_update_failed)?;
     Ok(())
 }
 
 /// Keep provider details private while giving the room an actionable failure.
-fn audio_update_failed(code: Option<&str>, diagnostic: &str) -> Error {
-    use axum::http::StatusCode;
-    let (status, message) = match code {
-        Some("AccessDeniedException" | "ForbiddenException" | "UnauthorizedException") => (
+fn audio_update_failed(refusal: Refusal) -> Error {
+    let (status, message) = match refusal.status {
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => (
             StatusCode::SERVICE_UNAVAILABLE,
-            "Meeting moderation is unavailable. Ask the administrator to enable the meeting service's participant-mute permission.",
+            "Meeting moderation is unavailable. Ask the administrator to check the Dilnaka Meet key.",
         ),
-        Some("NotFoundException") => (
+        StatusCode::NOT_FOUND => (
             StatusCode::CONFLICT,
             "This participant's meeting connection has ended. Refresh the participant list and try again.",
         ),
@@ -303,78 +333,15 @@ fn audio_update_failed(code: Option<&str>, diagnostic: &str) -> Error {
     };
     Error::new(
         status,
-        format!("{message} Chime UpdateAttendeeCapabilities failed ({code:?}): {diagnostic}"),
+        format!(
+            "{message} Dilnaka Meet capabilities update failed ({} {}): {}",
+            refusal.status, refusal.code, refusal.message
+        ),
     )
     .with_public_message(message)
 }
 
-/// The client, built once.
-///
-/// Credentials resolve per request inside the SDK, so this is cheap to hold
-/// and correct to share: a rotated instance role is picked up without a
-/// restart.
-async fn client() -> Result<&'static Client> {
-    static CLIENT: OnceCell<Client> = OnceCell::const_new();
-
-    let settings = require()?;
-
-    Ok(CLIENT
-        .get_or_init(|| async {
-            let mut loader = aws_config::defaults(BehaviorVersion::latest());
-
-            // The SDK ships no default HTTPS client here on purpose: its
-            // `default-https-client` feature is off in Cargo.toml, because it
-            // would build rustls on aws-lc-rs and drag ~68 MB of C through
-            // CMake into every release build. Ring is what the rest of this
-            // binary already links -- sea-orm/sqlx resolves to it -- so saying
-            // so here costs one TLS stack instead of three. This also means
-            // the client is REQUIRED: without it the SDK has no connector and
-            // every call fails at dispatch.
-            loader = loader.http_client(
-                aws_smithy_http_client::Builder::new()
-                    .tls_provider(tls::Provider::Rustls(CryptoMode::Ring))
-                    .build_https(),
-            );
-
-            // The control plane's region, which is not necessarily the media
-            // region. Only chosen here when the environment names neither,
-            // so an operator who sets `AWS_REGION` is not overridden.
-            let region = setting("AWS_REGION")
-                .or_else(|| setting("AWS_DEFAULT_REGION"))
-                .unwrap_or_else(|| settings.media_region.clone());
-            loader = loader.region(Region::new(region));
-
-            // A key pair written in `.env` is used as written. Anything else
-            // — a profile, an EC2/ECS/Lambda role, SSO — is left to the
-            // default chain, which is also what a *blank* pair gets: see
-            // `setting`, and the note beside these names in `.env`.
-            if let (Some(key_id), Some(secret)) = (
-                setting("AWS_ACCESS_KEY_ID"),
-                setting("AWS_SECRET_ACCESS_KEY"),
-            ) {
-                loader = loader.credentials_provider(Credentials::new(
-                    key_id,
-                    secret,
-                    setting("AWS_SESSION_TOKEN"),
-                    None,
-                    "upurnaka-env",
-                ));
-            }
-
-            Client::new(&loader.load().await)
-        })
-        .await)
-}
-
-/// An environment value this application reads itself, where blank means
-/// absent.
-///
-/// The distinction matters for the AWS names. The SDK's own environment
-/// provider stops the credential chain when it finds `AWS_ACCESS_KEY_ID`
-/// set, so a key left as `""` in a hand-edited `.env` does not fall through
-/// to a profile or an instance role — it fails the call with an invalid
-/// key. Reading them here instead makes an empty line and a missing line the
-/// same thing, which is what somebody editing that file expects.
+/// An environment value, where blank means absent.
 fn setting(name: &str) -> Option<String> {
     std::env::var(name)
         .ok()
@@ -382,63 +349,34 @@ fn setting(name: &str) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-/// The settings, or an error that says exactly what is missing.
-fn require() -> Result<&'static Settings> {
-    settings().ok_or_else(|| {
-        Error::internal("CHIME_MEDIA_REGION is not set, so no meeting provider is configured")
-    })
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-/// An AWS failure, as a server error.
-///
-/// Kept private deliberately. The SDK's text names regions, account-shaped
-/// identifiers and the operation that failed, which belongs in telemetry and
-/// not in a browser — `Error::internal` is the constructor that draws that
-/// line, and the reader gets the generic message with a request id.
-fn provider_failed<E: std::error::Error>(error: E) -> Error {
-    Error::internal(format!("the meeting provider refused the call: {error}"))
-}
+    #[test]
+    fn dilnaka_answers_parse_into_the_browser_shape() {
+        let meeting: MeetingEnvelope = serde_json::from_value(json!({
+            "Meeting": {
+                "MeetingId": "4e1a0000-0000-0000-0000-000000000000",
+                "ExternalMeetingId": "abc-defg-hij",
+                "MediaRegion": "us-east-1",
+                "MediaPlacement": { "AudioHostUrl": "a:3478", "SignalingUrl": "wss://s" },
+                "MeetingArn": "ignored"
+            }
+        }))
+        .unwrap();
+        assert_eq!(meeting.meeting.media_placement.audio_host_url, "a:3478");
+        assert_eq!(meeting.meeting.media_placement.turn_control_url, "");
 
-/// A Chime meeting, in the browser's shape.
-fn shape(meeting: &Meeting) -> Result<MeetingResponse> {
-    Ok(MeetingResponse {
-        meeting_id: required(meeting.meeting_id(), "MeetingId")?,
-        external_meeting_id: required(meeting.external_meeting_id(), "ExternalMeetingId")?,
-        media_region: required(meeting.media_region(), "MediaRegion")?,
-        media_placement: meeting.media_placement().map(placement).unwrap_or_default(),
-    })
-}
-
-fn placement(placement: &MediaPlacement) -> MediaPlacementResponse {
-    MediaPlacementResponse {
-        audio_host_url: placement.audio_host_url().unwrap_or_default().to_string(),
-        audio_fallback_url: placement
-            .audio_fallback_url()
-            .unwrap_or_default()
-            .to_string(),
-        signaling_url: placement.signaling_url().unwrap_or_default().to_string(),
-        turn_control_url: placement.turn_control_url().unwrap_or_default().to_string(),
-        screen_data_url: placement.screen_data_url().unwrap_or_default().to_string(),
-        screen_sharing_url: placement
-            .screen_sharing_url()
-            .unwrap_or_default()
-            .to_string(),
-        screen_viewing_url: placement
-            .screen_viewing_url()
-            .unwrap_or_default()
-            .to_string(),
-        event_ingestion_url: placement
-            .event_ingestion_url()
-            .unwrap_or_default()
-            .to_string(),
+        let attendee: AttendeeEnvelope = serde_json::from_value(json!({
+            "Attendee": { "AttendeeId": "x", "ExternalUserId": "Ana#1", "JoinToken": "t" }
+        }))
+        .unwrap();
+        assert_eq!(attendee.attendee.join_token, "t");
     }
-}
 
-/// A field the API documents as present, which this application cannot do
-/// without. Missing is a provider contract change, not a user's problem.
-fn required(value: Option<&str>, field: &str) -> Result<String> {
-    value
-        .filter(|value| !value.is_empty())
-        .map(|value| value.to_string())
-        .ok_or_else(|| Error::internal(format!("Chime returned no {field}")))
+    #[test]
+    fn no_key_means_no_provider_in_the_suite() {
+        assert!(!is_configured());
+    }
 }
