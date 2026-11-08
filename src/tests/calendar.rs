@@ -331,6 +331,17 @@ async fn full_page_editor_saves_reloads_and_opens_the_scheduled_details() {
         .type_text("Browser scheduled planning")
         .await
         .unwrap();
+    // The editor defaults to today, but the default Work week view skips to
+    // next Monday on a weekend; schedule on the first day that view shows so
+    // the reload below finds the event whatever day the suite runs.
+    let _: bool = browser
+        .eval("(() => { const day = document.querySelector('.calendar-grid-slot').value.split('@')[0]; const input = document.querySelector('.calendar-editor input[name=start_date]'); input.value = day; input.dispatchEvent(new Event('change', {bubbles: true})); return true; })()")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.calendar-editor input[name=end_date]').value === document.querySelector('.calendar-grid-slot').value.split('@')[0]")
+        .await
+        .unwrap();
     browser.click("input[name=attendees]").await.unwrap();
     browser.type_text("alex@example.com, Avery").await.unwrap();
     browser.click("input[name=location]").await.unwrap();
