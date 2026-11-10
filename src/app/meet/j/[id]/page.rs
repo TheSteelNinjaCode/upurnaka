@@ -1136,7 +1136,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             </div>
                             <template pp-for="person in peopleRows">
                                 <div
-                                    key={[person.id, person.muted, person.raised].join("|")}
+                                    key={[person.id, person.mic, person.raised].join("|")}
                                     class="room-person-row my-[18px] flex items-center gap-3 text-[13px]"
                                     data-attendee-id={person.id}
                                     data-muted={person.muted}
@@ -1158,6 +1158,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                         role="img"
                                         aria-label={person.name + (person.muted ? " is muted" : " has their microphone on")}
                                         title={person.muted ? "Muted" : "Microphone on"}
+                                        hidden={!person.mic}
                                     >
                                         <span class="contents" hidden={!person.muted}>
                                             <Icon name="mic-off" class="h-4 w-4" />
@@ -1596,13 +1597,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const hasContent = tileDetails.some(tile => tile && tile.content);
                     const featuredId = pinnedId || spotlightId;
                     const railRows = Math.max(1, people.filter(person => person.id !== (session?.attendee.AttendeeId || '') && person.id !== featuredId).length + (hasContent && featuredId ? 1 : 0) + (!hideSelf && featuredId !== (session?.attendee.AttendeeId || '') ? 1 : 0));
-                    // Muted unless the media service says otherwise: someone
-                    // who joined without audio never reports a microphone.
-                    function micOff(id) {
-                        if (!id) return false;
-                        if (session && id === session.attendee.AttendeeId) return !microphone || audioMode === "none";
-                        return micMuted[id] !== false;
+                    // "muted", "on", or "" while the media service has not said:
+                    // someone who joined without audio may never report a microphone.
+                    function micState(id) {
+                        if (!id) return "";
+                        if (session && id === session.attendee.AttendeeId) return !microphone || audioMode === "none" ? "muted" : "on";
+                        return micMuted[id] === true ? "muted" : micMuted[id] === false ? "on" : "";
                     }
+                    function micOff(id) { return micState(id) === "muted"; }
                     const remoteSlots = remoteRefs.map((ref, index) => ({
                         index,
                         ref,
@@ -1620,7 +1622,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         muted: micOff(person.id),
                         hasVideo: tileDetails.some((tile, index) => remoteTiles[index] && tile && tile.id === person.id),
                     }));
-                    const peopleRows = people.map(person => ({ ...person, muted: micOff(person.id), self: person.id === selfAttendeeId }));
+                    const peopleRows = people.map(person => ({ ...person, mic: micState(person.id), muted: micOff(person.id), self: person.id === selfAttendeeId }));
                     const unmutedOthers = peopleRows.filter(person => !person.self && !person.muted).length;
                     const myInitials = initials(displayName);
                     const recordingLive = !!recordingId || roomRecording;

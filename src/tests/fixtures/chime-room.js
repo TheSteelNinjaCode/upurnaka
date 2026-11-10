@@ -21,6 +21,7 @@ export class DefaultMeetingSession {
   constructor(configuration, logger, controller) {
     const fixture = { sent: [], stopped: false, muted: false, controller, remoteStreams: new Map() };
     globalThis.roomFixture = fixture;
+    fixture.remoteVolume = (attendeeId, volume, muted) => fixture.volumes?.get(attendeeId)?.(attendeeId, volume, muted, 1);
     const av = {
       addObserver(observer) { fixture.observer = observer; },
       addContentShareObserver(observer) { fixture.shareObserver = observer; },
@@ -28,8 +29,17 @@ export class DefaultMeetingSession {
       realtimeUnsubscribeToAttendeeIdPresence() {},
       realtimeSubscribeToReceiveDataMessage(topic, callback) { fixture.message = callback; },
       realtimeUnsubscribeFromReceiveDataMessage() {},
-      realtimeSubscribeToVolumeIndicator(attendeeId, callback) { fixture.volume = (volume, muted = false) => callback(attendeeId, volume, muted, 1); },
-      realtimeUnsubscribeFromVolumeIndicator() { fixture.volume = null; },
+      // Like the SDK, one subscription per attendee. `fixture.volume` drives
+      // this browser's own microphone; `fixture.remoteVolume` anybody else's.
+      realtimeSubscribeToVolumeIndicator(attendeeId, callback) {
+        fixture.volumes = fixture.volumes || new Map();
+        fixture.volumes.set(attendeeId, callback);
+        if (attendeeId === configuration.attendee.AttendeeId) fixture.volume = (volume, muted = false) => callback(attendeeId, volume, muted, 1);
+      },
+      realtimeUnsubscribeFromVolumeIndicator(attendeeId) {
+        fixture.volumes?.delete(attendeeId);
+        if (attendeeId === configuration.attendee.AttendeeId) fixture.volume = null;
+      },
       realtimeIsLocalAudioMuted() { return fixture.muted; },
       realtimeSendDataMessage(topic, data) { fixture.sent.push(JSON.parse(data)); },
       async listAudioInputDevices() { return globalThis.fixtureMicrophones || []; },

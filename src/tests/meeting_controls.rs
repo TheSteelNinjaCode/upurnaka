@@ -1034,6 +1034,57 @@ async fn browsers_can_use_lobby_and_host_controls_without_replacing_video_elemen
         .wait_for("!window.roomFixture.muted")
         .await
         .unwrap();
+    // The organizer sees each person's microphone as the media service reports
+    // it: on their video tile and in the People list.
+    const TILE_BADGE: &str =
+        "document.querySelector('.room-person-video:not([hidden]) .room-muted-badge')";
+    let _: bool = host_browser
+        .eval(&format!(
+            "window.roomFixture.remoteVolume({guest_id:?}, 0.2, false); true"
+        ))
+        .await
+        .unwrap();
+    host_browser
+        .wait_for(&format!("{TILE_BADGE}.hidden"))
+        .await
+        .unwrap();
+    let _: bool = host_browser
+        .eval(&format!(
+            "window.roomFixture.remoteVolume({guest_id:?}, 0, true); true"
+        ))
+        .await
+        .unwrap();
+    host_browser.wait_for(&format!("!{TILE_BADGE}.hidden && {TILE_BADGE}.getAttribute('aria-label') === 'Other User is muted'")).await.unwrap();
+    host_browser
+        .click("button[aria-label=Participants]")
+        .await
+        .unwrap();
+    host_browser.wait_for(&format!("document.querySelector('.room-person-row[data-attendee-id={guest_id:?}]')?.getAttribute('data-muted') === 'true' && !document.querySelector('.room-mute-all').hidden && document.querySelector('.room-mute-all').disabled")).await.unwrap();
+    let _: bool = host_browser
+        .eval(&format!(
+            "window.roomFixture.remoteVolume({guest_id:?}, 0.2, false); true"
+        ))
+        .await
+        .unwrap();
+    host_browser.wait_for(&format!("document.querySelector('.room-person-row[data-attendee-id={guest_id:?}]')?.getAttribute('data-muted') === 'false' && !document.querySelector('.room-mute-all').disabled")).await.unwrap();
+    host_browser.click(".room-mute-all").await.unwrap();
+    guest_browser
+        .wait_for("window.roomFixture.muted")
+        .await
+        .unwrap();
+    host_browser.wait_for(&format!("document.querySelector('.room-person-row[data-attendee-id={guest_id:?}]')?.getAttribute('data-muted') === 'true'")).await.unwrap();
+    host_browser
+        .click("button[aria-label=Participants]")
+        .await
+        .unwrap();
+    guest_browser
+        .click("button[aria-label='Toggle meeting microphone']")
+        .await
+        .unwrap();
+    guest_browser
+        .wait_for("!window.roomFixture.muted")
+        .await
+        .unwrap();
     // Raised-hand toast and gold frame are independent of video and spotlight layout.
     let _:bool = host_browser.eval(&format!(r##"
         window.roomFixture.message({{data:new Uint8Array([1]),senderAttendeeId:{guest_id:?},senderExternalUserId:'Other User#fixture',json:()=>({{kind:'hand',raised:true}})}}); true
