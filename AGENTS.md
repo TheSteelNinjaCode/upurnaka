@@ -43,10 +43,15 @@ once, so make them idempotent. Payloads are ids, never secrets. See
 Run `cargo check` after changing RPC declarations. Read `rpcContracts`
 in `.rahti/manifest.json`, or optional MCP `list_rpcs`, before writing
 the caller. Match scope, file and URLs; inspect parameters, response
-types and checking limits. `schemaStatus: "unresolved"` requires
-reading the Rust/Serde type. Use `pp.rpc` beside its `#[rpc]`; run
-compiler and router/browser checks. Dynamic values and response-field
-accesses are not proved by compilation. See `docs/conventions/rpc-and-uploads.md`.
+types and checking limits, and write payload keys and response-field
+accesses from the `typescript` shapes. A `schemaStatus` other than
+`resolved` requires reading the Rust/Serde type. Use `pp.rpc` beside
+its `#[rpc]`; run
+compiler and router/browser checks. `html!` refuses a field read
+directly off `const x = await pp.rpc("name", …)` that the response
+does not have; dynamic values, and a result read after it was stored
+or passed on, are not proved by compilation. See
+`docs/conventions/rpc-and-uploads.md`.
 
 ## Native packaging for agents
 

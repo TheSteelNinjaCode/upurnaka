@@ -544,3 +544,5 @@ pub fn router() -> Router {
             ::rahti::observability::middleware,
         ))
 }
+
+::rahti::shapes!();

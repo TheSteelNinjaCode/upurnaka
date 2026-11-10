@@ -26,7 +26,7 @@ exclude = ["native"]
 
 [dependencies]
 axum = "0.8.9"
-rahti = { version = "0.0.66", features = ["mcp", "ws"] }
+rahti = { version = "0.0.70", features = ["mcp", "ws"] }
 serde = { version = "1.0.229", features = ["derive"] }
 tokio = { version = "1.54.1", features = ["full"] }
 tower-http = { version = "0.7.1", features = ["catch-panic", "fs"] }
@@ -40,7 +40,7 @@ sea-orm-migration = { version = "2.0.4", default-features = false, features = ["
 # same reqwest and rustls the `dilnaka` crate below already brings, so this
 # adds no second TLS stack.
 reqwest = { version = "0.12.28", default-features = false, features = ["json", "rustls-tls"] }
-rahti-icons = "=0.0.33"
+rahti-icons = "=0.0.37"
 argon2 = "0.6.0"
 aes-gcm = "0.11.1"
 base64 = "0.23.1"
@@ -57,7 +57,7 @@ chrono = "0.4.45"
 # a request in, a response out, no port bound. See docs/conventions/testing.md.
 [dev-dependencies]
 hmac = "0.13.0"
-rahti = { version = "0.0.66", features = ["browser-test"] }
+rahti = { version = "0.0.70", features = ["browser-test"] }
 http-body-util = "0.1.5"
 tower = { version = "0.5.3", features = ["util"] }
 
@@ -68,4 +68,4 @@ tower = { version = "0.5.3", features = ["util"] }
 sea-orm = { version = "2.0.4", default-features = false, features = ["sqlx-sqlite"] }
 
 [build-dependencies]
-rahti-build = "0.0.66"
+rahti-build = "0.0.70"

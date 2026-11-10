@@ -20,7 +20,7 @@
     "remove": "cargo rahti-icons remove <icon>",
     "update": "cargo rahti-icons update"
   },
-  "generatedWith": "0.0.28",
+  "generatedWith": "0.0.37",
   "icons": [
     {
       "component": "ALargeSmall",
