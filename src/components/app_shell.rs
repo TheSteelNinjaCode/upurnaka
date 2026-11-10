@@ -29,13 +29,14 @@ use crate::components::user_preferences::UserPreferences;
 use crate::rahti::{Html, Result, Validator, component, html, rpc};
 
 /// Every destination on the rail, in the order the client shows them.
-const RAIL: [(&str, &str, &str); 6] = [
+const RAIL: [(&str, &str, &str); 7] = [
     ("chat", "Chat", "/chat"),
     ("meet", "Meet", "/meet"),
     ("people", "People", "/people"),
     ("communities", "Communities", "/communities"),
     ("calendar", "Calendar", "/calendar"),
     ("activity", "Activity", "/activity"),
+    ("files", "Files", "/files"),
 ];
 
 #[rpc(auth)]
@@ -301,6 +302,7 @@ fn rail_icon(key: &str) -> &'static str {
         "activity" => "bell",
         "communities" => "communities",
         "calendar" => "calendar",
+        "files" => "folder",
         _ => "chat",
     }
 }
@@ -1585,7 +1587,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     {label: @{user.name.as_str()} + " (You)", href:"/chat"},
                     {label:"Meet", href:"/meet"}, {label:"People", href:"/people"},
                     {label:"Communities", href:"/communities"}, {label:"Calendar", href:"/calendar"},
-                    {label:"Activity", href:"/activity"}, {label:"Apps", href:"/apps"},
+                    {label:"Activity", href:"/activity"}, {label:"Files", href:"/files"}, {label:"Apps", href:"/apps"},
                     {label:"Settings", href:"/settings"}
                 ].filter(result => result.label.toLocaleLowerCase().includes(searchTerm) || result.href.slice(1).includes(searchTerm));
                 const visitSearchResult = pp.event(function visitSearchResult(href) {setQuery(""); setSuggestionsOpen(false); pp.redirect(href);});

@@ -12,6 +12,7 @@ mod calendar;
 mod chat_files;
 mod communities;
 mod database;
+mod files;
 pub(crate) mod giphy;
 mod meeting_controls;
 mod meetings;

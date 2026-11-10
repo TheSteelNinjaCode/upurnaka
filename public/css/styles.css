@@ -788,6 +788,9 @@
   .mb-5 {
     margin-bottom: calc(var(--spacing) * 5);
   }
+  .mb-6 {
+    margin-bottom: calc(var(--spacing) * 6);
+  }
   .mb-7 {
     margin-bottom: calc(var(--spacing) * 7);
   }
@@ -1462,6 +1465,9 @@
   }
   .max-w-6xl {
     max-width: var(--container-6xl);
+  }
+  .max-w-48 {
+    max-width: calc(var(--spacing) * 48);
   }
   .max-w-\[80\%\] {
     max-width: 80%;
@@ -4269,6 +4275,9 @@
     .hover\:text-ink:hover {
       color: var(--ink);
     }
+    .hover\:text-link:hover {
+      color: var(--link);
+    }
     .hover\:text-muted-foreground:hover {
       color: var(--muted-foreground);
     }
@@ -5458,6 +5467,9 @@
     }
     .sm\:block {
       display: block;
+    }
+    .sm\:w-64 {
+      width: calc(var(--spacing) * 64);
     }
     .sm\:max-w-2xl {
       max-width: var(--container-2xl);

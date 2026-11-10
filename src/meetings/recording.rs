@@ -524,3 +524,135 @@ pub(crate) async fn signed_url(file_id: &str, seconds: u64) -> std::result::Resu
         "https://storage.test/{file_id}?expiresIn={seconds}"
     ))
 }
+
+/// Remove one object from the bucket. Shared with chat attachments.
+#[cfg(not(test))]
+pub(crate) async fn delete_object(file_id: &str) -> std::result::Result<(), String> {
+    let client = client().ok_or("DILNAKA_API_KEY is not configured")?;
+    client
+        .delete_file(file_id)
+        .await
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+/// The suite's stand-in: nothing leaves this machine.
+#[cfg(test)]
+pub(crate) async fn delete_object(_file_id: &str) -> std::result::Result<(), String> {
+    Ok(())
+}
+
+/// One of this person's recordings, as the Files page lists it.
+#[derive(Serialize)]
+pub struct Mine {
+    pub id: String,
+    pub meeting_id: String,
+    pub meeting: String,
+    pub name: String,
+    pub state: String,
+    pub started: String,
+    pub started_at: i64,
+    pub seconds: i64,
+    pub bytes: i64,
+}
+
+fn signed_in() -> Result<String> {
+    crate::auth::current()
+        .map(|user| user.id)
+        .ok_or_else(|| Error::new(StatusCode::UNAUTHORIZED, "Authentication required"))
+}
+
+/// Every recording this person started, across their meetings, newest first.
+pub async fn mine() -> Result<Vec<Mine>> {
+    use crate::models::meeting_link;
+    let user = signed_in()?;
+    sweep().await;
+    let rows = recording::Entity::find()
+        .filter(recording::Column::StartedBy.eq(&user))
+        .order_by_desc(recording::Column::StartedAt)
+        .limit(200)
+        .all(db::db())
+        .await?;
+    let meetings = meeting_link::Entity::find()
+        .filter(meeting_link::Column::Id.is_in(rows.iter().map(|row| row.meeting_id.clone())))
+        .all(db::db())
+        .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            let meeting = meetings
+                .iter()
+                .find(|meeting| meeting.id == row.meeting_id)
+                .map(|meeting| meeting.title.clone())
+                .filter(|title| !title.trim().is_empty())
+                .unwrap_or_else(|| "Meeting".into());
+            Mine {
+                name: file_name(&row),
+                started: time::DateTime::from_timestamp(row.started_at, 0)
+                    .map(|at| time::to_app_time(at).format("%b %-d, %Y %H:%M").to_string())
+                    .unwrap_or_default(),
+                started_at: row.started_at,
+                seconds: row.ended_at.unwrap_or(row.updated_at) - row.started_at,
+                id: row.id,
+                meeting_id: row.meeting_id,
+                meeting,
+                state: row.state,
+                bytes: row.bytes,
+            }
+        })
+        .collect())
+}
+
+async fn started_by_me(recording_id: &str) -> Result<recording::Model> {
+    recording::Entity::find_by_id(recording_id)
+        .filter(recording::Column::StartedBy.eq(signed_in()?))
+        .one(db::db())
+        .await?
+        .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "Recording not found."))
+}
+
+/// A short-lived link to one of this person's stored recordings.
+pub async fn own_link(recording_id: &str) -> Result<String> {
+    let row = started_by_me(recording_id).await?;
+    let Some(file_id) = row.file_id.filter(|_| row.state == "stored") else {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            "This recording is not in storage yet.",
+        ));
+    };
+    access_url(&file_id).await
+}
+
+/// Delete one of this person's recordings: its row, the pieces waiting on
+/// this machine, and the stored file. One still recording or uploading is
+/// refused, since its browser or upload task is still writing to it.
+pub async fn remove_own(recording_id: &str) -> Result<bool> {
+    let row = started_by_me(recording_id).await?;
+    if row.state == "recording" || row.state == "uploading" {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            "Stop the recording and let it finish uploading before deleting it.",
+        ));
+    }
+    let deleted = recording::Entity::delete_many()
+        .filter(recording::Column::Id.eq(&row.id))
+        .filter(recording::Column::State.is_in(["stored", "failed"]))
+        .exec(db::db())
+        .await?;
+    if deleted.rows_affected == 0 {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            "This recording changed. Refresh and try again.",
+        ));
+    }
+    let _ = tokio::fs::remove_dir_all(folder(&row.id)).await;
+    if let Some(file_id) = row.file_id {
+        if let Err(reason) = delete_object(&file_id).await {
+            eprintln!(
+                "recordings: {} was deleted but its stored file was not: {reason}",
+                row.id
+            );
+        }
+    }
+    Ok(true)
+}

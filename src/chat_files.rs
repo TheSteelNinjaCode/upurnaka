@@ -409,3 +409,210 @@ pub async fn link(id: &str) -> Result<String> {
             )
         })
 }
+
+// ---- Managing My files: the Files page --------------------------------------
+
+/// The trimmed name, refused when it is empty, too long or a path.
+fn checked_name(field: &str, name: &str, limit: usize, what: &str) -> Result<String> {
+    let name = name.trim().to_string();
+    let mut validator = Validator::new();
+    validator
+        .check(field, !name.is_empty(), format!("Give the {what} a name."))
+        .check(
+            field,
+            name.chars().count() <= limit,
+            format!("Names can be up to {limit} characters."),
+        )
+        .check(
+            field,
+            !name.contains(['/', '\\']) && name != "." && name != "..",
+            "Names can't contain / or \\.",
+        );
+    validator.finish()?;
+    Ok(name)
+}
+
+async fn own_file(owner: &str, id: &str) -> Result<chat_file::Model> {
+    chat_file::Entity::find_by_id(id)
+        .filter(chat_file::Column::OwnerId.eq(owner))
+        .one(db::db())
+        .await?
+        .ok_or_else(|| Error::new(StatusCode::NOT_FOUND, "File not found."))
+}
+
+/// Every folder of this person's, each with its full path, for the Move dialog.
+#[derive(Clone, Serialize)]
+pub struct Place {
+    pub id: String,
+    pub path: String,
+}
+
+pub async fn places() -> Result<Vec<Place>> {
+    let folders = all_folders(&owner()?).await?;
+    let mut places: Vec<Place> = folders
+        .iter()
+        .map(|row| Place {
+            id: row.id.clone(),
+            path: path_to(&folders, &row.id)
+                .into_iter()
+                .map(|crumb| crumb.name)
+                .collect::<Vec<_>>()
+                .join(" / "),
+        })
+        .collect();
+    places.sort_by_key(|place| place.path.to_lowercase());
+    Ok(places)
+}
+
+/// How much this person keeps in My files.
+#[derive(Clone, Serialize)]
+pub struct Usage {
+    pub files: u64,
+    pub bytes: i64,
+}
+
+pub async fn usage() -> Result<Usage> {
+    let rows = chat_file::Entity::find()
+        .filter(chat_file::Column::OwnerId.eq(owner()?))
+        .all(db::db())
+        .await?;
+    Ok(Usage {
+        files: rows.len() as u64,
+        bytes: rows.iter().map(|row| row.bytes).sum(),
+    })
+}
+
+/// Rename one file. The stored object keeps its key; only the shown and
+/// downloaded name changes.
+pub async fn rename_file(id: String, name: String) -> Result<Attachment> {
+    let owner = owner()?;
+    let name = checked_name("name", &name, 200, "file")?;
+    let row = own_file(&owner, &id).await?;
+    let mut active: chat_file::ActiveModel = row.into();
+    active.name = Set(name);
+    Ok(active.update(db::db()).await?.into())
+}
+
+/// Rename one folder, refusing a name its siblings already use.
+pub async fn rename_folder(id: String, name: String) -> Result<bool> {
+    let owner = owner()?;
+    let name = checked_name("name", &name, 100, "folder")?;
+    let row = own_folder(&owner, &id).await?;
+    let taken = all_folders(&owner).await?.iter().any(|other| {
+        other.id != row.id
+            && other.parent_id == row.parent_id
+            && other.name.to_lowercase() == name.to_lowercase()
+    });
+    let mut validator = Validator::new();
+    validator.check("name", !taken, "A folder with this name is already here.");
+    validator.finish()?;
+    let mut active: chat_folder::ActiveModel = row.into();
+    active.name = Set(name);
+    active.update(db::db()).await?;
+    Ok(true)
+}
+
+/// Move files into `folder`, or to the top of My files when it is absent.
+pub async fn move_files(ids: Vec<String>, folder: Option<String>) -> Result<bool> {
+    let owner = owner()?;
+    let folder = folder.filter(|id| !id.trim().is_empty());
+    let mut validator = Validator::new();
+    validator
+        .check("ids", !ids.is_empty(), "Choose at least one file.")
+        .check("ids", ids.len() <= 500, "Move up to 500 files at a time.");
+    validator.finish()?;
+    if let Some(id) = &folder {
+        own_folder(&owner, id).await?;
+    }
+    let rows = owned_rows(&ids).await?;
+    chat_file::Entity::update_many()
+        .col_expr(
+            chat_file::Column::FolderId,
+            sea_orm::sea_query::Expr::value(folder),
+        )
+        .filter(chat_file::Column::OwnerId.eq(&owner))
+        .filter(chat_file::Column::Id.is_in(rows.into_iter().map(|row| row.id)))
+        .exec(db::db())
+        .await?;
+    Ok(true)
+}
+
+/// Remove the stored objects of deleted files, keeping any a community post
+/// still shows: sharing a file into a community reuses its object.
+async fn release(rows: &[chat_file::Model]) {
+    use crate::models::community_file;
+    let objects: Vec<String> = rows.iter().map(|row| row.file_id.clone()).collect();
+    let shared: Vec<String> = match community_file::Entity::find()
+        .filter(community_file::Column::FileId.is_in(objects.clone()))
+        .all(db::db())
+        .await
+    {
+        Ok(found) => found.into_iter().map(|row| row.file_id).collect(),
+        Err(error) => {
+            // Unsure what is shared, so keep every object rather than break a post.
+            eprintln!("chat files: shared objects unknown, none removed: {error}");
+            return;
+        }
+    };
+    for file_id in objects {
+        if shared.contains(&file_id) {
+            continue;
+        }
+        if let Err(reason) = recording::delete_object(&file_id).await {
+            eprintln!("chat files: stored object {file_id} was not removed: {reason}");
+        }
+    }
+}
+
+/// Delete files permanently: their rows, then their stored objects.
+pub async fn delete_files(ids: Vec<String>) -> Result<u64> {
+    let owner = owner()?;
+    let mut validator = Validator::new();
+    validator
+        .check("ids", !ids.is_empty(), "Choose at least one file.")
+        .check("ids", ids.len() <= 500, "Delete up to 500 files at a time.");
+    validator.finish()?;
+    let rows = owned_rows(&ids).await?;
+    let deleted = chat_file::Entity::delete_many()
+        .filter(chat_file::Column::OwnerId.eq(&owner))
+        .filter(chat_file::Column::Id.is_in(rows.iter().map(|row| row.id.clone())))
+        .exec(db::db())
+        .await?;
+    release(&rows).await;
+    Ok(deleted.rows_affected)
+}
+
+/// Delete a folder with everything inside it, all the way down.
+pub async fn delete_folder(id: String) -> Result<u64> {
+    let owner = owner()?;
+    own_folder(&owner, &id).await?;
+    let folders = all_folders(&owner).await?;
+    let doomed: Vec<String> = folders
+        .iter()
+        .filter(|row| {
+            path_to(&folders, &row.id)
+                .iter()
+                .any(|crumb| crumb.id == id)
+        })
+        .map(|row| row.id.clone())
+        .collect();
+    let files = chat_file::Entity::find()
+        .filter(chat_file::Column::OwnerId.eq(&owner))
+        .filter(chat_file::Column::FolderId.is_in(doomed.clone()))
+        .all(db::db())
+        .await?;
+    let transaction = sea_orm::TransactionTrait::begin(db::db()).await?;
+    chat_file::Entity::delete_many()
+        .filter(chat_file::Column::OwnerId.eq(&owner))
+        .filter(chat_file::Column::Id.is_in(files.iter().map(|row| row.id.clone())))
+        .exec(&transaction)
+        .await?;
+    chat_folder::Entity::delete_many()
+        .filter(chat_folder::Column::OwnerId.eq(&owner))
+        .filter(chat_folder::Column::Id.is_in(doomed))
+        .exec(&transaction)
+        .await?;
+    transaction.commit().await?;
+    release(&files).await;
+    Ok(files.len() as u64)
+}
