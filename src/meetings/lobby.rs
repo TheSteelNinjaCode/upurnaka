@@ -356,6 +356,40 @@ pub async fn mute(id: String, attendee: String) -> Result<bool> {
         .await?;
     Ok(true)
 }
+/// Mute everybody in the meeting except the organizer asking. Each person is
+/// muted at the provider, so a client that ignores the request still cannot
+/// send audio, and told through the room state so their own controls agree.
+/// Returns how many people were muted.
+pub async fn mute_all(id: String) -> Result<u64> {
+    host(&id).await?;
+    let me = auth::current().ok_or_else(denied)?;
+    let targets = visit::Entity::find()
+        .filter(visit::Column::MeetingId.eq(&id))
+        .filter(visit::Column::State.eq("joined"))
+        .filter(visit::Column::LeaseUntil.gt(now()))
+        .filter(visit::Column::UserId.ne(me.id))
+        .all(db::db())
+        .await?;
+    let mut muted = Vec::new();
+    for row in targets {
+        let (Some(provider), Some(attendee)) = (
+            row.provider_meeting_id.as_deref(),
+            row.attendee_id.as_deref(),
+        ) else {
+            continue;
+        };
+        super::dilnaka_meet::set_attendee_audio(provider, attendee, false).await?;
+        muted.push(row.id);
+    }
+    if !muted.is_empty() {
+        visit::Entity::update_many()
+            .col_expr(visit::Column::MutedByHost, Expr::value(true))
+            .filter(visit::Column::Id.is_in(muted.clone()))
+            .exec(db::db())
+            .await?;
+    }
+    Ok(muted.len() as u64)
+}
 pub async fn resume_audio(id: String, ticket: String) -> Result<bool> {
     let row = mine(&id, &ticket).await?;
     if row.state != "joined" {

@@ -366,6 +366,9 @@
   .top-\[72px\] {
     top: 72px;
   }
+  .top-\[88px\] {
+    top: 88px;
+  }
   .top-\[108px\] {
     top: 108px;
   }
@@ -468,9 +471,6 @@
   .left-5 {
     left: calc(var(--spacing) * 5);
   }
-  .left-6 {
-    left: calc(var(--spacing) * 6);
-  }
   .left-7 {
     left: calc(var(--spacing) * 7);
   }
@@ -518,6 +518,9 @@
   }
   .z-50 {
     z-index: 50;
+  }
+  .z-\[60\] {
+    z-index: 60;
   }
   .order-first {
     order: -9999;
@@ -751,6 +754,9 @@
   }
   .mr-1 {
     margin-right: var(--spacing);
+  }
+  .mr-1\.5 {
+    margin-right: calc(var(--spacing) * 1.5);
   }
   .mr-2 {
     margin-right: calc(var(--spacing) * 2);
@@ -1532,14 +1538,14 @@
   .max-w-\[calc\(100vw-32px\)\] {
     max-width: calc(100vw - 32px);
   }
-  .max-w-\[calc\(100vw-48px\)\] {
-    max-width: calc(100vw - 48px);
-  }
   .max-w-\[calc\(100vw-100px\)\] {
     max-width: calc(100vw - 100px);
   }
   .max-w-\[min\(320px\,100\%\)\] {
     max-width: min(320px, 100%);
+  }
+  .max-w-\[min\(560px\,calc\(100vw-32px\)\)\] {
+    max-width: min(560px, calc(100vw - 32px));
   }
   .max-w-full {
     max-width: 100%;
@@ -3124,6 +3130,9 @@
   }
   .text-start {
     text-align: start;
+  }
+  .align-\[-3px\] {
+    vertical-align: -3px;
   }
   .align-middle {
     vertical-align: middle;
@@ -5137,11 +5146,17 @@
     .max-\[650px\]\:top-\[116px\] {
       top: 116px;
     }
+    .max-\[650px\]\:top-auto {
+      top: auto;
+    }
     .max-\[650px\]\:right-0 {
       right: 0px;
     }
     .max-\[650px\]\:bottom-0 {
       bottom: 0px;
+    }
+    .max-\[650px\]\:bottom-24 {
+      bottom: calc(var(--spacing) * 24);
     }
     .max-\[650px\]\:z-2 {
       z-index: 2;

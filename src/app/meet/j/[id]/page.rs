@@ -663,6 +663,15 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         >
                             "Recordings"
                         </Button>
+                        <Button
+                            variant="ghost"
+                            class=@{MENU_ROW}
+                            hidden={!isOrganizer || people.length < 2}
+                            disabled={mutingAll || unmutedOthers === 0}
+                            onclick={muteEveryone()}
+                        >
+                            {unmutedOthers === 0 ? "Everyone is muted" : "Mute all participants"}
+                        </Button>
                         <Button variant="ghost" class=@{MENU_ROW} onclick={setHideSelf(!hideSelf)}>
                             {hideSelf ? "Show me in gallery" : "Hide me from gallery"}
                         </Button>
@@ -800,6 +809,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     <span
                                         class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                                     >
+                                        <span
+                                            class="room-muted-badge mr-1.5 inline-flex align-[-3px] text-danger-ink"
+                                            role="img"
+                                            aria-label={slot.name + " is muted"}
+                                            hidden={!slot.muted}
+                                        >
+                                            <Icon name="mic-off" class="size-3.5" />
+                                        </span>
                                         {slot.name}
                                         <Button
                                             variant="ghost"
@@ -840,6 +857,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     <span
                                         class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                                     >
+                                        <span
+                                            class="room-muted-badge mr-1.5 inline-flex align-[-3px] text-danger-ink"
+                                            role="img"
+                                            aria-label={person.name + " is muted"}
+                                            hidden={!person.muted}
+                                        >
+                                            <Icon name="mic-off" class="size-3.5" />
+                                        </span>
                                         {person.name}
                                         <Button
                                             variant="ghost"
@@ -891,6 +916,14 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <span
                                 class="absolute bottom-2.5 left-3 max-w-[calc(100%-24px)] truncate rounded bg-black/60 px-[7px] py-1 text-xs"
                             >
+                                <span
+                                    class="room-muted-badge mr-1.5 inline-flex align-[-3px] text-danger-ink"
+                                    role="img"
+                                    aria-label={"You are muted"}
+                                    hidden={!micOff(selfAttendeeId)}
+                                >
+                                    <Icon name="mic-off" class="size-3.5" />
+                                </span>
                                 {displayName}
                                 " (You)"
                                 <Button
@@ -978,7 +1011,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <Button
                                 variant="ghost"
                                 class=@{MENU_ROW}
-                                hidden={!isOrganizer || !tileMenu || tileMenu.id === selfAttendeeId}
+                                hidden={!isOrganizer || !tileMenu || tileMenu.id === selfAttendeeId || micOff(tileMenu.id)}
                                 attrs=@{Attrs::new().set("data-action", "mute")}
                                 onclick={muteTile()}
                             >
@@ -1087,11 +1120,26 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     </div>
                                 </template>
                             </section>
-                            <p class="my-3 text-xs text-subtle">"In this meeting"</p>
-                            <template pp-for="person in people">
+                            <div class="my-3 flex items-center justify-between gap-3">
+                                <p class="text-xs text-subtle">"In this meeting"</p>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="room-mute-all h-7! gap-1.5 px-2.5! text-xs"
+                                    hidden={!isOrganizer || people.length < 2}
+                                    disabled={mutingAll || unmutedOthers === 0}
+                                    onclick={muteEveryone()}
+                                >
+                                    <Icon name="mic-off" class="size-3.5" />
+                                    {mutingAll ? "Muting…" : unmutedOthers === 0 ? "All muted" : "Mute all"}
+                                </Button>
+                            </div>
+                            <template pp-for="person in peopleRows">
                                 <div
-                                    key={person.id}
-                                    class="my-[18px] flex items-center gap-3 text-[13px]"
+                                    key={[person.id, person.muted, person.raised].join("|")}
+                                    class="room-person-row my-[18px] flex items-center gap-3 text-[13px]"
+                                    data-attendee-id={person.id}
+                                    data-muted={person.muted}
                                 >
                                     <span
                                         class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-avatar text-avatar-ink"
@@ -1105,6 +1153,30 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                     <span hidden={!person.raised}>
                                         <Icon name="hand" class="h-5 w-5" />
                                     </span>
+                                    <span
+                                        class={person.muted ? "inline-flex text-danger-ink" : "inline-flex text-muted-foreground"}
+                                        role="img"
+                                        aria-label={person.name + (person.muted ? " is muted" : " has their microphone on")}
+                                        title={person.muted ? "Muted" : "Microphone on"}
+                                    >
+                                        <span class="contents" hidden={!person.muted}>
+                                            <Icon name="mic-off" class="h-4 w-4" />
+                                        </span>
+                                        <span class="contents" hidden={person.muted}>
+                                            <Icon name="mic" class="h-4 w-4" />
+                                        </span>
+                                    </span>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        class="h-7! px-2! text-xs text-link"
+                                        hidden={!isOrganizer || person.self || person.muted}
+                                        value={person.id}
+                                        name={person.name}
+                                        onclick={muteAttendee(event.currentTarget.value, event.currentTarget.name)}
+                                    >
+                                        "Mute"
+                                    </Button>
                                     <Button
                                         variant="ghost"
                                         size="icon-xs"
@@ -1305,8 +1377,9 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             </aside>
             <NotificationSound />
             <div
-                class="fixed bottom-6 left-6 max-w-[calc(100vw-48px)] rounded-md border border-edge bg-raised px-5 py-3.5 text-sm"
+                class="room-toast pointer-events-none fixed left-1/2 top-[88px] z-[60] w-max max-w-[min(560px,calc(100vw-32px))] -translate-x-1/2 rounded-md border border-edge bg-raised px-5 py-3.5 text-center text-sm text-ink shadow-xl shadow-black/40 max-[650px]:top-auto max-[650px]:bottom-24"
                 role="status"
+                aria-live="polite"
                 hidden={!toast}
             >
                 {toast}
@@ -1465,6 +1538,12 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const [remoteTiles, setRemoteTiles] = pp.state([false, false, false, false]);
                     const [tileDetails, setTileDetails] = pp.state([null, null, null, null]);
                     const [people, setPeople] = pp.state([]);
+                    // Whether each other attendee's microphone is muted, as the
+                    // media service reports it. Absent until it first reports,
+                    // which a person who joined without audio never does.
+                    const [micMuted, setMicMuted] = pp.state({});
+                    const volumeWatched = pp.ref(new Set());
+                    const [mutingAll, setMutingAll] = pp.state(false);
                     const [connectionStatus, setConnectionStatus] = pp.state("connecting");
                     const [elapsed, setElapsed] = pp.state(0);
                     const [roomPanel, setRoomPanel] = pp.state("");
@@ -1517,6 +1596,13 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     const hasContent = tileDetails.some(tile => tile && tile.content);
                     const featuredId = pinnedId || spotlightId;
                     const railRows = Math.max(1, people.filter(person => person.id !== (session?.attendee.AttendeeId || '') && person.id !== featuredId).length + (hasContent && featuredId ? 1 : 0) + (!hideSelf && featuredId !== (session?.attendee.AttendeeId || '') ? 1 : 0));
+                    // Muted unless the media service says otherwise: someone
+                    // who joined without audio never reports a microphone.
+                    function micOff(id) {
+                        if (!id) return false;
+                        if (session && id === session.attendee.AttendeeId) return !microphone || audioMode === "none";
+                        return micMuted[id] !== false;
+                    }
                     const remoteSlots = remoteRefs.map((ref, index) => ({
                         index,
                         ref,
@@ -1526,12 +1612,16 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         content: tileDetails[index] ? tileDetails[index].content : false,
                         attendeeId: tileDetails[index] ? tileDetails[index].id : "",
                         raised: !!tileDetails[index] && !tileDetails[index].content && people.some(person => person.id === tileDetails[index].id && person.raised),
+                        muted: !!tileDetails[index] && !tileDetails[index].content && micOff(tileDetails[index].id),
                     }));
                     const selfAttendeeId = session ? session.attendee.AttendeeId : "";
                     const remotePeople = people.filter(person => person.id !== selfAttendeeId).map(person => ({
                         ...person,
+                        muted: micOff(person.id),
                         hasVideo: tileDetails.some((tile, index) => remoteTiles[index] && tile && tile.id === person.id),
                     }));
+                    const peopleRows = people.map(person => ({ ...person, muted: micOff(person.id), self: person.id === selfAttendeeId }));
+                    const unmutedOthers = peopleRows.filter(person => !person.self && !person.muted).length;
                     const myInitials = initials(displayName);
                     const recordingLive = !!recordingId || roomRecording;
                     const recordingAllowed = !!recordingId || (recordingReady && isOrganizer && connectionStatus === "connected" && !roomRecording);
@@ -1736,11 +1826,33 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         try { await pp.rpc('spotlight_participant', {id:code,attendee}); setSpotlightId(attendee || ''); setPinnedId(''); setTileMenu(null); }
                         catch(failure) { setError(failure.body?.error || failure.message); }
                     }
-                    async function muteTile() {
-                        if (!tileMenu) return;
-                        try { await pp.rpc('mute_participant', {id:code,attendee:tileMenu.id}); setTileMenu(null); setToast('Participant muted.'); }
-                        catch(failure) { setError(failure.body?.error || failure.message); }
-                    }
+                    // Organizer mutes. The badge turns on at once; the media
+                    // service confirms it when the person's browser mutes.
+                    const muteAttendee = pp.event(async function muteAttendee(attendee, name) {
+                        if (!attendee || attendee === selfAttendeeId) return;
+                        try {
+                            await pp.rpc('mute_participant', {id:code,attendee});
+                            setMicMuted(current => ({ ...current, [attendee]: true }));
+                            setTileMenu(null); setToast((name || 'Participant') + ' is muted.');
+                        }
+                        catch(failure) { setToast(failure.body?.error || failure.message || 'That participant could not be muted.'); }
+                    });
+                    function muteTile() { if (tileMenu) muteAttendee(tileMenu.id, tileMenu.name); }
+                    const muteEveryone = pp.event(async function muteEveryone() {
+                        if (!isOrganizer || mutingAll) return;
+                        setMutingAll(true); setMoreOpen(false);
+                        try {
+                            const count = await pp.rpc('mute_all_participants', {id:code});
+                            setMicMuted(current => {
+                                const next = { ...current };
+                                for (const person of people) if (person.id !== selfAttendeeId) next[person.id] = true;
+                                return next;
+                            });
+                            setToast(count === 0 ? 'Nobody else is in the meeting to mute.' : count === 1 ? 'Muted 1 participant.' : 'Muted ' + count + ' participants.');
+                        }
+                        catch(failure) { setToast(failure.body?.error || failure.message || 'Everyone could not be muted.'); }
+                        finally { setMutingAll(false); }
+                    });
                     async function switchCamera() {
                         setTileMenu(null);
                         if (applyingBackground) return;
@@ -1808,9 +1920,24 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setBackgroundsOpen(true);
                     }
 
+                    const onAttendeeVolume = pp.event((attendeeId, volume, muted) => {
+                        if (typeof muted !== "boolean") return;
+                        setMicMuted(current => current[attendeeId] === muted ? current : { ...current, [attendeeId]: muted });
+                    });
+                    function watchVolume(id, on) {
+                        const live = call.current, watched = volumeWatched.current;
+                        if (!live || id === live.attendeeId || watched.has(id) === on) return;
+                        try {
+                            if (on) live.av.realtimeSubscribeToVolumeIndicator(id, onAttendeeVolume);
+                            else live.av.realtimeUnsubscribeFromVolumeIndicator(id, onAttendeeVolume);
+                        } catch (_) { return; }
+                        if (on) watched.add(id); else watched.delete(id);
+                    }
                     const onPresence = pp.event((id, present, externalId) => {
                         if (id.includes("#content")) return;
+                        watchVolume(id, present);
                         if (!present) {
+                            setMicMuted(current => { const next = { ...current }; delete next[id]; return next; });
                             setPeople(current => current.filter(person => person.id !== id));
                             if (pinnedId === id) setPinnedId('');
                             if (tileMenu?.id === id) setTileMenu(null);
@@ -2536,6 +2663,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setRemoteTiles([false, false, false, false]);
                         setTileDetails([null, null, null, null]);
                         setPeople([]);
+                        setMicMuted({});
+                        volumeWatched.current = new Set();
                         setRoomPanel("");
                         setBackgroundsOpen(false);
                         setMoreOpen(false);
@@ -2571,6 +2700,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                                 live.av.realtimeUnsubscribeToAttendeeIdPresence(onPresence);
                                 live.av.realtimeUnsubscribeFromReceiveDataMessage("upurnaka-room");
                                 live.av.realtimeUnsubscribeFromVolumeIndicator(live.attendeeId);
+                                for (const id of volumeWatched.current) live.av.realtimeUnsubscribeFromVolumeIndicator(id, onAttendeeVolume);
                                 await live.av.stopAudioInput();
                                 live.av.stop();
                             }
@@ -2950,6 +3080,10 @@ pub async fn spotlight_participant(id: String, attendee: Option<String>) -> Resu
 #[rpc(auth)]
 pub async fn mute_participant(id: String, attendee: String) -> Result<bool> {
     meetings::lobby::mute(id, attendee).await
+}
+#[rpc(auth)]
+pub async fn mute_all_participants(id: String) -> Result<u64> {
+    meetings::lobby::mute_all(id).await
 }
 #[rpc]
 pub async fn meeting_chat_history(

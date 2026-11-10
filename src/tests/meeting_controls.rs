@@ -419,6 +419,56 @@ async fn lobby_admission_is_required_before_credentials_and_only_owner_can_decid
 }
 
 #[tokio::test]
+async fn organizer_mutes_everyone_else_at_once() {
+    let id = meeting().await;
+    let mut host = owner().await;
+    let mut guest = guest().await;
+    let host_entry = entry(&mut host, &id, "Organizer").await;
+    let guest_entry = entry(&mut guest, &id, "Guest").await;
+    for (ticket, seat) in [
+        (&host_entry["id"], "host-seat"),
+        (&guest_entry["id"], "guest-seat"),
+    ] {
+        visit::Entity::update_many()
+            .col_expr(visit::Column::State, Expr::value("joined"))
+            .col_expr(
+                visit::Column::ProviderMeetingId,
+                Expr::value("fake-provider"),
+            )
+            .col_expr(visit::Column::AttendeeId, Expr::value(seat))
+            .filter(visit::Column::Id.eq(ticket.as_str().unwrap()))
+            .exec(crate::db::db())
+            .await
+            .unwrap();
+    }
+
+    let (s, _) = call(&mut guest, &id, "mute_all_participants", json!({"id":id})).await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "a participant muted everyone");
+    let (s, _) = call(&mut host, &id, "mute_all_participants", json!({})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+
+    let (s, count) = call(&mut host, &id, "mute_all_participants", json!({"id":id})).await;
+    assert_eq!(s, StatusCode::OK, "{count}");
+    assert_eq!(count, 1, "only the guest is muted, never the organizer");
+    let (_, state) = call(
+        &mut guest,
+        &id,
+        "meeting_room_state",
+        json!({"id":id,"ticket":guest_entry["id"]}),
+    )
+    .await;
+    assert_eq!(state["muted_by_host"], true);
+    let (_, state) = call(
+        &mut host,
+        &id,
+        "meeting_room_state",
+        json!({"id":id,"ticket":host_entry["id"]}),
+    )
+    .await;
+    assert_eq!(state["muted_by_host"], false);
+}
+
+#[tokio::test]
 async fn spotlight_and_host_mute_are_scoped_and_unmute_belongs_to_the_participant() {
     let id = meeting().await;
     let mut host = owner().await;
