@@ -28,7 +28,11 @@ pub fn JoinMeetingById() -> Html {
     html! {
         <div>
             <Popover>
-                <PopoverTrigger name=@{NAME} class=@{trigger.as_str()} attrs=@{named("Join with an ID")}>
+                <PopoverTrigger
+                    name=@{NAME}
+                    class=@{trigger.as_str()}
+                    attrs=@{named("Join with an ID")}
+                >
                     <Icon name="hash" class="size-4" />
                     "Join with an ID"
                 </PopoverTrigger>

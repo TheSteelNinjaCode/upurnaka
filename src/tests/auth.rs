@@ -531,7 +531,7 @@ async fn a_challenge_has_only_one_winner_under_parallel_verification() {
 async fn a_browser_can_register_enroll_save_codes_and_sign_out() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     browser

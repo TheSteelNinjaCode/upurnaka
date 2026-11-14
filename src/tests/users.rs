@@ -417,7 +417,7 @@ async fn deactivation_cancels_pending_otp_and_managed_users_enroll_their_own_aut
 async fn admin_browser_can_create_edit_deactivate_activate_search_and_delete() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     browser

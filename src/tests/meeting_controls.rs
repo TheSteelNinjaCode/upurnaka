@@ -878,10 +878,10 @@ async fn browser_join(browser: &mut rahti::browser::Browser) {
 async fn browsers_can_use_lobby_and_host_controls_without_replacing_video_elements() {
     let id = meeting().await;
     let address = rahti::browser::serve(browser_router()).await;
-    let Some(mut host_browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut host_browser) = launch_browser().await else {
         return;
     };
-    let Some(mut guest_browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut guest_browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut host_browser, address).await;

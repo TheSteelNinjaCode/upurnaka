@@ -173,7 +173,7 @@ async fn profile_updates_validate_persist_and_affect_only_the_signed_in_person()
 async fn people_profile_menu_edits_name_and_picture_and_restores_focus() {
     let (_, _, cookie) = person("profile-browser@example.com").await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     browser

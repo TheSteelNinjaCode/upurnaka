@@ -4,7 +4,7 @@ use super::*;
 async fn composer_popovers_do_not_flash_the_input_border() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -65,7 +65,7 @@ async fn composer_popovers_do_not_flash_the_input_border() {
 async fn composer_rich_controls_links_lists_clipboard_and_discard() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -131,7 +131,7 @@ async fn composer_rich_controls_links_lists_clipboard_and_discard() {
 async fn composer_actions_format_send_and_preserve_drafts() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -228,7 +228,7 @@ async fn composer_actions_format_send_and_preserve_drafts() {
 async fn self_chat_menu_moves_hides_and_opens_the_conversation() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -297,7 +297,7 @@ async fn self_chat_menu_moves_hides_and_opens_the_conversation() {
 async fn opening_a_header_menu_closes_meet_popovers() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -354,7 +354,7 @@ async fn opening_a_header_menu_closes_meet_popovers() {
 async fn shell_dropdowns_stay_above_meet_actions() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -395,7 +395,7 @@ async fn shell_dropdowns_stay_above_meet_actions() {
 async fn shell_pages_fill_the_content_area() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -421,7 +421,7 @@ async fn shell_pages_fill_the_content_area() {
 async fn chat_search_and_meet_now_controls_work() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -526,7 +526,7 @@ async fn chat_search_and_meet_now_controls_work() {
 async fn chat_mounts_and_updates_under_trusted_types() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         eprintln!("Skipping chat browser test: Chrome or Edge is not installed.");
         return;
     };
@@ -646,7 +646,7 @@ async fn an_unknown_url_is_a_404() {
 async fn keyboard_shortcuts_dialog_filters_and_handles_focus() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -700,7 +700,7 @@ async fn keyboard_shortcuts_dialog_filters_and_handles_focus() {
 async fn shortcuts_control_chat_from_body_and_composer() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -793,7 +793,7 @@ async fn shortcuts_control_chat_from_body_and_composer() {
 async fn new_chat_composes_a_group_and_preserves_other_drafts() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -901,7 +901,7 @@ async fn new_chat_composes_a_group_and_preserves_other_drafts() {
 async fn calendar_meet_now_shares_and_starts_the_same_meeting() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -973,7 +973,7 @@ async fn calendar_joins_a_meeting_by_id_and_handles_dismissal_and_blocked_window
         .await
         .unwrap();
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -1058,7 +1058,7 @@ async fn calendar_joins_a_meeting_by_id_and_handles_dismissal_and_blocked_window
 async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -1189,7 +1189,7 @@ async fn emoji_picker_searches_inserts_at_the_cursor_and_dismisses() {
 async fn new_message_menu_opens_a_window_and_discards_only_its_draft() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;

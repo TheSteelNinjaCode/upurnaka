@@ -47,7 +47,7 @@ async fn settings_requires_a_session() {
 async fn settings_preferences_persist_apply_and_reset_in_the_browser() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -162,7 +162,7 @@ async fn settings_preferences_persist_apply_and_reset_in_the_browser() {
 async fn settings_recovers_invalid_values_and_reports_failed_saves() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -191,7 +191,7 @@ async fn settings_recovers_invalid_values_and_reports_failed_saves() {
 async fn devices_save_choices_test_privately_and_release_media() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -308,7 +308,7 @@ async fn saved_devices_and_audio_processing_apply_to_new_meetings() {
             next.run(request).await
         }));
     let address = rahti::browser::serve(router).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -426,7 +426,7 @@ async fn saved_devices_and_audio_processing_apply_to_new_meetings() {
 async fn accessibility_matches_teams_and_saves_switches() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -471,7 +471,7 @@ async fn accessibility_matches_teams_and_saves_switches() {
 async fn single_pointer_controls_reorder_chats_without_dragging() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -521,7 +521,7 @@ async fn single_pointer_controls_reorder_chats_without_dragging() {
 async fn privacy_controls_save_handle_permissions_and_open_profile() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -589,7 +589,7 @@ async fn privacy_controls_save_handle_permissions_and_open_profile() {
 async fn optional_connected_experiences_off_blocks_giphy_requests() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -613,7 +613,7 @@ async fn optional_connected_experiences_off_blocks_giphy_requests() {
 async fn chat_settings_persist_and_control_the_chat_list_and_density() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -723,7 +723,7 @@ async fn chat_settings_persist_and_control_the_chat_list_and_density() {
 async fn notification_settings_save_and_drive_the_test_notification() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;

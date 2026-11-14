@@ -45,7 +45,7 @@ async fn workspace_file_filters_match_teams_and_apply_calendar_ranges() {
         .unwrap();
     }
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -231,7 +231,7 @@ async fn message_search_calendar_presets_and_custom_ranges_are_validated() {
 async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -415,7 +415,7 @@ async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
 async fn workspace_search_finds_current_communities_and_focuses_the_result() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -646,7 +646,7 @@ async fn workspace_search_limits_directory_fields_and_scopes_files() {
 async fn workspace_search_switches_tabs_and_returns_to_preserved_chat() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;

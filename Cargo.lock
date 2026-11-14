@@ -2779,9 +2779,9 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rahti"
-version = "0.0.70"
+version = "0.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c40a6a7c5742ba649944150402757af263551d4ffa89d7759fdc0c138e93173a"
+checksum = "a1112654da07c98005330543840b5cbe52dfd4eb65d890b0f3e0417a325586f0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2810,9 +2810,9 @@ dependencies = [
 
 [[package]]
 name = "rahti-build"
-version = "0.0.70"
+version = "0.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d80585ea18a860adb2e523564a85b8a88fd1ada6d13052101d14cf252e0aca4"
+checksum = "8134e7fabf9a906b522a1f2f7eb6e51627491ea4394d1ac496366d3d82ffa549"
 dependencies = [
  "fluent-syntax",
  "proc-macro2",
@@ -2824,18 +2824,18 @@ dependencies = [
 
 [[package]]
 name = "rahti-icons"
-version = "0.0.37"
+version = "0.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86c56c8d3fa11aaa4e9e4015f5fd0aef2a0ef6031e394700f5358e9e4ddd14f0"
+checksum = "54c70200d8f88f39407f4b391f45b7087a8d48a0f10790e7e79490d92d4676da"
 dependencies = [
  "rahti",
 ]
 
 [[package]]
 name = "rahti-js"
-version = "0.0.70"
+version = "0.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2df388a527d275143bc8bf6bc303d56600555ad44dfc7b5aa244897d457d6d91"
+checksum = "eb0e338e835d88386e296cda222eaed01be9feac596d56cdc520d71a99cb17ba"
 dependencies = [
  "oxc_allocator",
  "oxc_ast",
@@ -2848,9 +2848,9 @@ dependencies = [
 
 [[package]]
 name = "rahti-macros"
-version = "0.0.70"
+version = "0.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b5297d2b23c2a2435a9cb29f42acac764e2dc9416c0deeaa827d07e1c9c9d2c"
+checksum = "6194db2176026b32e9fb8eb1d376220f2af7c850c6b0c58bed31b5461d21898b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2859,9 +2859,9 @@ dependencies = [
 
 [[package]]
 name = "rahti-mcp"
-version = "0.0.70"
+version = "0.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e575cd0ff57baf800393f8622b79941d18b67cbaf8c291a11f16586a14e942ee"
+checksum = "170477482b33e82c32e3b3b2ba4f6d80178548a33bed14acd26fb2b9a91862ae"
 dependencies = [
  "axum",
  "rahti-build",

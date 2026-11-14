@@ -7,7 +7,7 @@ use super::*;
 async fn meet_popovers_anchor_dismiss_and_open_the_calendar_form() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -109,7 +109,7 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
             next.run(request).await
         }));
     let address = rahti::browser::serve(router).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -731,7 +731,7 @@ async fn meeting_chat_refuses_bad_messages_and_ends_with_the_link() {
 async fn pre_join_audio_selects_name_the_default_device() {
     let id = mint("Audio device names").await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         eprintln!("Skipping audio device test: Chrome or Edge is not installed.");
         return;
     };
@@ -822,7 +822,7 @@ async fn pre_join_audio_selects_name_the_default_device() {
 async fn meeting_link_actions_stand_out_from_their_card_in_both_appearances() {
     let id = mint("Visible actions").await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -848,7 +848,7 @@ async fn meeting_link_actions_stand_out_from_their_card_in_both_appearances() {
 async fn meeting_name_editor_selects_saves_and_cancels() {
     let id = mint("Name editor original").await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -1055,7 +1055,7 @@ async fn the_join_page_says_when_no_provider_is_configured() {
 async fn pre_join_is_standalone_and_audio_choices_update() {
     let id = mint("Standalone pre-join").await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         eprintln!("Skipping pre-join browser test: Chrome or Edge is not installed.");
         return;
     };
@@ -1119,7 +1119,7 @@ async fn pre_join_is_standalone_and_audio_choices_update() {
 async fn meeting_background_replacement_processes_video_locally() {
     let id = mint("Background processing").await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;

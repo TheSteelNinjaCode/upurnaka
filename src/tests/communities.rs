@@ -43,7 +43,7 @@ async fn community_emoji_picker_search_categories_keyboard_and_recents() {
     assert_eq!(status, StatusCode::OK);
     let community: Value = serde_json::from_str(&body).unwrap();
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -1477,7 +1477,7 @@ async fn community_menu_matches_teams_and_edits_persist_in_browser() {
     assert_eq!(status, StatusCode::OK);
     let created: Value = serde_json::from_str(&body).unwrap();
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -1719,7 +1719,7 @@ async fn canceling_channel_dialog_discards_drafts_and_errors_keep_it_open() {
         );
     }
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -1782,7 +1782,7 @@ async fn canceling_channel_dialog_discards_drafts_and_errors_keep_it_open() {
 async fn canceling_the_community_image_picker_keeps_the_creation_dialog_open() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -1820,7 +1820,7 @@ async fn canceling_the_community_image_picker_keeps_the_creation_dialog_open() {
 async fn community_template_edits_and_creates_in_one_step() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;
@@ -2272,7 +2272,7 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
     assert_eq!(status, StatusCode::OK);
     let community: serde_json::Value = serde_json::from_str(&body).unwrap();
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;

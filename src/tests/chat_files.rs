@@ -234,7 +234,7 @@ async fn cloud_picker_browses_folders_and_views_of_its_owner_only() {
 async fn composer_uploads_attaches_cloud_files_and_sends_them() {
     setup().await;
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     authenticate_browser(&mut browser, address).await;

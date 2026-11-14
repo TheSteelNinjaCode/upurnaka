@@ -73,7 +73,7 @@ async fn giphy_picker_trends_searches_paginates_and_sends_a_gif() {
         .unwrap()
         .insert(row.id.clone(), "public-test-key".into());
     let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = rahti::browser::Browser::launch().await.unwrap() else {
+    let Some(mut browser) = launch_browser().await else {
         return;
     };
     browser

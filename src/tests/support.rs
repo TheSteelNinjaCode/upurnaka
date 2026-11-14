@@ -195,6 +195,48 @@ pub(super) fn signed_cookie(user: rahti::serde_json::Value) -> String {
     )
 }
 
+/// How many headless browsers the suite runs at once.
+///
+/// `cargo test` runs one test per core; two dozen Chromes at once starve each
+/// other until `Page.navigate` gets no answer within 30s. The cap applies only
+/// to browser tests, so the in-process router tests keep full parallelism.
+const BROWSER_SLOTS: usize = 4;
+
+static BROWSERS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(BROWSER_SLOTS);
+
+/// A launched browser holding one of the suite's browser slots until dropped.
+pub(super) struct BrowserSlot {
+    browser: rahti::browser::Browser,
+    _slot: tokio::sync::SemaphorePermit<'static>,
+}
+
+impl std::ops::Deref for BrowserSlot {
+    type Target = rahti::browser::Browser;
+    fn deref(&self) -> &Self::Target {
+        &self.browser
+    }
+}
+
+impl std::ops::DerefMut for BrowserSlot {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.browser
+    }
+}
+
+/// `Browser::launch`, waiting for a free slot first. `None` when no browser
+/// is installed, exactly as `launch` reports it.
+pub(super) async fn launch_browser() -> Option<BrowserSlot> {
+    let slot = BROWSERS
+        .acquire()
+        .await
+        .expect("the browser semaphore is never closed");
+    let browser = rahti::browser::Browser::launch().await.unwrap()?;
+    Some(BrowserSlot {
+        browser,
+        _slot: slot,
+    })
+}
+
 pub(super) async fn authenticate_browser(
     browser: &mut rahti::browser::Browser,
     address: std::net::SocketAddr,
