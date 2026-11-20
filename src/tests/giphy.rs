@@ -119,7 +119,14 @@ async fn giphy_picker_trends_searches_paginates_and_sends_a_gif() {
         true
     "#).await.unwrap();
     browser.click("button[aria-label=Emoji]").await.unwrap();
-    browser.wait_for("document.querySelectorAll('.chat-gif-grid button').length === 1 && !document.querySelector('.chat-giphy-attribution').hidden && document.querySelector('.chat-giphy-attribution img').naturalWidth > 0").await.unwrap();
+    let ready = browser.wait_for("document.querySelectorAll('.chat-gif-grid button').length === 1 && !document.querySelector('.chat-giphy-attribution').hidden && document.querySelector('.chat-giphy-attribution img').naturalWidth > 0").await;
+    if let Err(error) = ready {
+        let state: String = browser.eval("JSON.stringify({pickerPresent:!!document.querySelector('.chat-emoji-picker'), attributionWidth:document.querySelector('.chat-giphy-attribution img')?.naturalWidth, gifs:document.querySelectorAll('.chat-gif-grid button').length})").await.unwrap();
+        panic!(
+            "{error}; picker state: {state}; browser errors: {:?}",
+            browser.errors()
+        );
+    }
     let trending: bool = browser.eval("window.giphyRequests.some(value => {const u = new URL(value); return u.pathname.endsWith('/trending') && u.searchParams.get('rating') === 'g' && u.searchParams.get('api_key') === 'public-test-key';})").await.unwrap();
     assert!(trending);
     browser

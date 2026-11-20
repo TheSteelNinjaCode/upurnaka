@@ -139,6 +139,11 @@ pub async fn page() -> Html {
     let folder_field = input_variants("h-8! text-sm");
     let cancel_button = button_variants(ButtonVariant::Outline, ButtonSize::Default, "");
     let emoji_search = input_group_input_variants("text-sm");
+    let gif_button = button_variants(
+        ButtonVariant::Ghost,
+        ButtonSize::Default,
+        "h-[92px]! overflow-hidden bg-sunken p-0!",
+    );
     let composer_field = input_group_textarea_variants(
         "h-[42px] min-h-[42px] w-0 min-w-0 flex-[1_1_0] resize-none px-3 py-[11px] text-[13px] leading-5 text-ink placeholder:text-muted-foreground placeholder:opacity-100",
     );
@@ -1469,11 +1474,10 @@ pub async fn page() -> Html {
                                                         aria-busy={gifLoading}
                                                     >
                                                         <template pp-for="gif in visibleGifs">
-                                                            <Button
-                                                                attrs=@{plain()}
+                                                            <button
+                                                                type="button"
                                                                 key={gif.id}
-                                                                variant="ghost"
-                                                                class="h-[92px]! overflow-hidden bg-sunken p-0!"
+                                                                class=@{gif_button.as_str()}
                                                                 value={gif.id}
                                                                 onclick={chooseGif(event.currentTarget.value)}
                                                             >
@@ -1483,7 +1487,7 @@ pub async fn page() -> Html {
                                                                     loading="lazy"
                                                                     class="size-full object-cover"
                                                                 />
-                                                            </Button>
+                                                            </button>
                                                         </template>
                                                     </div>
                                                     <p

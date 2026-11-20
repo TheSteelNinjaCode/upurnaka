@@ -25,7 +25,7 @@ server is running the current source, which routes loaded under this
 boot with their browser errors, and how background jobs are doing. A
 route it does not list was never opened, so it proves nothing.
 
-End with what you applied: "Restarted, loaded `/todo`, saved a row;
+End with what you applied: "Restarted, loaded `/dashboard`, saved a row;
 browser clean." If you have no browser, say so and give the exact URL.
 
 ## Background jobs for agents
@@ -49,8 +49,9 @@ accesses from the `typescript` shapes. A `schemaStatus` other than
 its `#[rpc]`; run
 compiler and router/browser checks. `html!` refuses a field read
 directly off `const x = await pp.rpc("name", …)` that the response
-does not have; dynamic values, and a result read after it was stored
-or passed on, are not proved by compilation. See
+does not have, and a field read off a state that only ever holds
+that response (`RAHTI_STATE_FIELD`); dynamic values and a result
+passed on to other code are not proved by compilation. See
 `docs/conventions/rpc-and-uploads.md`.
 
 ## Native packaging for agents
@@ -119,7 +120,11 @@ warnings. See `docs/conventions/native-packaging.md`.
     handler is a binding, `onclick={save()}`; a server value is
     `href=@{url}`. A binding is JavaScript the Rust lexer must accept —
     double-quoted strings, no template literals — so longer logic is a
-    named function in the script. Compute values in Rust above the
+    named function in the script. Template literals belong in the
+    script, where they are preferred to `+` chains; in markup write
+    `"Hello "{name}` as text and `title={"Hello " + name}` in an
+    attribute (a backtick there is rustc's `unknown start of token`).
+    Compute values in Rust above the
     template and interpolate names. `html!` has one authored root: a
     literal element, a single component tag, or a `<>…</>` fragment. The
     root layout is the exception: it writes a literal `<html>` root,
@@ -205,12 +210,16 @@ warnings. See `docs/conventions/native-packaging.md`.
     `rahti::observability` before building the router, never log credentials
     or bodies, and remember that response duration does not measure a
     streaming body's lifetime.
-18. Background jobs are typed, named application work running on Rahti's
-    bounded process-local queue. Keep a `JobQueue` handle in application-owned
-    state, enqueue only after the authoritative transaction commits, and
-    make retryable handlers idempotent. Payloads are neither durable nor
-    encrypted; use an external broker when losing queued work on process
-    failure is unacceptable. Every host calls
+18. A background job is a `#[job]` function in `src/jobs.rs` or under
+    `src/jobs/`, enqueued as `crate::jobs::name::enqueue(args).await`, so a
+    wrong name or argument is a compile error. `initialize_application`
+    calls `rahti::jobs::Jobs::new().install()` once. Enqueue only after the
+    authoritative transaction commits, and make retryable handlers
+    idempotent: delivery is at least once. Payloads are ids, never
+    secrets, and are not encrypted. The memory queue loses work on a
+    crash; `cargo rahti generate job-store` keeps jobs in the
+    application's database. Pin `name = "…"` before renaming a durable
+    job. Every host calls
     `rahti::jobs::finish_shutdown()` after HTTP graceful shutdown.
 19. Task scheduling submits registered background jobs; it never creates
     a second execution path. Recurring schedules prevent overlap by
@@ -272,7 +281,7 @@ warnings. See `docs/conventions/native-packaging.md`.
     interpolated. A function handed to a library or a long-lived listener is
     wrapped in `pp.event(…)` so it reads current state, never a
     hand-kept "latest" ref. A library mounts into an empty element of its
-    own, `<div pp-ref="{host}"></div>`; re-renders leave its children and the
+    own, `<div pp-ref={host}></div>`; re-renders leave its children and the
     attributes it sets alone.
 28. A `#[socket]` function lives beside the page or component whose
     script opens it, takes a final `socket: rahti::ws::Socket`
