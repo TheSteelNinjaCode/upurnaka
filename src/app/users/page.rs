@@ -80,7 +80,7 @@ pub async fn page() -> Result<Html> {
                             >
                                 <Input
                                     name="search"
-                                    r#type="search"
+                                    type="search"
                                     placeholder="Search name or email"
                                     class="h-10! min-w-0 flex-1"
                                     attrs=@{named("Search users").set("maxlength", "254")}
@@ -253,7 +253,7 @@ pub async fn page() -> Result<Html> {
                         </DialogHeader>
                         <form onsubmit={save(event)} class="grid gap-5 sm:grid-cols-2">
                             <Field>
-                                <FieldLabel r#for="user-name">"Name"</FieldLabel>
+                                <FieldLabel for="user-name">"Name"</FieldLabel>
                                 <Input
                                     id="user-name"
                                     name="name"
@@ -268,11 +268,11 @@ pub async fn page() -> Result<Html> {
                                 />
                             </Field>
                             <Field>
-                                <FieldLabel r#for="user-email">"Email address"</FieldLabel>
+                                <FieldLabel for="user-email">"Email address"</FieldLabel>
                                 <Input
                                     id="user-email"
                                     name="email"
-                                    r#type="email"
+                                    type="email"
                                     required
                                     class="h-11!"
                                     attrs=@{Attrs::new().set("maxlength", "254").set("autocomplete", "off")}
@@ -281,11 +281,11 @@ pub async fn page() -> Result<Html> {
                                 />
                             </Field>
                             <Field hidden={mode !== "create"}>
-                                <FieldLabel r#for="user-password">"Initial password"</FieldLabel>
+                                <FieldLabel for="user-password">"Initial password"</FieldLabel>
                                 <Input
                                     id="user-password"
                                     name="password"
-                                    r#type="password"
+                                    type="password"
                                     class="h-11!"
                                     attrs=@{Attrs::new()
                                         .set("minlength", "12")
@@ -298,13 +298,11 @@ pub async fn page() -> Result<Html> {
                                 />
                             </Field>
                             <Field hidden={mode !== "create"}>
-                                <FieldLabel r#for="user-confirmation">
-                                    "Confirm password"
-                                </FieldLabel>
+                                <FieldLabel for="user-confirmation">"Confirm password"</FieldLabel>
                                 <Input
                                     id="user-confirmation"
                                     name="confirmation"
-                                    r#type="password"
+                                    type="password"
                                     class="h-11!"
                                     attrs=@{Attrs::new()
                                         .set("maxlength", "128")

@@ -391,7 +391,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                             <div
                                 class="mb-8 flex items-center gap-1.5 text-[13px] text-muted-foreground max-[700px]:flex-wrap"
                             >
-                                <Label r#for="calendar-timezone" class="font-normal">
+                                <Label for="calendar-timezone" class="font-normal">
                                     "Time zone:"
                                 </Label>
                                 <Select
@@ -444,7 +444,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                 <div class="flex flex-1 flex-wrap items-center gap-2">
                                     <Input
                                         name="start_date"
-                                        r#type="date"
+                                        type="date"
                                         required
                                         class="h-10! w-[150px]"
                                         attrs=@{named("Start date")}
@@ -453,7 +453,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                     />
                                     <Input
                                         name="start_time"
-                                        r#type="time"
+                                        type="time"
                                         required
                                         class="h-10! w-[112px]"
                                         attrs=@{named("Start time")}
@@ -467,7 +467,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                     />
                                     <Input
                                         name="end_date"
-                                        r#type="date"
+                                        type="date"
                                         required
                                         class="h-10! w-[150px]"
                                         attrs=@{named("End date")}
@@ -476,7 +476,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                     />
                                     <Input
                                         name="end_time"
-                                        r#type="time"
+                                        type="time"
                                         required
                                         class="h-10! w-[112px]"
                                         attrs=@{named("End time")}
@@ -495,7 +495,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                         onchange={setAllDay(target.checked)}
                                     />
                                     <Label
-                                        r#for="calendar-all-day"
+                                        for="calendar-all-day"
                                         class="font-normal text-muted-foreground"
                                     >
                                         "All day"
@@ -524,7 +524,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                         class="flex items-center gap-2"
                                     >
                                         <Label
-                                            r#for="calendar-occurrences"
+                                            for="calendar-occurrences"
                                             class="font-normal text-muted-foreground"
                                         >
                                             "Occurrences"
@@ -532,7 +532,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                         <Input
                                             id="calendar-occurrences"
                                             name="occurrences"
-                                            r#type="number"
+                                            type="number"
                                             value="10"
                                             class="h-10! w-[72px]"
                                             attrs=@{Attrs::new().set("min", "1").set("max", "52")}

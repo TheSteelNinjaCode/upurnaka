@@ -71,7 +71,7 @@
 //! ```ignore
 //! <div class="flex items-center gap-2">
 //!     <Checkbox id="terms" disabled />
-//!     <Label r#for="terms">"Accept the terms"</Label>
+//!     <Label for="terms">"Accept the terms"</Label>
 //! </div>
 //! ```
 //!

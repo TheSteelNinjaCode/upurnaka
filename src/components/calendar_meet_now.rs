@@ -63,7 +63,7 @@ pub fn CalendarMeetNow() -> Html {
                     <form onsubmit={startMeeting(event)} novalidate>
                         <FieldGroup class="gap-4">
                             <Field>
-                                <FieldLabel r#for="meet-now-title" class="text-[13px]">
+                                <FieldLabel for="meet-now-title" class="text-[13px]">
                                     "Meeting name"
                                 </FieldLabel>
                                 <input
@@ -84,7 +84,7 @@ pub fn CalendarMeetNow() -> Html {
                             </Field>
                             <Field class="calendar-meet-share" hidden={!shared}>
                                 <FieldLabel
-                                    r#for="meet-now-link"
+                                    for="meet-now-link"
                                     class="text-xs text-muted-foreground"
                                 >
                                     "Meeting link"

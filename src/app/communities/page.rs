@@ -3388,7 +3388,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                                 />
                                 <Field class="min-w-0 flex-1 gap-1">
                                     <FieldLabel
-                                        r#for="community-name"
+                                        for="community-name"
                                         class="text-[15px] font-normal"
                                     >
                                         "Community name"
@@ -3432,7 +3432,7 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
                             </p>
                             <Field class="mt-8 gap-2">
                                 <FieldLabel
-                                    r#for="community-description"
+                                    for="community-description"
                                     class="text-[15px] font-normal"
                                 >
                                     "Description (optional)"

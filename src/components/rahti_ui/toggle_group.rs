@@ -48,8 +48,8 @@
 //! The tags spell it out instead, which is what a tag is for:
 //!
 //! ```ignore
-//! <ToggleGroup r#type="single" name="view" variant="outline">
-//!     <ToggleGroupItem r#type="single" name="view" variant="outline" value="list" pressed>
+//! <ToggleGroup type="single" name="view" variant="outline">
+//!     <ToggleGroupItem type="single" name="view" variant="outline" value="list" pressed>
 //!         "List"
 //!     </ToggleGroupItem>
 //! </ToggleGroup>
@@ -678,11 +678,11 @@ fn merge(base: Attrs, over: &Attrs) -> Attrs {
 /// A set of toggles, joined into a strip.
 ///
 /// ```ignore
-/// <ToggleGroup r#type="single" name="align" variant="outline">
-///     <ToggleGroupItem r#type="single" name="align" variant="outline" value="left" pressed>
+/// <ToggleGroup type="single" name="align" variant="outline">
+///     <ToggleGroupItem type="single" name="align" variant="outline" value="left" pressed>
 ///         @{align_left()}
 ///     </ToggleGroupItem>
-///     <ToggleGroupItem r#type="single" name="align" variant="outline" value="center">
+///     <ToggleGroupItem type="single" name="align" variant="outline" value="center">
 ///         @{align_center()}
 ///     </ToggleGroupItem>
 /// </ToggleGroup>
@@ -768,7 +768,7 @@ pub fn ToggleGroup(
 /// One item in a toggle group.
 ///
 /// ```ignore
-/// <ToggleGroupItem r#type="single" name="align" value="left" pressed>"Left"</ToggleGroupItem>
+/// <ToggleGroupItem type="single" name="align" value="left" pressed>"Left"</ToggleGroupItem>
 /// <ToggleGroupItem value="bold" variant="outline">@{bold_icon()}</ToggleGroupItem>
 /// ```
 ///

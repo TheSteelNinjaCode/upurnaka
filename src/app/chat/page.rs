@@ -193,7 +193,7 @@ pub async fn page() -> Html {
                                     </PopoverHeader>
                                     <form onsubmit={startChatMeeting(event)} novalidate>
                                         <div class="flex flex-col gap-2">
-                                            <Label r#for="chat-meeting-name">"Meeting name"</Label>
+                                            <Label for="chat-meeting-name">"Meeting name"</Label>
                                             <input
                                                 id="chat-meeting-name"
                                                 data-slot="input"
@@ -737,7 +737,7 @@ pub async fn page() -> Html {
                             class="new-chat-group flex min-h-16 items-center gap-3.5 border-b border-edge px-7 py-3 text-sm focus-within:shadow-[inset_0_-2px_var(--color-brand-ink)]"
                             hidden={!groupNameOpen}
                         >
-                            <Label r#for="chat-group-name" class="shrink-0 font-normal">
+                            <Label for="chat-group-name" class="shrink-0 font-normal">
                                 "Group name:"
                             </Label>
                             <input
@@ -755,9 +755,7 @@ pub async fn page() -> Html {
                         <div
                             class="flex min-h-16 items-center gap-3.5 px-7 py-3 text-sm focus-within:shadow-[inset_0_-2px_var(--color-brand-ink)]"
                         >
-                            <Label r#for="chat-recipients" class="shrink-0 font-normal">
-                                "To:"
-                            </Label>
+                            <Label for="chat-recipients" class="shrink-0 font-normal">"To:"</Label>
                             <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                                 <template pp-for="recipient in recipients">
                                     <Badge
@@ -1320,13 +1318,13 @@ pub async fn page() -> Html {
                                                 </InputGroupAddon>
                                             </InputGroup>
                                             <ToggleGroup
-                                                r#type="single"
+                                                type="single"
                                                 name="chat-media"
                                                 class="chat-emoji-tabs order-first w-full shrink-0 rounded-none! bg-sunken px-3"
                                                 attrs=@{named("Media type")}
                                             >
                                                 <ToggleGroupItem
-                                                    r#type="single"
+                                                    type="single"
                                                     name="chat-media"
                                                     value="all"
                                                     pressed
@@ -1337,7 +1335,7 @@ pub async fn page() -> Html {
                                                     "All"
                                                 </ToggleGroupItem>
                                                 <ToggleGroupItem
-                                                    r#type="single"
+                                                    type="single"
                                                     name="chat-media"
                                                     value="emoji"
                                                     class=@{MEDIA_TAB}
@@ -1347,7 +1345,7 @@ pub async fn page() -> Html {
                                                     "Emoji"
                                                 </ToggleGroupItem>
                                                 <ToggleGroupItem
-                                                    r#type="single"
+                                                    type="single"
                                                     name="chat-media"
                                                     value="gifs"
                                                     class=@{MEDIA_TAB}

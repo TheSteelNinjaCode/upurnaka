@@ -176,7 +176,7 @@ pub async fn page() -> Result<Html> {
                                 </template>
                             </nav>
                             <Input
-                                r#type="search"
+                                type="search"
                                 placeholder="Filter this folder"
                                 class="h-9! w-full sm:w-64"
                                 attrs=@{named("Filter files").set("maxlength", "100")}
@@ -502,7 +502,7 @@ pub async fn page() -> Result<Html> {
                         </DialogHeader>
                         <form onsubmit={saveName(event)} class="grid gap-4">
                             <Field>
-                                <FieldLabel r#for="files-name">"Name"</FieldLabel>
+                                <FieldLabel for="files-name">"Name"</FieldLabel>
                                 <Input
                                     id="files-name"
                                     name="name"
@@ -550,7 +550,7 @@ pub async fn page() -> Result<Html> {
                         </DialogHeader>
                         <form onsubmit={saveMove(event)} class="grid gap-4">
                             <Field>
-                                <FieldLabel r#for="files-destination">"Destination"</FieldLabel>
+                                <FieldLabel for="files-destination">"Destination"</FieldLabel>
                                 <select
                                     id="files-destination"
                                     name="folder"

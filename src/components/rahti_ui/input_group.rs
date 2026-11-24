@@ -1272,7 +1272,7 @@ pub fn InputGroupText(
 ///
 /// ```ignore
 /// <InputGroupInput placeholder="Search…" />
-/// <InputGroupInput r#type="email" name="email" required invalid />
+/// <InputGroupInput type="email" name="email" required invalid />
 /// ```
 ///
 /// An [`Input`](super::input) without its border, rounding, shadow or focus

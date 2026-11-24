@@ -23,8 +23,8 @@
 //! ## The call site is the JSX one
 //!
 //! ```ignore
-//! <Label r#for="email">"Your email address"</Label>
-//! <Label r#for="terms" class="text-muted-foreground">"Accept the terms"</Label>
+//! <Label for="email">"Your email address"</Label>
+//! <Label for="terms" class="text-muted-foreground">"Accept the terms"</Label>
 //! <Label>@{icon} "With an icon beside it"</Label>
 //! ```
 //!
@@ -344,8 +344,8 @@ impl LabelProps {
 /// A label for a form control.
 ///
 /// ```ignore
-/// <Label r#for="email">"Your email address"</Label>
-/// <Label r#for="terms" class="text-muted-foreground">"Accept the terms"</Label>
+/// <Label for="email">"Your email address"</Label>
+/// <Label for="terms" class="text-muted-foreground">"Accept the terms"</Label>
 /// <Label>@{icon} "With an icon beside it"</Label>
 /// ```
 ///
@@ -359,7 +359,7 @@ impl LabelProps {
 ///
 /// Native events are written as native events and land on the `<label>`
 /// untouched. So does an attribute binding: a component's root attributes are
-/// evaluated where the tag was written, so `r#for={target}` on the tag reads
+/// evaluated where the tag was written, so `for={target}` on the tag reads
 /// the page's `target`. See the module docs.
 ///
 /// `attrs` is the rest of the `{...props}` spread — server-side values with no
@@ -603,7 +603,7 @@ mod tests {
         );
     }
 
-    /// The call form behind `<Label r#for="email">"Email"</Label>`. A tag fills
+    /// The call form behind `<Label for="email">"Email"</Label>`. A tag fills
     /// the props it names and takes these defaults for the rest.
     #[test]
     fn the_component_wraps_the_same_element() {

@@ -23,7 +23,7 @@
 //!
 //! ```ignore
 //! <Input placeholder="Email" />
-//! <Input r#type="password" name="password" required />
+//! <Input type="password" name="password" required />
 //! <Input value="ada@example.com" disabled />
 //! <Input invalid placeholder="Email" />
 //! <Input placeholder="Search" oninput={setQuery(target.value)} />
@@ -427,7 +427,7 @@ impl InputProps {
 ///
 /// ```ignore
 /// <Input placeholder="Email" />
-/// <Input r#type="password" name="password" required />
+/// <Input type="password" name="password" required />
 /// <Input value="ada@example.com" disabled />
 /// <Input invalid placeholder="Email" />
 /// <Input class="w-64" placeholder="Narrow" />

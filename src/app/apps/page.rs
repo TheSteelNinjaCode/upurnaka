@@ -93,14 +93,14 @@ pub async fn page() -> Html {
                         <h1 class="text-[20px] font-semibold tracking-tight text-ink">"Apps"</h1>
                     </div>
                     <ToggleGroup
-                        r#type="single"
+                        type="single"
                         name="apps-section"
                         variant="default"
                         class="mt-3 w-full flex-col! items-stretch gap-1 px-4"
                         attrs=@{named("App sections")}
                     >
                         <ToggleGroupItem
-                            r#type="single"
+                            type="single"
                             name="apps-section"
                             value="all"
                             pressed
@@ -111,7 +111,7 @@ pub async fn page() -> Html {
                             "All apps"
                         </ToggleGroupItem>
                         <ToggleGroupItem
-                            r#type="single"
+                            type="single"
                             name="apps-section"
                             value="built"
                             class=@{NAV}
@@ -121,7 +121,7 @@ pub async fn page() -> Html {
                             "Built for your org"
                         </ToggleGroupItem>
                         <ToggleGroupItem
-                            r#type="single"
+                            type="single"
                             name="apps-section"
                             value="mine"
                             class=@{NAV}

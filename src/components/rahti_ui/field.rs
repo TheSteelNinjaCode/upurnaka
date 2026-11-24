@@ -32,7 +32,7 @@
 //! ```ignore
 //! <FieldGroup>
 //!     <Field>
-//!         <FieldLabel r#for="email">"Email"</FieldLabel>
+//!         <FieldLabel for="email">"Email"</FieldLabel>
 //!         @{input().r#type("email").id("email").render()}
 //!         <FieldDescription>"We only use it to sign you in."</FieldDescription>
 //!     </Field>
@@ -1130,13 +1130,13 @@ pub fn field_error_content(errors: &[&str], children: Html) -> Html {
 ///
 /// ```ignore
 /// <Field>
-///     <FieldLabel r#for="email">"Email"</FieldLabel>
+///     <FieldLabel for="email">"Email"</FieldLabel>
 ///     @{input().r#type("email").id("email").render()}
 ///     <FieldDescription>"We only use it to sign you in."</FieldDescription>
 /// </Field>
 ///
 /// <Field orientation="horizontal">
-///     <FieldLabel r#for="alerts">"Email alerts"</FieldLabel>
+///     <FieldLabel for="alerts">"Email alerts"</FieldLabel>
 ///     @{switch_props().id("alerts").render()}
 /// </Field>
 /// ```
@@ -1398,7 +1398,7 @@ pub fn FieldGroup(class: &str, id: &str, bindings: Bindings, attrs: Attrs, child
 /// <Field orientation="horizontal">
 ///     @{checkbox().id("terms").render()}
 ///     <FieldContent>
-///         <FieldLabel r#for="terms">"Accept the terms"</FieldLabel>
+///         <FieldLabel for="terms">"Accept the terms"</FieldLabel>
 ///         <FieldDescription>"You can withdraw consent later."</FieldDescription>
 ///     </FieldContent>
 /// </Field>
@@ -1457,7 +1457,7 @@ pub fn FieldContent(
 /// The control's name.
 ///
 /// ```ignore
-/// <FieldLabel r#for="email">"Email"</FieldLabel>
+/// <FieldLabel for="email">"Email"</FieldLabel>
 /// ```
 ///
 /// A [`Label`](super::label) with the field's own rules layered on: it dims
@@ -1466,7 +1466,7 @@ pub fn FieldContent(
 /// full width, and highlighted while the control inside is checked:
 ///
 /// ```ignore
-/// <FieldLabel r#for="plan-pro">
+/// <FieldLabel for="plan-pro">
 ///     <Field orientation="horizontal">
 ///         <FieldContent>
 ///             <FieldTitle>"Pro"</FieldTitle>

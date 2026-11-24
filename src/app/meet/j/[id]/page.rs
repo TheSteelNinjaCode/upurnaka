@@ -154,7 +154,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         class="meeting-name-editor absolute inset-x-0 top-full z-2 grid gap-2 bg-raised p-4 text-[13px] shadow-lg shadow-black/30"
                         hidden={!editingName}
                     >
-                        <Label r#for="meeting-display-name" class="font-normal">"Your name"</Label>
+                        <Label for="meeting-display-name" class="font-normal">"Your name"</Label>
                         <Input
                             id="meeting-display-name"
                             name="display_name"
@@ -181,7 +181,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         class="meeting-guest-name grid w-full max-w-sm gap-2 text-left"
                         hidden={!anonymous}
                     >
-                        <Label r#for="guest-display-name">"Your name"</Label>
+                        <Label for="guest-display-name">"Your name"</Label>
                         <Input
                             id="guest-display-name"
                             name="guest_name"
@@ -1330,7 +1330,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             <Icon name="plus" class="size-6" />
                             <span>"Add new"</span>
                             <Input
-                                r#type="file"
+                                type="file"
                                 class="absolute inset-0 h-full! cursor-pointer opacity-0"
                                 attrs=@{named("Upload background image").set("accept", "image/jpeg,image/png,image/webp")}
                                 disabled={applyingBackground || joining}

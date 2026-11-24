@@ -50,7 +50,7 @@ pub fn JoinMeetingById() -> Html {
                     <form onsubmit={join(event)} novalidate>
                         <FieldGroup class="gap-4">
                             <Field>
-                                <FieldLabel r#for="join-meeting-id" class="text-[13px]">
+                                <FieldLabel for="join-meeting-id" class="text-[13px]">
                                     "Meeting ID"
                                     <span class="text-danger-ink" aria-hidden="true">"*"</span>
                                 </FieldLabel>
@@ -70,7 +70,7 @@ pub fn JoinMeetingById() -> Html {
                                 <FieldError hidden={!error}>{error}</FieldError>
                             </Field>
                             <Field>
-                                <FieldLabel r#for="join-meeting-passcode" class="text-[13px]">
+                                <FieldLabel for="join-meeting-passcode" class="text-[13px]">
                                     "Meeting passcode"
                                 </FieldLabel>
                                 <Input

@@ -39,7 +39,7 @@ pub fn KeyboardShortcuts() -> Html {
                     class="flex flex-col items-stretch gap-3.5 min-[651px]:flex-row min-[651px]:items-end min-[651px]:justify-between min-[651px]:gap-7"
                 >
                     <div class="flex w-full flex-col gap-2 min-[651px]:w-3/5 min-[901px]:w-1/2">
-                        <Label r#for="shortcut-profile">"Use shortcuts from other apps"</Label>
+                        <Label for="shortcut-profile">"Use shortcuts from other apps"</Label>
                         <div class="flex gap-3.5">
                             <Select
                                 id="shortcut-profile"
@@ -66,7 +66,7 @@ pub fn KeyboardShortcuts() -> Html {
                             <Icon name="search" class="size-5" />
                         </InputGroupAddon>
                         <InputGroupInput
-                            r#type="search"
+                            type="search"
                             placeholder="Filter shortcuts"
                             attrs=@{named("Filter shortcuts")}
                             value={filter}

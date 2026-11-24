@@ -171,13 +171,13 @@ pub async fn page() -> Html {
                         </Button>
                     </div>
                     <ToggleGroup
-                        r#type="single"
+                        type="single"
                         name="people-group"
                         class="mt-3 w-full flex-col! items-stretch gap-1 px-4"
                         attrs=@{named("Contact groups")}
                     >
                         <ToggleGroupItem
-                            r#type="single"
+                            type="single"
                             name="people-group"
                             value="all"
                             pressed
@@ -188,7 +188,7 @@ pub async fn page() -> Html {
                             "All contacts"
                         </ToggleGroupItem>
                         <ToggleGroupItem
-                            r#type="single"
+                            type="single"
                             name="people-group"
                             value="active"
                             class=@{NAV}
@@ -364,7 +364,7 @@ pub async fn page() -> Html {
                         <form onsubmit={invite(event)} novalidate>
                             <Field>
                                 <FieldLabel
-                                    r#for="invite-email"
+                                    for="invite-email"
                                     class="text-xs text-muted-foreground"
                                 >
                                     "Email address"
@@ -372,7 +372,7 @@ pub async fn page() -> Html {
                                 <Input
                                     id="invite-email"
                                     name="email"
-                                    r#type="email"
+                                    type="email"
                                     placeholder="name@example.com"
                                     class="text-[13px]"
                                     attrs=@{Attrs::new().set("autocomplete", "email").set("autofocus", "")}
@@ -407,7 +407,7 @@ pub async fn page() -> Html {
                         </DialogHeader>
                         <form onsubmit={saveName(event)}>
                             <Field>
-                                <FieldLabel r#for="profile-name">"Display name"</FieldLabel>
+                                <FieldLabel for="profile-name">"Display name"</FieldLabel>
                                 <Input
                                     id="profile-name"
                                     name="name"

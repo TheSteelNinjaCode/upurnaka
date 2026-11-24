@@ -22,8 +22,9 @@ and says so. Do not start a second server, and never force-kill one.
 exercise what changed.
 3. `cargo rahti status`, or MCP `server_status`. It says whether the
 server is running the current source, which routes loaded under this
-boot with their browser errors, and how background jobs are doing. A
-route it does not list was never opened, so it proves nothing.
+boot with their browser errors, how background jobs are doing, and the
+type errors in `// @ts-check` scripts under `public/js/`. A route it
+does not list was never opened, so it proves nothing.
 
 End with what you applied: "Restarted, loaded `/dashboard`, saved a row;
 browser clean." If you have no browser, say so and give the exact URL.
@@ -142,13 +143,17 @@ warnings. See `docs/conventions/native-packaging.md`.
 6. Components are PascalCase functions marked `#[component]`, return
     `Html`, and take props as normal Rust arguments. In markup they are
     called as tags — `<Card title="…">…</Card>` — and children are an
-    explicit `Html` argument rendered with `<slot />`.
+    explicit `Html` argument rendered with `<slot />`. A prop is written
+    on the tag as HTML writes it, also when its name is a Rust keyword —
+    `<Input type="number" />`, `<Label for="email" />`; the raw
+    identifier (`r#type: &str`, `@{r#type}`) belongs only in the
+    component's declaration and body, never on the tag.
 7. A reactive block and its `<script>` must be self-contained. Children
     written between component tags are the exception: a `{…}` binding
     there reads the writing block's state — `html!` ships such children
     as an owner-scoped `<template pp-owner="…">`, the React children
     semantics. Fragment-rooted (`<>…</>`) and `@{expr}`-built children
-    still do not cross the boundary.
+    read the component's scope instead.
 8. A page-owned `#[rpc]` lives beside its caller in that `page.rs`; a
     component-owned `#[rpc]` lives in the component file. Parameters are
     owned, deserializable types (`String`, not `&str`); return values
@@ -174,7 +179,7 @@ warnings. See `docs/conventions/native-packaging.md`.
 13. Deserialize into owned Rust types first, then use `rahti::Validator`
     for business rules at the handler boundary before side effects.
     Validation failures are HTTP 422 with named field messages; malformed
-    or mistyped RPC payloads remain HTTP 400. Database constraints remain
+    or mistyped RPC payloads are HTTP 400. Database constraints are
     authoritative for invariants that concurrent requests can race.
 14. The generated router applies `rahti::security_headers` once over every
     response including public assets, probes, and failures, immediately
@@ -189,7 +194,8 @@ warnings. See `docs/conventions/native-packaging.md`.
     subdomain is HTTPS.
 15. The generated router applies the process-local `rahti::rate_limit`
     outside application/auth/CSRF work and inside security headers. The
-    default is 200 dynamic requests per client IP per minute; real public
+    default is 200 dynamic requests per client IP per minute in production
+    and 2,000 in development mode; real public
     files, `OPTIONS`, `/health`, `/ready`, and development tooling are
     exempt. Never
     trust `X-Forwarded-For` unless an inaccessible trusted proxy replaces

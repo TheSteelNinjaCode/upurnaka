@@ -188,7 +188,7 @@ pub async fn page() -> Result {
                                 <form onsubmit={join(event)} novalidate>
                                     <FieldGroup class="gap-4">
                                         <Field>
-                                            <FieldLabel r#for="meeting-join-id" class="text-[13px]">
+                                            <FieldLabel for="meeting-join-id" class="text-[13px]">
                                                 "Meeting ID"
                                             </FieldLabel>
                                             <Input
@@ -203,7 +203,7 @@ pub async fn page() -> Result {
                                         </Field>
                                         <Field>
                                             <FieldLabel
-                                                r#for="meeting-join-passcode"
+                                                for="meeting-join-passcode"
                                                 class="text-[13px]"
                                             >
                                                 "Meeting passcode"

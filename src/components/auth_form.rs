@@ -53,7 +53,7 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
     let name_field = if register {
         html! {
             <Field>
-                <FieldLabel r#for="auth-name">"Your name"</FieldLabel>
+                <FieldLabel for="auth-name">"Your name"</FieldLabel>
                 <Input
                     id="auth-name"
                     name="name"
@@ -76,11 +76,11 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
     let confirmation_field = if register {
         html! {
             <Field>
-                <FieldLabel r#for="auth-confirmation">"Confirm password"</FieldLabel>
+                <FieldLabel for="auth-confirmation">"Confirm password"</FieldLabel>
                 <Input
                     id="auth-confirmation"
                     name="confirmation"
-                    r#type="password"
+                    type="password"
                     required
                     class="h-11!"
                     attrs=@{Attrs::new().set("autocomplete", "new-password").set("maxlength", "128")}
@@ -116,22 +116,22 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                         <FieldGroup class="gap-4">
                             @{name_field}
                             <Field>
-                                <FieldLabel r#for="auth-email">"Email address"</FieldLabel>
+                                <FieldLabel for="auth-email">"Email address"</FieldLabel>
                                 <Input
                                     id="auth-email"
                                     name="email"
-                                    r#type="email"
+                                    type="email"
                                     required
                                     class="h-11!"
                                     attrs=@{Attrs::new().set("autocomplete", "username").set("maxlength", "254")}
                                 />
                             </Field>
                             <Field>
-                                <FieldLabel r#for="auth-password">"Password"</FieldLabel>
+                                <FieldLabel for="auth-password">"Password"</FieldLabel>
                                 <Input
                                     id="auth-password"
                                     name="password"
-                                    r#type="password"
+                                    type="password"
                                     required
                                     class="h-11!"
                                     attrs=@{Attrs::new().set("autocomplete", password_autocomplete).set("maxlength", "128")}
@@ -194,7 +194,7 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                     <form class="mt-6" onsubmit={submitCode(event)}>
                         <FieldGroup class="gap-4">
                             <Field>
-                                <FieldLabel r#for="auth-code">
+                                <FieldLabel for="auth-code">
                                     {useRecovery ? "Recovery code" : "Authenticator code"}
                                 </FieldLabel>
                                 <input
@@ -262,7 +262,7 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                             checked={saved}
                             onchange={setSaved(target.checked)}
                         />
-                        <FieldLabel r#for="auth-saved" class="font-normal text-muted-foreground">
+                        <FieldLabel for="auth-saved" class="font-normal text-muted-foreground">
                             "I saved my recovery codes somewhere safe."
                         </FieldLabel>
                     </Field>

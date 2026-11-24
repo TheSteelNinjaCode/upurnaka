@@ -21,16 +21,17 @@ static DB: OnceLock<DatabaseConnection> = OnceLock::new();
 
 /// The connection, from a page, an rpc, or a route handler.
 ///
-/// Panics if the process has not connected yet, which can only happen by
-/// calling this before `main` reaches `connect()`. That is a wiring mistake
-/// rather than a runtime condition, and a message naming it is worth more
-/// than an `Option` every call site has to unwrap.
+/// Panics if the process has no connection: `DATABASE_URL` is absent, or
+/// this ran before `initialize_application` reached
+/// `connect_if_configured()`. Guard a page or an rpc with `is_connected()`;
+/// a message naming the cause is worth more than an `Option` every call site
+/// has to unwrap.
 pub fn db() -> &'static DatabaseConnection {
     DB.get().expect(
         "the database has not been connected.\n  \
-         `db::connect_if_configured().await` runs from `main` before the \
-         server starts — \
-         if you removed it, put it back.",
+         `db::connect_if_configured().await` runs from \
+         `initialize_application` in src/lib.rs and connects only when \
+         DATABASE_URL is set — guard this call with `db::is_connected()`.",
     )
 }
 
@@ -121,11 +122,12 @@ pub async fn connect_to(url: &str) -> Result<(), sea_orm::DbErr> {
 
 /// Apply every pending migration.
 ///
-/// Deliberately not called by `connect`. A framework that changes your schema
-/// because you started the server is the same surprise as one that downloads
-/// a compiler you did not ask for — and the version of that surprise which
-/// happens in production is much worse. Call it from a `main` branch behind
-/// an argument, or run it from a test, when you want it.
+/// Deliberately not called by `connect_if_configured`. A framework that
+/// changes your schema because you started the server is the same surprise as
+/// one that downloads a compiler you did not ask for — and the version of
+/// that surprise which happens in production is much worse. Call it from
+/// `initialize_application` behind an argument or an environment check, or
+/// run it from a test, when you want it.
 ///
 /// ```ignore
 /// # async fn example() {
