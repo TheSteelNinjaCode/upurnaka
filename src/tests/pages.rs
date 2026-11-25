@@ -184,7 +184,9 @@ async fn composer_actions_format_send_and_preserve_drafts() {
         .click(".chat-compose-menu [role=menuitem]:nth-child(2)")
         .await
         .unwrap();
-    browser.wait_for("document.querySelector('.chat-compose-menu').matches(':popover-open') && !document.querySelector('.chat-compose-menu [role=menuitem]:nth-child(4)').hidden").await.unwrap();
+    // Opening the delivery options hides the row that was clicked; focus moves
+    // to the first delivery row, so the keyboard stays inside the menu.
+    browser.wait_for("document.querySelector('.chat-compose-menu').matches(':popover-open') && !document.querySelector('.chat-compose-menu [role=menuitem]:nth-child(4)').hidden && document.activeElement === document.querySelector('.chat-compose-menu [role=menuitem]:nth-child(3)')").await.unwrap();
     browser.press("ArrowDown").await.unwrap();
     browser.press("Enter").await.unwrap();
     browser.wait_for("!document.querySelector('.chat-composer > div').hidden && document.activeElement.classList.contains('ProseMirror')").await.unwrap();

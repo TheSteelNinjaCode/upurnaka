@@ -767,8 +767,16 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
 
                     const todayKey = dayKey(now);
                     function clockValue(date) {return pad(date.getHours()) + ':' + pad(date.getMinutes());}
+                    // A new start date carries the end with it, by whole days, so a
+                    // meeting that runs past midnight keeps its length.
                     function changeStartDate(value) {
-                        if (endDate === startDate || endDate < value) setEndDate(value);
+                        const from = new Date(startDate + 'T12:00');
+                        const to = new Date(value + 'T12:00');
+                        const end = new Date(endDate + 'T12:00');
+                        if ([from, to, end].every(day => Number.isFinite(day.getTime()))) {
+                            end.setDate(end.getDate() + Math.round((to - from) / 86400000));
+                            setEndDate(dayKey(end));
+                        } else if (endDate < value) setEndDate(value);
                         setStartDate(value);
                     }
                     function changeStartTime(value) {

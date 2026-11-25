@@ -2267,8 +2267,14 @@ pub async fn page() -> Html {
                     function showDeliveryOptions(event) {
                         event.stopPropagation();
                         setDeliveryMenu(true);
-                        setTimeout(() => standardOption.current?.closest('[role=menuitem]')?.focus(), 0);
                     }
+                    // The delivery rows are hidden until this render commits, and
+                    // the row that opened them hides in it, taking focus with it.
+                    // Focus moves once the rows are shown, so the arrow keys and
+                    // Enter keep working inside the menu.
+                    pp.effect(() => {
+                        if (deliveryMenu) standardOption.current?.closest('[role=menuitem]')?.focus();
+                    }, [deliveryMenu]);
                     // ProseMirror owns only the empty host. All controls, state and
                     // message rendering remain in this PulsePoint block.
                     function formattedLines(doc) {

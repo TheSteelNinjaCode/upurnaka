@@ -331,15 +331,29 @@ async fn full_page_editor_saves_reloads_and_opens_the_scheduled_details() {
         .type_text("Browser scheduled planning")
         .await
         .unwrap();
-    // The editor defaults to today, but the default Work week view skips to
-    // next Monday on a weekend; schedule on the first day that view shows so
-    // the reload below finds the event whatever day the suite runs.
-    let _: bool = browser
-        .eval("(() => { const day = document.querySelector('.calendar-grid-slot').value.split('@')[0]; const input = document.querySelector('.calendar-editor input[name=start_date]'); input.value = day; input.dispatchEvent(new Event('change', {bubbles: true})); return true; })()")
+    // The editor defaults to the next half hour today, but the default Work
+    // week view skips to next Monday on a weekend; schedule on the first day
+    // that view shows so the reload below finds the event whatever day and
+    // time the suite runs. A 23:30 start ends tomorrow, and moving its date
+    // carries the end along; then a daytime start keeps it on one day.
+    let set = |name: &str, value: &str| {
+        format!(
+            "(() => {{ const input = document.querySelector('.calendar-editor input[name={name}]'); input.value = {value}; input.dispatchEvent(new Event('change', {{bubbles: true}})); return true; }})()"
+        )
+    };
+    let day = "document.querySelector('.calendar-grid-slot').value.split('@')[0]";
+    let next_day = format!(
+        "(() => {{ const next = new Date({day} + 'T12:00'); next.setDate(next.getDate() + 1); return next.getFullYear() + '-' + String(next.getMonth() + 1).padStart(2, '0') + '-' + String(next.getDate()).padStart(2, '0'); }})()"
+    );
+    let _: bool = browser.eval(&set("start_time", "'23:30'")).await.unwrap();
+    let _: bool = browser.eval(&set("start_date", day)).await.unwrap();
+    browser
+        .wait_for(&format!("document.querySelector('.calendar-editor input[name=start_date]').value === {day} && document.querySelector('.calendar-editor input[name=end_date]').value === {next_day} && document.querySelector('.calendar-editor input[name=end_time]').value === '00:00'"))
         .await
         .unwrap();
+    let _: bool = browser.eval(&set("start_time", "'10:00'")).await.unwrap();
     browser
-        .wait_for("document.querySelector('.calendar-editor input[name=end_date]').value === document.querySelector('.calendar-grid-slot').value.split('@')[0]")
+        .wait_for(&format!("document.querySelector('.calendar-editor input[name=end_date]').value === {day} && document.querySelector('.calendar-editor input[name=end_time]').value === '10:30'"))
         .await
         .unwrap();
     browser.click("input[name=attendees]").await.unwrap();
