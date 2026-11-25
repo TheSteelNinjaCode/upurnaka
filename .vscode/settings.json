@@ -1,0 +1,8 @@
+{
+  // rust-analyzer builds into `target/rust-analyzer` instead of `target/`.
+  // It loads the compiled `html!` macro library to expand templates in the
+  // editor, and Windows refuses to replace a loaded file, so a shared
+  // directory makes `cargo build`, `cargo test` and `cargo rahti restart`
+  // fail to link (LNK1104) whenever that library is rebuilt.
+  "rust-analyzer.cargo.targetDir": true
+}

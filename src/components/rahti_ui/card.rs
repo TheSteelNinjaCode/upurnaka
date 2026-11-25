@@ -1,5 +1,5 @@
 // rahti-ui: card
-// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.5.
+// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.6.
 //
 // This is source, not a generated file — it is the application's to read and to
 // change. `cargo rahti-ui update` re-fetches it, and leaves it alone once it has
@@ -29,8 +29,9 @@
 //! is a `data-size` attribute the `cn-card` stylesheet reads to tighten every
 //! gap and every padding at once. There is no utility spelling of it in the
 //! registry style, so there is none here. A tighter card is
-//! `.class("gap-4 py-4")` on the card and `.class("px-4")` on its parts —
-//! written out, because that is what the size prop was hiding.
+//! an explicit frontend `twMerge` binding over `card_variants("gap-4 py-4")`
+//! and each part's variant helper with `"px-4"`. Static `.class(...)` values
+//! compose tokens without resolving conflicting defaults.
 //!
 //! ## The header is a grid, and the action is placed in it
 //!
@@ -88,8 +89,8 @@
 //! The card pads *vertically* (`py-6`) and every region pads *horizontally*
 //! (`px-6`). Nothing pads both. That is what lets a region bleed to the card's
 //! edge by dropping one utility — an image or a table in a [`CardContent`]
-//! with `.class("px-0")` runs the full width, and the card's own top and bottom
-//! padding is untouched. It is also why a bare `<div>` written between two card
+//! with a merged `card_content_variants("px-0")` binding runs the full width,
+//! and the card's own top and bottom padding is untouched. It is also why a bare `<div>` written between two card
 //! parts is unpadded and looks broken: the horizontal padding was never on the
 //! card.
 //!
@@ -160,8 +161,13 @@
 //! that attribute is not decoration there, it is the selector the header's
 //! second column depends on.
 
+// A component kit ships its whole API, and an application uses the part it
+// needs. What this file leaves unused is that surface, not dead code, so the
+// lint is off for this file alone; the application's own components keep it.
+#![allow(dead_code)]
+
 use crate::components::rahti_ui::attrs::{Attrs, Bindings, is_binding};
-use crate::components::rahti_ui::utils::{cn, js_string};
+use crate::components::rahti_ui::utils::cn;
 use crate::rahti::{Html, component, html};
 
 /// The surface itself.
@@ -581,8 +587,8 @@ impl CardProps {
     ///
     /// A join, not a merge: no layer here contradicts another — `audit` proves
     /// it for all seven — so this is exact for everything except a caller's
-    /// `.class(…)` override, which is the one thing that can conflict. That is
-    /// resolved in the browser; see [`Self::render`].
+    /// `.class(…)` override, which can conflict. Supply an explicit frontend
+    /// `twMerge` binding to resolve it; see [`Self::render`].
     pub fn class_list(&self) -> String {
         cn(&[self.part.classes(), &self.class])
     }
@@ -604,12 +610,9 @@ impl CardProps {
     fn attr_list(&self) -> Attrs {
         let mut base = Attrs::new().set("data-slot", self.part.slot());
 
-        // A `.class(…)` override is the only thing here that can conflict with
-        // what the component chose. The merge is `twMerge`'s, in the browser,
-        // which is what the class attribute becomes when there is something to
-        // resolve. With no override there is nothing to resolve, so `class`
-        // stays a finished class list and the part is styled on arrival,
-        // JavaScript or no JavaScript. See the cost named in [`Self::render`].
+        // Static class overrides compose data; they do not resolve conflicts.
+        // Supply an explicit compiled `class={twMerge(...)}` binding when
+        // overriding utilities from the component defaults.
         base = if self.class.trim().is_empty() {
             base.set("class", self.class_list())
         } else {

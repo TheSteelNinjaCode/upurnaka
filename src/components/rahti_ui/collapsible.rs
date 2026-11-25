@@ -1,5 +1,5 @@
 // rahti-ui: collapsible
-// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.5.
+// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.6.
 //
 // This is source, not a generated file — it is the application's to read and to
 // change. `cargo rahti-ui update` re-fetches it, and leaves it alone once it has
@@ -208,8 +208,13 @@
 //! something does, which is the same distinction React draws and the same one
 //! HTML has always drawn.
 
+// A component kit ships its whole API, and an application uses the part it
+// needs. What this file leaves unused is that surface, not dead code, so the
+// lint is off for this file alone; the application's own components keep it.
+#![allow(dead_code)]
+
 use crate::components::rahti_ui::attrs::{Attrs, Bindings, is_binding};
-use crate::components::rahti_ui::utils::{cn, js_string};
+use crate::components::rahti_ui::utils::cn;
 use crate::rahti::{Html, component, html};
 
 /// The trigger: the two utilities a `<summary>` needs to stop looking like one.
@@ -600,7 +605,7 @@ impl CollapsibleProps {
     ///
     /// A join, not a merge: no layer here contradicts another, so this is exact
     /// for everything except a caller's `.class(…)` override — which is the one
-    /// thing that can conflict, and is resolved in the browser.
+    /// thing that can conflict; use an explicit frontend `twMerge` binding.
     pub fn class_list(&self) -> String {
         cn(&[&self.own_classes(), &self.class])
     }
@@ -649,16 +654,9 @@ impl CollapsibleProps {
             Part::Trigger | Part::Content => base,
         };
 
-        // A `.class(…)` override is the only thing here that can conflict with
-        // what the component chose. The merge is `twMerge`'s, in the browser,
-        // which is what the class attribute becomes when there is something to
-        // resolve. With no override there is nothing to resolve, so `class`
-        // stays a finished class list and the part is drawn on arrival.
-        //
-        // The empty case is real here in a way it is nowhere else in this
-        // library: shadcn's root and content have no class list at all, so a
-        // `<Collapsible>` with nothing written on it would otherwise render a
-        // `class=""` that says nothing.
+        // Static class overrides compose data; they do not resolve conflicts.
+        // Supply an explicit compiled `class={twMerge(...)}` binding when
+        // overriding utilities from the component defaults.
         let own = self.own_classes();
         base = if self.class.trim().is_empty() {
             match own.is_empty() {

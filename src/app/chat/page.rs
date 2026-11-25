@@ -83,9 +83,6 @@ pub fn metadata() -> Metadata {
         .description("Your Teams conversations.")
 }
 
-/// A row in the conversation list, highlighted while it is the open one.
-const ROW: &str = "rounded-md transition-colors";
-
 /// A list row's button: the whole width, its content from the left.
 const ROW_BUTTON: &str = "h-auto! w-full justify-start! gap-3 px-3! py-2 text-left font-normal \
                           hover:bg-hover";

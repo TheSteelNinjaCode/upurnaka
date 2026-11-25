@@ -1854,6 +1854,7 @@ async fn community_template_edits_and_creates_in_one_step() {
         .await
         .unwrap();
     browser.type_text("A place for our school.").await.unwrap();
+    eprintln!("DBG {}", browser.eval::<String>("(() => { const b=document.querySelector(\"button[aria-label='Edit community guidelines']\"); const r=b?.getBoundingClientRect(); const d=document.querySelector('.community-create-dialog'); return JSON.stringify({exists:!!b, rect:r?.toJSON(), dialogOpen:d.open, state:d.dataset.state, dialogRect:d.getBoundingClientRect().toJSON(), btn:b?.outerHTML.slice(0,300)}); })()").await.unwrap());
     browser
         .click("button[aria-label='Edit community guidelines']")
         .await

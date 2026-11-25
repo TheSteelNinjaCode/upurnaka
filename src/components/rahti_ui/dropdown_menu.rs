@@ -1,5 +1,5 @@
 // rahti-ui: dropdown-menu
-// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.3.
+// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.6.
 //
 // This is source, not a generated file — it is the application's to read and to
 // change. `cargo rahti-ui update` re-fetches it, and leaves it alone once it has
@@ -119,10 +119,15 @@
 //! absent. Without an `href` it is shadcn's `<div>`, and the script supplies
 //! `Enter` and `Space`.
 
+// A component kit ships its whole API, and an application uses the part it
+// needs. What this file leaves unused is that surface, not dead code, so the
+// lint is off for this file alone; the application's own components keep it.
+#![allow(dead_code)]
+
 use crate::components::rahti_icons::check::Check;
 use crate::components::rahti_icons::chevron_right::ChevronRight;
 use crate::components::rahti_ui::attrs::{Attrs, Bindings, is_binding};
-use crate::components::rahti_ui::utils::{cn, js_string};
+use crate::components::rahti_ui::utils::cn;
 use crate::rahti::{Html, Json, component, html};
 
 /// The root: `display: contents`, so the trigger inside it lays out where it was

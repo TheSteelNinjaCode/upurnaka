@@ -4,8 +4,6 @@
 // Every `.rs` file here is declared as a module, so a component is in scope
 // as `crate::components::<file>::<Component>` as soon as it is saved.
 
-#![allow(dead_code, unused_imports)]
-
 pub mod alert_dialog;
 pub mod attrs;
 pub mod avatar;

@@ -9,10 +9,6 @@
 //! This file is yours. If you want a pool size, a statement timeout, or a
 //! read replica, this is where they go.
 
-// A connection you have not queried yet is not dead code, and a new project
-// has not queried it yet — the same reason `src/models/mod.rs` carries this.
-#![allow(dead_code)]
-
 use std::sync::OnceLock;
 
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};

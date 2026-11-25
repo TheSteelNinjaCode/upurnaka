@@ -1,5 +1,5 @@
 // rahti-ui: attrs
-// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.5.
+// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.6.
 //
 // This is source, not a generated file — it is the application's to read and to
 // change. `cargo rahti-ui update` re-fetches it, and leaves it alone once it has
@@ -25,6 +25,11 @@
 //! `@{..attrs}`, and `html!` builds the open tag: names validated, values
 //! escaped, and a later attribute replacing an earlier one in place rather
 //! than being written beside it.
+
+// A component kit ships its whole API, and an application uses the part it
+// needs. What this file leaves unused is that surface, not dead code, so the
+// lint is off for this file alone; the application's own components keep it.
+#![allow(dead_code)]
 
 /// UI builder attributes: escaped server data plus typed, precompiled bindings.
 /// Framework data sets can be converted with `Attrs::from(rahti_attrs)`.
@@ -209,10 +214,16 @@ macro_rules! ui_handler {
             .clone()
     }};
 }
+// Part of this file's surface: an application that uses none of it leaves
+// the re-export unused, which is not a stray import.
+#[allow(unused_imports)]
 pub(crate) use {ui_expr, ui_handler};
 
+// Part of this file's surface: an application that uses none of it leaves
+// the re-export unused, which is not a stray import.
 /// Caller-owned client props supplied by `html!` on a component tag.
 /// Their compiled source is forwarded without evaluating or rebuilding it.
+#[allow(unused_imports)]
 pub use rahti::Bindings;
 
 /// Does this attribute value carry a PulsePoint expression?

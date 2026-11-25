@@ -40,7 +40,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/alert_dialog.rs",
-          "sha256": "8e74e12c459e50c911752c7cb60a6f0ce5cdb72ab36b1b9536b80e3719c8902a"
+          "sha256": "04129a32e6d3e4f5e5b3d8f29ba53496b1de6e0828f98df4373dbef47dedd345"
         }
       ],
       "module": "crate::components::rahti_ui::alert_dialog",
@@ -51,7 +51,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/attrs.rs",
-          "sha256": "510764d82e316161824baeab954ff92ee3e86345a600d6b4a67c56f501884531"
+          "sha256": "8b511b169cd9331958cb565fbc53620d01fe217d1a36663b884c62a09e4f677d"
         }
       ],
       "module": "crate::components::rahti_ui::attrs",
@@ -69,7 +69,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/avatar.rs",
-          "sha256": "6bddcadf85c820aafbaf33b7e992dadb74e15776b19012375257fbe452d91e78"
+          "sha256": "79ea27bc8da863aa2772ab39a7d7b82f4bcb92b29cd08a12ff36081ff5599140"
         }
       ],
       "module": "crate::components::rahti_ui::avatar",
@@ -82,7 +82,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/badge.rs",
-          "sha256": "93d422160b818ea654e13b4c5d5559a8c8c5dd2ae3d3c4d44fab691adcb68f85"
+          "sha256": "6acb74807872d96aaa6268229f203aa85320062cc55f04afd0e6a14d95e369d1"
         }
       ],
       "module": "crate::components::rahti_ui::badge",
@@ -95,7 +95,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/button.rs",
-          "sha256": "1e25fdb0d7aa6fff8aedcef4301b32cc525e285087f7280016539a7d45dff6d4"
+          "sha256": "6a0b27804b09e31251ab1463c33ce3a2f8894dc21c0672a6c7fdc424972e1d61"
         }
       ],
       "module": "crate::components::rahti_ui::button",
@@ -114,7 +114,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/card.rs",
-          "sha256": "884c27fcaa4fb29f1c4ef042be023b13296d74e77d2ae80b8626e56c69be4201"
+          "sha256": "78e211601c2a3664349c36a03740dd43f2e6c5caeea6aefdf5fb3f63fe533dca"
         }
       ],
       "module": "crate::components::rahti_ui::card",
@@ -127,7 +127,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/checkbox.rs",
-          "sha256": "571ebab5a44ad6cb2bc4284c44f3f2c66a51145ce3037083ccd3bb53b9ce3073"
+          "sha256": "be31cf8f4385e5ef3d245b78845a27913201aebe5ab6984189468bc8afd18455"
         }
       ],
       "module": "crate::components::rahti_ui::checkbox",
@@ -142,7 +142,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/collapsible.rs",
-          "sha256": "5b41dc31bcdd3d0996ea097bf6f29a3ff63a2eac8207dc07df01a1d4cd4e1d2c"
+          "sha256": "ea3667b947da0205a94bafe3f7e22978ddb053b9e336d7847192dae713c9a47b"
         }
       ],
       "module": "crate::components::rahti_ui::collapsible",
@@ -162,7 +162,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/dialog.rs",
-          "sha256": "9702f8712a4ab818bd4ae02e60c538da31c3745f69961716fe2c1d6ff8d7cb52"
+          "sha256": "4e0d237120bfa867112a0d7cefe8d0008f095e07bdef2c9789cc157948e1cf1f"
         }
       ],
       "module": "crate::components::rahti_ui::dialog",
@@ -184,7 +184,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/dropdown_menu.rs",
-          "sha256": "0906e13529d7cdc4fcdaadc80b0fe266b870b46d27911b32de88bab82256c071"
+          "sha256": "612f6614aa9cf63232c99c8352350a29c58f578845aa3310b99438b721b4590b"
         }
       ],
       "module": "crate::components::rahti_ui::dropdown_menu",
@@ -206,7 +206,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/field.rs",
-          "sha256": "d8278b57903ca6c1273c8f024bd6603fc0fe77da5cf6e39a5597feb64e116dc1"
+          "sha256": "b65b887a2046e258398b4faf8e065f6650984bb246ce485556ad9d6d246c4b58"
         }
       ],
       "module": "crate::components::rahti_ui::field",
@@ -219,7 +219,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/input.rs",
-          "sha256": "629bd1f08425b45e0695217081694484a35a7e5af3ea92e2f8eeac979f4c8b94"
+          "sha256": "04b1eac072e163c3b364b127583a8e46f13077fd119ae5212d1379f76ba0ce11"
         }
       ],
       "module": "crate::components::rahti_ui::input",
@@ -237,7 +237,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/input_group.rs",
-          "sha256": "72add035d8107e09ff6fa66ae666b7c77318b503aebcd290336c0e2eb67b1b41"
+          "sha256": "9100163d3892b401814a7abbe29d7f7a776f057f36dcd57fb3ecf021034ab644"
         }
       ],
       "module": "crate::components::rahti_ui::input_group",
@@ -251,7 +251,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/kbd.rs",
-          "sha256": "4a7c225cdce06f8ba18b854c919063fd07ed6396cdd952c63bb03d3502a91740"
+          "sha256": "bc1c4b5f4b7463858e7e70999776d20ec2e2ee7c5d713800c64b981a04b3d298"
         }
       ],
       "module": "crate::components::rahti_ui::kbd",
@@ -264,7 +264,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/label.rs",
-          "sha256": "56f615aad90c0ea34f1dd7e62e2df7d5f61c99ceaa4c61d0c6ec7a4a921394fb"
+          "sha256": "789a663ecf76e379e5ea82cffec412da1f7163e242c4d59bed50e8d629bd0448"
         }
       ],
       "module": "crate::components::rahti_ui::label",
@@ -283,7 +283,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/popover.rs",
-          "sha256": "44e85c3b73c8501e8d0aaf2ddc5e343bfe84d90eb4ed7f7446aea341e58ac3fa"
+          "sha256": "bd8f4e6bfc5ab08651513c0a4d6eeed4cd7383a19fc7afbc2d51f79b5fe8cb88"
         }
       ],
       "module": "crate::components::rahti_ui::popover",
@@ -297,7 +297,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/radio_group.rs",
-          "sha256": "78f1414331c0505e82f305a2f6ae8caca68e38629deb7ad53ce1214ab4aa1d80"
+          "sha256": "5a163b29e1056ea47e69e30fdb513bbeba5ac85511ad46c34f126c99047fc70e"
         }
       ],
       "module": "crate::components::rahti_ui::radio_group",
@@ -314,7 +314,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/select.rs",
-          "sha256": "58dd2005d775cd076a7f7a8a77708fa878b7bb9a5821ceea43d6a4c4466e8233"
+          "sha256": "9697b1486cd311df8e10b4c43edab65c5468095199b577813b21a741dd18e3d0"
         }
       ],
       "module": "crate::components::rahti_ui::select",
@@ -327,7 +327,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/separator.rs",
-          "sha256": "48342115f7b8a7c00ffff89b08fe0f7c87edae408cf79bf67e8e2f0b83a9e580"
+          "sha256": "8fffc3efcd0b9b634105085fb216928bafc3156b8c42e8e27a2cea3db73279b9"
         }
       ],
       "module": "crate::components::rahti_ui::separator",
@@ -340,7 +340,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/spinner.rs",
-          "sha256": "e23a0029c5d1b718a5ff4666600eea930bce3a0ab74358863265d49d49188138"
+          "sha256": "3ef2cc5096ce67e96c4ed20ff901dd4e37ba11bb8f6f303b5c1c6fdc23d69294"
         }
       ],
       "module": "crate::components::rahti_ui::spinner",
@@ -353,7 +353,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/switch.rs",
-          "sha256": "9f335b04fbc5f3708ef3ecb4385b4d3634570da5c3f80618b95fcdfdc7f9092f"
+          "sha256": "903a5920e5cd847cfcdfc225e1db8205e6af0fa7a0fea0c0b9e5d5e8c12e69aa"
         }
       ],
       "module": "crate::components::rahti_ui::switch",
@@ -374,7 +374,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/table.rs",
-          "sha256": "6274cab3372442053a6d65e3f160dbc6684d4edf6c3a92abc7d15cb3c5a1d195"
+          "sha256": "96d8f04cacd1329255085c8e0b207f8abfc1188ffd4f0ea4089fb92c92d5e637"
         }
       ],
       "module": "crate::components::rahti_ui::table",
@@ -387,7 +387,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/textarea.rs",
-          "sha256": "72f122c7acfd5fa578aff1332dcea594983de5fc5d0a7274e120289e9cfaf53f"
+          "sha256": "0b6d7e7c73a833d43e82d958e96a623b8b3e802c5a3c717911456694dd9e8eaa"
         }
       ],
       "module": "crate::components::rahti_ui::textarea",
@@ -400,7 +400,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/toggle.rs",
-          "sha256": "1aa58d42a156d10db268d18625837a6b7277230082314e0244218fe861985593"
+          "sha256": "3c298e27932864b62ca6693d8913984374384364f48f383b5f3fe4ef63ab50ef"
         }
       ],
       "module": "crate::components::rahti_ui::toggle",
@@ -414,7 +414,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/toggle_group.rs",
-          "sha256": "61afd04af956caa7e57f0dcb39e7e08a8d5a5565e2c42f9b538acb517d7167f3"
+          "sha256": "5df2bb032fd9d5905b73841518195fa7a313704cff2426ac55529d17c485252b"
         }
       ],
       "module": "crate::components::rahti_ui::toggle_group",
@@ -430,7 +430,7 @@
       "files": [
         {
           "path": "src/components/rahti_ui/tooltip.rs",
-          "sha256": "af9965b060f238841486a230f632f308d45a226d74c1865fc01cc3c8e0c1b078"
+          "sha256": "f379817ab540a4004f5fb4ca55931fc52424cac9333cd17237420118cb94d8e4"
         }
       ],
       "module": "crate::components::rahti_ui::tooltip",
@@ -441,14 +441,14 @@
       "files": [
         {
           "path": "src/components/rahti_ui/utils.rs",
-          "sha256": "753b75e996b6418bc6b1be6ebfc043abb290cb1fb303dae0275d1a5d7bec531f"
+          "sha256": "9a195fce6a27a21283e7ba251e718aeea8163639c5b21f7219d38d86bfd36585"
         }
       ],
       "module": "crate::components::rahti_ui::utils",
       "name": "utils"
     }
   ],
-  "generatedWith": "0.0.5",
+  "generatedWith": "0.0.6",
   "project": {
     "componentsDirectory": "src/components/rahti_ui",
     "config": "rahti.config.json",

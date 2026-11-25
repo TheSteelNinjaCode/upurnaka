@@ -1,5 +1,5 @@
 // rahti-ui: field
-// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.5.
+// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.6.
 //
 // This is source, not a generated file — it is the application's to read and to
 // change. `cargo rahti-ui update` re-fetches it, and leaves it alone once it has
@@ -194,8 +194,13 @@
 //! A `data-slot` written by hand is not decoration when you do this: it is what
 //! the rest of the family's selectors look for.
 
+// A component kit ships its whole API, and an application uses the part it
+// needs. What this file leaves unused is that surface, not dead code, so the
+// lint is off for this file alone; the application's own components keep it.
+#![allow(dead_code)]
+
 use crate::components::rahti_ui::attrs::{Attrs, Bindings, is_binding};
-use crate::components::rahti_ui::utils::{cn, js_string};
+use crate::components::rahti_ui::utils::cn;
 use crate::rahti::{Html, component, html};
 
 /// A `<fieldset>`'s own utilities.
@@ -358,6 +363,8 @@ const DESCRIPTION: &str = "text-left text-sm leading-normal font-normal text-mut
 const SEPARATOR: &str = "relative -my-2 h-5 text-sm \
                          group-data-[variant=outline]/field-group:-mb-2";
 
+// Part of this file's surface: an application that uses none of it leaves
+// the re-export unused, which is not a stray import.
 /// shadcn's Separator, whole — [`separator::BASE`](super::separator::BASE),
 /// under the name this file has always called it.
 ///
@@ -376,6 +383,7 @@ const SEPARATOR: &str = "relative -my-2 h-5 text-sm \
 /// `src/app/globals.css` defines it. Without that definition the rule matches
 /// nothing, `absolute inset-0 top-1/2` gives it half the box's height, and the
 /// separator draws a ten-pixel bar instead of a line.
+#[allow(unused_imports)]
 pub use super::separator::BASE as SEPARATOR_RULE;
 
 /// What a [`FieldSeparator`] lays over [`SEPARATOR_RULE`]: the line, centred
@@ -926,12 +934,9 @@ impl FieldProps {
             base = base.set("data-variant", FieldLegendVariant::default().slug());
         }
 
-        // A `.class(…)` override is the only thing here that can conflict with
-        // what the component chose. The merge is `twMerge`'s, in the browser,
-        // which is what the class attribute becomes when there is something to
-        // resolve. With no override there is nothing to resolve, so `class`
-        // stays a finished class list and the part is styled on arrival,
-        // JavaScript or no JavaScript.
+        // Static class overrides compose data; they do not resolve conflicts.
+        // Supply an explicit compiled `class={twMerge(...)}` binding when
+        // overriding utilities from the component defaults.
         base = if self.class.trim().is_empty() {
             base.set("class", self.class_list())
         } else {

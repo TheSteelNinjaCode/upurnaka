@@ -1,5 +1,5 @@
 // rahti-ui: radio-group
-// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.5.
+// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.6.
 //
 // This is source, not a generated file — it is the application's to read and to
 // change. `cargo rahti-ui update` re-fetches it, and leaves it alone once it has
@@ -129,8 +129,13 @@
 //! [`Input`]: super::input
 //! [`Textarea`]: super::textarea
 
+// A component kit ships its whole API, and an application uses the part it
+// needs. What this file leaves unused is that surface, not dead code, so the
+// lint is off for this file alone; the application's own components keep it.
+#![allow(dead_code)]
+
 use crate::components::rahti_ui::attrs::{Attrs, Bindings, is_binding};
-use crate::components::rahti_ui::utils::{cn, js_string};
+use crate::components::rahti_ui::utils::cn;
 use crate::rahti::{Html, component, html};
 
 /// Everything the group is: a column of options with room between them.
@@ -326,11 +331,9 @@ impl RadioGroupProps {
             .set("role", "radiogroup")
             .set("data-slot", "radio-group");
 
-        // A `.class(…)` override is the only thing here that can conflict with
-        // what the component chose. The merge is `twMerge`'s, in the browser.
-        // With no override there is nothing to resolve, so `class` stays a
-        // finished class list and the group is laid out on arrival, JavaScript
-        // or no JavaScript.
+        // Static class overrides compose data; they do not resolve conflicts.
+        // Supply an explicit compiled `class={twMerge(...)}` binding when
+        // overriding utilities from the component defaults.
         base = if self.class.trim().is_empty() {
             base.set("class", self.class_list())
         } else {
@@ -511,7 +514,7 @@ impl RadioGroupItemProps {
     ///
     /// A join, not a merge: the two layers contradict each other nowhere, so
     /// this is exact for everything except a caller's `.class(…)` override,
-    /// which is resolved in the browser — see [`Self::render`].
+    /// which needs an explicit frontend `twMerge` binding — see [`Self::render`].
     pub fn class_list(&self) -> String {
         cn(&[&item_classes(), &self.class])
     }
@@ -618,11 +621,9 @@ pub fn RadioGroup(
         );
     }
 
-    // A caller's `{…}` props are the caller's expressions. Rendered without a
-    // `<script>`, this block is compiled in its parent's scope, so they read
-    // the caller's state the way a React prop would. Only a `class` override
-    // with nothing of the caller's in it gets an empty script, so its
-    // `{twMerge(…)}` resolves even where the page mounts no scope.
+    // Forwarded bindings retain the caller's scope. Only precompiled
+    // bindings supplied through the builder attrs need a local scope when
+    // no caller bindings are present; a static class override creates none.
     if props.needs_scope() && bindings.is_empty() {
         let group = props.render(children);
         html! {
@@ -713,11 +714,9 @@ pub fn RadioGroupItem(
         );
     }
 
-    // A caller's `{…}` props are the caller's expressions. Rendered without a
-    // `<script>`, this block is compiled in its parent's scope, so they read
-    // the caller's state the way a React prop would. Only a `class` override
-    // with nothing of the caller's in it gets an empty script, so its
-    // `{twMerge(…)}` resolves even where the page mounts no scope.
+    // Forwarded bindings retain the caller's scope. Only precompiled
+    // bindings supplied through the builder attrs need a local scope when
+    // no caller bindings are present; a static class override creates none.
     if props.needs_scope() && bindings.is_empty() {
         let item = props.render();
         html! {

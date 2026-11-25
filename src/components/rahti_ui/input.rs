@@ -1,5 +1,5 @@
 // rahti-ui: input
-// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.5.
+// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.6.
 //
 // This is source, not a generated file — it is the application's to read and to
 // change. `cargo rahti-ui update` re-fetches it, and leaves it alone once it has
@@ -94,8 +94,13 @@
 //! shadcn has no `inputVariants` export of its own; this is the same escape
 //! hatch `buttonVariants` is, under the name that matches it.
 
+// A component kit ships its whole API, and an application uses the part it
+// needs. What this file leaves unused is that surface, not dead code, so the
+// lint is off for this file alone; the application's own components keep it.
+#![allow(dead_code)]
+
 use crate::components::rahti_ui::attrs::{Attrs, Bindings, is_binding};
-use crate::components::rahti_ui::utils::{cn, js_string};
+use crate::components::rahti_ui::utils::cn;
 use crate::rahti::{Html, component, html};
 
 /// Everything an input is.
@@ -352,7 +357,7 @@ impl InputProps {
     ///
     /// A join, not a merge: [`BASE`] contradicts itself nowhere, so this is
     /// exact for everything except a caller's `.class(…)` override, which is
-    /// the one thing that can conflict. That is resolved in the browser — see
+    /// the one thing that can conflict. Resolve conflicts with an explicit frontend `twMerge` binding — see
     /// [`Self::render`].
     pub fn class_list(&self) -> String {
         cn(&[BASE, &self.class])
@@ -375,12 +380,9 @@ impl InputProps {
     fn attr_list(&self) -> Attrs {
         let mut base = Attrs::new().set("data-slot", "input");
 
-        // A `.class(…)` override is the only thing here that can conflict with
-        // what the component chose. The merge is `twMerge`'s, in the browser,
-        // which is what the class attribute becomes when there is something to
-        // resolve. With no override there is nothing to resolve, so `class`
-        // stays a finished class list and the field is styled on arrival,
-        // JavaScript or no JavaScript. See the cost named in [`Self::render`].
+        // Static class overrides compose data; they do not resolve conflicts.
+        // Supply an explicit compiled `class={twMerge(...)}` binding when
+        // overriding utilities from the component defaults.
         base = if self.class.trim().is_empty() {
             base.set("class", self.class_list())
         } else {
@@ -520,11 +522,9 @@ pub fn Input(
         );
     }
 
-    // A caller's `{…}` props are the caller's expressions. Rendered without a
-    // `<script>`, this block is compiled in its parent's scope, so they read
-    // the caller's state the way a React prop would. Only a `class` override
-    // with nothing of the caller's in it gets an empty script, so its
-    // `{twMerge(…)}` resolves even where the page mounts no scope.
+    // Forwarded bindings retain the caller's scope. Only precompiled
+    // bindings supplied through the builder attrs need a local scope when
+    // no caller bindings are present; a static class override creates none.
     if props.needs_scope() && bindings.is_empty() {
         let input = props.render();
         html! {
@@ -554,7 +554,6 @@ pub fn Input(
 mod tests {
     use super::{Attrs, Input, InputProps, input, input_variants};
     use crate::components::rahti_ui::utils::TestHtml as _;
-    use crate::rahti::Html;
 
     #[test]
     fn a_default_input_carries_shadcns_defaults() {

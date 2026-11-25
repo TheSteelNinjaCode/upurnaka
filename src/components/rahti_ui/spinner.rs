@@ -1,5 +1,5 @@
 // rahti-ui: spinner
-// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.5.
+// Installed from https://rahtiui.tsnc.tech/cli by cargo-rahti-ui 0.0.6.
 //
 // This is source, not a generated file — it is the application's to read and to
 // change. `cargo rahti-ui update` re-fetches it, and leaves it alone once it has
@@ -64,9 +64,14 @@
 //! `[&>svg]:size-3!` is important, so a badge spinner is 12px whatever it asked
 //! for.
 
+// A component kit ships its whole API, and an application uses the part it
+// needs. What this file leaves unused is that surface, not dead code, so the
+// lint is off for this file alone; the application's own components keep it.
+#![allow(dead_code)]
+
 use crate::components::rahti_icons::loader_circle::LoaderCircle;
 use crate::components::rahti_ui::attrs::{Attrs, Bindings, is_binding};
-use crate::components::rahti_ui::utils::{cn, js_string};
+use crate::components::rahti_ui::utils::cn;
 use crate::rahti::{Html, component, html};
 
 /// The whole component. shadcn's string, unchanged.
@@ -279,7 +284,6 @@ mod tests {
     use super::{BASE, LABEL, ROLE, Spinner, spinner, spinner_variants};
     use crate::components::rahti_ui::attrs::Attrs;
     use crate::components::rahti_ui::utils::TestHtml as _;
-    use crate::rahti::Html;
 
     fn plain() -> String {
         Spinner("", "", "", crate::rahti::Bindings::default(), Attrs::new()).into_test_string()

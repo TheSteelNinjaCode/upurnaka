@@ -18,6 +18,9 @@ own that step. After every batch of edits:
 
 1. `cargo rahti restart`. A compile error leaves the old server running
 and says so. Do not start a second server, and never force-kill one.
+When it says the linker cannot replace a file another program has
+open, report that line: `.vscode/settings.json` keeps rust-analyzer
+out of `target/`, and you never end a process you did not start.
 2. Load every affected route in a browser with a full page load, and
 exercise what changed.
 3. `cargo rahti status`, or MCP `server_status`. It says whether the
@@ -97,7 +100,7 @@ warnings. See `docs/conventions/native-packaging.md`.
 | Error privacy, page boundaries, Problem Details, RPC failures | `docs/conventions/error-handling.md` |
 | SeaORM entities, migrations, the connection, database tests | `docs/conventions/database.md` |
 | Escaping, CSRF, redirects, upload trust | `docs/conventions/security.md` |
-| `rahti.config.json`, CSS engines, frontend `twMerge`, static files, the CLI | `docs/conventions/configuration-and-tooling.md` |
+| `rahti.config.json`, CSS engines, frontend `twMerge`, static files, the CLI, dead code | `docs/conventions/configuration-and-tooling.md` |
 | Where tests live, driving the router, RPC/auth/database tests | `docs/conventions/testing.md` |
 | Optional Windows/Android packaging, packaged paths, the loopback server | `docs/conventions/native-packaging.md` |
 
@@ -148,12 +151,19 @@ warnings. See `docs/conventions/native-packaging.md`.
     `<Input type="number" />`, `<Label for="email" />`; the raw
     identifier (`r#type: &str`, `@{r#type}`) belongs only in the
     component's declaration and body, never on the tag.
-7. A reactive block and its `<script>` must be self-contained. Children
-    written between component tags are the exception: a `{…}` binding
-    there reads the writing block's state — `html!` ships such children
-    as an owner-scoped `<template pp-owner="…">`, the React children
-    semantics. Fragment-rooted (`<>…</>`) and `@{expr}`-built children
-    read the component's scope instead.
+7. A reactive block and its `<script>` must be self-contained, and a
+    block carries one `<script>`. Children written between component
+    tags are the exception: a `{…}` binding there reads the writing
+    block's state — `html!` ships such children as an owner-scoped
+    `<template pp-owner="…">`, the React children semantics.
+    Fragment-rooted (`<>…</>`) and `@{expr}`-built children read the
+    component's scope instead. Children that carry their own
+    `<script>` are a block of their own: one parent element with the
+    `<script>` inside it, as in
+    `<Shell><div>…<script>r##"…"##</script></div></Shell>`. `html!`
+    refuses a `<script>` beside that element
+    (`RAHTI_LOOSE_CHILD_SCRIPT`) — it would replace `<Shell>`'s own
+    script — and a second `<script>` in a block (`RAHTI_SECOND_SCRIPT`).
 8. A page-owned `#[rpc]` lives beside its caller in that `page.rs`; a
     component-owned `#[rpc]` lives in the component file. Parameters are
     owned, deserializable types (`String`, not `&str`); return values
@@ -349,6 +359,15 @@ warnings. See `docs/conventions/native-packaging.md`.
     Do not add `tw_merge`, npm tooling, or another merger for this
     behavior. `twMerge` does not generate CSS. Read the Tailwind class
     merging agent contract in `docs/conventions/configuration-and-tooling.md`.
+37. Dead code is deleted, not silenced. `cargo check` reports a component,
+             helper, or type nothing uses under the app directory and
+             `src/components/`; a build with no warnings is the finished state. An
+             item kept ahead of its caller takes
+             `#[expect(dead_code, reason = "…")]` on that item. Never write
+             `#[allow(dead_code)]`; an installed component-kit file carries its
+             own, which stays. `#[rpc]`, `#[socket]`, `#[job]`, and `pub` items
+             of a `pub mod` are not reported, so search for their callers.
+             See "Dead Code" in `docs/conventions/configuration-and-tooling.md`.
 
 ## Commands
 
