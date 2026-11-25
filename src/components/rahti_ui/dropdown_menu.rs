@@ -1094,9 +1094,14 @@ pub fn DropdownMenu(
                         return root.querySelector("[popovertarget=" + CSS.escape(id) + "]");
                     };
 
+                    // A row that is `hidden`, or inside something that is, is
+                    // not one the arrow keys can land on.
                     const rowsIn = (menu) =>
                         Array.from(menu.querySelectorAll(ROWS)).filter(
-                            (row) => !row.hasAttribute("data-disabled") && !row.hidden && row.getClientRects().length > 0
+                            (row) =>
+                                !row.hasAttribute("data-disabled") &&
+                                !row.hidden &&
+                                row.getClientRects().length > 0
                         );
 
                     // The fallback placement: measure the trigger, put the menu

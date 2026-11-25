@@ -863,12 +863,21 @@ pub fn AlertDialog(
                     // the platform's documented way out of a modal, and the only
                     // one a keyboard user has.
                     const cancel = (event) => {
+                        // A file input also fires a bubbling `cancel` when its
+                        // native picker is dismissed. Only this dialog's own
+                        // cancellation closes the dialog.
+                        if (event.target !== box) return;
                         event.preventDefault();
                         close();
                     };
 
                     const restore = () => {
                         unlock();
+                        // `close` is queued, not dispatched by `close()` itself,
+                        // so a dialog reopened right after it closed receives the
+                        // old one late. Marking that open box `closed` would let
+                        // its opening `animationend` close it again.
+                        if (box.open) return;
                         box.setAttribute("data-state", CLOSED);
                         // One of these written inside another is a DOM
                         // descendant, so closing this box would only hide it —
@@ -893,7 +902,12 @@ pub fn AlertDialog(
 
                     return () => {
                         clearTimeout(timer);
-                        if (box.open) box.close();
+                        // The `close` this fires arrives after its listener is
+                        // gone, so the lock it would release is released here.
+                        if (box.open) {
+                            box.close();
+                            restore();
+                        }
                         for (const trigger of triggers) trigger.removeEventListener("click", open);
                         for (const button of cancels) button.removeEventListener("click", close);
                         for (const button of actions) button.removeEventListener("click", close);

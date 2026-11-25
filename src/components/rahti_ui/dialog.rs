@@ -870,9 +870,9 @@ pub fn Dialog(class: &str, id: &str, bindings: Bindings, attrs: Attrs, children:
                     // outright — so it is intercepted and sent down the animated
                     // path instead.
                     const cancel = (event) => {
-                        // A file input also emits a bubbling `cancel` when its
+                        // A file input also fires a bubbling `cancel` when its
                         // native picker is dismissed. Only this dialog's own
-                        // cancellation should close the dialog.
+                        // cancellation closes the dialog.
                         if (event.target !== box) return;
                         event.preventDefault();
                         close();
@@ -883,7 +883,7 @@ pub fn Dialog(class: &str, id: &str, bindings: Bindings, attrs: Attrs, children:
                         // `close` is queued, not dispatched by `close()` itself,
                         // so a dialog reopened right after it closed receives the
                         // old one late. Marking that open box `closed` would let
-                        // its opening `animationend` finish it off.
+                        // its opening `animationend` close it again.
                         if (box.open) return;
                         box.setAttribute("data-state", CLOSED);
                         // A dialog written inside this one is a DOM descendant,
@@ -928,7 +928,12 @@ pub fn Dialog(class: &str, id: &str, bindings: Bindings, attrs: Attrs, children:
 
                     return () => {
                         clearTimeout(timer);
-                        if (box.open) box.close();
+                        // The `close` this fires arrives after its listener is
+                        // gone, so the lock it would release is released here.
+                        if (box.open) {
+                            box.close();
+                            restore();
+                        }
                         for (const trigger of triggers) trigger.removeEventListener("click", open);
                         for (const closer of closers) closer.removeEventListener("click", close);
                         box.removeEventListener("cancel", cancel);
