@@ -1854,7 +1854,6 @@ async fn community_template_edits_and_creates_in_one_step() {
         .await
         .unwrap();
     browser.type_text("A place for our school.").await.unwrap();
-    eprintln!("DBG {}", browser.eval::<String>("(() => { const b=document.querySelector(\"button[aria-label='Edit community guidelines']\"); const r=b?.getBoundingClientRect(); const d=document.querySelector('.community-create-dialog'); return JSON.stringify({exists:!!b, rect:r?.toJSON(), dialogOpen:d.open, state:d.dataset.state, dialogRect:d.getBoundingClientRect().toJSON(), btn:b?.outerHTML.slice(0,300)}); })()").await.unwrap());
     browser
         .click("button[aria-label='Edit community guidelines']")
         .await
@@ -2468,6 +2467,12 @@ async fn community_workspace_saves_channels_posts_and_cover_in_the_browser() {
         .unwrap();
     browser
         .wait_for("!document.querySelector('.community-composer-editing').hidden && document.querySelector('input[aria-label=Subject]').value === 'Projects' && document.querySelector('.community-rich-host .ProseMirror strong')?.textContent === 'saved' && document.querySelector('.community-composer-footer button[type=submit]').textContent.trim() === 'Save'")
+        .await
+        .unwrap();
+    // `startEdit` focuses the editor and smooth-scrolls the detail pane to the
+    // top a frame later; a click sent before that scroll settles misses.
+    browser
+        .wait_for("document.activeElement.classList.contains('ProseMirror') && document.querySelector('.community-detail').scrollTop === 0")
         .await
         .unwrap();
     browser.click("input[aria-label=Subject]").await.unwrap();

@@ -880,6 +880,11 @@ pub fn Dialog(class: &str, id: &str, bindings: Bindings, attrs: Attrs, children:
 
                     const restore = () => {
                         unlock();
+                        // `close` is queued, not dispatched by `close()` itself,
+                        // so a dialog reopened right after it closed receives the
+                        // old one late. Marking that open box `closed` would let
+                        // its opening `animationend` finish it off.
+                        if (box.open) return;
                         box.setAttribute("data-state", CLOSED);
                         // A dialog written inside this one is a DOM descendant,
                         // so closing this box only *hides* it: it stays `open`,
