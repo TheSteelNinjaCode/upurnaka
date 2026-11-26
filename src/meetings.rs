@@ -43,8 +43,8 @@ use serde::Serialize;
 
 use crate::db;
 use crate::models::meeting_link;
-use crate::rahti::time::{self, DateTime, Utc};
 use crate::rahti::{Error, Result};
+use chrono::{DateTime, Utc};
 
 /// A meeting link, in the shape the browser is given it.
 ///
@@ -385,8 +385,8 @@ fn created_label(created_at: DateTime<Utc>) -> String {
         3600..7200 => "an hour ago".to_string(),
         7200..86400 => format!("{} hours ago", seconds / 3600),
         86400..172800 => "yesterday".to_string(),
-        _ => time::to_app_time(created_at)
-            .format("%b %-d, %Y")
+        _ => crate::app_time::local(created_at)
+            .strftime("%b %-d, %Y")
             .to_string(),
     }
 }

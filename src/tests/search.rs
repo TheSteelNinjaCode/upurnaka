@@ -12,7 +12,7 @@ async fn workspace_file_filters_match_teams_and_apply_calendar_ranges() {
             "legacy-test-user",
             "teams-file-report.pdf",
             "application/pdf",
-            crate::rahti::time::Utc::now().timestamp(),
+            rahti::time::Timestamp::now().as_second(),
         ),
         (
             "teams-file-excel",
@@ -26,7 +26,7 @@ async fn workspace_file_filters_match_teams_and_apply_calendar_ranges() {
             "other-user",
             "teams-file-private.pdf",
             "application/pdf",
-            crate::rahti::time::Utc::now().timestamp(),
+            rahti::time::Timestamp::now().as_second(),
         ),
     ] {
         chat_file::ActiveModel {
@@ -157,7 +157,6 @@ async fn workspace_file_filters_match_teams_and_apply_calendar_ranges() {
 #[tokio::test]
 async fn message_search_calendar_presets_and_custom_ranges_are_validated() {
     use crate::rahti::time;
-    use chrono::{Datelike, Duration};
     for preset in ["today", "yesterday", "week", "month"] {
         let (status, body) = rpc(
             "/chat",
@@ -169,19 +168,23 @@ async fn message_search_calendar_presets_and_custom_ranges_are_validated() {
         let range: Value = rahti::serde_json::from_str(&body).unwrap();
         let today = time::today();
         let first = match preset {
-            "yesterday" => today - Duration::days(1),
-            "week" => today - Duration::days(today.weekday().num_days_from_monday().into()),
-            "month" => today.with_day(1).unwrap(),
+            "yesterday" => today.yesterday().unwrap(),
+            "week" => today
+                .checked_sub(
+                    jiff::Span::new().days(i64::from(today.weekday().to_monday_zero_offset())),
+                )
+                .unwrap(),
+            "month" => today.first_of_month(),
             _ => today,
         };
         let last = if preset == "yesterday" { first } else { today };
         assert_eq!(
             range["start"],
-            time::day_bounds_utc(first).unwrap().0.timestamp()
+            time::day_bounds_utc(first).unwrap().0.as_second()
         );
         assert_eq!(
             range["end"],
-            time::day_bounds_utc(last).unwrap().1.timestamp()
+            time::day_bounds_utc(last).unwrap().1.as_second()
         );
     }
     let (status, body) = rpc(
@@ -196,10 +199,10 @@ async fn message_search_calendar_presets_and_custom_ranges_are_validated() {
     assert_eq!(range["to"], "2026-03-09");
     assert_eq!(
         range["end"],
-        time::day_bounds_utc(time::NaiveDate::from_ymd_opt(2026, 3, 9).unwrap())
+        time::day_bounds_utc(time::Date::new(2026, 3, 9).unwrap())
             .unwrap()
             .1
-            .timestamp()
+            .as_second()
     );
     for payload in [
         json!({"preset":"custom","from":"invalid","to":"2026-03-09"}),
@@ -544,7 +547,7 @@ async fn workspace_search_limits_directory_fields_and_scopes_files() {
         bytes: Set(10),
         file_id: Set("test-storage-pdf".into()),
         file_key: Set("private-storage-key".into()),
-        created_at: Set(crate::rahti::time::Utc::now().timestamp()),
+        created_at: Set(rahti::time::Timestamp::now().as_second()),
         folder_id: Set(None),
     }
     .insert(crate::db::db())
@@ -562,7 +565,7 @@ async fn workspace_search_limits_directory_fields_and_scopes_files() {
             bytes: Set(10),
             file_id: Set("test-storage-note".into()),
             file_key: Set("private-storage-key".into()),
-            created_at: Set(crate::rahti::time::Utc::now().timestamp()),
+            created_at: Set(rahti::time::Timestamp::now().as_second()),
             folder_id: Set(None),
         }
         .insert(crate::db::db())

@@ -183,7 +183,7 @@ pub(super) fn signed_cookie(user: rahti::serde_json::Value) -> String {
     use hmac::{Hmac, KeyInit, Mac};
     let settings = rahti::auth::settings();
     let payload = rahti::serde_json::json!({"user": user,
-        "exp": rahti::time::Utc::now().timestamp() + 3600});
+        "exp": rahti::time::Timestamp::now().as_second() + 3600});
     let body = URL_SAFE_NO_PAD.encode(payload.to_string());
     let mut mac = Hmac::<sha2::Sha256>::new_from_slice(settings.secret.as_bytes()).unwrap();
     mac.update(body.as_bytes());

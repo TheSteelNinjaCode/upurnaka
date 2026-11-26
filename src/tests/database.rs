@@ -12,7 +12,7 @@ async fn the_meeting_link_table_round_trips() {
 
     setup().await;
 
-    let created_at = crate::rahti::time::Utc::now();
+    let created_at = chrono::Utc::now();
 
     let saved = crate::models::meeting_link::ActiveModel {
         id: Set("roundtripcode01".to_string()),
@@ -53,7 +53,7 @@ async fn a_conference_can_be_recorded_against_a_link() {
         id: Set("conferencecode1".to_string()),
         owner_id: Set(None),
         title: Set("A link that gets a conference".to_string()),
-        created_at: Set(crate::rahti::time::Utc::now()),
+        created_at: Set(chrono::Utc::now()),
         revoked_at: Set(None),
         provider_meeting_id: Set(None),
         media_region: Set(None),

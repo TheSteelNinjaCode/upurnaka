@@ -146,9 +146,7 @@ pub async fn create(community: String, input: EventInput) -> Result<Vec<Communit
         Some(lines) => rahti::serde_json::to_string(lines)?,
         None => String::new(),
     };
-    let zone: rahti::time::Tz = input
-        .timezone
-        .parse()
+    let zone = rahti::time::TimeZone::get(&input.timezone)
         .map_err(|_| invalid("timezone", "Choose a valid time zone."))?;
     let clock = |value: &str| {
         if input.all_day {
@@ -194,11 +192,7 @@ pub async fn create(community: String, input: EventInput) -> Result<Vec<Communit
                     "This repeat schedule exceeds the supported dates.",
                 )
             })?;
-            shifted
-                .and_local_timezone(zone)
-                .single()
-                .map(|value| value.with_timezone(&Utc))
-                .ok_or_else(|| {
+            crate::app_time::resolve(shifted, &zone).ok_or_else(|| {
                     invalid(
                         "start_date",
                         "This time is ambiguous or does not exist due to daylight saving. Choose another time.",

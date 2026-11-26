@@ -116,7 +116,8 @@ pub async fn page(Query(query): Query<CommunityQuery>) -> Result<Html> {
         "text-[13px] text-link",
     );
     let cancel_button = button_variants(ButtonVariant::Outline, ButtonSize::Default, "");
-    let app_zone = crate::rahti::time::timezone().name();
+    let app_timezone = crate::rahti::time::timezone();
+    let app_zone = app_timezone.iana_name().unwrap_or("UTC");
     let upload_button = button_variants(
         ButtonVariant::Default,
         ButtonSize::Default,

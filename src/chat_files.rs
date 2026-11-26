@@ -19,7 +19,7 @@ use serde::Serialize;
 use crate::db;
 use crate::meetings::{mint_id, recording};
 use crate::models::{chat_file, chat_folder};
-use crate::rahti::{Error, Result, RpcFile, Validator, time};
+use crate::rahti::{Error, Result, RpcFile, Validator};
 
 /// The largest single attachment, inside the framework's 128 MiB request cap.
 pub const FILE_LIMIT: usize = 100 * 1024 * 1024;
@@ -33,8 +33,8 @@ const RECENT: u64 = 100;
 const DEPTH_LIMIT: usize = 8;
 
 fn shown_date(at: i64) -> String {
-    time::DateTime::from_timestamp(at, 0)
-        .map(|at| time::to_app_time(at).format("%b %-d, %Y").to_string())
+    crate::app_time::local_seconds(at)
+        .map(|at| at.strftime("%b %-d, %Y").to_string())
         .unwrap_or_default()
 }
 
@@ -267,7 +267,7 @@ pub async fn create_folder(parent: Option<String>, name: String) -> Result<Folde
         );
     validator.finish()?;
 
-    let now = time::Utc::now().timestamp();
+    let now = rahti::time::Timestamp::now().as_second();
     let row = chat_folder::ActiveModel {
         id: Set(mint_id()),
         owner_id: Set(owner),
@@ -353,7 +353,7 @@ pub async fn store(file: RpcFile, folder: Option<String>) -> Result<Attachment> 
         bytes: Set(bytes),
         file_id: Set(stored.id),
         file_key: Set(stored.key),
-        created_at: Set(time::Utc::now().timestamp()),
+        created_at: Set(rahti::time::Timestamp::now().as_second()),
         folder_id: Set(folder),
     }
     .insert(db::db())

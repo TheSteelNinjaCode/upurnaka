@@ -382,7 +382,7 @@ async fn bad_passwords_and_bad_codes_share_a_persistent_attempt_limit() {
             StatusCode::BAD_REQUEST
         );
     }
-    assert!(account(email).await.locked_until > rahti::time::Utc::now().timestamp());
+    assert!(account(email).await.locked_until > rahti::time::Timestamp::now().as_second());
     assert_eq!(
         c.call(
             "start_signin",

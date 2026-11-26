@@ -11,6 +11,8 @@
 
 /// Framework runtime, from the `rahti` crate.
 pub use rahti;
+/// Conversions between stored chrono values and the jiff application calendar.
+pub mod app_time;
 pub mod auth;
 mod browser_policy;
 pub mod calendar;

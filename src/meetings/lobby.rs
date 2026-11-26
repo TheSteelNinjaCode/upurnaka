@@ -13,7 +13,7 @@ use sea_orm::{
 };
 use serde::Serialize;
 fn now() -> i64 {
-    crate::rahti::time::Utc::now().timestamp()
+    rahti::time::Timestamp::now().as_second()
 }
 pub(super) fn denied() -> Error {
     Error::new(StatusCode::FORBIDDEN, "Meeting access denied.")

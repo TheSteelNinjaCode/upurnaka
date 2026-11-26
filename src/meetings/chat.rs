@@ -71,7 +71,7 @@ pub async fn send(id: String, ticket: String, text: String) -> Result<Message> {
         sender_id: Set(sender.user_id),
         sender_name: Set(sender.name),
         body: Set(text),
-        sent_at: Set(crate::rahti::time::Utc::now().timestamp_millis()),
+        sent_at: Set(rahti::time::Timestamp::now().as_millisecond()),
     }
     .insert(db::db())
     .await?;

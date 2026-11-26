@@ -627,7 +627,7 @@ async fn visit(id: &str, name: &str, state: &str) -> String {
         user_id: Set(format!("guest:{ticket}")),
         name: Set(name.into()),
         state: Set(state.into()),
-        lease_until: Set(rahti::time::Utc::now().timestamp() + 90),
+        lease_until: Set(rahti::time::Timestamp::now().as_second() + 90),
         attendee_id: Set(None),
         provider_meeting_id: Set(None),
         muted_by_host: Set(false),

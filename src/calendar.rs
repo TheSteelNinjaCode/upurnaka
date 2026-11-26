@@ -4,7 +4,7 @@ use crate::{
     models::{calendar_event as event, meeting_link},
     rahti::{self, Error, Result, Validator},
 };
-use chrono::{DateTime, Duration, Months, NaiveDate, NaiveDateTime, Timelike, Utc};
+use chrono::{DateTime, Duration, Months, NaiveDateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
     TransactionTrait,
@@ -115,9 +115,7 @@ pub async fn schedule(input: ScheduleInput) -> Result<Vec<ScheduledMeeting>> {
         }
     }
     validator.finish()?;
-    let zone: rahti::time::Tz = input
-        .timezone
-        .parse()
+    let zone = rahti::time::TimeZone::get(&input.timezone)
         .map_err(|_| invalid("timezone", "Choose a valid time zone."))?;
     let start = parse_local(
         &input.start_date,
@@ -171,7 +169,7 @@ pub async fn schedule(input: ScheduleInput) -> Result<Vec<ScheduledMeeting>> {
                     "This repeat schedule exceeds the supported dates.",
                 )
             })?;
-            local.and_local_timezone(zone).single().map(|value| value.with_timezone(&Utc)).ok_or_else(|| invalid("timezone", "This time is ambiguous or does not exist due to daylight saving. Choose another time."))
+            crate::app_time::resolve(local, &zone).ok_or_else(|| invalid("timezone", "This time is ambiguous or does not exist due to daylight saving. Choose another time."))
         };
         let starts_at = utc(start)?;
         let ends_at = utc(end)?;
@@ -229,16 +227,16 @@ pub async fn list() -> Result<Vec<ScheduledMeeting>> {
 fn project(rows: Vec<event::Model>) -> Result<Vec<ScheduledMeeting>> {
     let mut output = Vec::new();
     for row in rows {
-        let start = rahti::time::to_app_time(row.starts_at);
-        let end = rahti::time::to_app_time(row.ends_at);
-        let mut day: NaiveDate = start.date_naive();
-        while day <= end.date_naive() {
-            let a = if day == start.date_naive() {
+        let start = crate::app_time::local(row.starts_at);
+        let end = crate::app_time::local(row.ends_at);
+        let mut day: rahti::time::Date = start.date();
+        while day <= end.date() {
+            let a = if day == start.date() {
                 f64::from(start.hour()) + f64::from(start.minute()) / 60.0
             } else {
                 0.0
             };
-            let b = if day == end.date_naive() {
+            let b = if day == end.date() {
                 f64::from(end.hour()) + f64::from(end.minute()) / 60.0
             } else {
                 24.0
@@ -261,7 +259,7 @@ fn project(rows: Vec<event::Model>) -> Result<Vec<ScheduledMeeting>> {
                     recurrence: row.recurrence.clone(),
                 });
             }
-            let Some(next) = day.succ_opt() else { break };
+            let Ok(next) = day.tomorrow() else { break };
             day = next;
         }
     }

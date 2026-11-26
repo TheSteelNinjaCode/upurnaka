@@ -165,7 +165,7 @@ fn invalid() -> Error {
     )
 }
 fn now() -> i64 {
-    rahti::time::Utc::now().timestamp()
+    rahti::time::Timestamp::now().as_second()
 }
 fn digest(value: &str) -> String {
     URL_SAFE_NO_PAD.encode(Sha256::digest(value.as_bytes()))

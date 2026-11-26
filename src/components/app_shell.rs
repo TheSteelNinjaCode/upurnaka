@@ -77,7 +77,6 @@ pub fn message_search_dates(
     to: Option<String>,
 ) -> Result<MessageSearchDates> {
     use crate::rahti::time;
-    use chrono::{Datelike, Duration};
     let mut validator = Validator::new();
     validator.one_of(
         "preset",
@@ -95,29 +94,23 @@ pub fn message_search_dates(
     let (first, last, label) = match preset.as_str() {
         "today" => (today, today, "Today".to_string()),
         "yesterday" => {
-            let day = today
-                .checked_sub_signed(Duration::days(1))
-                .ok_or_else(invalid)?;
+            let day = today.yesterday().map_err(|_| invalid())?;
             (day, day, "Yesterday".into())
         }
         "week" => (
             today
-                .checked_sub_signed(Duration::days(
-                    today.weekday().num_days_from_monday().into(),
-                ))
-                .ok_or_else(invalid)?,
+                .checked_sub(
+                    jiff::Span::new().days(i64::from(today.weekday().to_monday_zero_offset())),
+                )
+                .map_err(|_| invalid())?,
             today,
             "This week".into(),
         ),
-        "month" => (
-            today.with_day(1).ok_or_else(invalid)?,
-            today,
-            "This month".into(),
-        ),
+        "month" => (today.first_of_month(), today, "This month".into()),
         _ => {
-            let first = time::NaiveDate::parse_from_str(from.as_deref().unwrap_or(""), "%Y-%m-%d")
+            let first = time::Date::strptime("%Y-%m-%d", from.as_deref().unwrap_or(""))
                 .map_err(|_| invalid())?;
-            let last = time::NaiveDate::parse_from_str(to.as_deref().unwrap_or(""), "%Y-%m-%d")
+            let last = time::Date::strptime("%Y-%m-%d", to.as_deref().unwrap_or(""))
                 .map_err(|_| invalid())?;
             if first > last {
                 return Err(invalid());
@@ -127,8 +120,8 @@ pub fn message_search_dates(
                 last,
                 format!(
                     "{} – {}",
-                    first.format("%b %-d, %Y"),
-                    last.format("%b %-d, %Y")
+                    first.strftime("%b %-d, %Y"),
+                    last.strftime("%b %-d, %Y")
                 ),
             )
         }
@@ -140,8 +133,8 @@ pub fn message_search_dates(
         label,
         from: first.to_string(),
         to: last.to_string(),
-        start: start.timestamp(),
-        end: end.timestamp(),
+        start: start.as_second(),
+        end: end.as_second(),
     })
 }
 
@@ -275,7 +268,7 @@ pub async fn search_workspace(
     }
     if file_date == "day" {
         file_query = file_query.filter(
-            chat_file::Column::CreatedAt.gte(crate::rahti::time::Utc::now().timestamp() - 86400),
+            chat_file::Column::CreatedAt.gte(rahti::time::Timestamp::now().as_second() - 86400),
         );
     } else if file_date != "any" {
         let range = message_search_dates(file_date, file_from, file_to)?;

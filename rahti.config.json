@@ -1,7 +1,7 @@
 {
   "$schema": "https://rahti.tsnc.tech/schema/1.json",
   "schema": 1,
-  "createdWith": "0.0.82",
+  "createdWith": "0.0.83",
 
   "app": {
     "dir": "src/app",
@@ -40,7 +40,7 @@
     "CLAUDE.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49",
     "Cargo.toml": "be748bf544d78cd5808cede0a7db3d5bc430589a017f6a73c8fb8fda6d1a0379",
     "build.rs": "fc7d282ed8eb42af8e67099bc698c08fe90bb1e9a62a46b8ab4627addaba1c65",
-    "docs/conventions/application-timezone.md": "b3bc386803644097b3071ad632e103957fa65034036609e836291364ae164ed3",
+    "docs/conventions/application-timezone.md": "53425e755727d037d3ea0dbf46c7acc30f762ebcc8fd4b60ba72a16157591acb",
     "docs/conventions/authentication.md": "5e0d95c9a94407c803b44cd64f080b1b895e2ecbe23f4eca06f2b9b50a013f69",
     "docs/conventions/authorization.md": "a1123ec0fdf078f6f530f22df042c008d7fca6c631bd9b5f3b7f5b87865c321d",
     "docs/conventions/background-jobs.md": "71c9b7245fa8f1d9839fc738119b6fa304ccda7a05a9321caef34e2f2872a6e2",

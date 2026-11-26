@@ -178,7 +178,7 @@ async fn recordings_are_listed_downloaded_and_deleted_by_whoever_started_them() 
     use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait};
     let (mut owner, owner_id) = person("files-recorder@example.com").await;
     let (mut other, _) = person("files-viewer@example.com").await;
-    let now = crate::rahti::time::Utc::now().timestamp();
+    let now = rahti::time::Timestamp::now().as_second();
     for (id, state) in [
         ("files-rec-stored", "stored"),
         ("files-rec-live", "recording"),

@@ -2966,13 +2966,12 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rahti"
-version = "0.0.82"
+version = "0.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "881ec39bd876dc61e78d5d80fecc8db1e18255410c558cd5af598336d076ee34"
+checksum = "4eb98cfd6b7f3d453e72123f6f172c3e5e6bb2914d348a2229ee1d7e7915951f"
 dependencies = [
  "axum",
  "base64 0.23.1",
- "chrono",
  "fluent-bundle",
  "futures-util",
  "getrandom 0.4.3",
@@ -2997,9 +2996,9 @@ dependencies = [
 
 [[package]]
 name = "rahti-build"
-version = "0.0.82"
+version = "0.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfebd8f8586775537f157fc545eac45e97ccd6ee5cc2be5b86f48497bd1a9d33"
+checksum = "bf544aff4e9a8403f6099ba7260ea55fbd95919eb6191ca79d7d589d954c412d"
 dependencies = [
  "fluent-syntax",
  "proc-macro2",
@@ -3011,18 +3010,18 @@ dependencies = [
 
 [[package]]
 name = "rahti-icons"
-version = "0.0.49"
+version = "0.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "752e0ac669a700915f4126b53ee60ace11bec0f951e8b65ddba99938c1205eeb"
+checksum = "9d49c95f5f0e1f1b0d63083956d4ddea728d44ebf1ba07e47e7c78c94b813993"
 dependencies = [
  "rahti",
 ]
 
 [[package]]
 name = "rahti-js"
-version = "0.0.82"
+version = "0.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0db1d40d28aabc61f5c4f462a39ef3d6518e1668bedf5d365616fb68f19675b4"
+checksum = "30d7d738c314f8b7fca582f98c07c99f6f5e9adb5a991e3d86668b158f1559ec"
 dependencies = [
  "oxc_allocator",
  "oxc_ast",
@@ -3035,9 +3034,9 @@ dependencies = [
 
 [[package]]
 name = "rahti-macros"
-version = "0.0.82"
+version = "0.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aa9f019177f3de1120ec54a756e0f7e27193c685589c299df9b493e59a6bd41"
+checksum = "803d78fbd7fa7eda4857cab0cac7afee12fbb522059ce7fc2cab6aa496808052"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3046,9 +3045,9 @@ dependencies = [
 
 [[package]]
 name = "rahti-mcp"
-version = "0.0.82"
+version = "0.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a763c775b38f48c84d430f262815801893d3ea7ca3054a83f58ef95846129b47"
+checksum = "517b78af21bb868e6bc24194f55a8fe734c7e3dc8936835ce8129aae9704b99d"
 dependencies = [
  "axum",
  "rahti-build",
@@ -4690,6 +4689,7 @@ dependencies = [
  "hmac",
  "http-body-util",
  "image",
+ "jiff",
  "rahti",
  "rahti-build",
  "rahti-icons",

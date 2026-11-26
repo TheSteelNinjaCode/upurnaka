@@ -394,7 +394,7 @@ pub async fn save(community: Community) -> Result<Community> {
         picture: Set(community.picture.clone()),
         cover: Set(community.cover.clone()),
         cover_image: Set(community.cover_image.clone()),
-        created_at: Set(crate::rahti::time::now().timestamp_micros()),
+        created_at: Set(rahti::time::Timestamp::now().as_microsecond()),
         join_token: Set(String::new()),
         deleted_at: Set(None),
         members_can_share: Set(true),
@@ -459,7 +459,7 @@ pub async fn add_channel(community: String, name: String, icon: String) -> Resul
         id: Set(id()),
         community_id: Set(community),
         name: Set(name),
-        created_at: Set(crate::rahti::time::now().timestamp_micros()),
+        created_at: Set(rahti::time::Timestamp::now().as_microsecond()),
         icon: Set(icon),
     }
     .insert(&transaction)
@@ -567,7 +567,7 @@ pub async fn publish(
         channel_id: Set(channel_id),
         body: Set(checked.body),
         announcement: Set(announcement),
-        created_at: Set(crate::rahti::time::now().timestamp_millis()),
+        created_at: Set(rahti::time::Timestamp::now().as_millisecond()),
         author_id: Set(owner()?),
         subject: Set(checked.subject),
         headline: Set(checked.headline),
@@ -745,7 +745,7 @@ async fn post_file(
     stored: Stored,
 ) -> Result<Post> {
     let community = community_row.id.clone();
-    let now = crate::rahti::time::now().timestamp_millis();
+    let now = rahti::time::Timestamp::now().as_millisecond();
     let post_id = id();
     let transaction = db::db().begin().await?;
     post::ActiveModel {
@@ -879,7 +879,7 @@ pub async fn edit_post(
         .col_expr(post::Column::Content, Expr::value(checked.content))
         .col_expr(
             post::Column::EditedAt,
-            Expr::value(crate::rahti::time::now().timestamp_millis()),
+            Expr::value(rahti::time::Timestamp::now().as_millisecond()),
         )
         .filter(post::Column::Id.eq(&post_id))
         .filter(post::Column::DeletedAt.is_null())
@@ -906,7 +906,7 @@ async fn moderated(community: &str, post_id: &str) -> Result<(row::Model, post::
 }
 pub async fn delete_post(community: String, post_id: String, restore: bool) -> Result<Post> {
     let (community_row, _) = moderated(&community, &post_id).await?;
-    let deleted_at = (!restore).then(|| crate::rahti::time::now().timestamp_millis());
+    let deleted_at = (!restore).then(|| rahti::time::Timestamp::now().as_millisecond());
     let mut update = post::Entity::update_many()
         .col_expr(post::Column::DeletedAt, Expr::value(deleted_at))
         .filter(post::Column::Id.eq(&post_id));
@@ -921,7 +921,7 @@ pub async fn delete_post(community: String, post_id: String, restore: bool) -> R
 pub async fn pin_post(community: String, post_id: String, pinned: bool) -> Result<Post> {
     let community_row = owned(&community).await?;
     post_in(&community, &post_id).await?;
-    let pinned_at = pinned.then(|| crate::rahti::time::now().timestamp_millis());
+    let pinned_at = pinned.then(|| rahti::time::Timestamp::now().as_millisecond());
     post::Entity::update_many()
         .col_expr(post::Column::PinnedAt, Expr::value(pinned_at))
         .filter(post::Column::Id.eq(&post_id))
@@ -965,7 +965,7 @@ pub async fn react(community: String, post_id: String, emoji: String) -> Result<
             post_id: Set(post_id.clone()),
             user_id: Set(user.clone()),
             emoji: Set(emoji),
-            created_at: Set(crate::rahti::time::now().timestamp_millis()),
+            created_at: Set(rahti::time::Timestamp::now().as_millisecond()),
         })
         .on_conflict(
             OnConflict::columns([
@@ -998,7 +998,7 @@ pub async fn reply(community: String, post_id: String, body: String) -> Result<R
         post_id: Set(post_id),
         author_id: Set(user.clone()),
         body: Set(body),
-        created_at: Set(crate::rahti::time::now().timestamp_millis()),
+        created_at: Set(rahti::time::Timestamp::now().as_millisecond()),
     }
     .insert(db::db())
     .await?;
@@ -1550,7 +1550,7 @@ pub async fn delete(community: String) -> Result<bool> {
     row::Entity::update_many()
         .col_expr(
             row::Column::DeletedAt,
-            Expr::value(crate::rahti::time::now().timestamp()),
+            Expr::value(rahti::time::Timestamp::now().as_second()),
         )
         .col_expr(row::Column::JoinToken, Expr::value(""))
         .filter(row::Column::Id.eq(community))
@@ -1572,7 +1572,7 @@ pub async fn report(community: String, details: String) -> Result<String> {
         community_id: Set(community),
         reporter_id: Set(owner()?),
         details: Set(details),
-        created_at: Set(crate::rahti::time::now().timestamp()),
+        created_at: Set(rahti::time::Timestamp::now().as_second()),
     }
     .insert(db::db())
     .await?;

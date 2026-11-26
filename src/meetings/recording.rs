@@ -34,7 +34,7 @@ use tokio::io::AsyncWriteExt;
 use super::lobby;
 use crate::db;
 use crate::models::meeting_recording as recording;
-use crate::rahti::{Error, Result, RpcUpload, Validator, time};
+use crate::rahti::{Error, Result, RpcUpload, Validator};
 
 /// One timeslice. The browser sends one every few seconds, so this is a
 /// ceiling for a misbehaving client rather than a size anybody reaches.
@@ -48,7 +48,7 @@ const STALE_AFTER: i64 = 120;
 const ACCESS_SECONDS: u64 = 600;
 
 fn now() -> i64 {
-    time::Utc::now().timestamp()
+    rahti::time::Timestamp::now().as_second()
 }
 
 fn client() -> Option<&'static Dilnaka> {
@@ -87,8 +87,8 @@ fn piece(id: &str, part: i32) -> PathBuf {
 
 /// The name the file has in storage, and so the name it downloads as.
 fn file_name(row: &recording::Model) -> String {
-    let started = time::DateTime::from_timestamp(row.started_at, 0)
-        .map(|at| time::to_app_time(at).format("%Y-%m-%d-%H%M").to_string())
+    let started = crate::app_time::local_seconds(row.started_at)
+        .map(|at| at.strftime("%Y-%m-%d-%H%M").to_string())
         .unwrap_or_default();
     let extension = if row.content_type == "video/mp4" {
         "mp4"
@@ -469,8 +469,8 @@ pub async fn list(id: String) -> Result<Vec<Listed>> {
     Ok(rows
         .into_iter()
         .map(|row| Listed {
-            started: time::DateTime::from_timestamp(row.started_at, 0)
-                .map(|at| time::to_app_time(at).format("%b %-d, %Y %H:%M").to_string())
+            started: crate::app_time::local_seconds(row.started_at)
+                .map(|at| at.strftime("%b %-d, %Y %H:%M").to_string())
                 .unwrap_or_default(),
             seconds: row.ended_at.unwrap_or(row.updated_at) - row.started_at,
             id: row.id,
@@ -588,8 +588,8 @@ pub async fn mine() -> Result<Vec<Mine>> {
                 .unwrap_or_else(|| "Meeting".into());
             Mine {
                 name: file_name(&row),
-                started: time::DateTime::from_timestamp(row.started_at, 0)
-                    .map(|at| time::to_app_time(at).format("%b %-d, %Y %H:%M").to_string())
+                started: crate::app_time::local_seconds(row.started_at)
+                    .map(|at| at.strftime("%b %-d, %Y %H:%M").to_string())
                     .unwrap_or_default(),
                 started_at: row.started_at,
                 seconds: row.ended_at.unwrap_or(row.updated_at) - row.started_at,

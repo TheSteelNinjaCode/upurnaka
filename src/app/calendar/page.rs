@@ -29,7 +29,6 @@ use crate::components::rahti_ui::popover::{Popover, PopoverContent, PopoverTrigg
 use crate::components::rahti_ui::select::{Select, SelectItem};
 use crate::components::rahti_ui::switch::Switch;
 use crate::components::rahti_ui::textarea::Textarea;
-use crate::rahti::time::NaiveDate;
 use crate::rahti::{Html, Json, Metadata, Result, Validator, html, rpc};
 
 #[rpc(auth)]
@@ -63,9 +62,10 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
     let start_compose = query.new.as_deref() == Some("1");
     let saved_meetings = crate::calendar::list().await?;
     let app_now = crate::rahti::time::now();
-    let app_date = app_now.format("%Y-%m-%d").to_string();
-    let app_clock = app_now.format("%H:%M").to_string();
-    let app_zone = crate::rahti::time::timezone().name();
+    let app_date = app_now.strftime("%Y-%m-%d").to_string();
+    let app_clock = app_now.strftime("%H:%M").to_string();
+    let app_timezone = crate::rahti::time::timezone();
+    let app_zone = app_timezone.iana_name().unwrap_or("UTC");
     // Rendered on the server, so the options are already in the `<select>`
     // when its `value={editorZone}` binding is applied. Options a client list
     // inserts afterwards leave the browser to pick one, and it picked the last.
@@ -764,8 +764,8 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                     const slotElements = pp.ref({});
                     const [selection, setSelection] = pp.state(null);
                     const clockStarted = pp.ref(Date.now());
-                    const [clockInstant, setClockInstant] = pp.state(@{app_now.timestamp_millis()});
-                    const updateClock = pp.event(() => setClockInstant(@{app_now.timestamp_millis()} + Date.now() - clockStarted.current));
+                    const [clockInstant, setClockInstant] = pp.state(@{app_now.timestamp().as_millisecond()});
+                    const updateClock = pp.event(() => setClockInstant(@{app_now.timestamp().as_millisecond()} + Date.now() - clockStarted.current));
                     pp.effect(() => {
                         const timer = setInterval(updateClock, 30000);
                         return () => clearInterval(timer);
@@ -1093,7 +1093,7 @@ pub async fn create_meeting(
     minutes: String,
 ) -> Result<Meeting> {
     let title = title.trim().to_string();
-    let day = NaiveDate::parse_from_str(date.trim(), "%Y-%m-%d").ok();
+    let day = crate::rahti::time::Date::strptime("%Y-%m-%d", date.trim()).ok();
     let clock = parse_clock(start.trim());
     let length = minutes.trim().parse::<u32>().ok();
 
@@ -1115,9 +1115,9 @@ pub async fn create_meeting(
     let length = length.expect("the length was checked");
 
     Ok(Meeting {
-        id: format!("{}-{}", day.format("%Y%m%d"), (clock * 60.0) as i64),
+        id: format!("{}-{}", day.strftime("%Y%m%d"), (clock * 60.0) as i64),
         title,
-        day: day.format("%Y-%m-%d").to_string(),
+        day: day.strftime("%Y-%m-%d").to_string(),
         start: clock,
         length: f64::from(length) / 60.0,
     })

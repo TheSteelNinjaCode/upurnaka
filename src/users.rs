@@ -197,7 +197,7 @@ pub async fn delete(id: String) -> Result<bool> {
     meeting_link::Entity::update_many()
         .col_expr(
             meeting_link::Column::RevokedAt,
-            Expr::value(Some(rahti::time::Utc::now())),
+            Expr::value(Some(chrono::Utc::now())),
         )
         .filter(meeting_link::Column::OwnerId.eq(&id))
         .filter(meeting_link::Column::RevokedAt.is_null())

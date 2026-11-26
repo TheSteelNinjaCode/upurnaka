@@ -3025,11 +3025,11 @@ pub async fn send_message(
     let initials = user.initials();
 
     Ok(Message {
-        id: format!("m{}", now.timestamp_micros()),
+        id: format!("m{}", now.timestamp().as_microsecond()),
         author: user.name,
         initials,
-        time: now.format("%-I:%M %p").to_string(),
-        sent_at: now.timestamp(),
+        time: now.strftime("%-I:%M %p").to_string(),
+        sent_at: now.timestamp().as_second(),
         author_id: user.id,
         text,
         gif_url: gif_id.map(|id| format!("https://media.giphy.com/media/{id}/giphy.gif")),
