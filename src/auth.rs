@@ -10,8 +10,8 @@ use axum::http::StatusCode;
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use rand::{TryRng, rngs::SysRng};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, ExprTrait, QueryFilter,
-    sea_query::Expr,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, ExprTrait, PaginatorTrait,
+    QueryFilter, sea_query::Expr,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -21,7 +21,7 @@ pub fn settings() -> rahti::auth::AuthSettings {
     rahti::auth::AuthSettings {
         all_private: true,
         public_routes: vec!["/meet/j/[id]".into()],
-        auth_routes: vec!["/signin".into(), "/register".into()],
+        auth_routes: vec!["/signin".into(), "/register".into(), "/setup".into()],
         signin: "/signin".into(),
         after_signin: "/chat".into(),
         after_signout: "/signin".into(),
@@ -275,7 +275,74 @@ pub async fn register(
     password: String,
     confirmation: String,
 ) -> Result<Challenge> {
+    // Nobody joins a workspace that has no administrator yet: the first
+    // account is created through `/setup`, and it is the admin.
+    if !administrator_exists().await? {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            "upurnaka isn't set up yet. Create the administrator account first.",
+        ));
+    }
     let row = create_account(name, email, password, confirmation, Role::User).await?;
+    issue_challenge(row).await
+}
+
+/// Whether the single administrator account exists yet.
+pub async fn administrator_exists() -> Result<bool> {
+    ready()?;
+    Ok(account::Entity::find()
+        .filter(account::Column::Role.eq("admin"))
+        .count(db::db())
+        .await?
+        > 0)
+}
+
+/// True only when accounts are available and no administrator exists: a
+/// fresh installation, whose sign-in and registration pages send people to
+/// `/setup`. An unavailable database is not a first launch.
+pub async fn needs_setup() -> bool {
+    matches!(administrator_exists().await, Ok(false))
+}
+
+fn already_set_up() -> Error {
+    Error::new(
+        StatusCode::CONFLICT,
+        "upurnaka is already set up. Sign in instead.",
+    )
+}
+
+/// First launch: create the administrator from `/setup`, then continue to
+/// enrolling an authenticator exactly as a registration does. Refused once an
+/// administrator exists, so the page cannot create a second one or promote
+/// anybody.
+pub async fn create_first_admin(
+    name: String,
+    email: String,
+    password: String,
+    confirmation: String,
+) -> Result<Challenge> {
+    // One setup at a time in this process; across processes the database's
+    // single admin slot is the authority, and the loser is told it is set up.
+    static SETUP: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    let _guard = SETUP.lock().await;
+    if administrator_exists().await? {
+        return Err(already_set_up());
+    }
+    let row = match create_account(name, email, password, confirmation, Role::Admin).await {
+        Ok(row) => row,
+        Err(error) if error.status() == StatusCode::CONFLICT => {
+            return Err(if administrator_exists().await? {
+                already_set_up()
+            } else {
+                error
+            });
+        }
+        Err(error) => return Err(error),
+    };
+    issue_challenge(row).await
+}
+
+async fn issue_challenge(row: account::Model) -> Result<Challenge> {
     let token = random_token();
     account::Entity::update_many()
         .col_expr(account::Column::ChallengeHash, Expr::value(digest(&token)))
@@ -484,6 +551,7 @@ pub fn safe_next(value: &str) -> String {
         && !value.chars().any(char::is_control)
         && !value.starts_with("/signin")
         && !value.starts_with("/register")
+        && !value.starts_with("/setup")
     {
         value.to_string()
     } else {

@@ -228,7 +228,7 @@ pub async fn page() -> Result<Html> {
                         </div>
                     </section>
                     <p class="mt-4 text-xs text-subtle">
-                        "Only active accounts can enter the workspace. The administrator account is managed through database seeding."
+                        "Only active accounts can enter the workspace. The administrator account was created when the workspace was first set up and cannot be changed here."
                     </p>
                 </div>
                 <Dialog>

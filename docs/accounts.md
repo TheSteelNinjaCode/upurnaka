@@ -52,23 +52,28 @@ cannot be claimed by registering first.
 ## Roles and user administration
 
 Public registration always creates an **active user** with the `user` role.
-There is no client-selectable role. The single `admin` is created explicitly:
+There is no client-selectable role. The single `admin` is created on first
+launch, in the browser:
 
 ```text
 cargo run -- --migrate
-cargo run -- --seed-admin
+cargo run
 ```
 
-By default the seed creates `Administrator`, with login `admin@upurnaka.local`,
-and generates a random initial password. Initial credentials are written to
-the git-ignored `.rahti/admin-credentials.txt`; they are never printed or put in
-source control. Optional `SEED_ADMIN_EMAIL`, `SEED_ADMIN_NAME`, and
-`SEED_ADMIN_PASSWORD` values in the ignored `.env` or process environment
-override these defaults. When a password is supplied, no credentials file is
-written. Re-running the command leaves the existing admin and password intact.
-The administrator enrolls their own authenticator on first sign-in.
+While no administrator exists, `/signin` and `/register` redirect to `/setup`,
+and the `register_account` RPC refuses with HTTP 409. `/setup` asks for the
+administrator's name, email, and password (at least 12 characters), then
+enrolls their authenticator and shows recovery codes exactly as a first
+sign-in does, and lands on `/users`. No password is generated, printed, or
+written to disk by the application.
 
-The database constrains admin role membership to one account. Seeding cannot
+Once the administrator exists, `/setup` redirects to `/signin` and its
+`create_administrator` RPC refuses with HTTP 409. Concurrent setups in one
+process are serialized; across processes the database's single admin slot
+decides, and the loser is told the workspace is already set up. Setup never
+promotes an existing account.
+
+The database constrains admin role membership to one account. Setup cannot
 promote an existing regular account. `/users` and each of its RPCs require the
 live database admin role. Admins can search/paginate, create, read, edit,
 activate/deactivate, and permanently delete regular users. The admin record
@@ -104,7 +109,7 @@ codes, lockout, expired/replaced challenges, replay, concurrent verification,
 single-use recovery, session cookies, private routes/RPCs, and meeting ownership.
 The browser journey registers, enrolls, saves codes, enters the account page,
 signs out, checks the route guard, and signs in again with a recovery code.
-Administration tests cover each role boundary, default roles, seed idempotence,
+Administration tests cover each role boundary, default roles, first-launch setup refusal,
 database singleton constraints, session revocation, pending OTP cancellation,
 and a browser journey through user creation, editing, status changes, searching,
 and deletion.

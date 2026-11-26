@@ -58,15 +58,24 @@ pub(super) async fn setup() {
                     true,
                 ),
             ] {
+                // The administrator goes through the first-launch path, exactly as
+                // `/setup` creates it; everyone else is an ordinary account.
                 let row_id = if admin {
-                    crate::users::seed_admin(
+                    crate::auth::create_first_admin(
                         name.into(),
                         email.into(),
                         "a long unique password".into(),
+                        "a long unique password".into(),
                     )
                     .await
-                    .unwrap()
-                    .id
+                    .unwrap();
+                    crate::models::account::Entity::find()
+                        .filter(crate::models::account::Column::Email.eq(email))
+                        .one(crate::db::db())
+                        .await
+                        .unwrap()
+                        .unwrap()
+                        .id
                 } else {
                     crate::auth::create_account(
                         name.into(),

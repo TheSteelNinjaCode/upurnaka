@@ -45,15 +45,6 @@ async fn main() {
         return;
     }
 
-    if std::env::args().any(|argument| argument == "--seed-admin") {
-        if let Err(error) = upurnaka::seed::admin_from_env().await {
-            eprintln!("Administrator seed failed: {}", error.message());
-            std::process::exit(1);
-        }
-        rahti::jobs::finish_shutdown().await;
-        return;
-    }
-
     // Static export runs this same startup and router without binding a
     // listener, so build-time HTML cannot drift from the live application.
     if let Some(output) = rahti::static_output() {

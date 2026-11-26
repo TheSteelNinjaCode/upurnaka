@@ -1,8 +1,11 @@
 use crate::{
     components::auth_form::AuthForm,
-    rahti::{Html, Metadata, html},
+    rahti::{Metadata, html},
 };
-use axum::extract::Query;
+use axum::{
+    extract::Query,
+    response::{IntoResponse, Redirect, Response},
+};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -14,9 +17,14 @@ pub fn metadata() -> Metadata {
         .title("Create account")
         .description("Create your upurnaka account")
 }
-pub async fn page(Query(params): Query<Params>) -> Html {
+/// Nobody registers before the administrator exists: that comes first, on `/setup`.
+pub async fn page(Query(params): Query<Params>) -> Response {
+    if crate::auth::needs_setup().await {
+        return Redirect::to("/setup").into_response();
+    }
     let next = crate::auth::safe_next(params.next.as_deref().unwrap_or("/chat"));
     html! {
-        <AuthForm register=@{true} next=@{next.as_str()} />
+        <AuthForm mode="register" next=@{next.as_str()} />
     }
+    .into_response()
 }

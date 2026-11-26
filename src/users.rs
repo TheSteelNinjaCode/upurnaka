@@ -206,25 +206,3 @@ pub async fn delete(id: String) -> Result<bool> {
     transaction.commit().await?;
     Ok(true)
 }
-
-/// Seed-only entry point. Never exposed as an RPC and never promotes an existing user.
-pub async fn seed_admin(name: String, email: String, password: String) -> Result<PublicUser> {
-    auth::ready()?;
-    let email = email.trim().to_lowercase();
-    if let Some(admin) = account::Entity::find()
-        .filter(account::Column::Role.eq("admin"))
-        .one(db::db())
-        .await?
-    {
-        if admin.email == email {
-            return Ok(PublicUser::from(&admin));
-        }
-        return Err(Error::new(
-            StatusCode::CONFLICT,
-            "The single administrator has already been seeded.",
-        ));
-    }
-    Ok(PublicUser::from(
-        &auth::create_account(name, email, password.clone(), password, Role::Admin).await?,
-    ))
-}

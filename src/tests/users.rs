@@ -295,7 +295,7 @@ async fn inactive_deleted_and_revoked_sessions_cannot_access_the_workspace() {
 }
 
 #[tokio::test]
-async fn public_registration_ignores_role_and_active_escalation_and_seed_is_idempotent() {
+async fn public_registration_ignores_role_and_active_escalation_and_setup_runs_once() {
     let mut c = Client::new().await;
     let (s,b) = c.call("register_account",json!({"name":"Public User","email":"role-default@example.com","password":"a long unique password","confirmation":"a long unique password","role":"admin","active":false})).await;
     assert_eq!(s, StatusCode::OK, "{b}");
@@ -308,30 +308,25 @@ async fn public_registration_ignores_role_and_active_escalation_and_seed_is_idem
     assert_eq!(row.role, "user");
     assert!(row.active);
     assert_eq!(row.admin_slot, None);
-    let seeded = crate::users::seed_admin(
-        "New name".into(),
-        "admin-test@example.com".into(),
-        "new seed password".into(),
-    )
-    .await
-    .unwrap();
-    assert_eq!(seeded.id, "test-admin");
-    assert_eq!(seeded.name, "Test Administrator");
-    assert_eq!(seeded.role, Role::Admin);
+    // The administrator already exists, so first-launch setup refuses —
+    // concurrently too — and never promotes or replaces anybody.
     let (a, b) = tokio::join!(
-        crate::users::seed_admin(
+        crate::auth::create_first_admin(
             "Other".into(),
             "admin-second@example.com".into(),
-            "a long unique password".into()
+            "a long unique password".into(),
+            "a long unique password".into(),
         ),
-        crate::users::seed_admin(
+        crate::auth::create_first_admin(
             "Other".into(),
-            "admin-third@example.com".into(),
-            "a long unique password".into()
+            "role-default@example.com".into(),
+            "a long unique password".into(),
+            "a long unique password".into(),
         )
     );
-    assert!(a.is_err());
-    assert!(b.is_err());
+    for result in [a, b] {
+        assert_eq!(result.err().unwrap().status(), StatusCode::CONFLICT);
+    }
     assert_eq!(
         account::Entity::find()
             .filter(account::Column::Role.eq("admin"))

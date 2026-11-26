@@ -457,6 +457,17 @@ async fn auth_validates_input_and_all_private_endpoints_require_sessions() {
         );
     }
     assert_eq!(c.request("/register", None).await.0, StatusCode::OK);
+    // The workspace already has its administrator: setup is closed and
+    // sends people to sign in, and its RPC refuses.
+    let (s, headers, _) = c.request("/setup", None).await;
+    assert_eq!(s, StatusCode::SEE_OTHER);
+    assert_eq!(headers["location"], "/signin");
+    let (s, b) = c.call("create_administrator", json!({"name":"Intruder", "email":"intruder@example.com", "password":"a long unique password", "confirmation":"a long unique password"})).await;
+    assert_eq!(s, StatusCode::CONFLICT, "{b}");
+    assert_eq!(
+        c.call("create_administrator", json!({})).await.0,
+        StatusCode::BAD_REQUEST
+    );
     c.register("duplicate-auth@example.com").await;
     let (s, _) = c.call("register_account", json!({"name":"Other", "email":" DUPLICATE-auth@example.com ", "password":"a long unique password", "confirmation":"a long unique password"})).await;
     assert_eq!(s, StatusCode::CONFLICT);
@@ -466,6 +477,7 @@ async fn auth_validates_input_and_all_private_endpoints_require_sessions() {
         "/\\evil.test",
         "/signin",
         "/register",
+        "/setup",
         "/\tevil.test",
     ] {
         assert_eq!(crate::auth::safe_next(bad), "/chat");

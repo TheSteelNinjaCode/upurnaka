@@ -22,6 +22,16 @@ pub async fn register_account(
 ) -> Result<Challenge> {
     auth::register(name, email, password, confirmation).await
 }
+/// First launch only: the administrator, from `/setup`.
+#[rpc]
+pub async fn create_administrator(
+    name: String,
+    email: String,
+    password: String,
+    confirmation: String,
+) -> Result<Challenge> {
+    auth::create_first_admin(name, email, password, confirmation).await
+}
 #[rpc]
 pub async fn start_signin(email: String, password: String) -> Result<Challenge> {
     auth::begin_signin(email, password).await
@@ -31,26 +41,44 @@ pub async fn verify_signin(token: String, code: String) -> Result<SignedIn> {
     auth::finish_signin(token, code).await
 }
 
+/// `mode` is `"signin"`, `"register"`, or `"setup"` — the first-launch form
+/// that creates the administrator.
 #[component]
-pub fn AuthForm(register: bool, next: &str) -> Html {
-    let title = if register {
-        "Create your account"
-    } else {
-        "Welcome back"
+pub fn AuthForm(mode: &str, next: &str) -> Html {
+    let setup = mode == "setup";
+    let register = mode == "register";
+    // Registration and setup both create an account; they ask the same questions.
+    let creating = register || setup;
+    let (eyebrow, title, intro) = match mode {
+        "setup" => (
+            "FIRST-TIME SETUP",
+            "Create the administrator",
+            "This account manages the workspace: its users, apps, and settings. You'll add everyone else once you're in.",
+        ),
+        "register" => (
+            "YOUR WORKSPACE",
+            "Create your account",
+            "Your people, conversations, and meetings. All in one place.",
+        ),
+        _ => (
+            "YOUR WORKSPACE",
+            "Welcome back",
+            "Sign in to pick up where you left off.",
+        ),
     };
-    let intro = if register {
-        "Your people, conversations, and meetings. All in one place."
+    let submit_label = if setup {
+        "Create administrator"
     } else {
-        "Sign in to pick up where you left off."
+        "Continue"
     };
-    let password_autocomplete = if register {
+    let password_autocomplete = if creating {
         "new-password"
     } else {
         "current-password"
     };
     // Registration asks two more questions. They are left out of a sign-in
     // form altogether rather than hidden, so nothing disabled travels with it.
-    let name_field = if register {
+    let name_field = if creating {
         html! {
             <Field>
                 <FieldLabel for="auth-name">"Your name"</FieldLabel>
@@ -66,14 +94,14 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
     } else {
         Html::empty()
     };
-    let password_hint = if register {
+    let password_hint = if creating {
         html! {
             <FieldDescription>"Use at least 12 characters."</FieldDescription>
         }
     } else {
         Html::empty()
     };
-    let confirmation_field = if register {
+    let confirmation_field = if creating {
         html! {
             <Field>
                 <FieldLabel for="auth-confirmation">"Confirm password"</FieldLabel>
@@ -108,7 +136,7 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                 </a>
                 <div hidden={stage !== "credentials"}>
                     <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-ink">
-                        "YOUR WORKSPACE"
+                        @{eyebrow}
                     </p>
                     <h1 class="text-2xl font-semibold tracking-tight">@{title}</h1>
                     <p class="mb-7 mt-2 text-sm leading-relaxed text-muted-foreground">@{intro}</p>
@@ -145,7 +173,7 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                                 attrs=@{submit()}
                                 disabled={busy}
                             >
-                                {busy ? "Please wait…" : "Continue"}
+                                {busy ? "Please wait…" : submitLabel}
                             </Button>
                         </FieldGroup>
                     </form>
@@ -153,7 +181,10 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                         "Already registered? "
                         <a href={signinLink} class="text-link hover:underline">"Sign in"</a>
                     </p>
-                    <p class="mt-6 text-center text-sm text-muted-foreground" hidden=@{register}>
+                    <p
+                        class="mt-6 text-center text-sm text-muted-foreground"
+                        hidden=@{mode != "signin"}
+                    >
                         "New to upurnaka? "
                         <a href={registerLink} class="text-link hover:underline">
                             "Create an account"
@@ -287,7 +318,8 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                     "Protected with a password and two-step verification"
                 </p>
                 <script>r##"
-                    const registering = @{register};
+                    const mode = @{mode};
+                    const submitLabel = @{submit_label};
                     const destination = @{next};
                     const signinLink = '/signin?next=' + encodeURIComponent(destination);
                     const registerLink = '/register?next=' + encodeURIComponent(destination);
@@ -311,8 +343,8 @@ pub fn AuthForm(register: bool, next: &str) -> Html {
                         const values = Object.fromEntries(new FormData(form));
                         setBusy(true); setError('');
                         try {
-                            const result = registering
-                                ? await pp.rpc('register_account', values)
+                            const result = mode === 'setup' ? await pp.rpc('create_administrator', values)
+                                : mode === 'register' ? await pp.rpc('register_account', values)
                                 : await pp.rpc('start_signin', values);
                             form.reset();
                             setToken(result.token); setSetupKey(result.setup_key || ''); setQr(result.qr || ''); setStage('otp');
