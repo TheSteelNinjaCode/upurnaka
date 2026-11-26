@@ -39,17 +39,17 @@ sea-orm-migration = { version = "2.0.4", default-features = false, features = ["
 # Dilnaka Meet, the meeting provider (`src/meetings/dilnaka_meet.rs`). The
 # same reqwest and rustls the `dilnaka` crate below already brings, so this
 # adds no second TLS stack.
-reqwest = { version = "0.12.28", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
 rahti-icons = "=0.0.49"
 argon2 = "0.6.0"
 aes-gcm = "0.11.1"
 base64 = "0.23.1"
-rand = "0.10.3"
-sha2 = "0.11.1"
+rand = "0.10.4"
+sha2 = "0.11.2"
 totp-rs = { version = "6.0.0", default-features = false, features = ["std", "qr", "gen_secret"] }
 # Meeting recordings go to Dilnaka Storage (`src/meetings/recording.rs`).
-# It reads `DILNAKA_API_KEY` and brings its own rustls on ring.
-dilnaka = "0.0.2"
+# It reads `DILNAKA_API_KEY` and brings reqwest 0.13 with rustls on aws-lc-rs.
+dilnaka = "0.0.3"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
 chrono = "0.4.45"
 
