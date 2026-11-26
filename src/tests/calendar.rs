@@ -327,6 +327,14 @@ async fn full_page_editor_saves_reloads_and_opens_the_scheduled_details() {
         .await
         .unwrap();
     browser.wait_for("!document.querySelector('.calendar-editor').hidden && document.activeElement.name === 'title'").await.unwrap();
+    // The time zone starts on the application's own, which is listed first.
+    assert!(
+        browser
+            .eval::<bool>("(() => { const zone = document.querySelector('.calendar-editor select[name=timezone]'); return zone.options.length > 1 && zone.selectedIndex === 0; })()")
+            .await
+            .unwrap(),
+        "the editor's time zone must start on the application zone"
+    );
     browser
         .type_text("Browser scheduled planning")
         .await

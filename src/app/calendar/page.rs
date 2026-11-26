@@ -66,6 +66,26 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
     let app_date = app_now.format("%Y-%m-%d").to_string();
     let app_clock = app_now.format("%H:%M").to_string();
     let app_zone = crate::rahti::time::timezone().name();
+    // Rendered on the server, so the options are already in the `<select>`
+    // when its `value={editorZone}` binding is applied. Options a client list
+    // inserts afterwards leave the browser to pick one, and it picked the last.
+    let mut zones = vec![app_zone];
+    for zone in [
+        "America/Managua",
+        "UTC",
+        "America/New_York",
+        "Europe/London",
+        "Asia/Tokyo",
+    ] {
+        if !zones.contains(&zone) {
+            zones.push(zone);
+        }
+    }
+    let zone_options = Html::concat(zones.iter().map(|zone| {
+        html! {
+            <SelectItem value=@{*zone}>@{*zone}</SelectItem>
+        }
+    }));
     let view_trigger = button_variants(
         ButtonVariant::Outline,
         ButtonSize::Sm,
@@ -402,9 +422,7 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                                     value={editorZone}
                                     onchange={setEditorZone(target.value)}
                                 >
-                                    <template pp-for="zone in timezones">
-                                        <SelectItem key={zone} value={zone}>{zone}</SelectItem>
-                                    </template>
+                                    @{zone_options}
                                 </Select>
                             </div>
                             <div class=@{ROW}>
@@ -716,7 +734,6 @@ pub async fn page(Query(query): Query<CalendarQuery>) -> Result<Html> {
                         return {key,kind:'text',text};
                     });
                     const [editorZone, setEditorZone] = pp.state(@{app_zone});
-                    const timezones = Array.from(new Set([@{app_zone}, 'America/Managua', 'UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo']));
                     const [allDay, setAllDay] = pp.state(false);
                     const [recurrence, setRecurrence] = pp.state('none');
                     const initialStart = new Date(@{app_date} + 'T' + @{app_clock});
