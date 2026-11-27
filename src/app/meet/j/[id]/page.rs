@@ -658,7 +658,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                 <Icon name="chevron-down" class="size-3.5" />
                             </Button>
                             <div
-                                class="room-device-menu absolute right-0 top-full z-5 mt-1 grid w-72 max-w-[calc(100vw-16px)] gap-0.5 rounded-md border bg-popover p-1.5 shadow-xl shadow-black/40 room-camera-menu"
+                                class="room-device-menu absolute right-0 top-full z-5 mt-1 grid w-80 max-w-[calc(100vw-16px)] grid-cols-[minmax(0,1fr)] gap-0.5 rounded-md border bg-popover p-1.5 shadow-xl shadow-black/40 room-camera-menu"
                                 role="menu"
                                 aria-label="Camera"
                                 hidden={deviceMenu !== "camera"}
@@ -671,9 +671,10 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                 <button
                                     type="button"
                                     role="menuitemradio"
-                                    class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
+                                    class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
                                     aria-checked={!availableDevice(cameraDevice, videoInputs)}
                                     value=""
+                                    hidden={selectableDevices(videoInputs).length > 0}
                                     disabled={changingDevice}
                                     onclick={changeCamera(event.currentTarget.value)}
                                 >
@@ -688,40 +689,43 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                         hidden={!availableDevice(cameraDevice, videoInputs)}
                                     >
                                     </span>
-                                    <span class="truncate">
+                                    <span class="min-w-0 flex-1 truncate">
                                         {defaultDeviceName(videoInputs, "Default camera")}
                                     </span>
                                 </button>
                                 <template pp-for="device in selectableDevices(videoInputs)">
                                     <button
-                                        key={"camera|" + device.deviceId + "|" + (availableDevice(cameraDevice, videoInputs) === device.deviceId)}
+                                        key={"camera|" + device.deviceId + "|" + (effectiveDevice(cameraDevice, videoInputs) === device.deviceId)}
                                         type="button"
                                         role="menuitemradio"
-                                        class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
-                                        aria-checked={availableDevice(cameraDevice, videoInputs) === device.deviceId}
+                                        class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
+                                        aria-checked={effectiveDevice(cameraDevice, videoInputs) === device.deviceId}
                                         value={device.deviceId}
+                                        title={device.label}
                                         disabled={changingDevice}
                                         onclick={changeCamera(event.currentTarget.value)}
                                     >
                                         <span
                                             class="w-4 shrink-0 text-brand-ink"
-                                            hidden={availableDevice(cameraDevice, videoInputs) !== device.deviceId}
+                                            hidden={effectiveDevice(cameraDevice, videoInputs) !== device.deviceId}
                                         >
                                             <Icon name="check" class="size-4" />
                                         </span>
                                         <span
                                             class="w-4 shrink-0"
-                                            hidden={availableDevice(cameraDevice, videoInputs) === device.deviceId}
+                                            hidden={effectiveDevice(cameraDevice, videoInputs) === device.deviceId}
                                         >
                                         </span>
-                                        <span class="truncate">{device.label || "Camera"}</span>
+                                        <span class="min-w-0 flex-1 truncate">
+                                            {device.label || "Camera"}
+                                        </span>
                                     </button>
                                 </template>
                                 <div class="my-1 border-t border-line"></div>
                                 <button
                                     type="button"
                                     role="menuitem"
-                                    class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
+                                    class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
                                     onclick={openRoomBackgrounds()}
                                 >
                                     <Icon name="sparkle" class="size-4" />
@@ -731,7 +735,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                 <button
                                     type="button"
                                     role="menuitem"
-                                    class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
+                                    class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
                                     onclick={openDeviceSettings()}
                                 >
                                     <Icon name="settings" class="size-4" />
@@ -768,7 +772,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                 <Icon name="chevron-down" class="size-3.5" />
                             </Button>
                             <div
-                                class="room-device-menu absolute right-0 top-full z-5 mt-1 grid w-72 max-w-[calc(100vw-16px)] gap-0.5 rounded-md border bg-popover p-1.5 shadow-xl shadow-black/40 room-audio-menu"
+                                class="room-device-menu absolute right-0 top-full z-5 mt-1 grid w-80 max-w-[calc(100vw-16px)] grid-cols-[minmax(0,1fr)] gap-0.5 rounded-md border bg-popover p-1.5 shadow-xl shadow-black/40 room-audio-menu"
                                 role="menu"
                                 aria-label="Audio"
                                 hidden={deviceMenu !== "audio"}
@@ -785,7 +789,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                         "Use computer audio"
                                     </Button>
                                 </div>
-                                <div class="grid gap-0.5" hidden={audioMode === "none"}>
+                                <div class="grid min-w-0 gap-0.5" hidden={audioMode === "none"}>
                                     <p
                                         class="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
                                     >
@@ -794,9 +798,10 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                     <button
                                         type="button"
                                         role="menuitemradio"
-                                        class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
+                                        class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
                                         aria-checked={!availableDevice(microphoneDevice, audioInputs)}
                                         value=""
+                                        hidden={selectableDevices(audioInputs).length > 0}
                                         disabled={changingDevice}
                                         onclick={changeMicrophone(event.currentTarget.value)}
                                     >
@@ -811,33 +816,34 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                             hidden={!availableDevice(microphoneDevice, audioInputs)}
                                         >
                                         </span>
-                                        <span class="truncate">
+                                        <span class="min-w-0 flex-1 truncate">
                                             {defaultDeviceName(audioInputs, "Default microphone")}
                                         </span>
                                     </button>
                                     <template pp-for="device in selectableDevices(audioInputs)">
                                         <button
-                                            key={"mic|" + device.deviceId + "|" + (availableDevice(microphoneDevice, audioInputs) === device.deviceId)}
+                                            key={"mic|" + device.deviceId + "|" + (effectiveDevice(microphoneDevice, audioInputs) === device.deviceId)}
                                             type="button"
                                             role="menuitemradio"
-                                            class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
-                                            aria-checked={availableDevice(microphoneDevice, audioInputs) === device.deviceId}
+                                            class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
+                                            aria-checked={effectiveDevice(microphoneDevice, audioInputs) === device.deviceId}
                                             value={device.deviceId}
+                                            title={device.label}
                                             disabled={changingDevice}
                                             onclick={changeMicrophone(event.currentTarget.value)}
                                         >
                                             <span
                                                 class="w-4 shrink-0 text-brand-ink"
-                                                hidden={availableDevice(microphoneDevice, audioInputs) !== device.deviceId}
+                                                hidden={effectiveDevice(microphoneDevice, audioInputs) !== device.deviceId}
                                             >
                                                 <Icon name="check" class="size-4" />
                                             </span>
                                             <span
                                                 class="w-4 shrink-0"
-                                                hidden={availableDevice(microphoneDevice, audioInputs) === device.deviceId}
+                                                hidden={effectiveDevice(microphoneDevice, audioInputs) === device.deviceId}
                                             >
                                             </span>
-                                            <span class="truncate">
+                                            <span class="min-w-0 flex-1 truncate">
                                                 {device.label || "Microphone"}
                                             </span>
                                         </button>
@@ -850,9 +856,10 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                     <button
                                         type="button"
                                         role="menuitemradio"
-                                        class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
+                                        class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
                                         aria-checked={!availableDevice(speakerDevice, audioOutputs)}
                                         value=""
+                                        hidden={selectableDevices(audioOutputs).length > 0}
                                         disabled={changingDevice}
                                         onclick={changeSpeaker(event.currentTarget.value)}
                                     >
@@ -867,33 +874,34 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                             hidden={!availableDevice(speakerDevice, audioOutputs)}
                                         >
                                         </span>
-                                        <span class="truncate">
+                                        <span class="min-w-0 flex-1 truncate">
                                             {defaultDeviceName(audioOutputs, "Default speakers")}
                                         </span>
                                     </button>
                                     <template pp-for="device in selectableDevices(audioOutputs)">
                                         <button
-                                            key={"speaker|" + device.deviceId + "|" + (availableDevice(speakerDevice, audioOutputs) === device.deviceId)}
+                                            key={"speaker|" + device.deviceId + "|" + (effectiveDevice(speakerDevice, audioOutputs) === device.deviceId)}
                                             type="button"
                                             role="menuitemradio"
-                                            class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
-                                            aria-checked={availableDevice(speakerDevice, audioOutputs) === device.deviceId}
+                                            class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
+                                            aria-checked={effectiveDevice(speakerDevice, audioOutputs) === device.deviceId}
                                             value={device.deviceId}
+                                            title={device.label}
                                             disabled={changingDevice}
                                             onclick={changeSpeaker(event.currentTarget.value)}
                                         >
                                             <span
                                                 class="w-4 shrink-0 text-brand-ink"
-                                                hidden={availableDevice(speakerDevice, audioOutputs) !== device.deviceId}
+                                                hidden={effectiveDevice(speakerDevice, audioOutputs) !== device.deviceId}
                                             >
                                                 <Icon name="check" class="size-4" />
                                             </span>
                                             <span
                                                 class="w-4 shrink-0"
-                                                hidden={availableDevice(speakerDevice, audioOutputs) === device.deviceId}
+                                                hidden={effectiveDevice(speakerDevice, audioOutputs) === device.deviceId}
                                             >
                                             </span>
-                                            <span class="truncate">
+                                            <span class="min-w-0 flex-1 truncate">
                                                 {device.label || "Speaker"}
                                             </span>
                                         </button>
@@ -901,7 +909,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                     <button
                                         type="button"
                                         role="menuitem"
-                                        class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50 text-link"
+                                        class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50 text-link"
                                         onclick={testSpeaker()}
                                     >
                                         <Icon name="speaker" class="size-4" />
@@ -912,7 +920,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                 <button
                                     type="button"
                                     role="menuitem"
-                                    class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
+                                    class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover disabled:opacity-50"
                                     onclick={openDeviceSettings()}
                                 >
                                     <Icon name="settings" class="size-4" />
@@ -3197,6 +3205,17 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                     const DEVICE_ALIASES = ["default", "communications"];
                     function selectableDevices(devices) {
                         return devices.filter(device => !DEVICE_ALIASES.includes(device.deviceId));
+                    }
+                    // The device in use, named: a chosen one, or the one the
+                    // system default stands for (Chromium lists that default
+                    // again under the id "default", sharing its group).
+                    function effectiveDevice(current, devices) {
+                        const chosen = availableDevice(current, devices);
+                        if (chosen) return chosen;
+                        const named = selectableDevices(devices);
+                        const fallback = devices.find(device => device.deviceId === "default");
+                        const same = fallback && named.find(device => device.groupId && device.groupId === fallback.groupId);
+                        return same ? same.deviceId : named[0]?.deviceId || "";
                     }
                     function defaultDeviceName(devices, fallback) {
                         const device = devices.find(item => item.deviceId === "default");

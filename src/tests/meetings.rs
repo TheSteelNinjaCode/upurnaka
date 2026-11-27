@@ -326,8 +326,9 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         const device = (kind, deviceId, label) => ({ kind, deviceId, label, groupId: deviceId });
         globalThis.fixtureMicrophones = [{ deviceId: "array" }, { deviceId: "headset" }];
         navigator.mediaDevices.enumerateDevices = async () => [
+            { kind: "audioinput", deviceId: "default", label: "Default - Microphone Array", groupId: "array" },
             device("audioinput", "array", "Microphone Array"),
-            device("audioinput", "headset", "Headset Microphone"),
+            device("audioinput", "headset", "Headset Microphone Array on SoundWire Device (7- SoundWire Audio) with a long name"),
             device("audiooutput", "soundwire", "SoundWire Speakers"),
             device("audiooutput", "usb", "USB Speakers"),
             device("videoinput", "test-camera", "Built-in camera"),
@@ -353,6 +354,19 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .wait_for("!document.querySelector('.room-audio-menu').hidden && document.querySelector(\"button[aria-label='Audio settings']\").getAttribute('aria-expanded') === 'true' && [...document.querySelectorAll('.room-audio-menu [role=menuitemradio]')].some(item => item.textContent.includes('Headset Microphone'))")
         .await
         .unwrap();
+    // Each microphone is listed once, and the system default is the one ticked.
+    let microphones: String = browser
+        .eval("[...document.querySelectorAll('.room-audio-menu [role=menuitemradio]')].filter(item => !item.hidden && /Microphone/.test(item.textContent)).map(item => item.value + (item.getAttribute('aria-checked') === 'true' ? '*' : '')).join(',')")
+        .await
+        .unwrap();
+    assert_eq!(microphones, "array*,headset");
+    // A long name stays inside the menu.
+    let contained: bool = browser
+        .eval("(() => { const menu = document.querySelector('.room-audio-menu').getBoundingClientRect(); return [...document.querySelectorAll('.room-audio-menu [role=menuitemradio]')].filter(item => !item.hidden).every(item => item.getBoundingClientRect().right <= menu.right + 0.5 && item.scrollWidth <= item.clientWidth + 1); })()")
+        .await
+        .unwrap();
+    assert!(contained, "menu rows must fit the menu");
+    browser.wait_for("true").await.unwrap();
     let _: bool = browser
         .eval("(() => { [...document.querySelectorAll('.room-audio-menu [role=menuitemradio]')].find(item => item.value === 'headset').click(); return true; })()")
         .await
@@ -383,7 +397,7 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     browser
-        .wait_for("!document.querySelector('.room-camera-menu').hidden && document.querySelectorAll('.room-camera-menu [role=menuitemradio]').length === 3")
+        .wait_for("!document.querySelector('.room-camera-menu').hidden && [...document.querySelectorAll('.room-camera-menu [role=menuitemradio]')].filter(item => !item.hidden).length === 2")
         .await
         .unwrap();
     let _: bool = browser
