@@ -344,42 +344,54 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         )
         .await
         .unwrap();
+    // The Mic dropdown lists microphones and speakers; a pick closes it.
     browser
         .click("button[aria-label='Audio settings']")
         .await
         .unwrap();
     browser
-        .wait_for("!document.querySelector('.room-device-settings').hidden && document.querySelector('.room-side-panel h2').textContent.includes('Device settings') && document.querySelector('#room-camera').options.length === 3")
+        .wait_for("!document.querySelector('.room-audio-menu').hidden && document.querySelector(\"button[aria-label='Audio settings']\").getAttribute('aria-expanded') === 'true' && [...document.querySelectorAll('.room-audio-menu [role=menuitemradio]')].some(item => item.textContent.includes('Headset Microphone'))")
         .await
         .unwrap();
     let _: bool = browser
-        .eval(
-            r##"(() => {
-        const pick = (id, value) => { const select = document.querySelector(id); select.value = value; select.dispatchEvent(new Event("change", { bubbles: true })); };
-        pick("#room-microphone", "headset");
-        pick("#room-speaker", "usb");
-        return true;
-    })()"##,
-        )
+        .eval("(() => { [...document.querySelectorAll('.room-audio-menu [role=menuitemradio]')].find(item => item.value === 'headset').click(); return true; })()")
         .await
         .unwrap();
     browser
-        .wait_for("roomFixture.audioOutput === 'usb' && globalThis.requestedMicrophones?.at(-1) === 'headset' && !!roomFixture.audioInput")
+        .wait_for("document.querySelector('.room-audio-menu').hidden && globalThis.requestedMicrophones?.at(-1) === 'headset' && !!roomFixture.audioInput")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Audio settings']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-audio-menu').hidden && document.querySelector(\".room-audio-menu [role=menuitemradio][value='headset']\").getAttribute('aria-checked') === 'true'")
         .await
         .unwrap();
     let _: bool = browser
-        .eval(
-            r##"(() => {
-        const select = document.querySelector("#room-camera");
-        select.value = "second-camera";
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-        return true;
-    })()"##,
-        )
+        .eval("(() => { [...document.querySelectorAll('.room-audio-menu [role=menuitemradio]')].find(item => item.value === 'usb').click(); return true; })()")
         .await
         .unwrap();
     browser
-        .wait_for("!document.querySelector('#room-camera').disabled")
+        .wait_for("roomFixture.audioOutput === 'usb' && document.querySelector('.room-audio-menu').hidden")
+        .await
+        .unwrap();
+    // The Camera dropdown lists cameras.
+    browser
+        .click("button[aria-label='Camera settings']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-camera-menu').hidden && document.querySelectorAll('.room-camera-menu [role=menuitemradio]').length === 3")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("(() => { [...document.querySelectorAll('.room-camera-menu [role=menuitemradio]')].find(item => item.value === 'second-camera').click(); return true; })()")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.room-camera-menu').hidden && !document.querySelector(\"button[aria-label='Toggle meeting camera']\").disabled")
         .await
         .unwrap();
     let _: bool = browser
@@ -388,6 +400,44 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .unwrap();
     browser
         .wait_for("testDeviceController.lastInput === 'second-camera'")
+        .await
+        .unwrap();
+    // A click elsewhere closes a dropdown; More device settings opens the panel.
+    browser
+        .click("button[aria-label='Camera settings']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-camera-menu').hidden")
+        .await
+        .unwrap();
+    browser.click(".room-stage").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.room-camera-menu').hidden")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Audio settings']")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("(() => { [...document.querySelectorAll('.room-audio-menu [role=menuitem]')].find(item => item.textContent.includes('More device settings')).click(); return true; })()")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-device-settings').hidden && document.querySelector('.room-audio-menu').hidden")
+        .await
+        .unwrap();
+    let chosen: String = browser
+        .eval("document.querySelector('#room-microphone').value + '|' + document.querySelector('#room-camera').value")
+        .await
+        .unwrap();
+    assert_eq!(
+        chosen, "headset|second-camera",
+        "the panel shows what the dropdowns chose"
+    );
+    browser
+        .click("button[aria-label='Close meeting panel']")
         .await
         .unwrap();
     // Leave the camera as the rest of this test expects it: off.
@@ -406,10 +456,6 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     // The More menu leads to the same panel.
-    browser
-        .click("button[aria-label='Close meeting panel']")
-        .await
-        .unwrap();
     browser
         .click("button[aria-label='More meeting options']")
         .await
