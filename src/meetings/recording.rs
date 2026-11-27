@@ -421,7 +421,7 @@ pub(crate) async fn upload(
 ) -> std::result::Result<StoredFile, String> {
     let client = client().ok_or("DILNAKA_API_KEY is not configured")?;
     let file = client
-        .upload_with_options(path, options)
+        .upload(path, options)
         .await
         .map_err(|error| error.to_string())?;
     Ok(StoredFile {

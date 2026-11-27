@@ -1,6 +1,6 @@
 use super::auth::Client;
 use super::*;
-use crate::{auth::Role, models::account};
+use crate::models::account;
 use rahti::serde_json::{Value, json};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,

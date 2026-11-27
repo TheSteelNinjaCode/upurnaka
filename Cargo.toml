@@ -51,7 +51,7 @@ sha2 = "0.11.2"
 totp-rs = { version = "6.0.0", default-features = false, features = ["std", "qr", "gen_secret"] }
 # Meeting recordings go to Dilnaka Storage (`src/meetings/recording.rs`).
 # It reads `DILNAKA_API_KEY` and brings reqwest 0.13 with rustls on aws-lc-rs.
-dilnaka = "0.0.3"
+dilnaka = "0.1.0"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
 chrono = "0.4.45"
 
