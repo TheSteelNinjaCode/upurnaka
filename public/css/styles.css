@@ -5538,11 +5538,11 @@
     fill: currentcolor;
   }
   @media (hover: hover) {
-    .not-disabled\:hover\:\[\&_svg_path\]\:stroke-popover:not(:disabled):hover svg path {
+    .not-disabled\:hover\:\[\&_svg\:has\(circle\)_path\]\:stroke-popover:not(:disabled):hover svg:has(circle) path {
       stroke: var(--popover);
     }
   }
-  .not-disabled\:aria-expanded\:\[\&_svg_path\]\:stroke-popover:not(:disabled)[aria-expanded="true"] svg path {
+  .not-disabled\:aria-expanded\:\[\&_svg\:has\(circle\)_path\]\:stroke-popover:not(:disabled)[aria-expanded="true"] svg:has(circle) path {
     stroke: var(--popover);
   }
   .\[\&_svg\:not\(\[class\*\=\'size-\'\]\)\]\:size-3 svg:not([class*='size-']) {

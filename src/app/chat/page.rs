@@ -123,7 +123,7 @@ pub async fn page() -> Html {
     let composer_button = button_variants(
         ButtonVariant::Ghost,
         ButtonSize::IconSm,
-        "text-ink not-disabled:hover:bg-transparent! not-disabled:hover:text-brand-ink! not-disabled:focus-visible:text-brand-ink! not-disabled:aria-expanded:bg-transparent! not-disabled:aria-expanded:text-brand-ink! not-disabled:hover:[&_svg_circle]:fill-current not-disabled:hover:[&_svg_path]:stroke-popover not-disabled:aria-expanded:[&_svg_circle]:fill-current not-disabled:aria-expanded:[&_svg_path]:stroke-popover",
+        "text-ink not-disabled:hover:bg-transparent! not-disabled:hover:text-brand-ink! not-disabled:focus-visible:text-brand-ink! not-disabled:aria-expanded:bg-transparent! not-disabled:aria-expanded:text-brand-ink! not-disabled:hover:[&_svg_circle]:fill-current not-disabled:hover:[&_svg:has(circle)_path]:stroke-popover not-disabled:aria-expanded:[&_svg_circle]:fill-current not-disabled:aria-expanded:[&_svg:has(circle)_path]:stroke-popover",
     );
     // The fields below are elements rather than `<Input>` tags because each one
     // is focused from a script — opening a search, starting a new chat — and a
