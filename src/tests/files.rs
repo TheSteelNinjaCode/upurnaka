@@ -1,4 +1,4 @@
-//! The Files page: My files managed in a table, and this person's recordings.
+//! The Files page: My files as tiles or a list, and this person's recordings.
 
 use super::{auth::Client, *};
 use rahti::serde_json::{Value, json};
@@ -359,29 +359,9 @@ async fn select_all_recordings_then_delete_in_the_browser() {
     ] {
         insert_recording(id, &owner_id, state).await;
     }
-    let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = launch_browser().await else {
+    let Some(mut browser) = files_browser(&owner_id, "files-bulk-browser@example.com").await else {
         return;
     };
-    browser
-        .goto(&format!("http://{address}/signin"))
-        .await
-        .unwrap();
-    let cookie = format!(
-        "{}; Path=/; SameSite=Lax",
-        super::support::cookie_for(&owner_id, "Files Tester", "files-bulk-browser@example.com")
-    );
-    let _: String = browser
-        .eval(&format!(
-            "document.cookie = {}",
-            rahti::serde_json::to_string(&cookie).unwrap()
-        ))
-        .await
-        .unwrap();
-    browser
-        .goto(&format!("http://{address}/files"))
-        .await
-        .unwrap();
     browser
         .wait_for("Array.from(document.querySelectorAll('button[role=tab]')).some(b => b.textContent.trim() === 'Recordings')")
         .await
@@ -422,5 +402,111 @@ async fn select_all_recordings_then_delete_in_the_browser() {
     assert!(!recording_exists("browser-rec-a").await);
     assert!(!recording_exists("browser-rec-b").await);
     assert!(recording_exists("browser-rec-live").await);
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}
+
+/// A browser signed in as `id`, on `/files`. `None` when no browser is installed.
+async fn files_browser(id: &str, email: &str) -> Option<BrowserSlot> {
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let mut browser = launch_browser().await?;
+    browser
+        .goto(&format!("http://{address}/signin"))
+        .await
+        .unwrap();
+    let cookie = format!(
+        "{}; Path=/; SameSite=Lax",
+        super::support::cookie_for(id, "Files Tester", email)
+    );
+    let _: String = browser
+        .eval(&format!(
+            "document.cookie = {}",
+            rahti::serde_json::to_string(&cookie).unwrap()
+        ))
+        .await
+        .unwrap();
+    browser
+        .goto(&format!("http://{address}/files"))
+        .await
+        .unwrap();
+    Some(browser)
+}
+
+#[tokio::test]
+async fn my_files_open_as_tiles_that_select_on_click_and_open_on_double_click() {
+    let (mut owner, owner_id) = person("files-tiles@example.com").await;
+    let (status, folder) = call(
+        &mut owner,
+        "files_new_folder",
+        json!({"parent": null, "name": "Projects"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{folder}");
+    upload(&mut owner, "plan.txt").await;
+    let Some(mut browser) = files_browser(&owner_id, "files-tiles@example.com").await else {
+        return;
+    };
+    let bar = "document.querySelector('.files-commands')";
+    browser
+        .wait_for("document.querySelectorAll('.files-tiles [data-kind=folder]').length === 1 && document.querySelectorAll('.files-tiles [data-kind=file]').length === 1 && !document.querySelector('.files-tiles').hidden")
+        .await
+        .unwrap();
+    // The list is not shown while tiles are.
+    assert!(
+        browser
+            .eval::<bool>("document.querySelector('section[aria-label=\"My files\"] table').closest('[hidden]') !== null")
+            .await
+            .unwrap()
+    );
+
+    // A click selects a file and offers what can be done with it.
+    browser
+        .click(".files-tiles [data-kind=file]")
+        .await
+        .unwrap();
+    browser
+        .wait_for(&format!("document.querySelector('.files-tiles [data-kind=file]').getAttribute('aria-pressed') === 'true' && {bar}.textContent.includes('plan.txt') && {bar}.textContent.includes('Move')"))
+        .await
+        .unwrap();
+    // A click on a folder selects it instead, with folder actions.
+    browser
+        .click(".files-tiles [data-kind=folder]")
+        .await
+        .unwrap();
+    browser
+        .wait_for(&format!("document.querySelector('.files-tiles [data-kind=folder]').getAttribute('aria-pressed') === 'true' && document.querySelector('.files-tiles [data-kind=file]').getAttribute('aria-pressed') === 'false' && {bar}.textContent.includes('Projects')"))
+        .await
+        .unwrap();
+    // A double-click opens the folder.
+    browser
+        .double_click(".files-tiles [data-kind=folder]")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('nav[aria-label=\"Folder path\"]').textContent.includes('Projects') && document.querySelectorAll('.files-tiles [data-kind]').length === 0")
+        .await
+        .unwrap();
+    browser
+        .click("nav[aria-label='Folder path'] button")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelectorAll('.files-tiles [data-kind=folder]').length === 1")
+        .await
+        .unwrap();
+
+    // The list view is a choice the browser remembers.
+    let _: bool = browser
+        .eval("(() => { Array.from(document.querySelectorAll('[aria-label=View] button')).find(b => b.textContent.includes('List')).click(); return true; })()")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.files-tiles').hidden && document.querySelector('section[aria-label=\"My files\"] table').closest('[hidden]') === null")
+        .await
+        .unwrap();
+    let _: bool = browser.eval("(location.reload(), true)").await.unwrap();
+    browser
+        .wait_for("document.readyState === 'complete' && document.querySelector('.files-tiles') && document.querySelector('.files-tiles').hidden && document.querySelector('[aria-label=View] button[aria-pressed=true]').textContent.includes('List')")
+        .await
+        .unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }

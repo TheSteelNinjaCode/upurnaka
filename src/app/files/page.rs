@@ -175,222 +175,382 @@ pub async fn page() -> Result<Html> {
                                     </span>
                                 </template>
                             </nav>
-                            <Input
-                                type="search"
-                                placeholder="Filter this folder"
-                                class="h-9! w-full sm:w-64"
-                                attrs=@{named("Filter files").set("maxlength", "100")}
-                                value={query}
-                                oninput={setQuery(target.value)}
-                            />
+                            <div class="flex w-full items-center gap-2 sm:w-auto">
+                                <div
+                                    role="group"
+                                    aria-label="View"
+                                    class="inline-flex shrink-0 gap-0.5 rounded-lg border border-edge bg-sunken p-0.5"
+                                >
+                                    <button
+                                        type="button"
+                                        class={viewClass(view === "tiles")}
+                                        aria-pressed={view === "tiles"}
+                                        onclick={chooseView("tiles")}
+                                    >
+                                        <Icon name="grid" class="h-4 w-4" />
+                                        "Tiles"
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class={viewClass(view === "list")}
+                                        aria-pressed={view === "list"}
+                                        onclick={chooseView("list")}
+                                    >
+                                        <Icon name="list" class="h-4 w-4" />
+                                        "List"
+                                    </button>
+                                </div>
+                                <Input
+                                    type="search"
+                                    placeholder="Filter this folder"
+                                    class="h-9! w-full sm:w-64"
+                                    attrs=@{named("Filter files").set("maxlength", "100")}
+                                    value={query}
+                                    oninput={setQuery(target.value)}
+                                />
+                            </div>
                         </div>
                         <div
-                            hidden={selected.length === 0}
-                            class="flex flex-wrap items-center gap-2 border-b border-line bg-sunken px-4 py-2 text-sm"
+                            class="files-commands flex min-h-12 flex-wrap items-center gap-1 border-b border-line bg-sunken px-4 py-2 text-sm"
                         >
-                            <span class="font-medium">{selected.length}" selected"</span>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onclick={askMove(selected)}
-                                disabled={busy}
+                            <span
+                                class="text-muted-foreground"
+                                hidden={selected.length > 0 || !!activeFolder}
                             >
-                                "Move"
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                class="text-danger-ink hover:bg-destructive/10"
-                                onclick={askDeleteSelected()}
-                                disabled={busy}
+                                {view === "tiles" ? "Click to select. Double-click to open." : "Select files to move or delete them together."}
+                            </span>
+                            <div
+                                class="flex flex-wrap items-center gap-1"
+                                hidden={selected.length === 0 && !activeFolder}
                             >
-                                "Delete"
-                            </Button>
-                            <Button variant="ghost" size="sm" onclick={setSelected([])}>
-                                "Clear selection"
-                            </Button>
+                                <span
+                                    class="mr-2 max-w-64 truncate border-r border-line pr-3 font-semibold text-ink"
+                                >
+                                    {selectionLabel()}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    hidden={!activeFolder && selected.length !== 1}
+                                    onclick={openSelection()}
+                                    disabled={busy}
+                                >
+                                    "Open"
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    hidden={!!activeFolder || selected.length !== 1}
+                                    onclick={downloadSelection()}
+                                    disabled={busy}
+                                >
+                                    "Download"
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    hidden={!activeFolder && selected.length !== 1}
+                                    onclick={renameSelection()}
+                                    disabled={busy}
+                                >
+                                    "Rename"
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    hidden={!!activeFolder}
+                                    onclick={askMove(selected)}
+                                    disabled={busy}
+                                >
+                                    "Move"
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    class="text-danger-ink hover:bg-destructive/10"
+                                    onclick={deleteSelection()}
+                                    disabled={busy}
+                                >
+                                    "Delete"
+                                </Button>
+                                <Button variant="ghost" size="sm" onclick={clearSelection()}>
+                                    "Clear selection"
+                                </Button>
+                            </div>
                         </div>
-                        <Table>
-                            <TableHeader class="bg-sunken">
-                                <TableRow class="hover:bg-transparent">
-                                    <TableHead class="w-10 px-4">
-                                        <input
-                                            type="checkbox"
-                                            aria-label="Select all files"
-                                            class="h-4 w-4 accent-brand-ink"
-                                            checked={shownFiles.length > 0 && shownFiles.every(file => selected.includes(file.id))}
-                                            disabled={shownFiles.length === 0}
-                                            onchange={selectAll(event.currentTarget.checked)}
+                        <div
+                            class="files-tiles grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 p-4"
+                            hidden={view !== "tiles" || shownFolders.length + shownFiles.length === 0}
+                            onclick={clearOnBackground(event)}
+                        >
+                            <template pp-for="folder in shownFolders">
+                                <div
+                                    key={["tile-folder", folder.id, folder.name, folder.items, activeFolder === folder.id].join("|")}
+                                    role="button"
+                                    tabindex="0"
+                                    data-id={folder.id}
+                                    data-kind="folder"
+                                    title={"Double-click to open " + folder.name}
+                                    aria-label={"Folder " + folder.name + ", " + itemsLabel(folder.items)}
+                                    aria-pressed={activeFolder === folder.id}
+                                    class={tileClass(activeFolder === folder.id)}
+                                    onclick={pickFolder(event.currentTarget.dataset.id)}
+                                    ondblclick={openFolder(event.currentTarget.dataset.id)}
+                                    onkeydown={tileKey(event)}
+                                >
+                                    <span
+                                        class="flex h-24 w-full items-center justify-center text-brand-ink"
+                                    >
+                                        <Icon name="folder" class="h-16 w-16 fill-brand-ink/20" />
+                                    </span>
+                                    <span class="w-full truncate text-sm font-medium">
+                                        {folder.name}
+                                    </span>
+                                    <span class="text-xs text-muted-foreground">
+                                        {itemsLabel(folder.items)}
+                                    </span>
+                                </div>
+                            </template>
+                            <template pp-for="file in shownFiles">
+                                <div
+                                    key={["tile-file", file.id, file.name, selected.includes(file.id)].join("|")}
+                                    role="button"
+                                    tabindex="0"
+                                    data-id={file.id}
+                                    data-kind="file"
+                                    title={file.name}
+                                    aria-label={file.name + ", " + kind(file.content_type, file.name) + ", " + size(file.bytes)}
+                                    aria-pressed={selected.includes(file.id)}
+                                    class={tileClass(selected.includes(file.id))}
+                                    onclick={pickFile(event, event.currentTarget.dataset.id)}
+                                    ondblclick={openFile(event.currentTarget.dataset.id)}
+                                    onkeydown={tileKey(event)}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        aria-label={"Select " + file.name}
+                                        class="absolute left-2 top-2 h-4 w-4 accent-brand-ink opacity-0 transition-opacity checked:opacity-100 focus:opacity-100 group-hover:opacity-100"
+                                        value={file.id}
+                                        checked={selected.includes(file.id)}
+                                        onclick={keepTile(event)}
+                                        onchange={toggleSelected(event.currentTarget.value)}
+                                    />
+                                    <span
+                                        class="flex h-24 w-full items-center justify-center overflow-hidden rounded-md bg-sunken text-muted-foreground"
+                                    >
+                                        <img
+                                            hidden={!isImage(file)}
+                                            src={isImage(file) ? fileUrl(file.id) : ""}
+                                            alt=""
+                                            loading="lazy"
+                                            draggable="false"
+                                            class="h-full w-full object-cover"
                                         />
-                                    </TableHead>
-                                    <TableHead class=@{head}>
-                                        <button
-                                            type="button"
-                                            class="uppercase hover:text-ink"
-                                            onclick={sortBy("name")}
-                                        >
-                                            "Name"
-                                            {arrow("name")}
-                                        </button>
-                                    </TableHead>
-                                    <TableHead class=@{head}>
-                                        <button
-                                            type="button"
-                                            class="uppercase hover:text-ink"
-                                            onclick={sortBy("modified")}
-                                        >
-                                            "Modified"
-                                            {arrow("modified")}
-                                        </button>
-                                    </TableHead>
-                                    <TableHead class=@{head}>"Type"</TableHead>
-                                    <TableHead class=@{head}>
-                                        <button
-                                            type="button"
-                                            class="uppercase hover:text-ink"
-                                            onclick={sortBy("size")}
-                                        >
-                                            "Size"
-                                            {arrow("size")}
-                                        </button>
-                                    </TableHead>
-                                    <TableHead
-                                        class="px-4 text-right text-xs uppercase tracking-wide text-muted-foreground"
-                                    >
-                                        "Actions"
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                <template pp-for="folder in shownFolders">
-                                    <TableRow
-                                        key={["folder", folder.id, folder.name, folder.items, folder.bytes].join("|")}
-                                    >
-                                        <TableCell class="px-4 py-3"></TableCell>
-                                        <TableCell class="px-4 py-3">
-                                            <button
-                                                type="button"
-                                                class="flex items-center gap-2 text-left font-medium hover:text-link"
-                                                value={folder.id}
-                                                onclick={openFolder(event.currentTarget.value)}
-                                            >
-                                                <Icon
-                                                    name="folder"
-                                                    class="h-4 w-4 shrink-0 text-brand-ink"
-                                                />
-                                                <span class="truncate">{folder.name}</span>
-                                            </button>
-                                        </TableCell>
-                                        <TableCell class="px-4 py-3 text-muted-foreground">
-                                            {folder.modified}
-                                        </TableCell>
-                                        <TableCell class="px-4 py-3 text-muted-foreground">
-                                            {folder.items === 1 ? "Folder · 1 item" : "Folder · " + folder.items + " items"}
-                                        </TableCell>
-                                        <TableCell class="px-4 py-3 text-muted-foreground">
-                                            {size(folder.bytes)}
-                                        </TableCell>
-                                        <TableCell class="px-4 py-3 text-right">
-                                            <div class="flex justify-end gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    class="text-link"
-                                                    value={folder.id}
-                                                    onclick={askRenameFolder(event.currentTarget.value)}
-                                                >
-                                                    "Rename"
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    class="text-danger-ink hover:bg-destructive/10"
-                                                    value={folder.id}
-                                                    onclick={askDeleteFolder(event.currentTarget.value)}
-                                                >
-                                                    "Delete"
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                </template>
-                                <template pp-for="file in shownFiles">
-                                    <TableRow
-                                        key={["file", file.id, file.name, selected.includes(file.id)].join("|")}
-                                    >
-                                        <TableCell class="px-4 py-3">
+                                        <span hidden={fileIcon(file) !== "video"}>
+                                            <Icon name="video" class="h-12 w-12" />
+                                        </span>
+                                        <span hidden={fileIcon(file) !== "audio"}>
+                                            <Icon name="mic" class="h-12 w-12" />
+                                        </span>
+                                        <span hidden={fileIcon(file) !== "text"}>
+                                            <Icon name="file-text" class="h-12 w-12" />
+                                        </span>
+                                        <span hidden={fileIcon(file) !== "file"}>
+                                            <Icon name="file" class="h-12 w-12" />
+                                        </span>
+                                    </span>
+                                    <span class="w-full truncate text-sm font-medium">
+                                        {file.name}
+                                    </span>
+                                    <span class="text-xs text-muted-foreground">
+                                        {file.uploaded + " · " + size(file.bytes)}
+                                    </span>
+                                </div>
+                            </template>
+                        </div>
+                        <div hidden={view !== "list"}>
+                            <Table>
+                                <TableHeader class="bg-sunken">
+                                    <TableRow class="hover:bg-transparent">
+                                        <TableHead class="w-10 px-4">
                                             <input
                                                 type="checkbox"
-                                                aria-label={"Select " + file.name}
+                                                aria-label="Select all files"
                                                 class="h-4 w-4 accent-brand-ink"
-                                                value={file.id}
-                                                checked={selected.includes(file.id)}
-                                                onchange={toggleSelected(event.currentTarget.value)}
+                                                checked={shownFiles.length > 0 && shownFiles.every(file => selected.includes(file.id))}
+                                                disabled={shownFiles.length === 0}
+                                                onchange={selectAll(event.currentTarget.checked)}
                                             />
-                                        </TableCell>
-                                        <TableCell class="max-w-sm px-4 py-3">
-                                            <span class="flex items-center gap-2 font-medium">
-                                                <Icon
-                                                    name="file"
-                                                    class="h-4 w-4 shrink-0 text-muted-foreground"
-                                                />
-                                                <span class="truncate" title={file.name}>
-                                                    {file.name}
-                                                </span>
-                                            </span>
-                                        </TableCell>
-                                        <TableCell class="px-4 py-3 text-muted-foreground">
-                                            {file.uploaded}
-                                        </TableCell>
-                                        <TableCell class="px-4 py-3 text-muted-foreground">
-                                            {kind(file.content_type, file.name)}
-                                        </TableCell>
-                                        <TableCell class="px-4 py-3 text-muted-foreground">
-                                            {size(file.bytes)}
-                                        </TableCell>
-                                        <TableCell class="px-4 py-3 text-right">
-                                            <div class="flex justify-end gap-1">
-                                                <a
-                                                    class=@{download.as_str()}
-                                                    href={"/chat/files/" + encodeURIComponent(file.id)}
-                                                    target="_blank"
-                                                    rel="noopener"
-                                                >
-                                                    "Download"
-                                                </a>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    class="text-link"
-                                                    value={file.id}
-                                                    onclick={askRenameFile(event.currentTarget.value)}
-                                                >
-                                                    "Rename"
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    class="text-link"
-                                                    value={file.id}
-                                                    onclick={askMove([event.currentTarget.value])}
-                                                >
-                                                    "Move"
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    class="text-danger-ink hover:bg-destructive/10"
-                                                    value={file.id}
-                                                    onclick={askDeleteFiles([event.currentTarget.value])}
-                                                >
-                                                    "Delete"
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                                        </TableHead>
+                                        <TableHead class=@{head}>
+                                            <button
+                                                type="button"
+                                                class="uppercase hover:text-ink"
+                                                onclick={sortBy("name")}
+                                            >
+                                                "Name"
+                                                {arrow("name")}
+                                            </button>
+                                        </TableHead>
+                                        <TableHead class=@{head}>
+                                            <button
+                                                type="button"
+                                                class="uppercase hover:text-ink"
+                                                onclick={sortBy("modified")}
+                                            >
+                                                "Modified"
+                                                {arrow("modified")}
+                                            </button>
+                                        </TableHead>
+                                        <TableHead class=@{head}>"Type"</TableHead>
+                                        <TableHead class=@{head}>
+                                            <button
+                                                type="button"
+                                                class="uppercase hover:text-ink"
+                                                onclick={sortBy("size")}
+                                            >
+                                                "Size"
+                                                {arrow("size")}
+                                            </button>
+                                        </TableHead>
+                                        <TableHead
+                                            class="px-4 text-right text-xs uppercase tracking-wide text-muted-foreground"
+                                        >
+                                            "Actions"
+                                        </TableHead>
                                     </TableRow>
-                                </template>
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    <template pp-for="folder in shownFolders">
+                                        <TableRow
+                                            key={["folder", folder.id, folder.name, folder.items, folder.bytes].join("|")}
+                                        >
+                                            <TableCell class="px-4 py-3"></TableCell>
+                                            <TableCell class="px-4 py-3">
+                                                <button
+                                                    type="button"
+                                                    class="flex items-center gap-2 text-left font-medium hover:text-link"
+                                                    value={folder.id}
+                                                    onclick={openFolder(event.currentTarget.value)}
+                                                >
+                                                    <Icon
+                                                        name="folder"
+                                                        class="h-4 w-4 shrink-0 text-brand-ink"
+                                                    />
+                                                    <span class="truncate">{folder.name}</span>
+                                                </button>
+                                            </TableCell>
+                                            <TableCell class="px-4 py-3 text-muted-foreground">
+                                                {folder.modified}
+                                            </TableCell>
+                                            <TableCell class="px-4 py-3 text-muted-foreground">
+                                                {folder.items === 1 ? "Folder · 1 item" : "Folder · " + folder.items + " items"}
+                                            </TableCell>
+                                            <TableCell class="px-4 py-3 text-muted-foreground">
+                                                {size(folder.bytes)}
+                                            </TableCell>
+                                            <TableCell class="px-4 py-3 text-right">
+                                                <div class="flex justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="text-link"
+                                                        value={folder.id}
+                                                        onclick={askRenameFolder(event.currentTarget.value)}
+                                                    >
+                                                        "Rename"
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="text-danger-ink hover:bg-destructive/10"
+                                                        value={folder.id}
+                                                        onclick={askDeleteFolder(event.currentTarget.value)}
+                                                    >
+                                                        "Delete"
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    </template>
+                                    <template pp-for="file in shownFiles">
+                                        <TableRow
+                                            key={["file", file.id, file.name, selected.includes(file.id)].join("|")}
+                                        >
+                                            <TableCell class="px-4 py-3">
+                                                <input
+                                                    type="checkbox"
+                                                    aria-label={"Select " + file.name}
+                                                    class="h-4 w-4 accent-brand-ink"
+                                                    value={file.id}
+                                                    checked={selected.includes(file.id)}
+                                                    onchange={toggleSelected(event.currentTarget.value)}
+                                                />
+                                            </TableCell>
+                                            <TableCell class="max-w-sm px-4 py-3">
+                                                <span class="flex items-center gap-2 font-medium">
+                                                    <Icon
+                                                        name="file"
+                                                        class="h-4 w-4 shrink-0 text-muted-foreground"
+                                                    />
+                                                    <span class="truncate" title={file.name}>
+                                                        {file.name}
+                                                    </span>
+                                                </span>
+                                            </TableCell>
+                                            <TableCell class="px-4 py-3 text-muted-foreground">
+                                                {file.uploaded}
+                                            </TableCell>
+                                            <TableCell class="px-4 py-3 text-muted-foreground">
+                                                {kind(file.content_type, file.name)}
+                                            </TableCell>
+                                            <TableCell class="px-4 py-3 text-muted-foreground">
+                                                {size(file.bytes)}
+                                            </TableCell>
+                                            <TableCell class="px-4 py-3 text-right">
+                                                <div class="flex justify-end gap-1">
+                                                    <a
+                                                        class=@{download.as_str()}
+                                                        href={"/chat/files/" + encodeURIComponent(file.id)}
+                                                        target="_blank"
+                                                        rel="noopener"
+                                                    >
+                                                        "Download"
+                                                    </a>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="text-link"
+                                                        value={file.id}
+                                                        onclick={askRenameFile(event.currentTarget.value)}
+                                                    >
+                                                        "Rename"
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="text-link"
+                                                        value={file.id}
+                                                        onclick={askMove([event.currentTarget.value])}
+                                                    >
+                                                        "Move"
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="text-danger-ink hover:bg-destructive/10"
+                                                        value={file.id}
+                                                        onclick={askDeleteFiles([event.currentTarget.value])}
+                                                    >
+                                                        "Delete"
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    </template>
+                                </TableBody>
+                            </Table>
+                        </div>
                         <div
                             hidden={shownFolders.length + shownFiles.length > 0}
                             class="p-10 text-center text-sm text-muted-foreground"
@@ -734,15 +894,16 @@ pub async fn page() -> Result<Html> {
                     function failure(e, fallback) { return e.errors?.name?.[0] || e.errors?.ids?.[0] || e.message || fallback; }
                     function say(text) { setError(''); setNotice(text); }
 
-                    function showTab(next) { setTab(next); setError(''); setNotice(''); setSelected([]); setPickedRecordings([]); }
+                    function showTab(next) { setTab(next); setError(''); setNotice(''); setSelected([]); setActiveFolder(''); setPickedRecordings([]); }
                     const refresh = pp.event(async function refresh(folder) {
                         const next = await pp.rpc('files_list', {folder: folder === undefined ? listing.folder : folder || null});
                         setListing(next.listing); setUsage(next.usage);
                         setSelected(previous => previous.filter(id => next.listing.files.some(file => file.id === id)));
+                        setActiveFolder(previous => next.listing.folders.some(row => row.id === previous) ? previous : '');
                     });
                     const openFolder = pp.event(async function openFolder(id) {
                         if (busy) return;
-                        setBusy(true); setError(''); setNotice(''); setQuery(''); setSelected([]);
+                        setBusy(true); setError(''); setNotice(''); setQuery(''); setSelected([]); setActiveFolder('');
                         try { await refresh(id); }
                         catch (e) { setError(failure(e, 'The folder could not be opened.')); }
                         finally { setBusy(false); }
@@ -780,11 +941,91 @@ pub async fn page() -> Result<Html> {
                         upload(Array.from(event.dataTransfer.files));
                     }
 
+                    // Tiles or a list, remembered in this browser. Tiles work
+                    // the way a file explorer does: a click selects,
+                    // Ctrl/⌘-click adds to the selection, a double-click or
+                    // Enter opens. Folders open in place; files in a new tab.
+                    const [view, setView] = pp.state(localStorage.getItem('upurnaka.files.view') === 'list' ? 'list' : 'tiles');
+                    const [activeFolder, setActiveFolder] = pp.state('');
+                    function chooseView(next) { setView(next); localStorage.setItem('upurnaka.files.view', next); }
+                    function viewClass(on) {
+                        return 'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ' + (on ? 'bg-raised text-brand-ink' : 'text-muted-foreground hover:text-ink');
+                    }
+                    function tileClass(on) {
+                        return 'group relative flex cursor-default select-none flex-col items-center gap-1.5 rounded-lg border p-3 text-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring ' + (on ? 'border-brand-ink bg-brand/10' : 'border-transparent hover:bg-hover');
+                    }
+                    function itemsLabel(count) { return count === 1 ? '1 item' : count + ' items'; }
+                    function isImage(file) { return file.content_type.startsWith('image/'); }
+                    function fileIcon(file) {
+                        const type = file.content_type;
+                        if (type.startsWith('image/')) return 'image';
+                        if (type.startsWith('video/')) return 'video';
+                        if (type.startsWith('audio/')) return 'audio';
+                        if (type.startsWith('text/') || type === 'application/pdf') return 'text';
+                        return 'file';
+                    }
+                    function fileUrl(id) { return '/chat/files/' + encodeURIComponent(id); }
+                    function selectionLabel() {
+                        if (activeFolder) {
+                            const folder = listing.folders.find(row => row.id === activeFolder);
+                            return folder ? folder.name : '';
+                        }
+                        if (selected.length === 1) {
+                            const file = listing.files.find(row => row.id === selected[0]);
+                            return file ? file.name : '1 selected';
+                        }
+                        return selected.length + ' selected';
+                    }
+                    const pickFolder = pp.event(function pickFolder(id) { setSelected([]); setActiveFolder(id); });
+                    const pickFile = pp.event(function pickFile(event, id) {
+                        setActiveFolder('');
+                        if (event.ctrlKey || event.metaKey) {
+                            setSelected(previous => previous.includes(id) ? previous.filter(other => other !== id) : [...previous, id]);
+                        } else {
+                            setSelected([id]);
+                        }
+                    });
+                    // The checkbox adds to the selection; the tile under it
+                    // must not then replace the selection with this one file.
+                    function keepTile(event) { event.stopPropagation(); setActiveFolder(''); }
+                    function clearSelection() { setSelected([]); setActiveFolder(''); }
+                    function clearOnBackground(event) { if (event.target === event.currentTarget) clearSelection(); }
+                    const openFile = pp.event(function openFile(id) {
+                        if (id) window.open(fileUrl(id), '_blank', 'noopener');
+                    });
+                    const openSelection = pp.event(function openSelection() {
+                        if (activeFolder) openFolder(activeFolder);
+                        else if (selected.length === 1) openFile(selected[0]);
+                    });
+                    const downloadSelection = pp.event(function downloadSelection() {
+                        if (selected.length === 1) openFile(selected[0]);
+                    });
+                    const renameSelection = pp.event(function renameSelection() {
+                        if (activeFolder) askRenameFolder(activeFolder);
+                        else if (selected.length === 1) askRenameFile(selected[0]);
+                    });
+                    const deleteSelection = pp.event(function deleteSelection() {
+                        if (activeFolder) askDeleteFolder(activeFolder);
+                        else askDeleteSelected();
+                    });
+                    const tileKey = pp.event(function tileKey(event) {
+                        const tile = event.currentTarget;
+                        const id = tile.dataset.id, folder = tile.dataset.kind === 'folder';
+                        if (event.target !== tile) return;
+                        if (event.key === 'Enter') { event.preventDefault(); folder ? openFolder(id) : openFile(id); }
+                        else if (event.key === ' ') { event.preventDefault(); folder ? pickFolder(id) : pickFile(event, id); }
+                        else if (event.key === 'Delete') {
+                            event.preventDefault();
+                            if (folder) askDeleteFolder(id);
+                            else askDeleteFiles(selected.includes(id) ? selected : [id]);
+                        }
+                    });
+
                     // Selection, for moving or deleting several files at once.
                     const toggleSelected = pp.event(function toggleSelected(id) {
                         setSelected(previous => previous.includes(id) ? previous.filter(other => other !== id) : [...previous, id]);
                     });
-                    const selectAll = pp.event(function selectAll(on) { setSelected(on ? shownFiles.map(file => file.id) : []); });
+                    const selectAll = pp.event(function selectAll(on) { setActiveFolder(''); setSelected(on ? shownFiles.map(file => file.id) : []); });
 
                     // The name dialog: a new folder, or a file or folder renamed.
                     function openName(mode, id, name) {
