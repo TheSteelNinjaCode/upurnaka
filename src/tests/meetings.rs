@@ -101,7 +101,20 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
                 return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"[{"id":"saved-1","name":"Sammy","text":"From the last call","at":1793000000000}]"#)).unwrap();
             }
             if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("send_meeting_chat") {
-                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"id":"sent-1","name":"Administrator","text":"Hello from the meeting","at":1793000001000}"#)).unwrap();
+                let bytes = axum::body::to_bytes(request.into_body(), 1 << 16).await.unwrap();
+                let input: rahti::serde_json::Value = rahti::serde_json::from_slice(&bytes).unwrap();
+                let answer = if input["file"] == "pick-1" {
+                    r#"{"id":"sent-2","name":"Administrator","text":"","at":1793000002000,"file":{"name":"plan.pdf","content_type":"application/pdf","bytes":2048}}"#
+                } else {
+                    r#"{"id":"sent-1","name":"Administrator","text":"Hello from the meeting","at":1793000001000,"file":null}"#
+                };
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(answer)).unwrap();
+            }
+            if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("meeting_chat_my_files") {
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"view":"files","folder":null,"path":[],"folders":[{"id":"folder-1","name":"Projects","bytes":0,"items":0,"modified":"","modified_at":0}],"files":[{"id":"pick-1","name":"plan.pdf","content_type":"application/pdf","bytes":2048,"uploaded":"","uploaded_at":0}]}"#)).unwrap();
+            }
+            if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("meeting_chat_file_url") {
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#""https://storage.test/plan.pdf""#)).unwrap();
             }
             if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("join_meeting") {
                 return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"meeting":{"MeetingId":"fixture"},"attendee":{"AttendeeId":"self","ExternalUserId":"Jefferson Abraham#fixture"}}"#)).unwrap();
@@ -263,6 +276,44 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.room-chat-messages').textContent.includes('Hello from the meeting')").await.unwrap();
+    // Share a file from My files, then download it from the chat.
+    browser
+        .click("button[aria-label='Attach a file']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-chat-attach-menu').hidden")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("(() => { [...document.querySelectorAll('.room-chat-attach-menu button')].find(b => b.textContent.includes('Choose from My files')).click(); return true; })()")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-chat-picker').hidden && document.querySelector('.room-chat-messages').hidden && document.querySelector('.room-picker-folder')?.textContent.includes('Projects') && document.querySelector('.room-picker-file')?.textContent.includes('plan.pdf')")
+        .await
+        .unwrap();
+    browser.click(".room-picker-file").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.room-chat-picker').hidden && !document.querySelector('.room-chat-pending').hidden && document.querySelector('.room-chat-pending').textContent.includes('plan.pdf') && !document.querySelector(\"button[aria-label='Send meeting message']\").disabled")
+        .await
+        .unwrap();
+    browser
+        .click("button[aria-label='Send meeting message']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.room-chat-pending').hidden && [...document.querySelectorAll('.room-chat-file')].some(card => !card.hidden && card.textContent.includes('plan.pdf') && card.textContent.includes('2.0 KB'))")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("(() => { window.openedFiles = []; window.open = url => { window.openedFiles.push(url); return null; }; [...document.querySelectorAll('.room-chat-file')].find(card => !card.hidden).click(); return true; })()")
+        .await
+        .unwrap();
+    browser
+        .wait_for("window.openedFiles.length === 1 && window.openedFiles[0] === 'https://storage.test/plan.pdf'")
+        .await
+        .unwrap();
     browser
         .click("button[aria-label='Send a reaction']")
         .await
@@ -1210,7 +1261,7 @@ async fn meeting_background_replacement_processes_video_locally() {
             const canvas=document.createElement('canvas'); canvas.width=32; canvas.height=32;
             const blob=await new Promise(resolve => canvas.toBlob(resolve));
             const transfer=new DataTransfer(); transfer.items.add(new File([blob],'My background.png',{type:'image/png'}));
-            const input=document.querySelector('input[type=file]'); input.files=transfer.files;
+            const input=document.querySelector('input[type=file][aria-label="Upload background image"]'); input.files=transfer.files;
             input.dispatchEvent(new Event('change',{bubbles:true}));
             return true;
         })()
@@ -1219,7 +1270,7 @@ async fn meeting_background_replacement_processes_video_locally() {
     let _: bool = browser.eval(r##"
         (() => {
             const transfer=new DataTransfer(); transfer.items.add(new File(['not an image'],'bad.png',{type:'image/png'}));
-            const input=document.querySelector('input[type=file]'); input.files=transfer.files;
+            const input=document.querySelector('input[type=file][aria-label="Upload background image"]'); input.files=transfer.files;
             input.dispatchEvent(new Event('change',{bubbles:true}));
             return true;
         })()
@@ -1281,4 +1332,195 @@ async fn revoking_nothing_is_refused() {
 
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(body.contains("id"), "{body}");
+}
+
+/// A visit by a signed-in account, in the call.
+async fn account_visit(id: &str, user: &str, name: &str) -> String {
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+    let ticket = format!("ticket-{}", crate::meetings::mint_id());
+    crate::models::meeting_visit::ActiveModel {
+        id: Set(ticket.clone()),
+        meeting_id: Set(id.into()),
+        user_id: Set(user.into()),
+        name: Set(name.into()),
+        state: Set("joined".into()),
+        lease_until: Set(rahti::time::Timestamp::now().as_second() + 90),
+        attendee_id: Set(None),
+        provider_meeting_id: Set(None),
+        muted_by_host: Set(false),
+    }
+    .insert(crate::db::db())
+    .await
+    .unwrap();
+    ticket
+}
+
+#[tokio::test]
+async fn files_shared_in_meeting_chat_reach_every_participant() {
+    use rahti::serde_json::{Value, json};
+    let id = mint("Shared files").await;
+    let page = format!("/meet/j/{id}");
+    let mine = account_visit(&id, "legacy-test-user", "Jefferson").await;
+    let guest = visit(&id, "Guest", "joined").await;
+
+    // Uploading from the chat puts the file in the sender's My files.
+    let mut sender = super::auth::Client::new().await;
+    sender.with_cookie(test_cookie());
+    sender.request(&page, None).await;
+    let (status, body) = sender
+        .upload(
+            &page,
+            "upload_meeting_chat_file",
+            json!({"id": id, "ticket": mine}),
+            ("file", "application/pdf", b"%PDF-1.4 agenda"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let stored: Value = rahti::serde_json::from_str(&body).unwrap();
+    let file = stored["id"].as_str().unwrap().to_string();
+
+    // My files is offered for choosing.
+    let (status, body) = rpc(
+        &page,
+        "meeting_chat_my_files",
+        &json!({"id": id, "ticket": mine, "folder": null}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(&file), "{body}");
+
+    // A message may be the file alone.
+    let (status, body) = rpc(
+        &page,
+        "send_meeting_chat",
+        &json!({"id": id, "ticket": mine, "text": "", "file": file}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let sent: Value = rahti::serde_json::from_str(&body).unwrap();
+    assert_eq!(sent["file"]["content_type"], "application/pdf");
+    assert_eq!(sent["file"]["bytes"], 15);
+    let message = sent["id"].as_str().unwrap().to_string();
+
+    // A guest in the call sees it and gets a link to it.
+    let (status, body) = rpc(
+        &page,
+        "meeting_chat_history",
+        &json!({"id": id, "ticket": guest}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains(r#""bytes":15"#), "{body}");
+    let (status, body) = rpc(
+        &page,
+        "meeting_chat_file_url",
+        &json!({"id": id, "ticket": guest, "message": message}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("https://storage.test/"), "{body}");
+
+    // Removing the file from My files leaves the chat's copy in place.
+    assert!(
+        crate::meetings::chat::shares_object(stored_object(&file).await.as_str())
+            .await
+            .unwrap()
+    );
+    let (status, _) = rpc(
+        &page,
+        "meeting_chat_file_url",
+        &json!({"id": id, "ticket": guest, "message": message}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+/// The storage object behind one of My files.
+async fn stored_object(file: &str) -> String {
+    use sea_orm::EntityTrait;
+    crate::models::chat_file::Entity::find_by_id(file)
+        .one(crate::db::db())
+        .await
+        .unwrap()
+        .unwrap()
+        .file_id
+}
+
+#[tokio::test]
+async fn meeting_chat_files_are_refused_to_guests_strangers_and_other_peoples_files() {
+    use rahti::serde_json::json;
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+    let id = mint("Guarded files").await;
+    let page = format!("/meet/j/{id}");
+    let mine = account_visit(&id, "legacy-test-user", "Jefferson").await;
+    let guest = visit(&id, "Guest", "joined").await;
+    let waiting = visit(&id, "Stranger", "waiting").await;
+
+    // Guests have no My files to share from.
+    for name in ["meeting_chat_my_files", "send_meeting_chat"] {
+        let (status, body) = rpc(
+            &page,
+            name,
+            &json!({"id": id, "ticket": guest, "text": "", "file": "anything", "folder": null})
+                .to_string(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{name}: {body}");
+    }
+
+    // Somebody else's file cannot be shared.
+    crate::models::chat_file::ActiveModel {
+        id: Set(format!("foreign-{id}")),
+        owner_id: Set("other-user".into()),
+        name: Set("theirs.txt".into()),
+        content_type: Set("text/plain".into()),
+        bytes: Set(4),
+        file_id: Set("object-theirs".into()),
+        file_key: Set("chat/other-user/theirs.txt".into()),
+        created_at: Set(rahti::time::Timestamp::now().as_second()),
+        folder_id: Set(None),
+    }
+    .insert(crate::db::db())
+    .await
+    .unwrap();
+    let (status, _) = rpc(
+        &page,
+        "send_meeting_chat",
+        &json!({"id": id, "ticket": mine, "text": "", "file": format!("foreign-{id}")}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // Neither text nor a file is not a message.
+    let (status, _) = rpc(
+        &page,
+        "send_meeting_chat",
+        &json!({"id": id, "ticket": mine, "text": "  ", "file": null}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    // Someone waiting in the lobby gets no link, and a text message has no file.
+    let (_, body) = rpc(
+        &page,
+        "send_meeting_chat",
+        &json!({"id": id, "ticket": mine, "text": "just words"}).to_string(),
+    )
+    .await;
+    let sent: rahti::serde_json::Value = rahti::serde_json::from_str(&body).unwrap();
+    let message = sent["id"].as_str().unwrap();
+    let (status, _) = rpc(
+        &page,
+        "meeting_chat_file_url",
+        &json!({"id": id, "ticket": waiting, "message": message}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = rpc(
+        &page,
+        "meeting_chat_file_url",
+        &json!({"id": id, "ticket": mine, "message": message}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }

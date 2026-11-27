@@ -21,7 +21,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use serde::Deserialize;
 
-use crate::components::aria::{bound, labelled, named, submit};
+use crate::components::aria::{bound, labelled, named, plain, submit};
 use crate::components::avatar::Avatar;
 use crate::components::icon::Icon;
 use crate::components::notification_sound::NotificationSound;
@@ -1319,6 +1319,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                 class="room-chat-messages flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto px-[18px]"
                                 aria-live="polite"
                                 pp-ref={chatLog}
+                                hidden={chatPicker}
                             >
                                 <p
                                     class="text-[13px] leading-relaxed text-muted-foreground"
@@ -1341,11 +1342,201 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                                 {chatTime(message.at)}
                                             </time>
                                         </div>
-                                        <p class="mt-[5px] whitespace-pre-wrap">{message.text}</p>
+                                        <p
+                                            class="mt-[5px] whitespace-pre-wrap"
+                                            hidden={!message.text}
+                                        >
+                                            {message.text}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            class="room-chat-file mt-2 flex w-full items-center gap-2.5 rounded-md border border-edge bg-surface px-3 py-2 text-left hover:bg-hover"
+                                            hidden={!message.file}
+                                            value={message.id}
+                                            title={message.file ? "Download " + message.file.name : ""}
+                                            onclick={downloadChatFile(event.currentTarget.value)}
+                                        >
+                                            <span class="shrink-0 text-brand-ink">
+                                                <Icon name="file" class="size-5" />
+                                            </span>
+                                            <span class="grid min-w-0 flex-1">
+                                                <span class="truncate font-medium">
+                                                    {message.file ? message.file.name : ""}
+                                                </span>
+                                                <span class="text-[11px] text-muted-foreground">
+                                                    {message.file ? fileSize(message.file.bytes) : ""}
+                                                </span>
+                                            </span>
+                                            <span class="shrink-0 text-muted-foreground">
+                                                <Icon name="arrow-down" class="size-4" />
+                                            </span>
+                                        </button>
                                     </article>
                                 </template>
                             </div>
-                            <form class="m-4 flex gap-2" onsubmit={sendChat(event)}>
+                            <div
+                                class="room-chat-picker flex min-h-0 flex-1 flex-col"
+                                hidden={!chatPicker}
+                            >
+                                <div class="flex items-center gap-1 px-3 pb-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        attrs=@{labelled("Back to chat")}
+                                        onclick={closeChatPicker()}
+                                    >
+                                        <Icon name="chevron-left" class="size-4" />
+                                    </Button>
+                                    <span class="text-[13px] font-semibold">
+                                        "Choose from My files"
+                                    </span>
+                                </div>
+                                <div
+                                    class="flex min-w-0 flex-wrap items-center gap-1 px-[18px] pb-2 text-xs"
+                                    aria-label="Folder path"
+                                >
+                                    <button
+                                        type="button"
+                                        class="rounded px-1 py-0.5 text-link hover:bg-hover"
+                                        onclick={openPickerFolder("")}
+                                    >
+                                        "My files"
+                                    </button>
+                                    <template pp-for="crumb in pickerListing.path">
+                                        <span key={crumb.id} class="flex items-center gap-1">
+                                            <span class="text-subtle">"/"</span>
+                                            <button
+                                                type="button"
+                                                class="max-w-32 truncate rounded px-1 py-0.5 text-link hover:bg-hover"
+                                                value={crumb.id}
+                                                onclick={openPickerFolder(event.currentTarget.value)}
+                                            >
+                                                {crumb.name}
+                                            </button>
+                                        </span>
+                                    </template>
+                                </div>
+                                <div class="min-h-0 flex-1 overflow-auto px-3">
+                                    <p
+                                        class="px-2 py-3 text-[13px] text-muted-foreground"
+                                        hidden={!pickerLoading}
+                                    >
+                                        "Loading…"
+                                    </p>
+                                    <p
+                                        class="px-2 py-3 text-[13px] text-danger-ink"
+                                        hidden={!pickerError}
+                                    >
+                                        {pickerError}
+                                    </p>
+                                    <template pp-for="folder in pickerListing.folders">
+                                        <button
+                                            key={"folder|" + folder.id}
+                                            type="button"
+                                            class="room-picker-folder flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13px] hover:bg-hover"
+                                            value={folder.id}
+                                            onclick={openPickerFolder(event.currentTarget.value)}
+                                        >
+                                            <span class="shrink-0 text-brand-ink">
+                                                <Icon name="folder" class="size-5" />
+                                            </span>
+                                            <span class="min-w-0 flex-1 truncate">
+                                                {folder.name}
+                                            </span>
+                                            <span class="shrink-0 text-muted-foreground">
+                                                <Icon name="chevron-right" class="size-4" />
+                                            </span>
+                                        </button>
+                                    </template>
+                                    <template pp-for="file in pickerListing.files">
+                                        <button
+                                            key={"file|" + file.id}
+                                            type="button"
+                                            class="room-picker-file flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13px] hover:bg-hover"
+                                            value={file.id}
+                                            onclick={pickChatFile(event.currentTarget.value)}
+                                        >
+                                            <span class="shrink-0 text-muted-foreground">
+                                                <Icon name="file" class="size-5" />
+                                            </span>
+                                            <span class="grid min-w-0 flex-1">
+                                                <span class="truncate">{file.name}</span>
+                                                <span class="text-[11px] text-muted-foreground">
+                                                    {fileSize(file.bytes)}
+                                                </span>
+                                            </span>
+                                        </button>
+                                    </template>
+                                    <p
+                                        class="px-2 py-3 text-[13px] text-muted-foreground"
+                                        hidden={pickerLoading || !!pickerError || pickerListing.folders.length + pickerListing.files.length > 0}
+                                    >
+                                        "This folder is empty."
+                                    </p>
+                                </div>
+                            </div>
+                            <div
+                                class="room-chat-pending mx-4 flex items-center gap-2 rounded-md border border-edge bg-raised px-3 py-2 text-[13px]"
+                                hidden={!chatFile && !chatUploading}
+                            >
+                                <span class="shrink-0 text-brand-ink">
+                                    <Icon name="attach" class="size-4" />
+                                </span>
+                                <span class="min-w-0 flex-1 truncate">
+                                    {chatUploading ? "Uploading " + chatUploading + "…" : chatFile ? chatFile.name : ""}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    attrs=@{labelled("Remove attachment")}
+                                    hidden={!chatFile}
+                                    onclick={setChatFile(null)}
+                                >
+                                    <Icon name="close" class="size-3.5" />
+                                </Button>
+                            </div>
+                            <form class="relative m-4 flex gap-2" onsubmit={sendChat(event)}>
+                                <div
+                                    class="room-chat-attach-menu absolute bottom-full left-0 z-5 mb-2 grid w-max gap-1 rounded-md border bg-popover p-2 shadow-xl shadow-black/40"
+                                    hidden={!chatAttachMenu}
+                                >
+                                    <Button
+                                        variant="ghost"
+                                        class=@{MENU_ROW}
+                                        attrs=@{plain()}
+                                        onclick={chooseChatUpload()}
+                                    >
+                                        <Icon name="upload" class="size-4" />
+                                        "Upload from this device"
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        class=@{MENU_ROW}
+                                        attrs=@{plain()}
+                                        onclick={openChatPicker()}
+                                    >
+                                        <Icon name="folder" class="size-4" />
+                                        "Choose from My files"
+                                    </Button>
+                                </div>
+                                <input
+                                    type="file"
+                                    hidden
+                                    aria-label="Choose a file to share"
+                                    pp-ref={chatFileInput}
+                                    onchange={uploadChatFile(event)}
+                                />
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    class="shrink-0"
+                                    attrs=@{labelled("Attach a file").merge(&plain())}
+                                    hidden={anonymous}
+                                    disabled={!!chatUploading || connectionStatus !== "connected"}
+                                    onclick={setChatAttachMenu(!chatAttachMenu)}
+                                >
+                                    <Icon name="attach" class="size-5" />
+                                </Button>
                                 <Input
                                     placeholder="Type a message"
                                     class="min-w-0 flex-1 text-[13px]"
@@ -1357,7 +1548,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                     variant="ghost"
                                     size="icon"
                                     attrs=@{labelled("Send meeting message").merge(&submit())}
-                                    disabled={!chatDraft.trim() || connectionStatus !== "connected"}
+                                    disabled={(!chatDraft.trim() && !chatFile) || !!chatUploading || connectionStatus !== "connected"}
                                 >
                                     <Icon name="send" class="size-5" />
                                 </Button>
@@ -2088,6 +2279,77 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                         }
                     });
 
+                    // Sharing a file in the chat. Signed-in participants pick
+                    // one from My files, or upload one there first; everyone
+                    // in the call downloads through a link the server mints
+                    // for their own ticket.
+                    const [chatFile, setChatFile] = pp.state(null);
+                    const [chatUploading, setChatUploading] = pp.state("");
+                    const [chatAttachMenu, setChatAttachMenu] = pp.state(false);
+                    const [chatPicker, setChatPicker] = pp.state(false);
+                    const [pickerListing, setPickerListing] = pp.state({ folder: null, path: [], folders: [], files: [] });
+                    const [pickerLoading, setPickerLoading] = pp.state(false);
+                    const [pickerError, setPickerError] = pp.state("");
+                    const chatFileInput = pp.ref(null);
+
+                    function fileSize(bytes) {
+                        if (!bytes) return "0 B";
+                        const units = ["B", "KB", "MB", "GB"];
+                        const step = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+                        const value = bytes / Math.pow(1024, step);
+                        return (step === 0 ? value : value.toFixed(value < 10 ? 1 : 0)) + " " + units[step];
+                    }
+                    function chooseChatUpload() {
+                        setChatAttachMenu(false);
+                        chatFileInput.current?.click();
+                    }
+                    async function uploadChatFile(event) {
+                        const file = event.currentTarget.files?.[0];
+                        event.currentTarget.value = "";
+                        if (!file || !admission) return;
+                        setChatUploading(file.name);
+                        try {
+                            setChatFile(await pp.rpc("upload_meeting_chat_file", { id: code, ticket: admission, file }));
+                        } catch (failure) {
+                            setError(failure.errors?.file?.[0] || failure.body?.error || failure.message || "The file could not be uploaded.");
+                        } finally {
+                            setChatUploading("");
+                        }
+                    }
+                    const openPickerFolder = pp.event(async function openPickerFolder(folder) {
+                        if (!admission) return;
+                        setPickerLoading(true);
+                        setPickerError("");
+                        try {
+                            setPickerListing(await pp.rpc("meeting_chat_my_files", { id: code, ticket: admission, folder: folder || null }));
+                        } catch (failure) {
+                            setPickerError(failure.body?.error || failure.message || "Your files could not be loaded.");
+                        } finally {
+                            setPickerLoading(false);
+                        }
+                    });
+                    function openChatPicker() {
+                        setChatAttachMenu(false);
+                        setChatPicker(true);
+                        openPickerFolder("");
+                    }
+                    function closeChatPicker() { setChatPicker(false); setPickerError(""); }
+                    const pickChatFile = pp.event(function pickChatFile(id) {
+                        const file = pickerListing.files.find(item => item.id === id);
+                        if (!file) return;
+                        setChatFile(file);
+                        setChatPicker(false);
+                    });
+                    const downloadChatFile = pp.event(async function downloadChatFile(messageId) {
+                        if (!admission) return;
+                        try {
+                            const url = await pp.rpc("meeting_chat_file_url", { id: code, ticket: admission, message: messageId });
+                            window.open(url, "_blank", "noopener");
+                        } catch (failure) {
+                            setError(failure.body?.error || failure.message || "The file could not be opened.");
+                        }
+                    });
+
                     function chatTime(at) {
                         const sent = new Date(at);
                         const today = sent.toDateString() === new Date().toDateString();
@@ -2118,7 +2380,12 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                             const sender = message.senderAttendeeId;
                             if (!sender || sender.includes("#content")) return;
                             const name = attendeeNameFrom(message.senderExternalUserId);
-                            if (payload.kind === "chat" && typeof payload.text === "string" && payload.text.trim() && typeof payload.id === "string") {
+                            if (payload.kind === "chat" && payload.file === true && typeof payload.id === "string") {
+                                // A shared file is read from the server, which
+                                // is what says what was shared and by whom.
+                                if (admission) loadChat(admission);
+                                announceChat(name, typeof payload.text === "string" && payload.text.trim() ? payload.text.slice(0, 500) : "shared a file");
+                            } else if (payload.kind === "chat" && typeof payload.text === "string" && payload.text.trim() && typeof payload.id === "string") {
                                 const text = payload.text.slice(0, 500);
                                 appendChat({ id: payload.id.slice(0, 64), name, text, at: Date.now() });
                                 announceChat(name, text);
@@ -2142,18 +2409,22 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                     async function sendChat(event) {
                         event.preventDefault();
                         const text = chatDraft.trim().slice(0, 500);
-                        if (!text) return;
+                        const file = chatFile;
+                        if ((!text && !file) || chatUploading) return;
                         setChatDraft("");
+                        setChatFile(null);
+                        setChatAttachMenu(false);
                         let message;
                         try {
-                            message = await pp.rpc("send_meeting_chat", { id: code, ticket: admission, text });
+                            message = await pp.rpc("send_meeting_chat", { id: code, ticket: admission, text, file: file ? file.id : null });
                         } catch (failure) {
                             setChatDraft(text);
+                            setChatFile(file);
                             setError(failure.body?.error || failure.message);
                             return;
                         }
                         appendChat(message);
-                        try { sendMeetingEvent({ kind: "chat", id: message.id, text: message.text }); }
+                        try { sendMeetingEvent({ kind: "chat", id: message.id, text: message.text, file: !!message.file }); }
                         catch (failure) { setError(failure.message); }
                     }
 
@@ -3234,8 +3505,35 @@ pub async fn send_meeting_chat(
     id: String,
     ticket: String,
     text: String,
+    file: Option<String>,
 ) -> Result<meetings::chat::Message> {
-    meetings::chat::send(id, ticket, text).await
+    meetings::chat::send(id, ticket, text, file).await
+}
+
+/// Upload a file from this device to the sender's My files, to share it.
+#[rpc]
+pub async fn upload_meeting_chat_file(
+    id: String,
+    ticket: String,
+    file: crate::rahti::RpcFile,
+) -> Result<crate::chat_files::Attachment> {
+    meetings::chat::upload(id, ticket, file).await
+}
+
+/// The sender's My files, to choose one to share in the chat.
+#[rpc]
+pub async fn meeting_chat_my_files(
+    id: String,
+    ticket: String,
+    folder: Option<String>,
+) -> Result<crate::chat_files::Listing> {
+    meetings::chat::my_files(id, ticket, folder).await
+}
+
+/// A short-lived download link for a file shared in this meeting's chat.
+#[rpc]
+pub async fn meeting_chat_file_url(id: String, ticket: String, message: String) -> Result<String> {
+    meetings::chat::file_link(id, ticket, message).await
 }
 
 #[rpc]

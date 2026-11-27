@@ -12,6 +12,12 @@ pub struct Model {
     pub body: String,
     /// Milliseconds since the epoch, UTC.
     pub sent_at: i64,
+    /// The Dilnaka Storage object of a shared file. Read through a
+    /// short-lived link minted per participant, never stored as a URL.
+    pub file_object: Option<String>,
+    pub file_name: Option<String>,
+    pub file_type: Option<String>,
+    pub file_bytes: Option<i64>,
 }
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
