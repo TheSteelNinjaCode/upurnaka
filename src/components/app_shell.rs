@@ -14,8 +14,7 @@ use crate::components::icon::Icon;
 use crate::components::keyboard_shortcuts::KeyboardShortcuts;
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
 use crate::components::rahti_ui::dialog::{
-    Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-    DialogTrigger,
+    Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 };
 use crate::components::rahti_ui::dropdown_menu::{
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -29,11 +28,9 @@ use crate::components::user_preferences::UserPreferences;
 use crate::rahti::{Html, Result, Validator, component, html, rpc};
 
 /// Every destination on the rail, in the order the client shows them.
-const RAIL: [(&str, &str, &str); 7] = [
+const RAIL: [(&str, &str, &str); 5] = [
     ("chat", "Chat", "/chat"),
     ("meet", "Meet", "/meet"),
-    ("people", "People", "/people"),
-    ("communities", "Communities", "/communities"),
     ("calendar", "Calendar", "/calendar"),
     ("activity", "Activity", "/activity"),
     ("files", "Files", "/files"),
@@ -291,9 +288,7 @@ pub async fn search_workspace(
 fn rail_icon(key: &str) -> &'static str {
     match key {
         "meet" => "video",
-        "people" => "contacts",
         "activity" => "bell",
-        "communities" => "communities",
         "calendar" => "calendar",
         "files" => "folder",
         _ => "chat",
@@ -333,12 +328,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
     }
     let rail = Html::concat(links);
 
-    let apps_class = if active == "apps" {
-        "flex h-11 w-11 items-center justify-center rounded-md bg-raised text-brand-ink"
-    } else {
-        "flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-ink"
-    };
-    let close_survey = button_variants(ButtonVariant::Outline, ButtonSize::Sm, "w-24");
     // Written as an element rather than an `<InputGroupInput>` because Ctrl+G
     // focuses it, and a ref is a binding a component tag cannot carry.
     let search_input = input_group_input_variants("text-[13px]");
@@ -568,10 +557,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     hidden={!appBarOpen}
                 >
                     @{rail}
-                    <span class="flex-1"></span>
-                    <a href="/apps" class=@{apps_class} title="Apps" aria-label="Apps">
-                        <Icon name="apps" class="h-[22px] w-[22px]" />
-                    </a>
                 </nav>
                 <div class="shell-page flex min-h-0 min-w-0 flex-1" hidden={searchView}>
                     <shortcutcontext.provider value={pageShortcuts}>
@@ -1142,7 +1127,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                     >
                                         <span
                                             class="flex size-8 shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-ink"
-                                            hidden={row.kind === "files" || row.kind === "communities"}
+                                            hidden={row.kind === "files"}
                                         >
                                             {row.initials}
                                         </span>
@@ -1151,12 +1136,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                                             hidden={row.kind !== "files"}
                                         >
                                             <Icon name="file" class="size-5" />
-                                        </span>
-                                        <span
-                                            class="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand-ink"
-                                            hidden={row.kind !== "communities"}
-                                        >
-                                            <Icon name="communities" class="size-5" />
                                         </span>
                                         <span class="min-w-0 flex-1">
                                             <span
@@ -1210,9 +1189,9 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             </div>
                             <p
                                 class="mt-5 text-center text-xs text-subtle"
-                                hidden={searchTab !== "messages" && searchTab !== "communities"}
+                                hidden={searchTab !== "messages"}
                             >
-                                "Results include conversations and communities on the current page."
+                                "Results include conversations on the current page."
                             </p>
                             <p
                                 class="mt-5 text-center text-xs text-subtle"
@@ -1224,76 +1203,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     </div>
                 </section>
             </div>
-            <Dialog>
-                <DialogTrigger attrs=@{hidden()}>
-                    <span pp-ref={surveyOpener}></span>
-                </DialogTrigger>
-                <DialogContent class="sm:max-w-[600px]!" onclose={setSurveyActive(false)}>
-                    <DialogHeader>
-                        <DialogTitle class="text-center text-xl">
-                            <span hidden={survey !== 1}>"What is your primary use for Teams?"</span>
-                            <span hidden={survey !== 2}>"Choose a category"</span>
-                            <span hidden={survey !== 3}>"Thank you!"</span>
-                        </DialogTitle>
-                        <DialogDescription class="text-center" hidden={survey !== 3}>
-                            "Your responses were saved."
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div class="grid grid-cols-2 gap-4" hidden={survey !== 1}>
-                        <template pp-for="choice in PRIMARY_USES">
-                            <Button
-                                key={choice.label}
-                                variant="outline"
-                                class="h-[94px]! flex-col whitespace-normal text-center text-[13px] font-semibold hover:border-brand"
-                                value={choice.label}
-                                onclick={pickUse(event.currentTarget.value)}
-                            >
-                                <span class="text-2xl leading-none" hidden={!choice.emoji}>
-                                    {choice.emoji}
-                                </span>
-                                {choice.label}
-                            </Button>
-                        </template>
-                    </div>
-                    <div class="flex flex-col gap-3" hidden={survey !== 2}>
-                        <template pp-for="label in CATEGORIES">
-                            <Button
-                                key={label}
-                                variant="outline"
-                                size="lg"
-                                class="w-full text-[13px] font-semibold hover:border-brand"
-                                disabled={saving}
-                                value={label}
-                                onclick={pickCategory(event.currentTarget.value)}
-                            >
-                                {label}
-                            </Button>
-                        </template>
-                        <p class="text-center text-xs text-busy" hidden={!saveError}>{saveError}</p>
-                    </div>
-                    <div class="text-center" hidden={survey !== 3}>
-                        <p class="text-5xl leading-none">"🎉"</p>
-                        <p class="mt-3 text-xs text-subtle">{summary}</p>
-                    </div>
-                    <DialogFooter class="items-center sm:justify-between!">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            class="w-24"
-                            hidden={survey === 1}
-                            onclick={setSurvey(survey - 1)}
-                        >
-                            "Back"
-                        </Button>
-                        <span class="w-24" hidden={survey !== 1}></span>
-                        <Button variant="link" size="sm">"Learn more"</Button>
-                        <DialogClose class=@{close_survey.as_str()} hidden={survey !== 3}>
-                            "Close"
-                        </DialogClose>
-                        <span class="w-24" hidden={survey === 3}></span>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
             <Dialog>
                 <DialogTrigger attrs=@{hidden()}>
                     <span pp-ref={shortcutsOpener}></span>
@@ -1319,9 +1228,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const moreBadge = pp.ref(null);
                 const shortcutsOpener = pp.ref(null);
                 const shortcutsCloser = pp.ref(null);
-                const surveyOpener = pp.ref(null);
                 const [shortcutsActive, setShortcutsActive] = pp.state(false);
-                const [surveyActive, setSurveyActive] = pp.state(false);
                 const [appBarOpen, setAppBarOpen] = pp.state(true);
                 const [signoutError, setSignoutError] = pp.state('');
                 async function signOut() {
@@ -1360,7 +1267,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         else openShortcuts();
                         return;
                     }
-                    if (shortcutsActive || surveyActive) return;
+                    if (shortcutsActive) return;
                     if (control && !event.shiftKey && key === ",") {
                         event.preventDefault();
                         pp.redirect("/settings");
@@ -1378,9 +1285,9 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                         requestAnimationFrame(() => appRail.current?.focus());
                     } else if (control && !event.shiftKey && (key === "\\" || event.code === "Backslash")) {
                         event.preventDefault(); setAppBarOpen(open => !open);
-                    } else if (control && !event.shiftKey && /^[1-7]$/.test(key)) {
+                    } else if (control && !event.shiftKey && /^[1-5]$/.test(key)) {
                         event.preventDefault();
-                        pp.redirect(["/chat", "/meet", "/people", "/communities", "/calendar", "/activity", "/apps"][Number(key) - 1]);
+                        pp.redirect(["/chat", "/meet", "/calendar", "/activity", "/files"][Number(key) - 1]);
                     } else if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && ["ArrowLeft", "ArrowRight"].includes(event.key)) {
                         event.preventDefault();
                         if (event.key === "ArrowLeft") goBack(); else goForward();
@@ -1436,7 +1343,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const [localSearchItems, setLocalSearchItems] = pp.state({});
                 const searchHandlers = pp.ref({});
                 const searchTabRefs = pp.ref({});
-                const searchTabs = [{id:'people',label:'People'},{id:'messages',label:'Messages'},{id:'files',label:'Files'},{id:'communities',label:'Communities'}];
+                const searchTabs = [{id:'people',label:'People'},{id:'messages',label:'Messages'},{id:'files',label:'Files'}];
                 const publishSearch = pp.event((source,rows,open) => {
                     searchHandlers.current[source] = open;
                     setLocalSearchItems(previous => ({...previous,[source]:rows.map(row => ({...row,source}))}));
@@ -1578,9 +1485,8 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 });
                 const searchResults = [
                     {label: @{user.name.as_str()} + " (You)", href:"/chat"},
-                    {label:"Meet", href:"/meet"}, {label:"People", href:"/people"},
-                    {label:"Communities", href:"/communities"}, {label:"Calendar", href:"/calendar"},
-                    {label:"Activity", href:"/activity"}, {label:"Files", href:"/files"}, {label:"Apps", href:"/apps"},
+                    {label:"Meet", href:"/meet"}, {label:"Calendar", href:"/calendar"},
+                    {label:"Activity", href:"/activity"}, {label:"Files", href:"/files"},
                     {label:"Settings", href:"/settings"}
                 ].filter(result => result.label.toLocaleLowerCase().includes(searchTerm) || result.href.slice(1).includes(searchTerm));
                 const visitSearchResult = pp.event(function visitSearchResult(href) {setQuery(""); setSuggestionsOpen(false); pp.redirect(href);});
@@ -1594,11 +1500,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 }
                 const [paneOpen, setPaneOpen] = pp.state(true);
                 const [presence, setPresence] = pp.state("online");
-                const [survey, setSurvey] = pp.state(1);
-                const [primaryUse, setPrimaryUse] = pp.state("");
-                const [category, setCategory] = pp.state("");
-                const [saving, setSaving] = pp.state(false);
-                const [saveError, setSaveError] = pp.state("");
 
                 const PRESENCE = [
                     {key: "online", label: "Available", dot: "bg-online"},
@@ -1612,19 +1513,6 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     away: "bg-away",
                     offline: "bg-offline",
                 };
-                const PRIMARY_USES = [
-                    {emoji: "📝", label: "Freelancing or consulting"},
-                    {emoji: "📚", label: "Learning or teaching"},
-                    {emoji: "💼", label: "Work or career"},
-                    {emoji: "🫂", label: "Organized groups"},
-                    {emoji: "💜", label: "Personal use"},
-                    {emoji: "", label: "None of these"},
-                ];
-                const CATEGORIES = [
-                    "Family and friends", "Group projects", "Individual projects",
-                    "Hobbies", "Events", "Gaming or recreation",
-                ];
-                const summary = primaryUse && category ? primaryUse + " · " + category : "";
 
                 function togglePane() {
                     setPaneOpen((open) => !open);
@@ -1643,62 +1531,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                     setPresence(value);
                 });
 
-                function openSurvey() {
-                    setSaveError("");
-                    setSurvey(1);
-                    setSurveyActive(true);
-                    surveyOpener.current?.click();
-                }
-
-                const pickUse = pp.event(function pickUse(value) {
-                    setPrimaryUse(value);
-                    setSaveError("");
-                    setSurvey(2);
-                });
-
-                const pickCategory = pp.event(async function pickCategory(value) {
-                    if (saving) return;
-                    setCategory(value);
-                    setSaving(true);
-                    setSaveError("");
-                    try {
-                        await pp.rpc("save_usage_survey", { primary_use: primaryUse, category: value });
-                        setSurvey(3);
-                    } catch (failure) {
-                        setSaveError(failure.message || "Your responses could not be saved.");
-                    } finally {
-                        setSaving(false);
-                    }
-                });
             "##</script>
         </div>
     }
-}
-
-// What the browser gets back once a survey answer is accepted.
-#[derive(Serialize)]
-pub struct SurveyReceipt {
-    pub primary_use: String,
-    pub category: String,
-}
-
-/// Record the two answers the usage survey collects.
-///
-/// Nothing is stored yet — the point of the round trip is that the answers are
-/// checked in Rust, so an empty or over-long value is a 422 with the offending
-/// field named rather than something the browser decides for itself.
-#[rpc(auth)]
-pub async fn save_usage_survey(primary_use: String, category: String) -> Result<SurveyReceipt> {
-    let mut validator = Validator::new();
-    validator
-        .required("primary_use", &primary_use)
-        .required("category", &category)
-        .max_chars("primary_use", &primary_use, 60)
-        .max_chars("category", &category, 60);
-    validator.finish()?;
-
-    Ok(SurveyReceipt {
-        primary_use,
-        category,
-    })
 }

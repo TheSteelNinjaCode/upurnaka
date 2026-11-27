@@ -590,11 +590,8 @@ async fn every_rail_destination_answers() {
     let sections = [
         ("/chat", "Chat"),
         ("/meet", "Meet"),
-        ("/people", "People"),
-        ("/communities", "Communities"),
         ("/calendar", "Calendar"),
         ("/activity", "Activity"),
-        ("/apps", "Apps"),
     ];
 
     for (url, title) in sections {
@@ -605,6 +602,24 @@ async fn every_rail_destination_answers() {
             body.contains(&format!(">{title} | upurnaka</title>")),
             "{url} did not title itself {title}"
         );
+    }
+}
+
+/// People, Communities and Apps were removed to keep the product on meetings:
+/// their URLs are gone, and the rail no longer links to them.
+#[tokio::test]
+async fn removed_sections_are_gone() {
+    for url in ["/people", "/communities", "/apps"] {
+        let (status, _) = get(url).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{url}");
+    }
+    let (_, body) = get("/chat").await;
+    for href in [
+        "href=\"/people\"",
+        "href=\"/communities\"",
+        "href=\"/apps\"",
+    ] {
+        assert!(!body.contains(href), "the rail still links {href}");
     }
 }
 
@@ -620,19 +635,6 @@ async fn the_rail_marks_the_section_being_shown() {
         body.contains("href=\"/calendar\" class=\"group relative flex h-11 w-11 items-center justify-center rounded-md bg-raised text-brand-ink\""),
         "the calendar rail item is not the selected one"
     );
-}
-
-/// The usage survey from the title bar menu ships with the shell, so it is on
-/// every page rather than only the one it was written beside.
-#[tokio::test]
-async fn the_usage_survey_ships_with_the_shell() {
-    let (_, body) = get("/meet").await;
-
-    assert!(
-        body.contains("What is your primary use for Teams?"),
-        "{body}"
-    );
-    assert!(body.contains("Choose a category"), "{body}");
 }
 
 /// A URL no `page.rs` claims: the 404 page, not a panic.

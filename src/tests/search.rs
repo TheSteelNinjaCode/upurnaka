@@ -401,50 +401,8 @@ async fn workspace_search_tabs_show_matching_filters_and_keep_the_active_tab() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('#global-search-panel').getAttribute('aria-busy') === 'false' && document.querySelector('button[aria-label=\"Filter files by type\"]').textContent.includes('PDF')").await.unwrap();
-    browser
-        .click("#global-search-tab-communities")
-        .await
-        .unwrap();
-    browser
-        .wait_for("document.querySelector('.global-search-filters').hidden")
-        .await
-        .unwrap();
     browser.click("#global-search-tab-messages").await.unwrap();
     browser.wait_for("!document.querySelector('.global-search-filters').hidden && document.querySelectorAll('.global-search-card').length === 1").await.unwrap();
-    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
-}
-
-#[tokio::test]
-async fn workspace_search_finds_current_communities_and_focuses_the_result() {
-    setup().await;
-    let address = rahti::browser::serve(crate::routes::router()).await;
-    let Some(mut browser) = launch_browser().await else {
-        return;
-    };
-    authenticate_browser(&mut browser, address).await;
-    browser
-        .goto(&format!("http://{address}/communities"))
-        .await
-        .unwrap();
-    let _: bool = browser.eval("(Array.from(document.querySelectorAll('main button')).find(button => button.getAttribute('aria-label') === 'Create community') || Array.from(document.querySelectorAll('main button')).find(button => button.textContent.trim() === 'Create your own')).click(); true").await.unwrap();
-    browser.click("#community-name").await.unwrap();
-    browser
-        .type_text("Searchable weekend community")
-        .await
-        .unwrap();
-    browser.press("Enter").await.unwrap();
-    let _: bool = browser.eval("Array.from(document.querySelectorAll('dialog button')).find(button=>button.textContent.trim()==='Hobbies').click(); true").await.unwrap();
-    browser.wait_for("!document.querySelector('dialog[open]') && document.querySelector('main').textContent.includes('Searchable weekend community')").await.unwrap();
-    browser.click("input[aria-label=Search]").await.unwrap();
-    browser.type_text("weekend").await.unwrap();
-    browser.press("Enter").await.unwrap();
-    browser
-        .click("#global-search-tab-communities")
-        .await
-        .unwrap();
-    browser.wait_for("document.querySelector('.global-search-card')?.textContent.includes('Searchable weekend community')").await.unwrap();
-    browser.click(".global-search-card").await.unwrap();
-    browser.wait_for("document.querySelector('.global-search-view').hidden && document.activeElement.textContent.includes('Searchable weekend community') && document.activeElement.getAttribute('aria-current') === 'page' && document.querySelector('.community-identity-title h2').textContent === 'Searchable weekend community'").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
 
@@ -669,7 +627,7 @@ async fn workspace_search_switches_tabs_and_returns_to_preserved_chat() {
     browser.type_text("Jefferson").await.unwrap();
     browser.press("Enter").await.unwrap();
     browser.wait_for("!document.querySelector('.global-search-view').hidden && document.querySelector('.shell-page').hidden && document.querySelector('.global-search-card')?.textContent.includes('Jefferson Abraham')").await.unwrap();
-    let layout: bool = browser.eval("(() => {const card=document.querySelector('.global-search-card').getBoundingClientRect();return card.width <= 760 && card.height >= 72 && document.querySelectorAll('.global-search-tab').length === 4 && document.querySelector('[role=tab][aria-selected=true]').textContent === 'People';})()").await.unwrap();
+    let layout: bool = browser.eval("(() => {const card=document.querySelector('.global-search-card').getBoundingClientRect();return card.width <= 760 && card.height >= 72 && document.querySelectorAll('.global-search-tab').length === 3 && document.querySelector('[role=tab][aria-selected=true]').textContent === 'People';})()").await.unwrap();
     assert!(layout);
     browser.click(".global-search-card").await.unwrap();
     browser.wait_for("document.querySelector('.global-search-view').hidden && document.querySelector('textarea').value === 'Unsent search draft'").await.unwrap();

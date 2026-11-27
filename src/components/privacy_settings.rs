@@ -49,7 +49,7 @@ pub fn PrivacySettings() -> Html {
                             "Public email and phone-number lookup is not available. Workspace administrators can still manage your account. This panel does not change your sign-in email."
                         </p>
                         <DialogFooter>
-                            <a class="settings-secondary" href="/people?edit=profile">
+                            <a class="settings-secondary" href="/account?edit=profile">
                                 "Edit profile"
                             </a>
                             <DialogClose class="settings-secondary">"Close"</DialogClose>
@@ -138,7 +138,7 @@ pub fn PrivacySettings() -> Html {
                     <h3>"Your profile"</h3>
                     <p>"Manage the name and picture on your Upurnaka profile."</p>
                 </div>
-                <a href="/people?edit=profile" class="settings-secondary whitespace-nowrap">
+                <a href="/account?edit=profile" class="settings-secondary whitespace-nowrap">
                     "Manage profile"
                 </a>
             </section>

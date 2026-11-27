@@ -537,27 +537,10 @@ pub async fn move_files(ids: Vec<String>, folder: Option<String>) -> Result<bool
     Ok(true)
 }
 
-/// Remove the stored objects of deleted files, keeping any a community post
-/// or a meeting chat still shows: sharing a file reuses its object.
+/// Remove the stored objects of deleted files, keeping any a meeting chat
+/// still shows: sharing a file reuses its object.
 async fn release(rows: &[chat_file::Model]) {
-    use crate::models::community_file;
-    let objects: Vec<String> = rows.iter().map(|row| row.file_id.clone()).collect();
-    let shared: Vec<String> = match community_file::Entity::find()
-        .filter(community_file::Column::FileId.is_in(objects.clone()))
-        .all(db::db())
-        .await
-    {
-        Ok(found) => found.into_iter().map(|row| row.file_id).collect(),
-        Err(error) => {
-            // Unsure what is shared, so keep every object rather than break a post.
-            eprintln!("chat files: shared objects unknown, none removed: {error}");
-            return;
-        }
-    };
-    for file_id in objects {
-        if shared.contains(&file_id) {
-            continue;
-        }
+    for file_id in rows.iter().map(|row| row.file_id.clone()) {
         // A meeting chat that shared this file keeps showing it.
         match crate::meetings::chat::shares_object(&file_id).await {
             Ok(false) => {}

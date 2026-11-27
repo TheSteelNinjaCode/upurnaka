@@ -581,7 +581,7 @@ async fn privacy_controls_save_handle_permissions_and_open_profile() {
         .click(".privacy-setting:nth-of-type(6) > a")
         .await
         .unwrap();
-    browser.wait_for("location.pathname === '/people' && document.querySelector('.people-profile-dialog').open && document.querySelector('input[name=name]').value === 'Jefferson Abraham'").await.unwrap();
+    browser.wait_for("location.pathname === '/account' && document.querySelector('.profile-dialog').open && document.querySelector('input[name=name]').value === 'Jefferson Abraham'").await.unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());
 }
 

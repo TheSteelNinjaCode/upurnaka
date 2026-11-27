@@ -1090,7 +1090,7 @@ pub async fn page() -> Result<Html> {
                         confirmAbout({
                             kind: 'files', ids,
                             title: one ? 'Delete file?' : 'Delete ' + ids.length + ' files?',
-                            detail: (one ? '"' + one.name + '"' : 'These files') + ' will be removed from your files and storage. Copies already shared to a community stay in that community. This cannot be undone.',
+                            detail: (one ? '"' + one.name + '"' : 'These files') + ' will be removed from your files and storage. This cannot be undone.',
                         });
                     });
                     const askDeleteSelected = pp.event(function askDeleteSelected() { askDeleteFiles(selected); });

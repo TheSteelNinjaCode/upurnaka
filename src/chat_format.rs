@@ -28,8 +28,8 @@ pub fn validate(lines: &[Line], text: &str) -> Result<()> {
     validate_within(lines, text, 2000)
 }
 
-/// [`validate`] with a caller's character limit, for longer community posts.
-pub fn validate_within(lines: &[Line], text: &str, limit: usize) -> Result<()> {
+/// [`validate`] with an explicit character limit.
+fn validate_within(lines: &[Line], text: &str, limit: usize) -> Result<()> {
     let mut validator = Validator::new();
     let count: usize = lines.iter().map(|line| line.runs.len()).sum();
     let plain = lines

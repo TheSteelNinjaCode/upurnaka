@@ -18,24 +18,16 @@ mod l_root;
 mod p_account;
 #[path = "app/activity/page.rs"]
 mod p_activity;
-#[path = "app/apps/page.rs"]
-mod p_apps;
 #[path = "app/calendar/page.rs"]
 mod p_calendar;
 #[path = "app/chat/page.rs"]
 mod p_chat;
-#[path = "app/communities/page.rs"]
-mod p_communities;
-#[path = "app/communities/reports/page.rs"]
-mod p_communities_reports;
 #[path = "app/files/page.rs"]
 mod p_files;
 #[path = "app/meet/page.rs"]
 mod p_meet;
 #[path = "app/meet/j/[id]/page.rs"]
 mod p_meet_j_id;
-#[path = "app/people/page.rs"]
-mod p_people;
 #[path = "app/register/page.rs"]
 mod p_register;
 #[path = "app/page.rs"]
@@ -50,8 +42,6 @@ mod p_signin;
 mod p_users;
 #[path = "app/chat/files/[id]/route.rs"]
 mod r_chat_files_id;
-#[path = "app/communities/files/[id]/route.rs"]
-mod r_communities_files_id;
 #[path = "app/files/recordings/[id]/route.rs"]
 mod r_files_recordings_id;
 #[path = "app/profile-picture/route.rs"]
@@ -61,31 +51,16 @@ mod r_profilepicture;
 /// a page's rpc belongs to that page's URL.
 const PAGE_RPCS: &[&str] = &[
     "append_meeting_recording",
-    "approve_community_member",
-    "block_community_member",
-    "change_community_cover",
     "chat_cloud_files",
     "check_meeting_passcode",
-    "community_cloud_files",
-    "community_events",
-    "community_join_link",
-    "community_members",
     "create_chat_folder",
     "create_chat_meeting",
-    "create_community",
-    "create_community_channel",
-    "create_community_event",
     "create_meeting",
     "create_meeting_link",
     "create_user",
     "decide_meeting_entry",
-    "decline_community_member",
-    "delete_community",
-    "delete_community_post",
     "delete_meeting_link",
     "delete_user",
-    "edit_community",
-    "edit_community_post",
     "files_delete",
     "files_delete_folder",
     "files_delete_recording",
@@ -99,11 +74,7 @@ const PAGE_RPCS: &[&str] = &[
     "files_rename_folder",
     "files_upload",
     "finish_meeting_recording",
-    "invite_community_member",
-    "invite_to_teams",
-    "join_community",
     "join_meeting",
-    "leave_community",
     "leave_meeting_entry",
     "list_users",
     "meeting_access",
@@ -115,36 +86,23 @@ const PAGE_RPCS: &[&str] = &[
     "meeting_room_state",
     "mute_all_participants",
     "mute_participant",
-    "pin_community_post",
-    "publish_community_post",
-    "react_to_community_post",
-    "remove_community_member",
     "remove_profile_picture",
     "rename_meeting_link",
-    "reply_to_community_post",
-    "report_community",
     "request_meeting_entry",
     "resume_meeting_audio",
     "retry_meeting_recording",
-    "save_community_settings",
     "save_meeting_access",
     "schedule_meeting",
     "search_meeting_invitees",
     "send_meeting_chat",
     "send_message",
-    "set_community_nickname",
-    "set_community_notifications",
     "set_user_active",
-    "share_community_cloud_files",
     "spotlight_participant",
     "start_meeting_recording",
-    "transfer_community_ownership",
-    "unblock_community_member",
     "update_profile_name",
     "update_profile_picture",
     "update_user",
     "upload_chat_file",
-    "upload_community_file",
     "upload_meeting_chat_file",
 ];
 
@@ -154,7 +112,6 @@ const PAGE_RPCS: &[&str] = &[
 /// - `sign_out_account` — src/components/app_shell.rs
 /// - `message_search_dates` — src/components/app_shell.rs
 /// - `search_workspace` — src/components/app_shell.rs
-/// - `save_usage_survey` — src/components/app_shell.rs
 /// - `register_account` — src/components/auth_form.rs
 /// - `create_administrator` — src/components/auth_form.rs
 /// - `start_signin` — src/components/auth_form.rs
@@ -172,6 +129,20 @@ async fn rpc_components(req: axum::extract::Request) -> axum::response::Response
         Err(res) => return res,
     };
     component_rpc(&name, req).await
+}
+
+/// The rpcs of src/app/account/page.rs, reached by POST on its own URL.
+async fn rpc_p_account(req: axum::extract::Request) -> axum::response::Response {
+    let name = match ::rahti::rpc_name(req.headers()) {
+        Ok(name) => name,
+        Err(res) => return res,
+    };
+    match name.as_str() {
+        "update_profile_name" => p_account::__rahti_rpc_update_profile_name(req).await,
+        "remove_profile_picture" => p_account::__rahti_rpc_remove_profile_picture(req).await,
+        "update_profile_picture" => p_account::__rahti_rpc_update_profile_picture(req).await,
+        _ => component_rpc(&name, req).await,
+    }
 }
 
 /// The rpcs of src/app/calendar/page.rs, reached by POST on its own URL.
@@ -199,62 +170,6 @@ async fn rpc_p_chat(req: axum::extract::Request) -> axum::response::Response {
         "chat_cloud_files" => p_chat::__rahti_rpc_chat_cloud_files(req).await,
         "create_chat_folder" => p_chat::__rahti_rpc_create_chat_folder(req).await,
         "create_chat_meeting" => p_chat::__rahti_rpc_create_chat_meeting(req).await,
-        _ => component_rpc(&name, req).await,
-    }
-}
-
-/// The rpcs of src/app/communities/page.rs, reached by POST on its own URL.
-async fn rpc_p_communities(req: axum::extract::Request) -> axum::response::Response {
-    let name = match ::rahti::rpc_name(req.headers()) {
-        Ok(name) => name,
-        Err(res) => return res,
-    };
-    match name.as_str() {
-        "create_community" => p_communities::__rahti_rpc_create_community(req).await,
-        "create_community_channel" => {
-            p_communities::__rahti_rpc_create_community_channel(req).await
-        }
-        "publish_community_post" => p_communities::__rahti_rpc_publish_community_post(req).await,
-        "react_to_community_post" => p_communities::__rahti_rpc_react_to_community_post(req).await,
-        "edit_community_post" => p_communities::__rahti_rpc_edit_community_post(req).await,
-        "delete_community_post" => p_communities::__rahti_rpc_delete_community_post(req).await,
-        "pin_community_post" => p_communities::__rahti_rpc_pin_community_post(req).await,
-        "upload_community_file" => p_communities::__rahti_rpc_upload_community_file(req).await,
-        "community_events" => p_communities::__rahti_rpc_community_events(req).await,
-        "create_community_event" => p_communities::__rahti_rpc_create_community_event(req).await,
-        "share_community_cloud_files" => {
-            p_communities::__rahti_rpc_share_community_cloud_files(req).await
-        }
-        "community_cloud_files" => p_communities::__rahti_rpc_community_cloud_files(req).await,
-        "reply_to_community_post" => p_communities::__rahti_rpc_reply_to_community_post(req).await,
-        "change_community_cover" => p_communities::__rahti_rpc_change_community_cover(req).await,
-        "edit_community" => p_communities::__rahti_rpc_edit_community(req).await,
-        "community_members" => p_communities::__rahti_rpc_community_members(req).await,
-        "community_join_link" => p_communities::__rahti_rpc_community_join_link(req).await,
-        "invite_community_member" => p_communities::__rahti_rpc_invite_community_member(req).await,
-        "join_community" => p_communities::__rahti_rpc_join_community(req).await,
-        "set_community_notifications" => {
-            p_communities::__rahti_rpc_set_community_notifications(req).await
-        }
-        "transfer_community_ownership" => {
-            p_communities::__rahti_rpc_transfer_community_ownership(req).await
-        }
-        "remove_community_member" => p_communities::__rahti_rpc_remove_community_member(req).await,
-        "set_community_nickname" => p_communities::__rahti_rpc_set_community_nickname(req).await,
-        "save_community_settings" => p_communities::__rahti_rpc_save_community_settings(req).await,
-        "approve_community_member" => {
-            p_communities::__rahti_rpc_approve_community_member(req).await
-        }
-        "decline_community_member" => {
-            p_communities::__rahti_rpc_decline_community_member(req).await
-        }
-        "block_community_member" => p_communities::__rahti_rpc_block_community_member(req).await,
-        "unblock_community_member" => {
-            p_communities::__rahti_rpc_unblock_community_member(req).await
-        }
-        "leave_community" => p_communities::__rahti_rpc_leave_community(req).await,
-        "delete_community" => p_communities::__rahti_rpc_delete_community(req).await,
-        "report_community" => p_communities::__rahti_rpc_report_community(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -331,21 +246,6 @@ async fn rpc_p_meet(req: axum::extract::Request) -> axum::response::Response {
     }
 }
 
-/// The rpcs of src/app/people/page.rs, reached by POST on its own URL.
-async fn rpc_p_people(req: axum::extract::Request) -> axum::response::Response {
-    let name = match ::rahti::rpc_name(req.headers()) {
-        Ok(name) => name,
-        Err(res) => return res,
-    };
-    match name.as_str() {
-        "update_profile_name" => p_people::__rahti_rpc_update_profile_name(req).await,
-        "remove_profile_picture" => p_people::__rahti_rpc_remove_profile_picture(req).await,
-        "update_profile_picture" => p_people::__rahti_rpc_update_profile_picture(req).await,
-        "invite_to_teams" => p_people::__rahti_rpc_invite_to_teams(req).await,
-        _ => component_rpc(&name, req).await,
-    }
-}
-
 /// The rpcs of src/app/users/page.rs, reached by POST on its own URL.
 async fn rpc_p_users(req: axum::extract::Request) -> axum::response::Response {
     let name = match ::rahti::rpc_name(req.headers()) {
@@ -367,16 +267,12 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
     vec![
         ::rahti::StaticRoute::fixed("/account"),
         ::rahti::StaticRoute::fixed("/activity"),
-        ::rahti::StaticRoute::fixed("/apps"),
         ::rahti::StaticRoute::fixed("/calendar"),
         ::rahti::StaticRoute::fixed("/chat"),
-        ::rahti::StaticRoute::fixed("/communities"),
-        ::rahti::StaticRoute::fixed("/communities/reports"),
         ::rahti::StaticRoute::fixed("/files"),
         ::rahti::StaticRoute::undeclared(&["/meet/j/{id}"]),
         ::rahti::StaticRoute::fixed("/meet"),
         ::rahti::StaticRoute::fixed("/"),
-        ::rahti::StaticRoute::fixed("/people"),
         ::rahti::StaticRoute::fixed("/register"),
         ::rahti::StaticRoute::fixed("/settings"),
         ::rahti::StaticRoute::fixed("/setup"),
@@ -388,29 +284,24 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// The application router, built from the file tree.
 ///
 /// - `/` [GET, POST] — src/app/page.rs (layouts: src/app/layout.rs)
-/// - `/apps` [GET, POST] — src/app/apps/page.rs (layouts: src/app/layout.rs)
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, upload_chat_file, chat_cloud_files, create_chat_folder, create_chat_meeting)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link, meeting_access, save_meeting_access, search_meeting_invitees)
 /// - `/files` [GET, POST] — src/app/files/page.rs (layouts: src/app/layout.rs; rpc: files_list, files_upload, files_new_folder, files_rename, files_rename_folder, files_places, files_move, files_delete, files_delete_folder, files_recordings, files_delete_recording, files_delete_recordings)
 /// - `/setup` [GET, POST] — src/app/setup/page.rs (layouts: src/app/layout.rs)
 /// - `/users` [GET, POST] — src/app/users/page.rs (layouts: src/app/layout.rs; rpc: list_users, create_user, update_user, set_user_active, delete_user)
-/// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: update_profile_name, remove_profile_picture, update_profile_picture, invite_to_teams)
 /// - `/signin` [GET, POST] — src/app/signin/page.rs (layouts: src/app/layout.rs)
-/// - `/account` [GET, POST] — src/app/account/page.rs (layouts: src/app/layout.rs)
+/// - `/account` [GET, POST] — src/app/account/page.rs (layouts: src/app/layout.rs; rpc: update_profile_name, remove_profile_picture, update_profile_picture)
 /// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: schedule_meeting, create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/settings` [GET, POST] — src/app/settings/page.rs (layouts: src/app/layout.rs)
-/// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community, create_community_channel, publish_community_post, react_to_community_post, edit_community_post, delete_community_post, pin_community_post, upload_community_file, community_events, create_community_event, share_community_cloud_files, community_cloud_files, reply_to_community_post, change_community_cover, edit_community, community_members, community_join_link, invite_community_member, join_community, set_community_notifications, transfer_community_ownership, remove_community_member, set_community_nickname, save_community_settings, approve_community_member, decline_community_member, block_community_member, unblock_community_member, leave_community, delete_community, report_community)
 /// - `/profile-picture` [GET] — src/app/profile-picture/route.rs
-/// - `/communities/reports` [GET, POST] — src/app/communities/reports/page.rs (layouts: src/app/layout.rs)
 /// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, check_meeting_passcode, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, mute_all_participants, meeting_chat_history, send_meeting_chat, upload_meeting_chat_file, meeting_chat_my_files, meeting_chat_file_url, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
 /// - `/chat/files/{id}` [GET] — src/app/chat/files/[id]/route.rs
 /// - `/files/recordings/{id}` [GET] — src/app/files/recordings/[id]/route.rs
-/// - `/communities/files/{id}` [GET] — src/app/communities/files/[id]/route.rs
 ///
 /// Every page above also answers the component rpcs, because a
-/// component posts to the page it was rendered on: sign_out_account, message_search_dates, search_workspace, save_usage_survey, register_account, create_administrator, start_signin, verify_signin, create_calendar_meeting_link.
+/// component posts to the page it was rendered on: sign_out_account, message_search_dates, search_workspace, register_account, create_administrator, start_signin, verify_signin, create_calendar_meeting_link.
 ///
 /// Anything the routes above do not claim falls through to `public/`.
 pub fn router() -> Router {
@@ -422,12 +313,6 @@ pub fn router() -> Router {
     // src/app/layout.rs
     let group_0 = Router::new()
         .route("/", axum::routing::get(p_root::page))
-        .route(
-            "/apps",
-            axum::routing::get(p_apps::page).layer(axum::middleware::map_response(|res| {
-                ::rahti::apply_metadata(p_apps::metadata(), res)
-            })),
-        )
         .route(
             "/chat",
             axum::routing::get(p_chat::page).layer(axum::middleware::map_response(|res| {
@@ -450,12 +335,6 @@ pub fn router() -> Router {
             "/users",
             axum::routing::get(p_users::page).layer(axum::middleware::map_response(|res| {
                 ::rahti::apply_metadata(p_users::metadata(), res)
-            })),
-        )
-        .route(
-            "/people",
-            axum::routing::get(p_people::page).layer(axum::middleware::map_response(|res| {
-                ::rahti::apply_metadata(p_people::metadata(), res)
             })),
         )
         .route(
@@ -493,18 +372,6 @@ pub fn router() -> Router {
             axum::routing::get(p_settings::page).layer(axum::middleware::map_response(|res| {
                 ::rahti::apply_metadata(p_settings::metadata(), res)
             })),
-        )
-        .route(
-            "/communities",
-            axum::routing::get(p_communities::page).layer(axum::middleware::map_response(|res| {
-                ::rahti::apply_metadata(p_communities::metadata(), res)
-            })),
-        )
-        .route(
-            "/communities/reports",
-            axum::routing::get(p_communities_reports::page).layer(axum::middleware::map_response(
-                |res| ::rahti::apply_metadata(p_communities_reports::metadata(), res),
-            )),
         )
         .layer(axum::middleware::map_response(|res| {
             ::rahti::apply_root_layout_metadata(
@@ -560,10 +427,6 @@ pub fn router() -> Router {
             "/files/recordings/{id}",
             axum::routing::get(r_files_recordings_id::get),
         )
-        .route(
-            "/communities/files/{id}",
-            axum::routing::get(r_communities_files_id::get),
-        )
         .layer(axum::middleware::from_fn_with_state(
             ::rahti::request_pipeline::state(),
             ::rahti::request_pipeline::middleware,
@@ -571,18 +434,14 @@ pub fn router() -> Router {
         .layer(axum::middleware::from_fn(::rahti::auth_guard));
 
     let rpc = Router::new()
-        .route("/account", axum::routing::post(rpc_components))
+        .route("/account", axum::routing::post(rpc_p_account))
         .route("/activity", axum::routing::post(rpc_components))
-        .route("/apps", axum::routing::post(rpc_components))
         .route("/calendar", axum::routing::post(rpc_p_calendar))
         .route("/chat", axum::routing::post(rpc_p_chat))
-        .route("/communities", axum::routing::post(rpc_p_communities))
-        .route("/communities/reports", axum::routing::post(rpc_components))
         .route("/files", axum::routing::post(rpc_p_files))
         .route("/meet/j/{id}", axum::routing::post(rpc_p_meet_j_id))
         .route("/meet", axum::routing::post(rpc_p_meet))
         .route("/", axum::routing::post(rpc_components))
-        .route("/people", axum::routing::post(rpc_p_people))
         .route("/register", axum::routing::post(rpc_components))
         .route("/settings", axum::routing::post(rpc_components))
         .route("/setup", axum::routing::post(rpc_components))

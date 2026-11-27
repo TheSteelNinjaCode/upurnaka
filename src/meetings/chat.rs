@@ -9,7 +9,7 @@ use super::{lobby, mint_id, recording};
 use crate::{
     chat_files::{self, Attachment, Listing},
     db,
-    models::{chat_file, community_file, meeting_message as message, meeting_visit as visit},
+    models::{chat_file, meeting_message as message, meeting_visit as visit},
     rahti::{Error, Result, RpcFile, Validator},
 };
 use axum::http::StatusCode;
@@ -205,17 +205,13 @@ pub(super) async fn clear(id: &str) -> Result<()> {
     Ok(())
 }
 
-/// Remove a storage object once no file, post or meeting message uses it.
+/// Remove a storage object once no file or meeting message uses it.
 async fn release_if_unused(object: &str) -> Result<()> {
     let in_files = chat_file::Entity::find()
         .filter(chat_file::Column::FileId.eq(object))
         .count(db::db())
         .await?;
-    let in_posts = community_file::Entity::find()
-        .filter(community_file::Column::FileId.eq(object))
-        .count(db::db())
-        .await?;
-    if in_files + in_posts == 0 && !shares_object(object).await? {
+    if in_files == 0 && !shares_object(object).await? {
         if let Err(reason) = recording::delete_object(object).await {
             eprintln!("meeting chat: stored object {object} was not removed: {reason}");
         }

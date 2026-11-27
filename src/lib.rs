@@ -19,8 +19,6 @@ pub mod calendar;
 /// Files attached from the chat composer, kept in Dilnaka Storage.
 pub mod chat_files;
 pub mod chat_format;
-pub mod communities;
-pub mod community_events;
 pub mod emoji;
 mod middleware;
 pub mod users;

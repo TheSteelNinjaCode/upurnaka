@@ -427,11 +427,8 @@ async fn auth_validates_input_and_all_private_endpoints_require_sessions() {
         "/",
         "/chat",
         "/meet",
-        "/people",
         "/calendar",
         "/activity",
-        "/communities",
-        "/apps",
         "/account",
         "/files",
     ] {
@@ -448,7 +445,6 @@ async fn auth_validates_input_and_all_private_endpoints_require_sessions() {
         ("/meet", "create_meeting_link"),
         ("/chat", "send_message"),
         ("/signin", "sign_out_account"),
-        ("/signin", "save_usage_survey"),
     ] {
         assert_eq!(
             c.request(path, Some((name, json!({})))).await.0,

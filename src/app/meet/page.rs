@@ -325,11 +325,6 @@ pub async fn page() -> Result {
                             <p class="mt-5 text-[15px] font-semibold text-ink">
                                 "Quickly create, save, and share links with anyone."
                             </p>
-                            <p class="mt-5">
-                                <a href="/apps" class="text-[13px] text-link hover:underline">
-                                    "Learn more about meeting links"
-                                </a>
-                            </p>
                         </div>
                     </div>
                     <p class="mt-3 text-xs text-busy" hidden={!listError}>{listError}</p>

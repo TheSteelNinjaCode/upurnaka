@@ -299,15 +299,6 @@ html[data-appearance="light"] {
     radial-gradient(680px 460px at 10% 98%, var(--glow-2), transparent 60%);
 }
 
-/* The community hero carries the same wash at full strength. */
-@utility ambient-strong {
-  background-color: var(--surface);
-  background-image:
-    radial-gradient(1100px 760px at 68% 38%, var(--glow-strong-1), transparent 66%),
-    radial-gradient(900px 640px at 8% 98%, var(--glow-strong-2), transparent 64%),
-    radial-gradient(700px 520px at 96% 96%, var(--glow-strong-3), transparent 62%);
-}
-
 @utility scroll-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar) transparent;
