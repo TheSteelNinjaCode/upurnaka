@@ -38,6 +38,9 @@ pub mod models;
 /// provider plugs into. Two pages need it, so it is not page-local.
 pub mod meetings;
 
+/// Activity: meeting events told to the people they concern.
+pub mod notifications;
+
 /// This application's tests, grouped by area under `src/tests/` and driven
 /// through the generated router. See docs/conventions/testing.md.
 #[cfg(test)]

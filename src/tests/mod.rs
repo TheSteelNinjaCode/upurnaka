@@ -16,6 +16,7 @@ pub(crate) mod giphy;
 mod meeting_access;
 mod meeting_controls;
 mod meetings;
+mod notifications;
 mod pages;
 mod profile;
 mod recordings;

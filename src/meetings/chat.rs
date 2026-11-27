@@ -137,7 +137,79 @@ pub async fn send(
     }
     .insert(db::db())
     .await?;
+    if row.body.contains('@') {
+        tell_mentioned(&row).await;
+    }
     Ok(row.into())
+}
+
+/// Tell the people a message names with `@Their Name`.
+///
+/// Only people connected to the meeting can be mentioned: its organizer,
+/// its invite list, and anyone signed in who has been in it. A name is
+/// matched whole and without regard to case, so `@ana` does not reach
+/// "Anabel".
+async fn tell_mentioned(message: &message::Model) {
+    use crate::models::{account, meeting_invite, meeting_link};
+    let found = async {
+        let link = meeting_link::Entity::find_by_id(&message.meeting_id)
+            .one(db::db())
+            .await?;
+        let mut people: Vec<String> = visit::Entity::find()
+            .filter(visit::Column::MeetingId.eq(&message.meeting_id))
+            .all(db::db())
+            .await?
+            .into_iter()
+            .map(|row| row.user_id)
+            .collect();
+        people.extend(
+            meeting_invite::Entity::find()
+                .filter(meeting_invite::Column::MeetingId.eq(&message.meeting_id))
+                .all(db::db())
+                .await?
+                .into_iter()
+                .map(|row| row.user_id),
+        );
+        people.extend(link.as_ref().and_then(|row| row.owner_id.clone()));
+        people.retain(|id| !id.starts_with("guest:") && *id != message.sender_id);
+        let accounts = account::Entity::find()
+            .filter(account::Column::Id.is_in(people))
+            .filter(account::Column::Active.eq(true))
+            .all(db::db())
+            .await?;
+        Ok::<_, sea_orm::DbErr>((link.map(|row| row.title).unwrap_or_default(), accounts))
+    }
+    .await;
+    let (title, accounts) = match found {
+        Ok(found) => found,
+        Err(error) => {
+            eprintln!("meeting chat: mentions were not told: {error}");
+            return;
+        }
+    };
+    let text = message.body.to_lowercase();
+    let mentioned = accounts.into_iter().filter(|row| {
+        let name = row.name.trim().to_lowercase();
+        !name.is_empty()
+            && text.match_indices(&format!("@{name}")).any(|(at, whole)| {
+                text[at + whole.len()..]
+                    .chars()
+                    .next()
+                    .is_none_or(|next| !next.is_alphanumeric())
+            })
+    });
+    crate::notifications::notify(
+        mentioned.map(|row| row.id),
+        crate::notifications::Event {
+            kind: crate::notifications::MENTION,
+            meeting_id: &message.meeting_id,
+            actor: &message.sender_name,
+            title: format!("{} mentioned you in {title}", message.sender_name),
+            body: message.body.clone(),
+            link: format!("/meet/j/{}", message.meeting_id),
+        },
+    )
+    .await;
 }
 
 /// Upload a file from this device into the sender's My files, ready to share.

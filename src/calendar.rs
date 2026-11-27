@@ -213,7 +213,80 @@ pub async fn schedule(input: ScheduleInput) -> Result<Vec<ScheduledMeeting>> {
         .await?;
     }
     transaction.commit().await?;
+    let when = if input.all_day {
+        start.format("%a, %b %-d (all day)").to_string()
+    } else {
+        start.format("%a, %b %-d at %H:%M").to_string()
+    };
+    let repeats = match input.recurrence.as_str() {
+        "none" => String::new(),
+        other => format!(" · repeats {other}, {count} times"),
+    };
+    tell_attendees(
+        &owner_id,
+        &attendees,
+        crate::notifications::Event {
+            kind: crate::notifications::SCHEDULED,
+            meeting_id: &rows[0].id,
+            actor: &auth::current().map(|user| user.name).unwrap_or_default(),
+            title: String::new(),
+            body: format!("{when} ({}){repeats}", input.timezone),
+            link: format!("/meet/j/{}", rows[0].id),
+        },
+        &title,
+    )
+    .await;
     project(rows)
+}
+
+/// Tell the attendees who have accounts here that they are on a new meeting.
+///
+/// An attendee is written as an email address or a name. An address matches
+/// the account with that address; a name matches only when exactly one
+/// account has it, so a common name never tells the wrong person.
+async fn tell_attendees(
+    owner_id: &str,
+    attendees: &[String],
+    mut event: crate::notifications::Event<'_>,
+    title: &str,
+) {
+    use crate::models::account;
+    if attendees.is_empty() {
+        return;
+    }
+    let accounts = match account::Entity::find()
+        .filter(account::Column::Active.eq(true))
+        .filter(account::Column::Verified.eq(true))
+        .all(db::db())
+        .await
+    {
+        Ok(rows) => rows,
+        Err(error) => {
+            eprintln!("calendar: attendees were not told: {error}");
+            return;
+        }
+    };
+    let mut users = Vec::new();
+    for attendee in attendees {
+        let wanted = attendee.to_lowercase();
+        let matches: Vec<&account::Model> = accounts
+            .iter()
+            .filter(|row| {
+                if wanted.contains('@') {
+                    row.email.to_lowercase() == wanted
+                } else {
+                    row.name.trim().to_lowercase() == wanted
+                }
+            })
+            .collect();
+        if let [only] = matches.as_slice() {
+            if only.id != owner_id {
+                users.push(only.id.clone());
+            }
+        }
+    }
+    event.title = format!("{} invited you to {title}", event.actor);
+    crate::notifications::notify(users, event).await;
 }
 
 pub async fn list() -> Result<Vec<ScheduledMeeting>> {

@@ -19,3 +19,4 @@ pub mod meeting_link;
 pub mod meeting_message;
 pub mod meeting_recording;
 pub mod meeting_visit;
+pub mod notification;

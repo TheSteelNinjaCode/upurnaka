@@ -808,7 +808,7 @@ pub async fn page() -> Result<Html> {
                 </AlertDialog>
                 <script>r##"
                     const start = @{Json(&start)};
-                    const [tab, setTab] = pp.state('files');
+                    const [tab, setTab] = pp.state(new URLSearchParams(location.search).get('tab') === 'recordings' ? 'recordings' : 'files');
                     const [listing, setListing] = pp.state(start.listing);
                     const [usage, setUsage] = pp.state(start.usage);
                     const [recordings, setRecordings] = pp.state(@{Json(&recordings)});

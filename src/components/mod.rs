@@ -4,6 +4,7 @@
 // Every `.rs` file here is declared as a module, so a component is in scope
 // as `crate::components::<file>::<Component>` as soon as it is saved.
 
+pub mod activity_badge;
 pub mod app_shell;
 pub mod aria;
 pub mod auth_form;

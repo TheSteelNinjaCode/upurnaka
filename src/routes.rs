@@ -50,6 +50,7 @@ mod r_profilepicture;
 /// The app's own page rpcs, which the registry fallback must not answer:
 /// a page's rpc belongs to that page's URL.
 const PAGE_RPCS: &[&str] = &[
+    "activity_feed",
     "append_meeting_recording",
     "chat_cloud_files",
     "check_meeting_passcode",
@@ -86,6 +87,8 @@ const PAGE_RPCS: &[&str] = &[
     "meeting_room_state",
     "mute_all_participants",
     "mute_participant",
+    "read_activity",
+    "read_all_activity",
     "remove_profile_picture",
     "rename_meeting_link",
     "request_meeting_entry",
@@ -109,6 +112,7 @@ const PAGE_RPCS: &[&str] = &[
 /// The rpcs written beside a component, reached from whatever page
 /// rendered it.
 ///
+/// - `activity_unread_count` — src/components/activity_badge.rs
 /// - `sign_out_account` — src/components/app_shell.rs
 /// - `message_search_dates` — src/components/app_shell.rs
 /// - `search_workspace` — src/components/app_shell.rs
@@ -141,6 +145,20 @@ async fn rpc_p_account(req: axum::extract::Request) -> axum::response::Response 
         "update_profile_name" => p_account::__rahti_rpc_update_profile_name(req).await,
         "remove_profile_picture" => p_account::__rahti_rpc_remove_profile_picture(req).await,
         "update_profile_picture" => p_account::__rahti_rpc_update_profile_picture(req).await,
+        _ => component_rpc(&name, req).await,
+    }
+}
+
+/// The rpcs of src/app/activity/page.rs, reached by POST on its own URL.
+async fn rpc_p_activity(req: axum::extract::Request) -> axum::response::Response {
+    let name = match ::rahti::rpc_name(req.headers()) {
+        Ok(name) => name,
+        Err(res) => return res,
+    };
+    match name.as_str() {
+        "activity_feed" => p_activity::__rahti_rpc_activity_feed(req).await,
+        "read_activity" => p_activity::__rahti_rpc_read_activity(req).await,
+        "read_all_activity" => p_activity::__rahti_rpc_read_all_activity(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -291,7 +309,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/users` [GET, POST] — src/app/users/page.rs (layouts: src/app/layout.rs; rpc: list_users, create_user, update_user, set_user_active, delete_user)
 /// - `/signin` [GET, POST] — src/app/signin/page.rs (layouts: src/app/layout.rs)
 /// - `/account` [GET, POST] — src/app/account/page.rs (layouts: src/app/layout.rs; rpc: update_profile_name, remove_profile_picture, update_profile_picture)
-/// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs)
+/// - `/activity` [GET, POST] — src/app/activity/page.rs (layouts: src/app/layout.rs; rpc: activity_feed, read_activity, read_all_activity)
 /// - `/calendar` [GET, POST] — src/app/calendar/page.rs (layouts: src/app/layout.rs; rpc: schedule_meeting, create_meeting)
 /// - `/register` [GET, POST] — src/app/register/page.rs (layouts: src/app/layout.rs)
 /// - `/settings` [GET, POST] — src/app/settings/page.rs (layouts: src/app/layout.rs)
@@ -301,7 +319,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/files/recordings/{id}` [GET] — src/app/files/recordings/[id]/route.rs
 ///
 /// Every page above also answers the component rpcs, because a
-/// component posts to the page it was rendered on: sign_out_account, message_search_dates, search_workspace, register_account, create_administrator, start_signin, verify_signin, create_calendar_meeting_link.
+/// component posts to the page it was rendered on: activity_unread_count, sign_out_account, message_search_dates, search_workspace, register_account, create_administrator, start_signin, verify_signin, create_calendar_meeting_link.
 ///
 /// Anything the routes above do not claim falls through to `public/`.
 pub fn router() -> Router {
@@ -435,7 +453,7 @@ pub fn router() -> Router {
 
     let rpc = Router::new()
         .route("/account", axum::routing::post(rpc_p_account))
-        .route("/activity", axum::routing::post(rpc_components))
+        .route("/activity", axum::routing::post(rpc_p_activity))
         .route("/calendar", axum::routing::post(rpc_p_calendar))
         .route("/chat", axum::routing::post(rpc_p_chat))
         .route("/files", axum::routing::post(rpc_p_files))

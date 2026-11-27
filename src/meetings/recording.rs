@@ -378,6 +378,7 @@ async fn deliver(id: String) {
     let update = recording::Entity::update_many()
         .col_expr(recording::Column::UpdatedAt, Expr::value(now()))
         .filter(recording::Column::Id.eq(&row.id));
+    let stored = result.is_ok();
     let update = match result {
         Ok(file) => {
             let _ = tokio::fs::remove_dir_all(folder(&row.id)).await;
@@ -399,7 +400,40 @@ async fn deliver(id: String) {
     };
     if let Err(error) = update.exec(db::db()).await {
         eprintln!("recordings: {} could not be updated: {error}", row.id);
+        return;
     }
+    let title = crate::models::meeting_link::Entity::find_by_id(&row.meeting_id)
+        .one(db::db())
+        .await
+        .ok()
+        .flatten()
+        .map(|link| link.title)
+        .unwrap_or_else(|| "your meeting".into());
+    let (headline, body, link) = if stored {
+        (
+            "Your recording is ready".to_string(),
+            format!("{title} · Find it in Files, under Recordings."),
+            "/files?tab=recordings".to_string(),
+        )
+    } else {
+        (
+            "Your recording could not be saved".to_string(),
+            format!("{title} · Open the meeting to try the upload again."),
+            format!("/meet/j/{}", row.meeting_id),
+        )
+    };
+    crate::notifications::notify(
+        [row.started_by.clone()],
+        crate::notifications::Event {
+            kind: crate::notifications::RECORDING,
+            meeting_id: &row.meeting_id,
+            actor: "",
+            title: headline,
+            body,
+            link,
+        },
+    )
+    .await;
 }
 
 /// `MediaRecorder` timeslices are consecutive pieces of one stream, so the

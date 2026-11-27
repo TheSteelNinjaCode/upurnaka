@@ -177,6 +177,24 @@ async fn the_organizer_records_in_ordered_pieces_and_the_file_is_stored() {
         stored = row(&recording_id).await;
     }
     assert_eq!(stored.state, "stored", "{:?}", stored.failure);
+    // Whoever started it is told, once the upload has settled.
+    let mut told = Vec::new();
+    for _ in 0..100 {
+        told = crate::models::notification::Entity::find()
+            .filter(crate::models::notification::Column::MeetingId.eq(&id))
+            .filter(crate::models::notification::Column::Kind.eq("recording"))
+            .all(crate::db::db())
+            .await
+            .unwrap();
+        if !told.is_empty() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert_eq!(told.len(), 1);
+    assert_eq!(told[0].user_id, stored.started_by);
+    assert_eq!(told[0].title, "Your recording is ready");
+    assert_eq!(told[0].link, "/files?tab=recordings");
     // The pieces joined into one seven-byte file.
     assert_eq!(stored.file_id.as_deref(), Some("test-file-7"));
     let key = stored.file_key.unwrap();

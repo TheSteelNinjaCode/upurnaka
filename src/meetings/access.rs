@@ -381,6 +381,19 @@ pub async fn update(
         row.passcode.clone()
     };
 
+    // Who could already get in, so only the people this change lets in are told.
+    let already: HashSet<String> = if row.access == INVITED {
+        invite::Entity::find()
+            .filter(invite::Column::MeetingId.eq(id))
+            .all(db::db())
+            .await?
+            .into_iter()
+            .map(|row| row.user_id)
+            .collect()
+    } else {
+        HashSet::new()
+    };
+
     let transaction = db::db().begin().await?;
     meeting_link::Entity::update_many()
         .col_expr(meeting_link::Column::Access, Expr::value(mode.clone()))
@@ -407,6 +420,19 @@ pub async fn update(
 
     if mode == INVITED {
         remove_uninvited(id, owner.as_deref(), &wanted).await?;
+        let organizer = auth::current().map(|user| user.name).unwrap_or_default();
+        crate::notifications::notify(
+            wanted.difference(&already).cloned(),
+            crate::notifications::Event {
+                kind: crate::notifications::INVITE,
+                meeting_id: id,
+                actor: &organizer,
+                title: format!("{organizer} invited you to {}", row.title),
+                body: "Only invited people can join this meeting.".into(),
+                link: format!("/meet/j/{id}"),
+            },
+        )
+        .await;
     }
     settings(id).await
 }

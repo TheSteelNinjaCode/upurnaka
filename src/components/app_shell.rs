@@ -8,6 +8,7 @@
 
 use serde::Serialize;
 
+use crate::components::activity_badge::ActivityBadge;
 use crate::components::aria::{hidden, labelled, named};
 use crate::components::avatar::ProfileAvatar;
 use crate::components::icon::Icon;
@@ -297,7 +298,7 @@ fn rail_icon(key: &str) -> &'static str {
 
 /// One square on the activity rail.
 #[component]
-pub fn RailLink(icon: &str, label: &str, href: &str, selected: bool) -> Html {
+pub fn RailLink(icon: &str, label: &str, href: &str, selected: bool, badge: Html) -> Html {
     let class = if selected {
         "group relative flex h-11 w-11 items-center justify-center rounded-md bg-raised text-brand-ink"
     } else {
@@ -311,6 +312,7 @@ pub fn RailLink(icon: &str, label: &str, href: &str, selected: bool) -> Html {
             <span class="absolute left-0 h-5 w-0.5 rounded-r bg-brand-ink" hidden=@{!selected}>
             </span>
             <Icon name=@{icon} class="h-[22px] w-[22px]" />
+            @{badge}
         </a>
     }
 }
@@ -321,10 +323,23 @@ pub fn AppShell(active: &str, children: Html) -> Html {
     let user = crate::auth::current().unwrap_or_default();
     let mut links: Vec<Html> = RAIL
         .iter()
-        .map(|(key, label, href)| RailLink(rail_icon(key), label, href, *key == active))
+        .map(|(key, label, href)| {
+            let badge = if *key == "activity" {
+                ActivityBadge()
+            } else {
+                Html::empty()
+            };
+            RailLink(rail_icon(key), label, href, *key == active, badge)
+        })
         .collect();
     if user.role == crate::auth::Role::Admin {
-        links.push(RailLink("contacts", "Users", "/users", active == "users"));
+        links.push(RailLink(
+            "contacts",
+            "Users",
+            "/users",
+            active == "users",
+            Html::empty(),
+        ));
     }
     let rail = Html::concat(links);
 

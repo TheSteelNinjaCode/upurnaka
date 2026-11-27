@@ -172,12 +172,48 @@ pub async fn request(id: String, name: String, passcode: Option<String>) -> Resu
     }
     .insert(db::db())
     .await?;
+    if !skip_lobby {
+        tell_absent_organizer(&row, name.trim()).await;
+    }
     Ok(Admission {
         id: ticket,
         state: state.into(),
         host,
     })
 }
+/// Someone is waiting and the organizer is not in the meeting to let them in:
+/// tell the organizer, once until they have seen it.
+async fn tell_absent_organizer(link: &meeting_link::Model, waiting: &str) {
+    use crate::notifications::{self as notes, Event};
+    let Some(owner) = link.owner_id.as_deref() else {
+        return;
+    };
+    let present = visit::Entity::find()
+        .filter(visit::Column::MeetingId.eq(&link.id))
+        .filter(visit::Column::UserId.eq(owner))
+        .filter(visit::Column::State.is_in(["admitted", "issuing", "joined"]))
+        .filter(visit::Column::LeaseUntil.gt(now()))
+        .count(db::db())
+        .await
+        // Unsure, so do not interrupt an organizer who may be right there.
+        .map_or(true, |count| count > 0);
+    if present || notes::has_unread(owner, notes::LOBBY, &link.id).await {
+        return;
+    }
+    notes::notify(
+        [owner.to_string()],
+        Event {
+            kind: notes::LOBBY,
+            meeting_id: &link.id,
+            actor: waiting,
+            title: format!("{waiting} is waiting in the lobby"),
+            body: format!("{} · Join to let them in.", link.title),
+            link: format!("/meet/j/{}", link.id),
+        },
+    )
+    .await;
+}
+
 pub async fn snapshot(id: String, ticket: String) -> Result<RoomState> {
     let row = mine(&id, &ticket).await?;
     if ["waiting", "admitted", "joined", "issuing"].contains(&row.state.as_str()) {
