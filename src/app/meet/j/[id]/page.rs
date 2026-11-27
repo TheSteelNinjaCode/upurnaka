@@ -34,6 +34,7 @@ use crate::components::rahti_ui::input::Input;
 use crate::components::rahti_ui::label::Label;
 use crate::components::rahti_ui::radio_group::{RadioGroup, RadioGroupItem};
 use crate::components::rahti_ui::select::{Select, SelectItem};
+use crate::components::rahti_ui::spinner::Spinner;
 use crate::components::rahti_ui::switch::Switch;
 use crate::meetings::{self, JoinInfo, dilnaka_meet, recording};
 use crate::rahti::{Error, Json, Metadata, Page, Result, RpcUpload, Validator, html, rpc};
@@ -1812,9 +1813,12 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                     <Icon name="close" class="size-3.5" />
                                 </Button>
                             </div>
-                            <form class="relative m-4 flex gap-2" onsubmit={sendChat(event)}>
+                            <form
+                                class="room-chat-composer relative m-4 flex items-center gap-0.5 rounded-md border border-edge bg-raised py-1 pl-3 pr-1 focus-within:border-ring"
+                                onsubmit={sendChat(event)}
+                            >
                                 <div
-                                    class="room-chat-attach-menu absolute bottom-full left-0 z-5 mb-2 grid w-max gap-1 rounded-md border bg-popover p-2 shadow-xl shadow-black/40"
+                                    class="room-chat-attach-menu absolute bottom-full right-0 z-5 mb-2 grid w-max gap-1 rounded-md border bg-popover p-2 shadow-xl shadow-black/40"
                                     hidden={!chatAttachMenu}
                                 >
                                     <Button
@@ -1843,31 +1847,32 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                     pp-ref={chatFileInput}
                                     onchange={uploadChatFile(event)}
                                 />
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    class="shrink-0"
-                                    attrs=@{labelled("Attach a file").merge(&plain())}
-                                    hidden={anonymous}
-                                    disabled={!!chatUploading || connectionStatus !== "connected"}
-                                    onclick={setChatAttachMenu(!chatAttachMenu)}
-                                >
-                                    <Icon name="attach" class="size-5" />
-                                </Button>
                                 <Input
                                     placeholder="Type a message"
-                                    class="min-w-0 flex-1 text-[13px]"
+                                    class="h-8! min-w-0 flex-1 border-0! bg-transparent! px-0! text-[13px] shadow-none! focus-visible:ring-0! dark:bg-transparent!"
                                     attrs=@{named("Message everyone").set("maxlength", "500")}
                                     value={chatDraft}
                                     oninput={setChatDraft(target.value)}
                                 />
                                 <Button
                                     variant="ghost"
-                                    size="icon"
+                                    size="icon-sm"
+                                    class="shrink-0 text-muted-foreground hover:text-brand-ink"
+                                    attrs=@{labelled("Attach a file").merge(&plain())}
+                                    hidden={anonymous}
+                                    disabled={!!chatUploading || connectionStatus !== "connected"}
+                                    onclick={setChatAttachMenu(!chatAttachMenu)}
+                                >
+                                    <Icon name="attach" class="size-[18px]" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    class="shrink-0 text-brand-ink disabled:text-muted-foreground"
                                     attrs=@{labelled("Send meeting message").merge(&submit())}
                                     disabled={(!chatDraft.trim() && !chatFile) || !!chatUploading || connectionStatus !== "connected"}
                                 >
-                                    <Icon name="send" class="size-5" />
+                                    <Icon name="send" class="size-[18px]" />
                                 </Button>
                             </form>
                         </div>
@@ -2020,77 +2025,81 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                         aria-label="My files"
                     >
                         <div
-                            class="grid grid-cols-[minmax(0,1fr)_120px_80px] gap-3 px-3 pb-1 pt-1 text-[11px] uppercase tracking-wide text-muted-foreground max-[520px]:grid-cols-[minmax(0,1fr)_70px]"
-                            hidden={pickerListing.folders.length + pickerListing.files.length === 0}
-                        >
-                            <span>"Name"</span>
-                            <span class="max-[520px]:hidden">"Modified"</span>
-                            <span class="text-right">"Size"</span>
-                        </div>
-                        <p
-                            class="px-3 py-6 text-center text-[13px] text-muted-foreground"
+                            class="room-picker-loading flex h-full min-h-32 flex-col items-center justify-center gap-3 text-[13px] text-muted-foreground"
+                            role="status"
                             hidden={!pickerLoading}
                         >
-                            "Loading…"
-                        </p>
+                            <Spinner class="size-5" />
+                            "Loading your files…"
+                        </div>
                         <p class="px-3 py-3 text-[13px] text-danger-ink" hidden={!pickerError}>
                             {pickerError}
                         </p>
-                        <template pp-for="folder in pickerListing.folders">
-                            <button
-                                key={"folder|" + folder.id}
-                                type="button"
-                                class="room-picker-folder grid w-full grid-cols-[minmax(0,1fr)_120px_80px] items-center gap-3 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover max-[520px]:grid-cols-[minmax(0,1fr)_70px]"
-                                value={folder.id}
-                                title={"Open " + folder.name}
-                                onclick={openPickerFolder(event.currentTarget.value)}
+                        <div class="room-picker-list" hidden={pickerLoading}>
+                            <div
+                                class="grid grid-cols-[minmax(0,1fr)_120px_80px] gap-3 px-3 pb-1 pt-1 text-[11px] uppercase tracking-wide text-muted-foreground max-[520px]:grid-cols-[minmax(0,1fr)_70px]"
+                                hidden={pickerListing.folders.length + pickerListing.files.length === 0}
                             >
-                                <span class="flex min-w-0 items-center gap-2.5">
-                                    <span class="shrink-0 text-brand-ink">
-                                        <Icon name="folder" class="size-5 fill-brand-ink/20" />
+                                <span>"Name"</span>
+                                <span class="max-[520px]:hidden">"Modified"</span>
+                                <span class="text-right">"Size"</span>
+                            </div>
+                            <template pp-for="folder in pickerListing.folders">
+                                <button
+                                    key={"folder|" + folder.id}
+                                    type="button"
+                                    class="room-picker-folder grid w-full grid-cols-[minmax(0,1fr)_120px_80px] items-center gap-3 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover max-[520px]:grid-cols-[minmax(0,1fr)_70px]"
+                                    value={folder.id}
+                                    title={"Open " + folder.name}
+                                    onclick={openPickerFolder(event.currentTarget.value)}
+                                >
+                                    <span class="flex min-w-0 items-center gap-2.5">
+                                        <span class="shrink-0 text-brand-ink">
+                                            <Icon name="folder" class="size-5 fill-brand-ink/20" />
+                                        </span>
+                                        <span class="truncate font-medium">{folder.name}</span>
                                     </span>
-                                    <span class="truncate font-medium">{folder.name}</span>
-                                </span>
-                                <span class="truncate text-muted-foreground max-[520px]:hidden">
-                                    {folder.modified}
-                                </span>
-                                <span class="text-right text-muted-foreground">
-                                    {folder.items === 1 ? "1 item" : folder.items + " items"}
-                                </span>
-                            </button>
-                        </template>
-                        <template pp-for="file in pickerListing.files">
-                            <button
-                                key={"file|" + file.id + "|" + (pickerChoice === file.id)}
-                                type="button"
-                                role="option"
-                                aria-selected={pickerChoice === file.id}
-                                class={pickerChoice === file.id ? "room-picker-file grid w-full grid-cols-[minmax(0,1fr)_120px_80px] items-center gap-3 rounded-md bg-brand/15 px-3 py-2 text-left text-[13px] ring-1 ring-brand-ink max-[520px]:grid-cols-[minmax(0,1fr)_70px]" : "room-picker-file grid w-full grid-cols-[minmax(0,1fr)_120px_80px] items-center gap-3 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover max-[520px]:grid-cols-[minmax(0,1fr)_70px]"}
-                                value={file.id}
-                                title={file.name}
-                                onclick={choosePickerFile(event.currentTarget.value)}
-                                ondblclick={attachPickerFile(event.currentTarget.value)}
+                                    <span class="truncate text-muted-foreground max-[520px]:hidden">
+                                        {folder.modified}
+                                    </span>
+                                    <span class="text-right text-muted-foreground">
+                                        {folder.items === 1 ? "1 item" : folder.items + " items"}
+                                    </span>
+                                </button>
+                            </template>
+                            <template pp-for="file in pickerListing.files">
+                                <button
+                                    key={"file|" + file.id + "|" + (pickerChoice === file.id)}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={pickerChoice === file.id}
+                                    class={pickerChoice === file.id ? "room-picker-file grid w-full grid-cols-[minmax(0,1fr)_120px_80px] items-center gap-3 rounded-md bg-brand/15 px-3 py-2 text-left text-[13px] ring-1 ring-brand-ink max-[520px]:grid-cols-[minmax(0,1fr)_70px]" : "room-picker-file grid w-full grid-cols-[minmax(0,1fr)_120px_80px] items-center gap-3 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover max-[520px]:grid-cols-[minmax(0,1fr)_70px]"}
+                                    value={file.id}
+                                    title={file.name}
+                                    onclick={choosePickerFile(event.currentTarget.value)}
+                                    ondblclick={attachPickerFile(event.currentTarget.value)}
+                                >
+                                    <span class="flex min-w-0 items-center gap-2.5">
+                                        <span class="shrink-0 text-muted-foreground">
+                                            <Icon name="file" class="size-5" />
+                                        </span>
+                                        <span class="truncate">{file.name}</span>
+                                    </span>
+                                    <span class="truncate text-muted-foreground max-[520px]:hidden">
+                                        {file.uploaded}
+                                    </span>
+                                    <span class="text-right text-muted-foreground">
+                                        {fileSize(file.bytes)}
+                                    </span>
+                                </button>
+                            </template>
+                            <p
+                                class="px-3 py-6 text-center text-[13px] text-muted-foreground"
+                                hidden={!!pickerError || pickerListing.folders.length + pickerListing.files.length > 0}
                             >
-                                <span class="flex min-w-0 items-center gap-2.5">
-                                    <span class="shrink-0 text-muted-foreground">
-                                        <Icon name="file" class="size-5" />
-                                    </span>
-                                    <span class="truncate">{file.name}</span>
-                                </span>
-                                <span class="truncate text-muted-foreground max-[520px]:hidden">
-                                    {file.uploaded}
-                                </span>
-                                <span class="text-right text-muted-foreground">
-                                    {fileSize(file.bytes)}
-                                </span>
-                            </button>
-                        </template>
-                        <p
-                            class="px-3 py-6 text-center text-[13px] text-muted-foreground"
-                            hidden={pickerLoading || !!pickerError || pickerListing.folders.length + pickerListing.files.length > 0}
-                        >
-                            "This folder is empty."
-                        </p>
+                                "This folder is empty."
+                            </p>
+                        </div>
                     </div>
                     <DialogFooter class="items-center border-t border-line px-6 py-4">
                         <span class="mr-auto min-w-0 truncate text-[13px] text-muted-foreground">
@@ -2766,17 +2775,22 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                             setChatUploading("");
                         }
                     }
+                    // Folders can be clicked faster than they load: only the
+                    // newest request may replace the list or end the loading state.
+                    const pickerRequest = pp.ref(0);
                     const openPickerFolder = pp.event(async function openPickerFolder(folder) {
                         if (!admission) return;
+                        const request = ++pickerRequest.current;
                         setPickerLoading(true);
                         setPickerError("");
                         setPickerChoice("");
                         try {
-                            setPickerListing(await pp.rpc("meeting_chat_my_files", { id: code, ticket: admission, folder: folder || null }));
+                            const listing = await pp.rpc("meeting_chat_my_files", { id: code, ticket: admission, folder: folder || null });
+                            if (request === pickerRequest.current) setPickerListing(listing);
                         } catch (failure) {
-                            setPickerError(failure.body?.error || failure.message || "Your files could not be loaded.");
+                            if (request === pickerRequest.current) setPickerError(failure.body?.error || failure.message || "Your files could not be loaded.");
                         } finally {
-                            setPickerLoading(false);
+                            if (request === pickerRequest.current) setPickerLoading(false);
                         }
                     });
                     // My files opens in a dialog, like a file explorer: a

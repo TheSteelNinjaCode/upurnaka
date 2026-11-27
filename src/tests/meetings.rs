@@ -111,7 +111,15 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
                 return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(answer)).unwrap();
             }
             if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("meeting_chat_my_files") {
-                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#"{"view":"files","folder":null,"path":[],"folders":[{"id":"folder-1","name":"Projects","bytes":0,"items":0,"modified":"","modified_at":0}],"files":[{"id":"pick-1","name":"plan.pdf","content_type":"application/pdf","bytes":2048,"uploaded":"","uploaded_at":0}]}"#)).unwrap();
+                // Slow enough for the loading state to show, and per folder.
+                let body = axum::body::to_bytes(request.into_body(), 64 * 1024).await.unwrap_or_default();
+                tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+                let listing = if String::from_utf8_lossy(&body).contains("folder-1") {
+                    r#"{"view":"files","folder":"folder-1","path":[{"id":"folder-1","name":"Projects"}],"folders":[],"files":[]}"#
+                } else {
+                    r#"{"view":"files","folder":null,"path":[],"folders":[{"id":"folder-1","name":"Projects","bytes":0,"items":0,"modified":"","modified_at":0}],"files":[{"id":"pick-1","name":"plan.pdf","content_type":"application/pdf","bytes":2048,"uploaded":"","uploaded_at":0}]}"#
+                };
+                return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(listing)).unwrap();
             }
             if request.headers().get("x-pp-function").and_then(|value| value.to_str().ok()) == Some("meeting_chat_file_url") {
                 return axum::response::Response::builder().header("content-type", "application/json").body(axum::body::Body::from(r#""https://storage.test/plan.pdf""#)).unwrap();
@@ -276,6 +284,16 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     browser.wait_for("document.querySelector('.room-chat-messages').textContent.includes('Hello from the meeting')").await.unwrap();
+    // The composer is one box: the message field first, then Attach and Send
+    // side by side on the right.
+    let composed: bool = browser
+        .eval("(() => { const box = document.querySelector('.room-chat-composer').getBoundingClientRect(); const field = document.querySelector('.room-chat-composer input[aria-label=\"Message everyone\"]').getBoundingClientRect(); const attach = document.querySelector(\"button[aria-label='Attach a file']\").getBoundingClientRect(); const send = document.querySelector(\"button[aria-label='Send meeting message']\").getBoundingClientRect(); return field.right <= attach.left && attach.right <= send.left && send.left - attach.right < 8 && box.right - send.right < 8 && field.left - box.left < 16 && [field, attach, send].every(r => r.top >= box.top && r.bottom <= box.bottom); })()")
+        .await
+        .unwrap();
+    assert!(
+        composed,
+        "Attach and Send sit together at the right of the message field"
+    );
     // Share a file from My files, then download it from the chat.
     browser
         .click("button[aria-label='Attach a file']")
@@ -285,14 +303,37 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .wait_for("!document.querySelector('.room-chat-attach-menu').hidden")
         .await
         .unwrap();
+    // Loading replaces the list; the two are never on screen together.
+    let _: bool = browser
+        .eval("(() => { window.pickerOverlap = false; new MutationObserver(() => { const loading = document.querySelector('.room-picker-loading'), list = document.querySelector('.room-picker-list'); if (loading && list && !loading.hidden && !list.hidden) window.pickerOverlap = true; }).observe(document.body, {subtree: true, attributes: true, childList: true}); return true; })()")
+        .await
+        .unwrap();
     let _: bool = browser
         .eval("(() => { [...document.querySelectorAll('.room-chat-attach-menu button')].find(b => b.textContent.includes('Choose from My files')).click(); return true; })()")
         .await
         .unwrap();
     browser
-        .wait_for("document.querySelector('.room-chat-picker').open && document.querySelector('.room-chat-attach-menu').hidden && document.querySelector('.room-picker-folder')?.textContent.includes('Projects') && document.querySelector('.room-picker-file')?.textContent.includes('plan.pdf') && document.querySelector('.room-picker-attach').disabled")
+        .wait_for("document.querySelector('.room-chat-picker').open && document.querySelector('.room-chat-attach-menu').hidden && document.querySelector('.room-picker-loading').hidden && document.querySelector('.room-picker-folder')?.textContent.includes('Projects') && document.querySelector('.room-picker-file')?.textContent.includes('plan.pdf') && document.querySelector('.room-picker-attach').disabled")
         .await
         .unwrap();
+    // A folder opens, loading ends, and the way back loads My files again.
+    browser.click(".room-picker-folder").await.unwrap();
+    browser
+        .wait_for("document.querySelector('.room-picker-loading').hidden && document.querySelector('.room-chat-picker [aria-label=\"Folder path\"]').textContent.includes('Projects') && !document.querySelector('.room-picker-file')")
+        .await
+        .unwrap();
+    browser
+        .click(".room-chat-picker [aria-label='Folder path'] button")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.querySelector('.room-picker-loading').hidden && document.querySelector('.room-picker-file')?.textContent.includes('plan.pdf')")
+        .await
+        .unwrap();
+    assert!(
+        !browser.eval::<bool>("window.pickerOverlap").await.unwrap(),
+        "the loading state showed on top of the file list"
+    );
     browser.click(".room-picker-file").await.unwrap();
     browser
         .wait_for("document.querySelector('.room-picker-file').getAttribute('aria-selected') === 'true' && !document.querySelector('.room-picker-attach').disabled")
