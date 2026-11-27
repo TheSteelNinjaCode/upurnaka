@@ -21,12 +21,15 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use serde::Deserialize;
 
-use crate::components::aria::{bound, labelled, named, plain, submit};
+use crate::components::aria::{bound, hidden, labelled, named, plain, submit};
 use crate::components::avatar::Avatar;
 use crate::components::icon::Icon;
 use crate::components::notification_sound::NotificationSound;
 use crate::components::rahti_ui::attrs::{Attrs, ui_expr};
 use crate::components::rahti_ui::button::{Button, ButtonSize, ButtonVariant, button_variants};
+use crate::components::rahti_ui::dialog::{
+    Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+};
 use crate::components::rahti_ui::input::Input;
 use crate::components::rahti_ui::label::Label;
 use crate::components::rahti_ui::radio_group::{RadioGroup, RadioGroupItem};
@@ -59,6 +62,9 @@ const BACKGROUND_OPTION: &str = "meeting-background-option relative h-[70px]! mi
 
 /// A row in a menu the room draws itself: the reactions, More, a tile's options.
 const MENU_ROW: &str = "w-full justify-start! px-4! py-2.5 text-left text-[13px] font-normal";
+
+/// The picker dialog's Cancel, an outline button.
+const PICKER_CANCEL: &str = "inline-flex h-9 min-w-24 items-center justify-center rounded-md border border-edge bg-transparent px-4 text-sm font-medium hover:bg-hover";
 
 /// An action that reads as a link.
 const LINK: &str = "h-auto! px-0! text-link";
@@ -1475,7 +1481,6 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                 class="room-chat-messages flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto px-[18px]"
                                 aria-live="polite"
                                 pp-ref={chatLog}
-                                hidden={chatPicker}
                             >
                                 <p
                                     class="text-[13px] leading-relaxed text-muted-foreground"
@@ -1529,107 +1534,6 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                         </button>
                                     </article>
                                 </template>
-                            </div>
-                            <div
-                                class="room-chat-picker flex min-h-0 flex-1 flex-col"
-                                hidden={!chatPicker}
-                            >
-                                <div class="flex items-center gap-1 px-3 pb-2">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        attrs=@{labelled("Back to chat")}
-                                        onclick={closeChatPicker()}
-                                    >
-                                        <Icon name="chevron-left" class="size-4" />
-                                    </Button>
-                                    <span class="text-[13px] font-semibold">
-                                        "Choose from My files"
-                                    </span>
-                                </div>
-                                <div
-                                    class="flex min-w-0 flex-wrap items-center gap-1 px-[18px] pb-2 text-xs"
-                                    aria-label="Folder path"
-                                >
-                                    <button
-                                        type="button"
-                                        class="rounded px-1 py-0.5 text-link hover:bg-hover"
-                                        onclick={openPickerFolder("")}
-                                    >
-                                        "My files"
-                                    </button>
-                                    <template pp-for="crumb in pickerListing.path">
-                                        <span key={crumb.id} class="flex items-center gap-1">
-                                            <span class="text-subtle">"/"</span>
-                                            <button
-                                                type="button"
-                                                class="max-w-32 truncate rounded px-1 py-0.5 text-link hover:bg-hover"
-                                                value={crumb.id}
-                                                onclick={openPickerFolder(event.currentTarget.value)}
-                                            >
-                                                {crumb.name}
-                                            </button>
-                                        </span>
-                                    </template>
-                                </div>
-                                <div class="min-h-0 flex-1 overflow-auto px-3">
-                                    <p
-                                        class="px-2 py-3 text-[13px] text-muted-foreground"
-                                        hidden={!pickerLoading}
-                                    >
-                                        "Loading…"
-                                    </p>
-                                    <p
-                                        class="px-2 py-3 text-[13px] text-danger-ink"
-                                        hidden={!pickerError}
-                                    >
-                                        {pickerError}
-                                    </p>
-                                    <template pp-for="folder in pickerListing.folders">
-                                        <button
-                                            key={"folder|" + folder.id}
-                                            type="button"
-                                            class="room-picker-folder flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13px] hover:bg-hover"
-                                            value={folder.id}
-                                            onclick={openPickerFolder(event.currentTarget.value)}
-                                        >
-                                            <span class="shrink-0 text-brand-ink">
-                                                <Icon name="folder" class="size-5" />
-                                            </span>
-                                            <span class="min-w-0 flex-1 truncate">
-                                                {folder.name}
-                                            </span>
-                                            <span class="shrink-0 text-muted-foreground">
-                                                <Icon name="chevron-right" class="size-4" />
-                                            </span>
-                                        </button>
-                                    </template>
-                                    <template pp-for="file in pickerListing.files">
-                                        <button
-                                            key={"file|" + file.id}
-                                            type="button"
-                                            class="room-picker-file flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13px] hover:bg-hover"
-                                            value={file.id}
-                                            onclick={pickChatFile(event.currentTarget.value)}
-                                        >
-                                            <span class="shrink-0 text-muted-foreground">
-                                                <Icon name="file" class="size-5" />
-                                            </span>
-                                            <span class="grid min-w-0 flex-1">
-                                                <span class="truncate">{file.name}</span>
-                                                <span class="text-[11px] text-muted-foreground">
-                                                    {fileSize(file.bytes)}
-                                                </span>
-                                            </span>
-                                        </button>
-                                    </template>
-                                    <p
-                                        class="px-2 py-3 text-[13px] text-muted-foreground"
-                                        hidden={pickerLoading || !!pickerError || pickerListing.folders.length + pickerListing.files.length > 0}
-                                    >
-                                        "This folder is empty."
-                                    </p>
-                                </div>
                             </div>
                             <div
                                 class="room-chat-pending mx-4 flex items-center gap-2 rounded-md border border-edge bg-raised px-3 py-2 text-[13px]"
@@ -1814,6 +1718,138 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
             >
                 {toast}
             </div>
+            <Dialog>
+                <DialogTrigger attrs=@{hidden()}>
+                    <span pp-ref={pickerOpener}></span>
+                </DialogTrigger>
+                <DialogClose attrs=@{hidden()}>
+                    <span pp-ref={pickerCloser}></span>
+                </DialogClose>
+                <DialogContent
+                    class="room-chat-picker grid h-[min(560px,calc(100dvh-32px))] grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0! p-0! sm:max-w-[640px]!"
+                    onclose={closeChatPicker()}
+                >
+                    <DialogHeader class="px-6 pb-2 pt-6">
+                        <DialogTitle class="text-[17px]">"Share a file from My files"</DialogTitle>
+                    </DialogHeader>
+                    <div
+                        class="flex min-w-0 flex-wrap items-center gap-1 border-b border-line px-6 pb-3 text-[13px]"
+                        aria-label="Folder path"
+                    >
+                        <button
+                            type="button"
+                            class={pickerListing.folder ? "rounded px-1.5 py-0.5 text-link hover:bg-hover" : "rounded px-1.5 py-0.5 font-semibold"}
+                            onclick={openPickerFolder("")}
+                        >
+                            "My files"
+                        </button>
+                        <template pp-for="crumb in pickerListing.path">
+                            <span key={crumb.id} class="flex items-center gap-1">
+                                <span class="text-subtle">"/"</span>
+                                <button
+                                    type="button"
+                                    class={crumb.id === pickerListing.folder ? "max-w-40 truncate rounded px-1.5 py-0.5 font-semibold" : "max-w-40 truncate rounded px-1.5 py-0.5 text-link hover:bg-hover"}
+                                    value={crumb.id}
+                                    onclick={openPickerFolder(event.currentTarget.value)}
+                                >
+                                    {crumb.name}
+                                </button>
+                            </span>
+                        </template>
+                    </div>
+                    <div
+                        class="min-h-0 overflow-auto px-3 py-2"
+                        role="listbox"
+                        aria-label="My files"
+                    >
+                        <div
+                            class="grid grid-cols-[minmax(0,1fr)_120px_80px] gap-3 px-3 pb-1 pt-1 text-[11px] uppercase tracking-wide text-muted-foreground max-[520px]:grid-cols-[minmax(0,1fr)_70px]"
+                            hidden={pickerListing.folders.length + pickerListing.files.length === 0}
+                        >
+                            <span>"Name"</span>
+                            <span class="max-[520px]:hidden">"Modified"</span>
+                            <span class="text-right">"Size"</span>
+                        </div>
+                        <p
+                            class="px-3 py-6 text-center text-[13px] text-muted-foreground"
+                            hidden={!pickerLoading}
+                        >
+                            "Loading…"
+                        </p>
+                        <p class="px-3 py-3 text-[13px] text-danger-ink" hidden={!pickerError}>
+                            {pickerError}
+                        </p>
+                        <template pp-for="folder in pickerListing.folders">
+                            <button
+                                key={"folder|" + folder.id}
+                                type="button"
+                                class="room-picker-folder grid w-full grid-cols-[minmax(0,1fr)_120px_80px] items-center gap-3 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover max-[520px]:grid-cols-[minmax(0,1fr)_70px]"
+                                value={folder.id}
+                                title={"Open " + folder.name}
+                                onclick={openPickerFolder(event.currentTarget.value)}
+                            >
+                                <span class="flex min-w-0 items-center gap-2.5">
+                                    <span class="shrink-0 text-brand-ink">
+                                        <Icon name="folder" class="size-5 fill-brand-ink/20" />
+                                    </span>
+                                    <span class="truncate font-medium">{folder.name}</span>
+                                </span>
+                                <span class="truncate text-muted-foreground max-[520px]:hidden">
+                                    {folder.modified}
+                                </span>
+                                <span class="text-right text-muted-foreground">
+                                    {folder.items === 1 ? "1 item" : folder.items + " items"}
+                                </span>
+                            </button>
+                        </template>
+                        <template pp-for="file in pickerListing.files">
+                            <button
+                                key={"file|" + file.id + "|" + (pickerChoice === file.id)}
+                                type="button"
+                                role="option"
+                                aria-selected={pickerChoice === file.id}
+                                class={pickerChoice === file.id ? "room-picker-file grid w-full grid-cols-[minmax(0,1fr)_120px_80px] items-center gap-3 rounded-md bg-brand/15 px-3 py-2 text-left text-[13px] ring-1 ring-brand-ink max-[520px]:grid-cols-[minmax(0,1fr)_70px]" : "room-picker-file grid w-full grid-cols-[minmax(0,1fr)_120px_80px] items-center gap-3 rounded-md px-3 py-2 text-left text-[13px] hover:bg-hover max-[520px]:grid-cols-[minmax(0,1fr)_70px]"}
+                                value={file.id}
+                                title={file.name}
+                                onclick={choosePickerFile(event.currentTarget.value)}
+                                ondblclick={attachPickerFile(event.currentTarget.value)}
+                            >
+                                <span class="flex min-w-0 items-center gap-2.5">
+                                    <span class="shrink-0 text-muted-foreground">
+                                        <Icon name="file" class="size-5" />
+                                    </span>
+                                    <span class="truncate">{file.name}</span>
+                                </span>
+                                <span class="truncate text-muted-foreground max-[520px]:hidden">
+                                    {file.uploaded}
+                                </span>
+                                <span class="text-right text-muted-foreground">
+                                    {fileSize(file.bytes)}
+                                </span>
+                            </button>
+                        </template>
+                        <p
+                            class="px-3 py-6 text-center text-[13px] text-muted-foreground"
+                            hidden={pickerLoading || !!pickerError || pickerListing.folders.length + pickerListing.files.length > 0}
+                        >
+                            "This folder is empty."
+                        </p>
+                    </div>
+                    <DialogFooter class="items-center border-t border-line px-6 py-4">
+                        <span class="mr-auto min-w-0 truncate text-[13px] text-muted-foreground">
+                            {pickerChoiceName()}
+                        </span>
+                        <DialogClose class=@{PICKER_CANCEL}>"Cancel"</DialogClose>
+                        <Button
+                            class="room-picker-attach min-w-24"
+                            disabled={!pickerChoice}
+                            onclick={attachPickerFile(pickerChoice)}
+                        >
+                            "Attach"
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
             <script>r##"
 
                     const devicePreferences = pp.memo(() => {
@@ -2477,6 +2513,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                         if (!admission) return;
                         setPickerLoading(true);
                         setPickerError("");
+                        setPickerChoice("");
                         try {
                             setPickerListing(await pp.rpc("meeting_chat_my_files", { id: code, ticket: admission, folder: folder || null }));
                         } catch (failure) {
@@ -2485,17 +2522,30 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                             setPickerLoading(false);
                         }
                     });
+                    // My files opens in a dialog, like a file explorer: a
+                    // folder opens on click, a file is chosen on click and
+                    // attached with Attach or a double-click.
+                    const [pickerChoice, setPickerChoice] = pp.state("");
+                    const pickerOpener = pp.ref(null);
+                    const pickerCloser = pp.ref(null);
                     function openChatPicker() {
                         setChatAttachMenu(false);
                         setChatPicker(true);
+                        setPickerChoice("");
+                        pickerOpener.current?.click();
                         openPickerFolder("");
                     }
-                    function closeChatPicker() { setChatPicker(false); setPickerError(""); }
-                    const pickChatFile = pp.event(function pickChatFile(id) {
+                    function closeChatPicker() { setChatPicker(false); setPickerError(""); setPickerChoice(""); }
+                    const choosePickerFile = pp.event(function choosePickerFile(id) { setPickerChoice(id); });
+                    function pickerChoiceName() {
+                        const file = pickerListing.files.find(item => item.id === pickerChoice);
+                        return file ? file.name : "Choose a file to share.";
+                    }
+                    const attachPickerFile = pp.event(function attachPickerFile(id) {
                         const file = pickerListing.files.find(item => item.id === id);
                         if (!file) return;
                         setChatFile(file);
-                        setChatPicker(false);
+                        pickerCloser.current?.click();
                     });
                     const downloadChatFile = pp.event(async function downloadChatFile(messageId) {
                         if (!admission) return;

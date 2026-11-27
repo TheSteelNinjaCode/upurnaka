@@ -290,12 +290,17 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .await
         .unwrap();
     browser
-        .wait_for("!document.querySelector('.room-chat-picker').hidden && document.querySelector('.room-chat-messages').hidden && document.querySelector('.room-picker-folder')?.textContent.includes('Projects') && document.querySelector('.room-picker-file')?.textContent.includes('plan.pdf')")
+        .wait_for("document.querySelector('.room-chat-picker').open && document.querySelector('.room-chat-attach-menu').hidden && document.querySelector('.room-picker-folder')?.textContent.includes('Projects') && document.querySelector('.room-picker-file')?.textContent.includes('plan.pdf') && document.querySelector('.room-picker-attach').disabled")
         .await
         .unwrap();
     browser.click(".room-picker-file").await.unwrap();
     browser
-        .wait_for("document.querySelector('.room-chat-picker').hidden && !document.querySelector('.room-chat-pending').hidden && document.querySelector('.room-chat-pending').textContent.includes('plan.pdf') && !document.querySelector(\"button[aria-label='Send meeting message']\").disabled")
+        .wait_for("document.querySelector('.room-picker-file').getAttribute('aria-selected') === 'true' && !document.querySelector('.room-picker-attach').disabled")
+        .await
+        .unwrap();
+    browser.click(".room-picker-attach").await.unwrap();
+    browser
+        .wait_for("!document.querySelector('.room-chat-picker').open && !document.querySelector('.room-chat-pending').hidden && document.querySelector('.room-chat-pending').textContent.includes('plan.pdf') && !document.querySelector(\"button[aria-label='Send meeting message']\").disabled")
         .await
         .unwrap();
     browser
@@ -387,7 +392,9 @@ async fn joining_opens_the_meeting_room_and_leave_returns_to_setup() {
         .unwrap();
     // Leave the camera as the rest of this test expects it: off.
     browser
-        .wait_for("!document.querySelector(\"button[aria-label='Toggle meeting camera']\").disabled")
+        .wait_for(
+            "!document.querySelector(\"button[aria-label='Toggle meeting camera']\").disabled",
+        )
         .await
         .unwrap();
     browser
