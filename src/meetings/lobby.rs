@@ -96,20 +96,24 @@ pub struct RoomState {
     pub recording: bool,
 }
 
-pub async fn request(id: String, name: String) -> Result<Admission> {
+pub async fn request(id: String, name: String, passcode: Option<String>) -> Result<Admission> {
     let mut v = Validator::new();
     v.required("id", &id)
         .max_chars("id", &id, 64)
         .required("name", &name)
-        .max_chars("name", &name, 64);
+        .max_chars("name", &name, 64)
+        .max_chars("passcode", passcode.as_deref().unwrap_or(""), 64);
     v.finish()?;
     let row = link(&id).await?;
     let user_id = auth::current().map(|user| user.id);
-    let host = if let Some(owner) = row.owner_id {
+    let host = if let Some(owner) = &row.owner_id {
         user_id.as_deref() == Some(owner.as_str())
     } else {
         is_host(&id).await?
     };
+    // The meeting's access mode, checked before any ticket exists: a person
+    // the mode refuses never reaches the lobby. Invited people skip it.
+    let skip_lobby = super::access::admit(&row, host, passcode.as_deref()).await?;
     visit::Entity::delete_many()
         .filter(visit::Column::LeaseUntil.lt(now() - 86_400))
         .exec(db::db())
@@ -130,7 +134,7 @@ pub async fn request(id: String, name: String) -> Result<Admission> {
     }
     // Also bound anonymous requests per meeting; a guest cannot evade this
     // bound by creating a new identity for every request.
-    if !host
+    if !skip_lobby
         && visit::Entity::find()
             .filter(visit::Column::MeetingId.eq(&id))
             .filter(visit::Column::State.eq("waiting"))
@@ -144,7 +148,7 @@ pub async fn request(id: String, name: String) -> Result<Admission> {
             "The lobby is full. Try again shortly.",
         ));
     }
-    let state = if host { "admitted" } else { "waiting" };
+    let state = if skip_lobby { "admitted" } else { "waiting" };
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
     use rand::{TryRng, rngs::SysRng};
     let mut random = [0; 32];

@@ -1193,6 +1193,9 @@
   .max-h-\(--radix-dropdown-menu-content-available-height\) {
     max-height: var(--radix-dropdown-menu-content-available-height);
   }
+  .max-h-40 {
+    max-height: calc(var(--spacing) * 40);
+  }
   .max-h-52 {
     max-height: calc(var(--spacing) * 52);
   }
@@ -3513,6 +3516,9 @@
   .underline-offset-4 {
     text-underline-offset: 4px;
   }
+  .accent-brand {
+    accent-color: var(--brand);
+  }
   .accent-brand-ink {
     accent-color: var(--brand-ink);
   }
@@ -4478,6 +4484,9 @@
   }
   :where([data-slot="tooltip-content"]) .in-data-\[slot\=tooltip-content\]\:text-background {
     color: var(--background);
+  }
+  .has-checked\:border-brand-ink:has(:checked) {
+    border-color: var(--brand-ink);
   }
   .has-disabled\:bg-input\/50:has(:disabled) {
     background-color: var(--input);

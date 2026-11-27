@@ -22,6 +22,7 @@ async fn the_meeting_link_table_round_trips() {
         revoked_at: Set(None),
         provider_meeting_id: Set(None),
         media_region: Set(None),
+        ..Default::default()
     }
     .insert(crate::db::db())
     .await
@@ -57,6 +58,7 @@ async fn a_conference_can_be_recorded_against_a_link() {
         revoked_at: Set(None),
         provider_meeting_id: Set(None),
         media_region: Set(None),
+        ..Default::default()
     }
     .insert(crate::db::db())
     .await

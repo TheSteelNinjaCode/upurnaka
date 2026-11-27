@@ -1,6 +1,6 @@
 ///! Meet: the three ways a meeting starts, and the links this account owns.
 use crate::components::app_shell::AppShell;
-use crate::components::aria::{hidden, labelled, submit};
+use crate::components::aria::{hidden, labelled, plain, submit};
 use crate::components::icon::Icon;
 use crate::components::rahti_ui::alert_dialog::{
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -19,7 +19,7 @@ use crate::components::rahti_ui::input::Input;
 use crate::components::rahti_ui::popover::{
     Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger,
 };
-use crate::meetings::{self, MeetingLink};
+use crate::meetings::{self, MeetingLink, access::AccessSettings, access::Invitee};
 use crate::rahti::{Json, Metadata, Result, Validator, html, rpc};
 
 /// One of the three actions across the top of the page.
@@ -210,9 +210,12 @@ pub async fn page() -> Result {
                                             </FieldLabel>
                                             <Input
                                                 id="meeting-join-passcode"
-                                                disabled
-                                                placeholder="Not required for these meeting links"
+                                                name="passcode"
+                                                placeholder="Only if the meeting has one"
                                                 class="h-10!"
+                                                attrs=@{Attrs::new().set("autocomplete", "off")}
+                                                value={meetingPasscode}
+                                                oninput={setMeetingPasscode(target.value)}
                                             />
                                         </Field>
                                         <Button
@@ -279,6 +282,12 @@ pub async fn page() -> Result {
                                     "Created "
                                     {link.created}
                                 </p>
+                                <p
+                                    class="meeting-access-summary mt-1 flex items-center gap-1.5 text-[12px] text-subtle"
+                                >
+                                    <Icon name="shield" class="size-3.5" />
+                                    {accessLabel(link.access)}
+                                </p>
                                 <div class="mt-4 flex items-center gap-3">
                                     <a
                                         href={link.url}
@@ -291,10 +300,20 @@ pub async fn page() -> Result {
                                     <Button
                                         variant="secondary"
                                         class={twMerge(meetingActionClass)}
-                                        value={link.url}
-                                        onclick={shareLink(event.currentTarget.value)}
+                                        value={link.id}
+                                        onclick={shareLink(linkById(event.currentTarget.value))}
                                     >
                                         "Share link"
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        class="meeting-access-open shrink-0 text-muted-foreground hover:text-brand-ink"
+                                        attrs=@{labelled("Who can join")}
+                                        value={link.id}
+                                        onclick={openAccess(linkById(event.currentTarget.value))}
+                                    >
+                                        <Icon name="settings" class="size-4" />
                                     </Button>
                                 </div>
                             </div>
@@ -375,6 +394,200 @@ pub async fn page() -> Result {
                         </form>
                     </DialogContent>
                 </Dialog>
+                <Dialog>
+                    <DialogTrigger attrs=@{hidden()}>
+                        <span pp-ref={accessOpener}></span>
+                    </DialogTrigger>
+                    <DialogClose attrs=@{hidden()}>
+                        <span pp-ref={accessCloser}></span>
+                    </DialogClose>
+                    <DialogContent
+                        class="meeting-access-dialog sm:max-w-[460px]!"
+                        onclose={finishAccess()}
+                    >
+                        <DialogHeader>
+                            <DialogTitle class="text-[17px]">"Who can join"</DialogTitle>
+                        </DialogHeader>
+                        <form onsubmit={saveAccess(event)} novalidate>
+                            <FieldGroup class="gap-4">
+                                <div class="grid gap-2" role="radiogroup" aria-label="Who can join">
+                                    <label
+                                        class="flex cursor-pointer gap-3 rounded-md border border-edge p-3 has-checked:border-brand-ink"
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="mode"
+                                            value="open"
+                                            class="mt-0.5 accent-brand"
+                                            checked={accessMode === "open"}
+                                            disabled={accessLoading || accessSaving}
+                                            onchange={chooseMode("open")}
+                                        />
+                                        <span class="grid gap-0.5">
+                                            <span class="text-[13px] font-semibold text-ink">
+                                                "Anyone with the link"
+                                            </span>
+                                            <span class="text-[12px] text-muted-foreground">
+                                                "Guests are welcome. Everyone waits in the lobby until you let them in."
+                                            </span>
+                                        </span>
+                                    </label>
+                                    <label
+                                        class="flex cursor-pointer gap-3 rounded-md border border-edge p-3 has-checked:border-brand-ink"
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="mode"
+                                            value="passcode"
+                                            class="mt-0.5 accent-brand"
+                                            checked={accessMode === "passcode"}
+                                            disabled={accessLoading || accessSaving}
+                                            onchange={chooseMode("passcode")}
+                                        />
+                                        <span class="grid gap-0.5">
+                                            <span class="text-[13px] font-semibold text-ink">
+                                                "People with the link and passcode"
+                                            </span>
+                                            <span class="text-[12px] text-muted-foreground">
+                                                "The link alone is not enough. After the passcode, people wait in the lobby."
+                                            </span>
+                                        </span>
+                                    </label>
+                                    <label
+                                        class="flex cursor-pointer gap-3 rounded-md border border-edge p-3 has-checked:border-brand-ink"
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="mode"
+                                            value="invited"
+                                            class="mt-0.5 accent-brand"
+                                            checked={accessMode === "invited"}
+                                            disabled={accessLoading || accessSaving}
+                                            onchange={chooseMode("invited")}
+                                        />
+                                        <span class="grid gap-0.5">
+                                            <span class="text-[13px] font-semibold text-ink">
+                                                "Only people I invite"
+                                            </span>
+                                            <span class="text-[12px] text-muted-foreground">
+                                                "Invited accounts go straight in. Anyone else is refused, even with the link."
+                                            </span>
+                                        </span>
+                                    </label>
+                                </div>
+                                <div class="grid gap-2" hidden={accessMode !== "passcode"}>
+                                    <FieldLabel for="meeting-access-passcode" class="text-[13px]">
+                                        "Passcode"
+                                    </FieldLabel>
+                                    <div class="flex gap-2">
+                                        <Input
+                                            id="meeting-access-passcode"
+                                            name="passcode"
+                                            class="h-10! font-mono"
+                                            attrs=@{Attrs::new()
+                                                .set("autocomplete", "off")
+                                                .set("maxlength", "32")
+                                                .set("spellcheck", "false")}
+                                            value={accessPasscode}
+                                            disabled={accessSaving}
+                                            oninput={setAccessPasscode(target.value)}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            class="h-10! shrink-0"
+                                            attrs=@{plain()}
+                                            onclick={newPasscode()}
+                                        >
+                                            "New code"
+                                        </Button>
+                                    </div>
+                                    <p class="text-[12px] text-muted-foreground">
+                                        "4 to 32 letters and numbers, not case-sensitive. Changes apply when you save."
+                                    </p>
+                                    <Button
+                                        variant="link"
+                                        class="h-auto! justify-start! px-0! text-[13px] text-link"
+                                        attrs=@{plain()}
+                                        onclick={copyPasscodeLink()}
+                                    >
+                                        "Copy link with passcode"
+                                    </Button>
+                                </div>
+                                <div class="grid gap-2" hidden={accessMode !== "invited"}>
+                                    <FieldLabel for="meeting-access-search" class="text-[13px]">
+                                        "Invite people"
+                                    </FieldLabel>
+                                    <Input
+                                        id="meeting-access-search"
+                                        class="h-10!"
+                                        placeholder="Search by name"
+                                        attrs=@{Attrs::new().set("autocomplete", "off").set("maxlength", "80")}
+                                        value={inviteQuery}
+                                        disabled={accessLoading || accessSaving}
+                                        oninput={setInviteQuery(target.value)}
+                                    />
+                                    <div
+                                        class="meeting-invite-results grid max-h-40 overflow-y-auto rounded-md border border-edge"
+                                        hidden={inviteResults.length === 0}
+                                    >
+                                        <template pp-for="person in inviteResults">
+                                            <button
+                                                key={person.id}
+                                                type="button"
+                                                class="flex items-center justify-between px-3 py-2 text-left text-[13px] text-ink hover:bg-hover"
+                                                value={person.id}
+                                                onclick={addInvitee(event.currentTarget.value)}
+                                            >
+                                                <span class="truncate">{person.name}</span>
+                                                <span class="text-[12px] text-link">"Add"</span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <p class="text-[12px] text-brand-ink" hidden={!suggested}>
+                                        "Suggested from the calendar invitation. Save to apply."
+                                    </p>
+                                    <ul class="meeting-invited grid gap-1">
+                                        <template pp-for="person in invited">
+                                            <li
+                                                key={person.id}
+                                                class="flex items-center justify-between rounded-md bg-hover px-3 py-1.5 text-[13px] text-ink"
+                                            >
+                                                <span class="truncate">{person.name}</span>
+                                                <button
+                                                    type="button"
+                                                    class="text-[12px] text-muted-foreground hover:text-busy"
+                                                    value={person.id}
+                                                    onclick={removeInvitee(event.currentTarget.value)}
+                                                >
+                                                    "Remove"
+                                                </button>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                    <p
+                                        class="text-[12px] text-muted-foreground"
+                                        hidden={invited.length > 0}
+                                    >
+                                        "No one invited yet. Only you can join until you add people."
+                                    </p>
+                                </div>
+                                <FieldError hidden={!accessError}>{accessError}</FieldError>
+                                <DialogFooter>
+                                    <DialogClose class=@{cancel.as_str()} disabled={accessSaving}>
+                                        "Cancel"
+                                    </DialogClose>
+                                    <Button
+                                        class="meeting-access-save min-w-28"
+                                        attrs=@{submit()}
+                                        disabled={accessSaving || accessLoading || (accessMode === "passcode" && accessPasscode.trim().length < 4)}
+                                    >
+                                        {accessSaving ? "Saving…" : "Save"}
+                                    </Button>
+                                </DialogFooter>
+                            </FieldGroup>
+                        </form>
+                    </DialogContent>
+                </Dialog>
                 <AlertDialog>
                     <AlertDialogTrigger attrs=@{hidden()}>
                         <span pp-ref={removeOpener}></span>
@@ -414,6 +627,7 @@ pub async fn page() -> Result {
                     const [error, setError] = pp.state("");
                     const [listError, setListError] = pp.state("");
                     const [meetingId, setMeetingId] = pp.state("");
+                    const [meetingPasscode, setMeetingPasscode] = pp.state("");
                     const [toast, setToast] = pp.state("");
                     const [editingId, setEditingId] = pp.state("");
                     const [renameTitle, setRenameTitle] = pp.state("");
@@ -511,9 +725,138 @@ pub async fn page() -> Result {
                         }
                     }
 
-                    const shareLink = pp.event(function shareLink(url) {
-                        copy(absolute(url), "Link copied to clipboard");
+                    // A passcode meeting's link carries its code, as a Teams
+                    // invitation does, so whoever is sent it can go straight in.
+                    function shareUrl(link) {
+                        const path = link.access === "passcode" && link.passcode
+                            ? link.url + "?p=" + encodeURIComponent(link.passcode)
+                            : link.url;
+                        return absolute(path);
+                    }
+
+                    const shareLink = pp.event(function shareLink(link) {
+                        if (!link) return;
+                        copy(shareUrl(link), link.access === "passcode" ? "Link with passcode copied" : "Link copied to clipboard");
                     });
+
+                    function accessLabel(mode) {
+                        if (mode === "passcode") return "Passcode required";
+                        if (mode === "invited") return "Invited people only";
+                        return "Anyone with the link";
+                    }
+
+                    const [accessId, setAccessId] = pp.state("");
+                    const [accessMode, setAccessMode] = pp.state("open");
+                    const [accessPasscode, setAccessPasscode] = pp.state("");
+                    const [invited, setInvited] = pp.state([]);
+                    const [suggested, setSuggested] = pp.state(false);
+                    const [inviteQuery, setInviteQuery] = pp.state("");
+                    const [inviteResults, setInviteResults] = pp.state([]);
+                    const [accessError, setAccessError] = pp.state("");
+                    const [accessLoading, setAccessLoading] = pp.state(false);
+                    const [accessSaving, setAccessSaving] = pp.state(false);
+                    const accessOpener = pp.ref(null);
+                    const accessCloser = pp.ref(null);
+
+                    const openAccess = pp.event(async function openAccess(link) {
+                        if (!link) return;
+                        setAccessId(link.id);
+                        setAccessMode(link.access || "open");
+                        setAccessPasscode(link.passcode || "");
+                        setInvited([]);
+                        setSuggested(false);
+                        setInviteQuery("");
+                        setInviteResults([]);
+                        setAccessError("");
+                        setAccessLoading(true);
+                        accessOpener.current?.click();
+                        try {
+                            const settings = await pp.rpc("meeting_access", { id: link.id });
+                            setAccessMode(settings.mode);
+                            setAccessPasscode(settings.passcode || "");
+                            setInvited(settings.invited);
+                            setSuggested(settings.suggested);
+                        } catch (failure) {
+                            setAccessError(failure.message || "These settings could not be loaded.");
+                        } finally {
+                            setAccessLoading(false);
+                        }
+                    });
+
+                    function finishAccess() {
+                        setAccessId("");
+                        setInviteQuery("");
+                        setInviteResults([]);
+                    }
+
+                    function newPasscode() {
+                        const alphabet = "23456789abcdefghjkmnpqrstuvwxyz";
+                        const bytes = crypto.getRandomValues(new Uint8Array(8));
+                        setAccessPasscode(Array.from(bytes, b => alphabet[b % alphabet.length]).join(""));
+                    }
+
+                    function chooseMode(mode) {
+                        setAccessMode(mode);
+                        setAccessError("");
+                        if (mode === "passcode" && !accessPasscode) newPasscode();
+                    }
+
+                    pp.effect(() => {
+                        const query = inviteQuery.trim();
+                        if (!accessId || !query) { setInviteResults([]); return; }
+                        let cancelled = false;
+                        const timer = setTimeout(async () => {
+                            try {
+                                const people = await pp.rpc("search_meeting_invitees", { query });
+                                if (!cancelled) setInviteResults(people);
+                            } catch (failure) {
+                                if (!cancelled) setAccessError(failure.message || "People could not be searched.");
+                            }
+                        }, 200);
+                        return () => { cancelled = true; clearTimeout(timer); };
+                    }, [inviteQuery, accessId]);
+
+                    const addInvitee = pp.event(function addInvitee(id) {
+                        const person = inviteResults.find(item => item.id === id);
+                        if (!person || invited.some(item => item.id === id)) return;
+                        setInvited(current => current.concat([person]));
+                        setInviteQuery("");
+                        setInviteResults([]);
+                    });
+
+                    const removeInvitee = pp.event(function removeInvitee(id) {
+                        setInvited(current => current.filter(item => item.id !== id));
+                    });
+
+                    async function saveAccess(event) {
+                        event.preventDefault();
+                        if (accessSaving || accessLoading || !accessId) return;
+                        setAccessSaving(true);
+                        setAccessError("");
+                        try {
+                            const saved = await pp.rpc("save_meeting_access", {
+                                id: accessId,
+                                mode: accessMode,
+                                passcode: accessMode === "passcode" ? accessPasscode : "",
+                                invited: invited.map(person => person.id),
+                            });
+                            setLinks(current => current.map(link => link.id === saved.id
+                                ? Object.assign({}, link, { access: saved.mode, passcode: saved.mode === "passcode" ? saved.passcode : null })
+                                : link));
+                            accessCloser.current?.click();
+                            setToast("Meeting access updated");
+                        } catch (failure) {
+                            setAccessError(failure.errors?.passcode?.[0] || failure.errors?.invited?.[0] || failure.message || "These settings could not be saved.");
+                        } finally {
+                            setAccessSaving(false);
+                        }
+                    }
+
+                    async function copyPasscodeLink() {
+                        const link = links.find(item => item.id === accessId);
+                        if (!link || !accessPasscode.trim()) return;
+                        await copy(absolute(link.url + "?p=" + encodeURIComponent(accessPasscode.trim())), "Link with passcode copied");
+                    }
 
                     // A card's actions name their link by id: a handler in a list
                     // row reads the row through its button, not the loop variable.
@@ -546,7 +889,9 @@ pub async fn page() -> Result {
                         event.preventDefault();
                         const id = meetingId.trim();
                         if (!id) return;
-                        window.open("/meet/j/" + encodeURIComponent(id), "_blank", "noopener,noreferrer");
+                        const passcode = meetingPasscode.trim();
+                        const query = passcode ? "?p=" + encodeURIComponent(passcode) : "";
+                        window.open("/meet/j/" + encodeURIComponent(id) + query, "_blank", "noopener,noreferrer");
                     }
                 "##</script>
             </main>
@@ -598,4 +943,34 @@ pub async fn delete_meeting_link(id: String) -> Result<bool> {
 
     meetings::revoke(&id).await?;
     Ok(true)
+}
+
+/// The organizer's access settings for one of their links.
+#[rpc(auth)]
+pub async fn meeting_access(id: String) -> Result<AccessSettings> {
+    let id = id.trim().to_string();
+    let mut validator = Validator::new();
+    validator.required("id", &id).max_chars("id", &id, 64);
+    validator.finish()?;
+    meetings::access::settings(&id).await
+}
+
+/// Change who may enter a meeting: open, passcode, or invited people only.
+#[rpc(auth)]
+pub async fn save_meeting_access(
+    id: String,
+    mode: String,
+    passcode: String,
+    invited: Vec<String>,
+) -> Result<AccessSettings> {
+    meetings::access::update(id.trim(), mode, passcode, invited).await
+}
+
+/// People the organizer can add to an invite list.
+#[rpc(auth)]
+pub async fn search_meeting_invitees(query: String) -> Result<Vec<Invitee>> {
+    let mut validator = Validator::new();
+    validator.max_chars("query", &query, 80);
+    validator.finish()?;
+    meetings::access::search(&query).await
 }

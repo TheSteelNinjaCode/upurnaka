@@ -30,6 +30,7 @@ pub mod m20261029_000009_community_events;
 pub mod m20261029_000010_community_event_formatting;
 pub mod m20261029_000011_community_membership_settings;
 pub mod m20261030_000001_meeting_message;
+pub mod m20261126_000001_meeting_access;
 
 /// The application's migrations, in the order they are applied.
 pub struct Migrator;
@@ -60,6 +61,7 @@ impl ::sea_orm_migration::MigratorTrait for Migrator {
             Box::new(m20261029_000010_community_event_formatting::Migration),
             Box::new(m20261029_000011_community_membership_settings::Migration),
             Box::new(m20261030_000001_meeting_message::Migration),
+            Box::new(m20261126_000001_meeting_access::Migration),
         ]
     }
 }

@@ -32,6 +32,7 @@
 //! moment a connection string is configured and `db::migrate()` has run, the
 //! same calls write rows.
 
+pub mod access;
 pub mod chat;
 pub mod dilnaka_meet;
 pub mod lobby;
@@ -64,6 +65,11 @@ pub struct MeetingLink {
     pub created: String,
     /// The instant, for anything that needs to compare rather than read.
     pub created_at: DateTime<Utc>,
+    /// Who may enter: `"open"`, `"passcode"` or `"invited"`. See [`access`].
+    pub access: String,
+    /// A passcode meeting's code. This shape only ever reaches the link's
+    /// organizer; the join page reads the row on the server.
+    pub passcode: Option<String>,
 }
 
 /// Everything one browser needs to connect to a conference.
@@ -102,6 +108,8 @@ pub async fn create(title: String) -> Result<MeetingLink> {
             revoked_at: Set(None),
             provider_meeting_id: Set(None),
             media_region: Set(None),
+            access: Set("open".into()),
+            passcode: Set(None),
         }
         .insert(db::db())
         .await?;
@@ -117,6 +125,8 @@ pub async fn create(title: String) -> Result<MeetingLink> {
         revoked_at: None,
         provider_meeting_id: None,
         media_region: None,
+        access: "open".into(),
+        passcode: None,
     };
     memory().lock().unwrap().push(row.clone());
     Ok(shown(row))
@@ -367,6 +377,12 @@ fn shown(row: meeting_link::Model) -> MeetingLink {
         id: row.id,
         title: row.title,
         created_at: row.created_at,
+        passcode: if row.access == access::PASSCODE {
+            row.passcode
+        } else {
+            None
+        },
+        access: row.access,
     }
 }
 

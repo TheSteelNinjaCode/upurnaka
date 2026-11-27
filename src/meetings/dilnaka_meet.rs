@@ -284,6 +284,26 @@ pub async fn delete_meeting(meeting_id: &str) -> Result<()> {
     }
 }
 
+/// Take one person's seat away, ending their connection to the conference.
+///
+/// An attendee or meeting that is already gone is not an error.
+pub async fn delete_attendee(meeting_id: &str, attendee_id: &str) -> Result<()> {
+    if cfg!(test) {
+        return Ok(());
+    }
+    match call(
+        Method::DELETE,
+        &format!("/api/v1/meetings/{meeting_id}/attendees/{attendee_id}"),
+        None,
+    )
+    .await
+    {
+        Ok(_) => Ok(()),
+        Err(refusal) if refusal.status == StatusCode::NOT_FOUND => Ok(()),
+        Err(refusal) => Err(failed(refusal)),
+    }
+}
+
 /// A host mute disables sending at the media service. Only that attendee can
 /// request unmute.
 pub async fn set_attendee_audio(meeting_id: &str, attendee_id: &str, send: bool) -> Result<()> {

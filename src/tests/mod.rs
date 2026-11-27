@@ -14,6 +14,7 @@ mod communities;
 mod database;
 mod files;
 pub(crate) mod giphy;
+mod meeting_access;
 mod meeting_controls;
 mod meetings;
 mod pages;

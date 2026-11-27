@@ -239,6 +239,8 @@ pub async fn create(community: String, input: EventInput) -> Result<Vec<Communit
                 revoked_at: Set(None),
                 provider_meeting_id: Set(None),
                 media_region: Set(None),
+                access: Set("open".into()),
+                passcode: Set(None),
             }
             .insert(&transaction)
             .await?;

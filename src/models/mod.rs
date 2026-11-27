@@ -23,6 +23,7 @@ pub mod community_post_reaction;
 pub mod community_post_reply;
 pub mod community_report;
 pub mod meeting_control;
+pub mod meeting_invite;
 pub mod meeting_link;
 pub mod meeting_message;
 pub mod meeting_recording;

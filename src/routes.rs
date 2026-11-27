@@ -65,6 +65,7 @@ const PAGE_RPCS: &[&str] = &[
     "block_community_member",
     "change_community_cover",
     "chat_cloud_files",
+    "check_meeting_passcode",
     "community_cloud_files",
     "community_events",
     "community_join_link",
@@ -104,6 +105,7 @@ const PAGE_RPCS: &[&str] = &[
     "leave_community",
     "leave_meeting_entry",
     "list_users",
+    "meeting_access",
     "meeting_chat_history",
     "meeting_recording_url",
     "meeting_recordings",
@@ -122,7 +124,9 @@ const PAGE_RPCS: &[&str] = &[
     "resume_meeting_audio",
     "retry_meeting_recording",
     "save_community_settings",
+    "save_meeting_access",
     "schedule_meeting",
+    "search_meeting_invitees",
     "send_meeting_chat",
     "send_message",
     "set_community_nickname",
@@ -282,6 +286,7 @@ async fn rpc_p_meet_j_id(req: axum::extract::Request) -> axum::response::Respons
     match name.as_str() {
         "join_meeting" => p_meet_j_id::__rahti_rpc_join_meeting(req).await,
         "request_meeting_entry" => p_meet_j_id::__rahti_rpc_request_meeting_entry(req).await,
+        "check_meeting_passcode" => p_meet_j_id::__rahti_rpc_check_meeting_passcode(req).await,
         "meeting_room_state" => p_meet_j_id::__rahti_rpc_meeting_room_state(req).await,
         "decide_meeting_entry" => p_meet_j_id::__rahti_rpc_decide_meeting_entry(req).await,
         "leave_meeting_entry" => p_meet_j_id::__rahti_rpc_leave_meeting_entry(req).await,
@@ -311,6 +316,9 @@ async fn rpc_p_meet(req: axum::extract::Request) -> axum::response::Response {
         "create_meeting_link" => p_meet::__rahti_rpc_create_meeting_link(req).await,
         "rename_meeting_link" => p_meet::__rahti_rpc_rename_meeting_link(req).await,
         "delete_meeting_link" => p_meet::__rahti_rpc_delete_meeting_link(req).await,
+        "meeting_access" => p_meet::__rahti_rpc_meeting_access(req).await,
+        "save_meeting_access" => p_meet::__rahti_rpc_save_meeting_access(req).await,
+        "search_meeting_invitees" => p_meet::__rahti_rpc_search_meeting_invitees(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -374,7 +382,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/` [GET, POST] — src/app/page.rs (layouts: src/app/layout.rs)
 /// - `/apps` [GET, POST] — src/app/apps/page.rs (layouts: src/app/layout.rs)
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, upload_chat_file, chat_cloud_files, create_chat_folder, create_chat_meeting)
-/// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link)
+/// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link, meeting_access, save_meeting_access, search_meeting_invitees)
 /// - `/files` [GET, POST] — src/app/files/page.rs (layouts: src/app/layout.rs; rpc: files_list, files_upload, files_new_folder, files_rename, files_rename_folder, files_places, files_move, files_delete, files_delete_folder, files_recordings, files_delete_recording)
 /// - `/setup` [GET, POST] — src/app/setup/page.rs (layouts: src/app/layout.rs)
 /// - `/users` [GET, POST] — src/app/users/page.rs (layouts: src/app/layout.rs; rpc: list_users, create_user, update_user, set_user_active, delete_user)
@@ -388,7 +396,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/communities` [GET, POST] — src/app/communities/page.rs (layouts: src/app/layout.rs; rpc: create_community, create_community_channel, publish_community_post, react_to_community_post, edit_community_post, delete_community_post, pin_community_post, upload_community_file, community_events, create_community_event, share_community_cloud_files, community_cloud_files, reply_to_community_post, change_community_cover, edit_community, community_members, community_join_link, invite_community_member, join_community, set_community_notifications, transfer_community_ownership, remove_community_member, set_community_nickname, save_community_settings, approve_community_member, decline_community_member, block_community_member, unblock_community_member, leave_community, delete_community, report_community)
 /// - `/profile-picture` [GET] — src/app/profile-picture/route.rs
 /// - `/communities/reports` [GET, POST] — src/app/communities/reports/page.rs (layouts: src/app/layout.rs)
-/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, mute_all_participants, meeting_chat_history, send_meeting_chat, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
+/// - `/meet/j/{id}` [GET, POST] — src/app/meet/j/[id]/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: join_meeting, request_meeting_entry, check_meeting_passcode, meeting_room_state, decide_meeting_entry, leave_meeting_entry, spotlight_participant, mute_participant, mute_all_participants, meeting_chat_history, send_meeting_chat, resume_meeting_audio, start_meeting_recording, append_meeting_recording, finish_meeting_recording, meeting_recordings, meeting_recording_url, retry_meeting_recording)
 /// - `/chat/files/{id}` [GET] — src/app/chat/files/[id]/route.rs
 /// - `/files/recordings/{id}` [GET] — src/app/files/recordings/[id]/route.rs
 /// - `/communities/files/{id}` [GET] — src/app/communities/files/[id]/route.rs

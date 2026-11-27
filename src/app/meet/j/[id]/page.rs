@@ -16,8 +16,10 @@
 //! With no `DILNAKA_MEETINGS_KEY` configured there is no provider, and the
 //! button says so instead of calling one.
 
-use axum::extract::Path;
+use axum::extract::{Path, Query};
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Redirect, Response};
+use serde::Deserialize;
 
 use crate::components::aria::{bound, labelled, named, submit};
 use crate::components::avatar::Avatar;
@@ -31,7 +33,7 @@ use crate::components::rahti_ui::radio_group::{RadioGroup, RadioGroupItem};
 use crate::components::rahti_ui::select::{Select, SelectItem};
 use crate::components::rahti_ui::switch::Switch;
 use crate::meetings::{self, JoinInfo, dilnaka_meet, recording};
-use crate::rahti::{Error, Html, Json, Metadata, Page, Result, RpcUpload, Validator, html, rpc};
+use crate::rahti::{Error, Json, Metadata, Page, Result, RpcUpload, Validator, html, rpc};
 
 /// A tool in the meeting toolbar: an icon over its label, underlined while on.
 const ROOM_TOOL: &str = "h-[60px]! min-w-14 flex-col gap-[5px] px-2.5! py-1.5 text-xs font-normal \
@@ -61,7 +63,14 @@ const MENU_ROW: &str = "w-full justify-start! px-4! py-2.5 text-left text-[13px]
 /// An action that reads as a link.
 const LINK: &str = "h-auto! px-0! text-link";
 
-pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
+/// `?p=` carries a passcode-protected meeting's passcode, as a shared
+/// link may.
+#[derive(Deserialize)]
+pub struct JoinQuery {
+    pub p: Option<String>,
+}
+
+pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Result<Response> {
     let anonymous = crate::auth::current().is_none();
     let user = crate::auth::current().unwrap_or_default();
     let initials = user.initials();
@@ -77,6 +86,32 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
 
     let title = link.title.clone();
     let code = link.id.clone();
+
+    // Who may enter is decided again, on the server, when a lobby ticket is
+    // asked for; this only picks what to show first.
+    let access = if crate::db::is_connected() {
+        Some(meetings::access::page_access(&code).await?)
+    } else {
+        None
+    };
+    let mode = access
+        .as_ref()
+        .map_or(meetings::access::OPEN, |a| a.mode.as_str());
+    let host = access.as_ref().is_some_and(|a| a.host);
+    if mode == meetings::access::INVITED && !host {
+        if anonymous {
+            return Ok(Redirect::to(&format!("/signin?next=/meet/j/{code}")).into_response());
+        }
+        if !access.as_ref().is_some_and(|a| a.invited) {
+            return Err(meetings::access::not_invited());
+        }
+    }
+    let needs_passcode = mode == meetings::access::PASSCODE && !host;
+    let initial_passcode: String = if needs_passcode {
+        query.p.unwrap_or_default().chars().take(64).collect()
+    } else {
+        String::new()
+    };
 
     // Decided on the server, because it is a deployment fact rather than
     // something the browser could discover: with no provider configured the
@@ -98,8 +133,55 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             onkeydown={handleBackgroundKey(event)}
         >
             <section
+                class="meeting-passcode mx-auto flex min-h-dvh max-w-[480px] flex-col items-center justify-center gap-6 px-6 py-12 text-center"
+                hidden={!passcodeGate}
+            >
+                <div
+                    class="flex size-20 items-center justify-center rounded-2xl bg-brand/20 text-brand-ink"
+                >
+                    <Icon name="shield" class="size-10" />
+                </div>
+                <div>
+                    <p class="mb-3 text-sm text-muted-foreground">"UPURNAKA MEETINGS"</p>
+                    <h1 class="text-2xl font-semibold">"Enter the meeting passcode"</h1>
+                    <p class="mt-3 text-muted-foreground">@{title.as_str()}</p>
+                </div>
+                <form
+                    class="grid w-full gap-3 rounded-xl border border-edge bg-raised p-7 text-left shadow-lg"
+                    onsubmit={submitPasscode(event)}
+                    novalidate
+                >
+                    <Label for="meeting-passcode">"Passcode"</Label>
+                    <Input
+                        id="meeting-passcode"
+                        name="passcode"
+                        attrs=@{Attrs::new()
+                            .set("autocomplete", "off")
+                            .set("maxlength", "64")
+                            .set("autocapitalize", "off")
+                            .set("spellcheck", "false")}
+                        value={passcode}
+                        oninput={setPasscode(target.value)}
+                        disabled={checkingPasscode}
+                    />
+                    <p class="text-sm text-danger-ink" aria-live="polite" hidden={!passcodeError}>
+                        {passcodeError}
+                    </p>
+                    <Button
+                        class="w-full"
+                        attrs=@{submit()}
+                        disabled={checkingPasscode || !passcode.trim()}
+                    >
+                        {checkingPasscode ? "Checking…" : "Continue"}
+                    </Button>
+                    <p class="text-sm text-muted-foreground">
+                        "The organizer protected this meeting with a passcode. It's in the invitation."
+                    </p>
+                </form>
+            </section>
+            <section
                 class="meeting-launch mx-auto flex min-h-dvh max-w-[480px] flex-col items-center justify-center gap-6 px-6 py-12 text-center"
-                hidden={!showLauncher}
+                hidden={passcodeGate || !showLauncher}
             >
                 <div
                     class="flex size-20 items-center justify-center rounded-2xl bg-brand/20 text-brand-ink"
@@ -132,7 +214,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             <div
                 class="meeting-body group/body mx-auto max-w-[1460px] px-5 pb-6 min-[851px]:flex min-[851px]:h-full min-[851px]:flex-col min-[851px]:gap-[clamp(10px,1.8dvh,20px)] min-[851px]:px-[clamp(24px,4vw,64px)] min-[851px]:pb-4 min-[1101px]:data-[backgrounds=true]:ml-0 min-[1101px]:data-[backgrounds=true]:w-[calc(100%-340px)] min-[1101px]:data-[backgrounds=true]:px-6"
                 data-backgrounds={backgroundsOpen}
-                hidden={showLauncher || session !== null}
+                hidden={passcodeGate || showLauncher || session !== null}
             >
                 <div
                     class="meeting-account relative mx-auto flex w-fit max-w-full items-center gap-4 rounded-b-md bg-raised px-6 py-5 shadow-md shadow-black/20 max-[480px]:gap-2.5 max-[480px]:p-3.5 min-[851px]:shrink-0 min-[851px]:py-[clamp(12px,1.8dvh,20px)]"
@@ -1502,6 +1584,41 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                     ]);
                     const anonymous = @{anonymous};
                     const [showLauncher, setShowLauncher] = pp.state(anonymous);
+                    // A passcode meeting asks for its code before anything
+                    // else. The code is checked here for a quick answer and
+                    // again by the server when a lobby ticket is asked for.
+                    const needsPasscode = @{needs_passcode};
+                    const [passcode, setPasscode] = pp.state(@{Json(&initial_passcode)});
+                    const [passcodeOk, setPasscodeOk] = pp.state(!needsPasscode);
+                    const [passcodeError, setPasscodeError] = pp.state("");
+                    const [checkingPasscode, setCheckingPasscode] = pp.state(false);
+                    const passcodeGate = needsPasscode && !passcodeOk;
+                    async function checkPasscode(value) {
+                        if (checkingPasscode) return;
+                        setCheckingPasscode(true);
+                        setPasscodeError("");
+                        try {
+                            await pp.rpc("check_meeting_passcode", { id: code, passcode: value });
+                            setPasscodeOk(true);
+                        } catch (failure) {
+                            setPasscodeError(failure.body?.error || failure.message || "That passcode could not be checked.");
+                        } finally {
+                            setCheckingPasscode(false);
+                        }
+                    }
+                    function submitPasscode(event) {
+                        event.preventDefault();
+                        const value = Object.fromEntries(new FormData(event.currentTarget)).passcode || "";
+                        if (value.trim()) checkPasscode(value.trim());
+                    }
+                    pp.effect(() => {
+                        // A shared link may carry the code; take it out of the
+                        // address bar so it is not copied on by accident.
+                        if (new URLSearchParams(location.search).has("p")) {
+                            history.replaceState(history.state, "", location.pathname);
+                        }
+                        if (needsPasscode && passcode.trim()) checkPasscode(passcode.trim());
+                    }, []);
                     const [installHelp, setInstallHelp] = pp.state("");
                     const installPrompt = pp.ref(null);
                     const onInstallPrompt = pp.event(event => { event.preventDefault(); installPrompt.current = event; });
@@ -1757,10 +1874,10 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                             setToast('The organizer muted your microphone. You can unmute when ready.');
                         }
                         if (result.state === 'admitted' && !session && !connecting.current) await connectAdmitted(ticket);
-                        if (result.state === 'denied' || result.state === 'left') {
+                        if (result.state === 'denied' || result.state === 'left' || result.state === 'removed') {
                             setLobbyWaiting(false); setAdmission('');
                             if (session) { await teardown(); setSession(null); }
-                            setError(result.state === 'denied' ? 'The organizer declined your request to join.' : 'Your meeting entry has ended.');
+                            setError(result.state === 'denied' ? 'The organizer declined your request to join.' : result.state === 'removed' ? 'The organizer limited this meeting to invited people, and you were removed.' : 'Your meeting entry has ended.');
                         }
                     });
                     pp.effect(() => {
@@ -2906,7 +3023,7 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
                         setError("");
                         setConnectionStatus("connecting");
                         try {
-                            const entry = await pp.rpc('request_meeting_entry', {id:code,name:displayName});
+                            const entry = await pp.rpc('request_meeting_entry', {id:code,name:displayName,passcode:needsPasscode ? passcode.trim() : null});
                             setIsOrganizer(entry.host); setAdmission(entry.id);
                             if (entry.state === 'waiting') setLobbyWaiting(true);
                             else await connectAdmitted(entry.id);
@@ -3009,7 +3126,8 @@ pub async fn page(Path(id): Path<String>) -> Result<Page<Html>> {
             .title(&title)
             .robots(crate::rahti::Robots::new().index(false).follow(false))
             .description(format!("Join {title} on upurnaka.")),
-    ))
+    )
+    .into_response())
 }
 
 /// Take a seat in the conference behind a meeting link.
@@ -3037,7 +3155,7 @@ pub async fn join_meeting(
     let ticket = if let Some(ticket) = admission {
         ticket
     } else {
-        meetings::lobby::request(id.clone(), display_name.clone())
+        meetings::lobby::request(id.clone(), display_name.clone(), None)
             .await?
             .id
     };
@@ -3060,8 +3178,24 @@ pub async fn join_meeting(
 }
 
 #[rpc]
-pub async fn request_meeting_entry(id: String, name: String) -> Result<meetings::lobby::Admission> {
-    meetings::lobby::request(id, name).await
+pub async fn request_meeting_entry(
+    id: String,
+    name: String,
+    passcode: Option<String>,
+) -> Result<meetings::lobby::Admission> {
+    meetings::lobby::request(id, name, passcode).await
+}
+
+/// The passcode gate: answers `true`, or refuses with why.
+#[rpc]
+pub async fn check_meeting_passcode(id: String, passcode: String) -> Result<bool> {
+    let mut validator = Validator::new();
+    validator
+        .required("id", &id)
+        .max_chars("id", &id, 64)
+        .max_chars("passcode", &passcode, 64);
+    validator.finish()?;
+    meetings::access::check_passcode(&id, &passcode).await
 }
 #[rpc]
 pub async fn meeting_room_state(id: String, ticket: String) -> Result<meetings::lobby::RoomState> {

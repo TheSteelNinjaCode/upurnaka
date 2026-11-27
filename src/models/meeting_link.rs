@@ -35,6 +35,12 @@ pub struct Model {
     pub provider_meeting_id: Option<String>,
     /// The media region that conference was created in.
     pub media_region: Option<String>,
+    /// Who may enter: `"open"`, `"passcode"` or `"invited"`.
+    pub access: String,
+    /// The shared code a `"passcode"` meeting asks for. Kept readable, not
+    /// hashed: the organizer has to be able to see it again to send it on.
+    #[serde(skip_serializing)]
+    pub passcode: Option<String>,
 }
 
 /// Nothing points at this table yet. The empty enum is how that is written.

@@ -206,6 +206,8 @@ pub async fn schedule(input: ScheduleInput) -> Result<Vec<ScheduledMeeting>> {
             revoked_at: Set(None),
             provider_meeting_id: Set(None),
             media_region: Set(None),
+            access: Set("open".into()),
+            passcode: Set(None),
         }
         .insert(&transaction)
         .await?;
