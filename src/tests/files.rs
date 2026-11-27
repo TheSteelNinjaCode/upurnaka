@@ -1,4 +1,4 @@
-//! The Files page: My files as tiles or a list, and this person's recordings.
+//! The Files page: My files as a table, and this person's recordings.
 
 use super::{auth::Client, *};
 use rahti::serde_json::{Value, json};
@@ -432,8 +432,8 @@ async fn files_browser(id: &str, email: &str) -> Option<BrowserSlot> {
 }
 
 #[tokio::test]
-async fn my_files_open_as_tiles_that_select_on_click_and_open_on_double_click() {
-    let (mut owner, owner_id) = person("files-tiles@example.com").await;
+async fn my_files_are_a_table_that_selects_by_checkbox_and_opens_folders() {
+    let (mut owner, owner_id) = person("files-list@example.com").await;
     let (status, folder) = call(
         &mut owner,
         "files_new_folder",
@@ -442,70 +442,41 @@ async fn my_files_open_as_tiles_that_select_on_click_and_open_on_double_click() 
     .await;
     assert_eq!(status, StatusCode::OK, "{folder}");
     upload(&mut owner, "plan.txt").await;
-    let Some(mut browser) = files_browser(&owner_id, "files-tiles@example.com").await else {
+    let Some(mut browser) = files_browser(&owner_id, "files-list@example.com").await else {
         return;
     };
+    let table = "document.querySelector('section[aria-label=\"My files\"] table')";
     let bar = "document.querySelector('.files-commands')";
     browser
-        .wait_for("document.querySelectorAll('.files-tiles [data-kind=folder]').length === 1 && document.querySelectorAll('.files-tiles [data-kind=file]').length === 1 && !document.querySelector('.files-tiles').hidden")
+        .wait_for(&format!("{table} && {table}.closest('[hidden]') === null && {table}.textContent.includes('Projects') && {table}.textContent.includes('plan.txt')"))
         .await
         .unwrap();
-    // The list is not shown while tiles are.
+    // A table only: no tiles, and no view to switch.
     assert!(
         browser
-            .eval::<bool>("document.querySelector('section[aria-label=\"My files\"] table').closest('[hidden]') !== null")
+            .eval::<bool>("!document.querySelector('.files-tiles') && !document.querySelector('[aria-label=View]')")
             .await
             .unwrap()
     );
 
-    // A click selects a file and offers what can be done with it.
+    // The checkbox selects a file and offers what can be done with it.
     browser
-        .click(".files-tiles [data-kind=file]")
+        .click("input[aria-label='Select plan.txt']")
         .await
         .unwrap();
     browser
-        .wait_for(&format!("document.querySelector('.files-tiles [data-kind=file]').getAttribute('aria-pressed') === 'true' && {bar}.textContent.includes('plan.txt') && {bar}.textContent.includes('Move')"))
+        .wait_for(&format!(
+            "{bar}.textContent.includes('plan.txt') && {bar}.textContent.includes('Move')"
+        ))
         .await
         .unwrap();
-    // A click on a folder selects it instead, with folder actions.
-    browser
-        .click(".files-tiles [data-kind=folder]")
-        .await
-        .unwrap();
-    browser
-        .wait_for(&format!("document.querySelector('.files-tiles [data-kind=folder]').getAttribute('aria-pressed') === 'true' && document.querySelector('.files-tiles [data-kind=file]').getAttribute('aria-pressed') === 'false' && {bar}.textContent.includes('Projects')"))
-        .await
-        .unwrap();
-    // A double-click opens the folder.
-    browser
-        .double_click(".files-tiles [data-kind=folder]")
-        .await
-        .unwrap();
-    browser
-        .wait_for("document.querySelector('nav[aria-label=\"Folder path\"]').textContent.includes('Projects') && document.querySelectorAll('.files-tiles [data-kind]').length === 0")
-        .await
-        .unwrap();
-    browser
-        .click("nav[aria-label='Folder path'] button")
-        .await
-        .unwrap();
-    browser
-        .wait_for("document.querySelectorAll('.files-tiles [data-kind=folder]').length === 1")
-        .await
-        .unwrap();
-
-    // The list view is a choice the browser remembers.
+    // The folder's name opens it.
     let _: bool = browser
-        .eval("(() => { Array.from(document.querySelectorAll('[aria-label=View] button')).find(b => b.textContent.includes('List')).click(); return true; })()")
+        .eval(&format!("(() => {{ Array.from({table}.querySelectorAll('button')).find(b => b.textContent.trim() === 'Projects').click(); return true; }})()"))
         .await
         .unwrap();
     browser
-        .wait_for("document.querySelector('.files-tiles').hidden && document.querySelector('section[aria-label=\"My files\"] table').closest('[hidden]') === null")
-        .await
-        .unwrap();
-    let _: bool = browser.eval("(location.reload(), true)").await.unwrap();
-    browser
-        .wait_for("document.readyState === 'complete' && document.querySelector('.files-tiles') && document.querySelector('.files-tiles').hidden && document.querySelector('[aria-label=View] button[aria-pressed=true]').textContent.includes('List')")
+        .wait_for(&format!("document.querySelector('nav[aria-label=\"Folder path\"]').textContent.includes('Projects') && !{table}.textContent.includes('plan.txt')"))
         .await
         .unwrap();
     assert!(browser.errors().is_empty(), "{:?}", browser.errors());

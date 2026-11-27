@@ -311,9 +311,6 @@
   .top-1\/2 {
     top: calc(1 / 2 * 100%);
   }
-  .top-2 {
-    top: calc(var(--spacing) * 2);
-  }
   .top-2\.5 {
     top: calc(var(--spacing) * 2.5);
   }
@@ -982,9 +979,6 @@
   .h-16 {
     height: calc(var(--spacing) * 16);
   }
-  .h-24 {
-    height: calc(var(--spacing) * 24);
-  }
   .h-28 {
     height: calc(var(--spacing) * 28);
   }
@@ -1646,9 +1640,6 @@
   .grid-cols-\[minmax\(0\,1fr\)_minmax\(115px\,1fr\)\] {
     grid-template-columns: minmax(0,1fr) minmax(115px,1fr);
   }
-  .grid-cols-\[repeat\(auto-fill\,minmax\(150px\,1fr\)\)\] {
-    grid-template-columns: repeat(auto-fill,minmax(150px,1fr));
-  }
   .grid-cols-\[repeat\(auto-fit\,minmax\(min\(300px\,100\%\)\,1fr\)\)\] {
     grid-template-columns: repeat(auto-fit,minmax(min(300px, 100%),1fr));
   }
@@ -2200,12 +2191,6 @@
   .bg-brand-soft {
     background-color: var(--brand-soft);
   }
-  .bg-brand\/10 {
-    background-color: var(--brand);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--brand) 10%, transparent);
-    }
-  }
   .bg-brand\/15 {
     background-color: var(--brand);
     @supports (color: color-mix(in lab, red, red)) {
@@ -2540,9 +2525,6 @@
   }
   .p-0\! {
     padding: 0px !important;
-  }
-  .p-0\.5 {
-    padding: calc(var(--spacing) * 0.5);
   }
   .p-1 {
     padding: var(--spacing);
@@ -3828,9 +3810,6 @@
   .checked\:text-primary-foreground:checked {
     color: var(--primary-foreground);
   }
-  .checked\:opacity-100:checked {
-    opacity: 100%;
-  }
   .focus-within\:shadow-\[inset_0_-2px_var\(--color-brand-ink\)\]:focus-within {
     --tw-shadow: inset 0 -2px var(--tw-shadow-color, var(--color-brand-ink));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
@@ -3995,9 +3974,6 @@
   }
   .focus\:text-accent-foreground:focus {
     color: var(--accent-foreground);
-  }
-  .focus\:opacity-100:focus {
-    opacity: 100%;
   }
   .focus\:ring-2:focus {
     --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
