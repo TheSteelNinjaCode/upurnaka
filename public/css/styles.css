@@ -356,9 +356,6 @@
   .right-1 {
     right: var(--spacing);
   }
-  .right-1\.5 {
-    right: calc(var(--spacing) * 1.5);
-  }
   .right-3 {
     right: calc(var(--spacing) * 3);
   }
@@ -826,10 +823,6 @@
   .size-1 {
     width: var(--spacing);
     height: var(--spacing);
-  }
-  .size-1\.5 {
-    width: calc(var(--spacing) * 1.5);
-    height: calc(var(--spacing) * 1.5);
   }
   .size-2 {
     width: calc(var(--spacing) * 2);

@@ -451,11 +451,8 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                             class=@{more_trigger.as_str()}
                             attrs=@{labelled("Settings and more")}
                         >
-                            <Icon name="more" class="size-[18px]" />
-                            <span
-                                class="absolute right-1.5 top-1 size-1.5 rounded-full bg-brand-ink"
-                                pp-ref={moreBadge}
-                            >
+                            <span class="contents" pp-ref={moreMark}>
+                                <Icon name="more" class="size-[18px]" />
                             </span>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent menu="shell-more" align="end" class="w-72">
@@ -1225,7 +1222,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 const globalSearch = pp.ref(null);
                 const searchSubmit = pp.ref(null);
                 const appRail = pp.ref(null);
-                const moreBadge = pp.ref(null);
+                const moreMark = pp.ref(null);
                 const shortcutsOpener = pp.ref(null);
                 const shortcutsCloser = pp.ref(null);
                 const [shortcutsActive, setShortcutsActive] = pp.state(false);
@@ -1251,7 +1248,7 @@ pub fn AppShell(active: &str, children: Html) -> Html {
                 // closed, so focus goes back to the menu's own button.
                 function restoreShortcutsFocus() {
                     setShortcutsActive(false);
-                    moreBadge.current?.closest("button")?.focus();
+                    moreMark.current?.closest("button")?.focus();
                 }
                 // Document-level keyboard integration must also receive keys when
                 // the body has focus. Keep ordinary controls in their markup.
