@@ -656,3 +656,59 @@ pub async fn remove_own(recording_id: &str) -> Result<bool> {
     }
     Ok(true)
 }
+/// Delete several of this person's recordings at once, as [`remove_own`]
+/// does one: every id must be theirs, or nothing is deleted. Recordings
+/// still running or uploading are left alone. Answers how many went.
+pub async fn remove_own_many(ids: Vec<String>) -> Result<u64> {
+    let mut validator = crate::rahti::Validator::new();
+    validator
+        .check("ids", !ids.is_empty(), "Choose at least one recording.")
+        .check(
+            "ids",
+            ids.len() <= 500,
+            "Delete up to 500 recordings at a time.",
+        )
+        .check(
+            "ids",
+            ids.iter().all(|id| !id.is_empty() && id.len() <= 100),
+            "Choose recordings from the list.",
+        );
+    validator.finish()?;
+    let me = signed_in()?;
+    let mut unique = ids;
+    unique.sort();
+    unique.dedup();
+    let rows = recording::Entity::find()
+        .filter(recording::Column::Id.is_in(unique.clone()))
+        .filter(recording::Column::StartedBy.eq(&me))
+        .all(db::db())
+        .await?;
+    if rows.len() != unique.len() {
+        return Err(Error::new(StatusCode::NOT_FOUND, "Recording not found."));
+    }
+    let doomed: Vec<_> = rows
+        .into_iter()
+        .filter(|row| row.state == "stored" || row.state == "failed")
+        .collect();
+    if doomed.is_empty() {
+        return Ok(0);
+    }
+    let deleted = recording::Entity::delete_many()
+        .filter(recording::Column::Id.is_in(doomed.iter().map(|row| row.id.clone())))
+        .filter(recording::Column::StartedBy.eq(&me))
+        .filter(recording::Column::State.is_in(["stored", "failed"]))
+        .exec(db::db())
+        .await?;
+    for row in doomed {
+        let _ = tokio::fs::remove_dir_all(folder(&row.id)).await;
+        if let Some(file_id) = row.file_id {
+            if let Err(reason) = delete_object(&file_id).await {
+                eprintln!(
+                    "recordings: {} was deleted but its stored file was not: {reason}",
+                    row.id
+                );
+            }
+        }
+    }
+    Ok(deleted.rows_affected)
+}

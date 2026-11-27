@@ -409,9 +409,37 @@ pub async fn page() -> Result<Html> {
                         <div class="border-b border-line p-4 text-sm text-muted-foreground">
                             "Meetings you recorded. Download a recording or delete one you no longer need."
                         </div>
+                        <div
+                            hidden={pickedRecordings.length === 0}
+                            class="recording-selection flex flex-wrap items-center gap-2 border-b border-line bg-sunken px-4 py-2 text-sm"
+                        >
+                            <span class="font-medium">{pickedRecordings.length}" selected"</span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                class="text-danger-ink hover:bg-destructive/10"
+                                onclick={askDeleteRecordings()}
+                                disabled={busy}
+                            >
+                                "Delete"
+                            </Button>
+                            <Button variant="ghost" size="sm" onclick={setPickedRecordings([])}>
+                                "Clear selection"
+                            </Button>
+                        </div>
                         <Table>
                             <TableHeader class="bg-sunken">
                                 <TableRow class="hover:bg-transparent">
+                                    <TableHead class="w-10 px-4">
+                                        <input
+                                            type="checkbox"
+                                            aria-label="Select all recordings"
+                                            class="h-4 w-4 accent-brand-ink"
+                                            checked={deletableRecordings.length > 0 && deletableRecordings.every(item => pickedRecordings.includes(item.id))}
+                                            disabled={deletableRecordings.length === 0}
+                                            onchange={selectAllRecordings(event.currentTarget.checked)}
+                                        />
+                                    </TableHead>
                                     <TableHead class=@{head}>"Meeting"</TableHead>
                                     <TableHead class=@{head}>"Recorded"</TableHead>
                                     <TableHead class=@{head}>"Length"</TableHead>
@@ -426,7 +454,20 @@ pub async fn page() -> Result<Html> {
                             </TableHeader>
                             <TableBody>
                                 <template pp-for="item in recordings">
-                                    <TableRow key={[item.id, item.state, item.bytes].join("|")}>
+                                    <TableRow
+                                        key={[item.id, item.state, item.bytes, pickedRecordings.includes(item.id)].join("|")}
+                                    >
+                                        <TableCell class="px-4 py-3">
+                                            <input
+                                                type="checkbox"
+                                                aria-label={"Select recording of " + item.meeting + " from " + item.started}
+                                                class="h-4 w-4 accent-brand-ink"
+                                                value={item.id}
+                                                checked={pickedRecordings.includes(item.id)}
+                                                disabled={!canDeleteRecording(item)}
+                                                onchange={toggleRecording(event.currentTarget.value)}
+                                            />
+                                        </TableCell>
                                         <TableCell class="max-w-sm px-4 py-3">
                                             <span class="block truncate font-medium">
                                                 {item.meeting}
@@ -614,6 +655,12 @@ pub async fn page() -> Result<Html> {
                     const [query, setQuery] = pp.state('');
                     const [sort, setSort] = pp.state({key: 'modified', descending: true});
                     const [selected, setSelected] = pp.state([]);
+                    // The Recordings tab keeps its own selection. A recording
+                    // still running or uploading cannot be picked, as it
+                    // cannot be deleted.
+                    const [pickedRecordings, setPickedRecordings] = pp.state([]);
+                    function canDeleteRecording(item) { return item.state !== 'recording' && item.state !== 'uploading'; }
+                    const deletableRecordings = recordings.filter(canDeleteRecording);
                     const [busy, setBusy] = pp.state(false);
                     const [uploading, setUploading] = pp.state(false);
                     const [dragging, setDragging] = pp.state(false);
@@ -687,7 +734,7 @@ pub async fn page() -> Result<Html> {
                     function failure(e, fallback) { return e.errors?.name?.[0] || e.errors?.ids?.[0] || e.message || fallback; }
                     function say(text) { setError(''); setNotice(text); }
 
-                    function showTab(next) { setTab(next); setError(''); setNotice(''); setSelected([]); }
+                    function showTab(next) { setTab(next); setError(''); setNotice(''); setSelected([]); setPickedRecordings([]); }
                     const refresh = pp.event(async function refresh(folder) {
                         const next = await pp.rpc('files_list', {folder: folder === undefined ? listing.folder : folder || null});
                         setListing(next.listing); setUsage(next.usage);
@@ -824,6 +871,22 @@ pub async fn page() -> Result<Html> {
                             detail: 'The recording of "' + item.meeting + '" from ' + item.started + ' will be removed from storage for everyone who could download it. This cannot be undone.',
                         });
                     });
+                    const toggleRecording = pp.event(function toggleRecording(id) {
+                        setPickedRecordings(previous => previous.includes(id) ? previous.filter(other => other !== id) : [...previous, id]);
+                    });
+                    const selectAllRecordings = pp.event(function selectAllRecordings(on) {
+                        setPickedRecordings(on ? deletableRecordings.map(item => item.id) : []);
+                    });
+                    const askDeleteRecordings = pp.event(function askDeleteRecordings() {
+                        const ids = pickedRecordings.filter(id => recordings.some(item => item.id === id && canDeleteRecording(item)));
+                        if (!ids.length) return;
+                        if (ids.length === 1) { askDeleteRecording(ids[0]); return; }
+                        confirmAbout({
+                            kind: 'recordings', ids,
+                            title: 'Delete ' + ids.length + ' recordings?',
+                            detail: 'These ' + ids.length + ' recordings will be removed from storage for everyone who could download them. This cannot be undone.',
+                        });
+                    });
                     async function confirmDelete() {
                         if (busy || !deleting) return;
                         const job = deleting;
@@ -832,7 +895,13 @@ pub async fn page() -> Result<Html> {
                             if (job.kind === 'recording') {
                                 await pp.rpc('files_delete_recording', {id: job.id});
                                 setRecordings(await pp.rpc('files_recordings', {}));
+                                setPickedRecordings(previous => previous.filter(id => id !== job.id));
                                 say('Recording deleted.');
+                            } else if (job.kind === 'recordings') {
+                                const count = await pp.rpc('files_delete_recordings', {ids: job.ids});
+                                setRecordings(await pp.rpc('files_recordings', {}));
+                                setPickedRecordings([]);
+                                say(count === 1 ? '1 recording deleted.' : count + ' recordings deleted.');
                             } else if (job.kind === 'folder') {
                                 await pp.rpc('files_delete_folder', {id: job.id});
                                 await refresh(); say('Folder deleted.');
@@ -902,4 +971,10 @@ pub async fn files_recordings() -> Result<Vec<Mine>> {
 #[rpc(auth)]
 pub async fn files_delete_recording(id: String) -> Result<bool> {
     recording::remove_own(&id).await
+}
+
+/// Delete the recordings selected on the Recordings tab.
+#[rpc(auth)]
+pub async fn files_delete_recordings(ids: Vec<String>) -> Result<u64> {
+    recording::remove_own_many(ids).await
 }

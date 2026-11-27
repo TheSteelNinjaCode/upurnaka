@@ -258,3 +258,169 @@ async fn recordings_are_listed_downloaded_and_deleted_by_whoever_started_them() 
             .is_none()
     );
 }
+
+async fn insert_recording(id: &str, owner: &str, state: &str) {
+    use crate::models::meeting_recording as recording;
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+    let now = rahti::time::Timestamp::now().as_second();
+    recording::ActiveModel {
+        id: Set(id.into()),
+        meeting_id: Set("files-bulk-meeting".into()),
+        started_by: Set(owner.into()),
+        state: Set(state.into()),
+        content_type: Set("video/webm".into()),
+        parts: Set(1),
+        bytes: Set(4096),
+        started_at: Set(now - 90),
+        updated_at: Set(now),
+        ended_at: Set(Some(now - 30)),
+        file_id: Set((state == "stored").then(|| format!("object-{id}"))),
+        file_key: Set((state == "stored").then(|| format!("recordings/object-{id}"))),
+        failure: Set(None),
+    }
+    .insert(crate::db::db())
+    .await
+    .unwrap();
+}
+
+async fn recording_exists(id: &str) -> bool {
+    use crate::models::meeting_recording as recording;
+    use sea_orm::EntityTrait;
+    recording::Entity::find_by_id(id)
+        .one(crate::db::db())
+        .await
+        .unwrap()
+        .is_some()
+}
+
+#[tokio::test]
+async fn selected_recordings_are_deleted_together_and_only_by_their_owner() {
+    let (mut owner, owner_id) = person("files-bulk-owner@example.com").await;
+    let (mut other, other_id) = person("files-bulk-other@example.com").await;
+    insert_recording("bulk-stored", &owner_id, "stored").await;
+    insert_recording("bulk-failed", &owner_id, "failed").await;
+    insert_recording("bulk-live", &owner_id, "recording").await;
+    insert_recording("bulk-foreign", &other_id, "stored").await;
+
+    // Someone else's recording in the list: nothing is deleted.
+    let (status, _) = call(
+        &mut owner,
+        "files_delete_recordings",
+        json!({"ids": ["bulk-stored", "bulk-foreign"]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(recording_exists("bulk-stored").await);
+    assert!(recording_exists("bulk-foreign").await);
+
+    for bad in [json!({"ids": []}), json!({"ids": [""]})] {
+        let (status, _) = call(&mut owner, "files_delete_recordings", bad).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    }
+    let (status, _) = call(
+        &mut owner,
+        "files_delete_recordings",
+        json!({"ids": "bulk-stored"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // A running recording is skipped; the finished and failed ones go.
+    let (status, count) = call(
+        &mut owner,
+        "files_delete_recordings",
+        json!({"ids": ["bulk-stored", "bulk-failed", "bulk-live", "bulk-stored"]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{count}");
+    assert_eq!(count, 2);
+    assert!(!recording_exists("bulk-stored").await);
+    assert!(!recording_exists("bulk-failed").await);
+    assert!(
+        recording_exists("bulk-live").await,
+        "a running recording was deleted"
+    );
+    let (_, count) = call(
+        &mut other,
+        "files_delete_recordings",
+        json!({"ids": ["bulk-foreign"]}),
+    )
+    .await;
+    assert_eq!(count, 1);
+}
+
+#[tokio::test]
+async fn select_all_recordings_then_delete_in_the_browser() {
+    let (_, owner_id) = person("files-bulk-browser@example.com").await;
+    for (id, state) in [
+        ("browser-rec-a", "stored"),
+        ("browser-rec-b", "failed"),
+        ("browser-rec-live", "uploading"),
+    ] {
+        insert_recording(id, &owner_id, state).await;
+    }
+    let address = rahti::browser::serve(crate::routes::router()).await;
+    let Some(mut browser) = launch_browser().await else {
+        return;
+    };
+    browser
+        .goto(&format!("http://{address}/signin"))
+        .await
+        .unwrap();
+    let cookie = format!(
+        "{}; Path=/; SameSite=Lax",
+        super::support::cookie_for(&owner_id, "Files Tester", "files-bulk-browser@example.com")
+    );
+    let _: String = browser
+        .eval(&format!(
+            "document.cookie = {}",
+            rahti::serde_json::to_string(&cookie).unwrap()
+        ))
+        .await
+        .unwrap();
+    browser
+        .goto(&format!("http://{address}/files"))
+        .await
+        .unwrap();
+    browser
+        .wait_for("Array.from(document.querySelectorAll('button[role=tab]')).some(b => b.textContent.trim() === 'Recordings')")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("(() => { Array.from(document.querySelectorAll('button[role=tab]')).find(b => b.textContent.trim() === 'Recordings').click(); return true; })()")
+        .await
+        .unwrap();
+    // The row still uploading cannot be picked.
+    browser
+        .wait_for("document.querySelectorAll('section[aria-label=Recordings] tbody input[type=checkbox]').length === 3 && Array.from(document.querySelectorAll('section[aria-label=Recordings] tbody input[type=checkbox]')).filter(box => box.disabled).length === 1")
+        .await
+        .unwrap();
+    browser
+        .click("input[aria-label='Select all recordings']")
+        .await
+        .unwrap();
+    browser
+        .wait_for("!document.querySelector('.recording-selection').hidden && document.querySelector('.recording-selection').textContent.includes('2 selected')")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("(() => { Array.from(document.querySelectorAll('.recording-selection button')).find(b => b.textContent.trim() === 'Delete').click(); return true; })()")
+        .await
+        .unwrap();
+    browser
+        .wait_for("Array.from(document.querySelectorAll('[role=alertdialog]')).some(d => d.textContent.includes('Delete 2 recordings?'))")
+        .await
+        .unwrap();
+    let _: bool = browser
+        .eval("(() => { Array.from(document.querySelectorAll('[role=alertdialog] button')).find(b => b.textContent.trim() === 'Delete permanently').click(); return true; })()")
+        .await
+        .unwrap();
+    browser
+        .wait_for("document.body.textContent.includes('2 recordings deleted.') && document.querySelectorAll('section[aria-label=Recordings] tbody tr').length === 1 && document.querySelector('.recording-selection').hidden")
+        .await
+        .unwrap();
+    assert!(!recording_exists("browser-rec-a").await);
+    assert!(!recording_exists("browser-rec-b").await);
+    assert!(recording_exists("browser-rec-live").await);
+    assert!(browser.errors().is_empty(), "{:?}", browser.errors());
+}

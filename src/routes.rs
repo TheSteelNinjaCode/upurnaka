@@ -89,6 +89,7 @@ const PAGE_RPCS: &[&str] = &[
     "files_delete",
     "files_delete_folder",
     "files_delete_recording",
+    "files_delete_recordings",
     "files_list",
     "files_move",
     "files_new_folder",
@@ -273,6 +274,7 @@ async fn rpc_p_files(req: axum::extract::Request) -> axum::response::Response {
         "files_delete_folder" => p_files::__rahti_rpc_files_delete_folder(req).await,
         "files_recordings" => p_files::__rahti_rpc_files_recordings(req).await,
         "files_delete_recording" => p_files::__rahti_rpc_files_delete_recording(req).await,
+        "files_delete_recordings" => p_files::__rahti_rpc_files_delete_recordings(req).await,
         _ => component_rpc(&name, req).await,
     }
 }
@@ -383,7 +385,7 @@ pub async fn static_routes() -> Vec<::rahti::StaticRoute> {
 /// - `/apps` [GET, POST] — src/app/apps/page.rs (layouts: src/app/layout.rs)
 /// - `/chat` [GET, POST] — src/app/chat/page.rs (layouts: src/app/layout.rs; rpc: send_message, upload_chat_file, chat_cloud_files, create_chat_folder, create_chat_meeting)
 /// - `/meet` [GET, POST] — src/app/meet/page.rs (layouts: src/app/layout.rs; errors: src/app/meet/error.rs; rpc: create_meeting_link, rename_meeting_link, delete_meeting_link, meeting_access, save_meeting_access, search_meeting_invitees)
-/// - `/files` [GET, POST] — src/app/files/page.rs (layouts: src/app/layout.rs; rpc: files_list, files_upload, files_new_folder, files_rename, files_rename_folder, files_places, files_move, files_delete, files_delete_folder, files_recordings, files_delete_recording)
+/// - `/files` [GET, POST] — src/app/files/page.rs (layouts: src/app/layout.rs; rpc: files_list, files_upload, files_new_folder, files_rename, files_rename_folder, files_places, files_move, files_delete, files_delete_folder, files_recordings, files_delete_recording, files_delete_recordings)
 /// - `/setup` [GET, POST] — src/app/setup/page.rs (layouts: src/app/layout.rs)
 /// - `/users` [GET, POST] — src/app/users/page.rs (layouts: src/app/layout.rs; rpc: list_users, create_user, update_user, set_user_active, delete_user)
 /// - `/people` [GET, POST] — src/app/people/page.rs (layouts: src/app/layout.rs; rpc: update_profile_name, remove_profile_picture, update_profile_picture, invite_to_teams)
