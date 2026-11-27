@@ -643,6 +643,15 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                         </Button>
                         <Button
                             variant="ghost"
+                            class="room-device-chevron h-[60px]! w-4! min-w-0! px-0! -ml-1 text-muted-foreground hover:text-ink max-[650px]:h-[52px]!"
+                            attrs=@{labelled("Camera settings")}
+                            disabled={!session}
+                            onclick={openDeviceSettings()}
+                        >
+                            <Icon name="chevron-down" class="size-3.5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
                             class=@{ROOM_TOOL}
                             attrs=@{named("Toggle meeting microphone").merge(&bound("aria-pressed", ui_expr!(aria-pressed={microphone})))}
                             disabled={audioMode === "none"}
@@ -658,6 +667,15 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                 />
                             </span>
                             <span>"Mic"</span>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            class="room-device-chevron h-[60px]! w-4! min-w-0! px-0! -ml-1 text-muted-foreground hover:text-ink max-[650px]:h-[52px]!"
+                            attrs=@{labelled("Audio settings")}
+                            disabled={!session}
+                            onclick={openDeviceSettings()}
+                        >
+                            <Icon name="chevron-down" class="size-3.5" />
                         </Button>
                         <Button
                             variant="ghost"
@@ -733,6 +751,9 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                     >
                         <Button variant="ghost" class=@{MENU_ROW} onclick={openRoomBackgrounds()}>
                             "Background settings"
+                        </Button>
+                        <Button variant="ghost" class=@{MENU_ROW} onclick={openDeviceSettings()}>
+                            "Device settings"
                         </Button>
                         <Button variant="ghost" class=@{MENU_ROW} onclick={copyRoomLink()}>
                             "Copy meeting link"
@@ -1155,7 +1176,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                             class="flex items-center justify-between px-5 py-[22px] text-[17px] font-semibold"
                         >
                             <h2>
-                                {roomPanel === "people" ? "People (" + people.length + ")" : roomPanel === "recordings" ? "Recordings" : "Meeting chat"}
+                                {roomPanel === "people" ? "People (" + people.length + ")" : roomPanel === "recordings" ? "Recordings" : roomPanel === "devices" ? "Device settings" : "Meeting chat"}
                             </h2>
                             <Button
                                 variant="ghost"
@@ -1166,6 +1187,141 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                                 <Icon name="close" class="size-5" />
                             </Button>
                         </header>
+                        <div
+                            class="room-device-settings grid content-start gap-5 overflow-auto px-5 pb-6 text-[13px]"
+                            hidden={roomPanel !== "devices"}
+                        >
+                            <section class="grid gap-2">
+                                <h3
+                                    class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                                >
+                                    "Audio"
+                                </h3>
+                                <div
+                                    class="grid gap-2 rounded-md border border-edge p-3"
+                                    hidden={audioMode !== "none"}
+                                >
+                                    <p class="text-muted-foreground">
+                                        "You joined without computer audio, so you can't hear or speak in this meeting."
+                                    </p>
+                                    <Button
+                                        class="room-use-audio w-full"
+                                        disabled={changingDevice}
+                                        onclick={useComputerAudio()}
+                                    >
+                                        "Use computer audio"
+                                    </Button>
+                                </div>
+                                <div class="grid gap-3" hidden={audioMode === "none"}>
+                                    <label class="grid gap-1.5" for="room-microphone">
+                                        <span class="flex items-center gap-2 font-medium">
+                                            <Icon name="mic" class="size-4" />
+                                            "Microphone"
+                                        </span>
+                                        <Select
+                                            id="room-microphone"
+                                            class="w-full text-[13px]"
+                                            value={availableDevice(microphoneDevice, audioInputs)}
+                                            onfocus={refreshDevices()}
+                                            onchange={changeMicrophone(target.value)}
+                                            disabled={changingDevice}
+                                        >
+                                            <SelectItem value="">
+                                                {defaultDeviceName(audioInputs, "Default microphone")}
+                                            </SelectItem>
+                                            <template
+                                                pp-for="device in selectableDevices(audioInputs)"
+                                            >
+                                                <SelectItem
+                                                    key={device.deviceId}
+                                                    value={device.deviceId}
+                                                >
+                                                    {device.label || "Microphone"}
+                                                </SelectItem>
+                                            </template>
+                                        </Select>
+                                    </label>
+                                    <label class="grid gap-1.5" for="room-speaker">
+                                        <span class="flex items-center gap-2 font-medium">
+                                            <Icon name="speaker" class="size-4" />
+                                            "Speaker"
+                                        </span>
+                                        <Select
+                                            id="room-speaker"
+                                            class="w-full text-[13px]"
+                                            value={availableDevice(speakerDevice, audioOutputs)}
+                                            onfocus={refreshDevices()}
+                                            onchange={changeSpeaker(target.value)}
+                                            disabled={changingDevice}
+                                        >
+                                            <SelectItem value="">
+                                                {defaultDeviceName(audioOutputs, "Default speakers")}
+                                            </SelectItem>
+                                            <template
+                                                pp-for="device in selectableDevices(audioOutputs)"
+                                            >
+                                                <SelectItem
+                                                    key={device.deviceId}
+                                                    value={device.deviceId}
+                                                >
+                                                    {device.label || "Speaker"}
+                                                </SelectItem>
+                                            </template>
+                                        </Select>
+                                    </label>
+                                    <Button
+                                        variant="link"
+                                        class="h-auto! w-fit justify-start! px-0! text-[13px] text-link"
+                                        onclick={testSpeaker()}
+                                    >
+                                        "Test speaker"
+                                    </Button>
+                                </div>
+                            </section>
+                            <section class="grid gap-2">
+                                <h3
+                                    class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                                >
+                                    "Video"
+                                </h3>
+                                <label class="grid gap-1.5" for="room-camera">
+                                    <span class="flex items-center gap-2 font-medium">
+                                        <Icon name="video" class="size-4" />
+                                        "Camera"
+                                    </span>
+                                    <Select
+                                        id="room-camera"
+                                        class="w-full text-[13px]"
+                                        value={availableDevice(cameraDevice, videoInputs)}
+                                        onfocus={refreshDevices()}
+                                        onchange={changeCamera(target.value)}
+                                        disabled={changingDevice || applyingBackground}
+                                    >
+                                        <SelectItem value="">
+                                            {defaultDeviceName(videoInputs, "Default camera")}
+                                        </SelectItem>
+                                        <template pp-for="device in selectableDevices(videoInputs)">
+                                            <SelectItem
+                                                key={device.deviceId}
+                                                value={device.deviceId}
+                                            >
+                                                {device.label || "Camera"}
+                                            </SelectItem>
+                                        </template>
+                                    </Select>
+                                </label>
+                                <p class="text-xs text-muted-foreground" hidden={camera}>
+                                    "Used the next time you turn your camera on."
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    class="w-full"
+                                    onclick={openRoomBackgrounds()}
+                                >
+                                    "Background effects"
+                                </Button>
+                            </section>
+                        </div>
                         <div class="overflow-auto px-5" hidden={roomPanel !== "people"}>
                             <section
                                 hidden={!isOrganizer || lobbyRequests.length === 0}
@@ -2173,6 +2329,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                             if (cameras.length < 2) { setToast('No other camera is available.'); return; }
                             kit.cameraSelected = true;
                             cameraChoice.current = (cameraChoice.current + 1) % cameras.length;
+                            setCameraDevice(cameras[cameraChoice.current].deviceId);
                             if (camera) {
                                 await closeCamera(); await openCamera();
                                 if (call.current) call.current.av.startLocalVideoTile(); else startPreview();
@@ -2725,6 +2882,7 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                             const available = await navigator.mediaDevices.enumerateDevices();
                             setAudioInputs(available.filter(device => device.kind === "audioinput" && device.deviceId));
                             setAudioOutputs(available.filter(device => device.kind === "audiooutput" && device.deviceId));
+                            setVideoInputs(available.filter(device => device.kind === "videoinput" && device.deviceId));
                         } catch (failure) {
                             setError("Audio devices could not be listed. Check your browser permissions.");
                         }
@@ -2767,6 +2925,89 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
                             trigger.focus();
                         }
                     }
+
+                    // Device settings during a call: the microphone, speaker and
+                    // camera change in place, without leaving the meeting.
+                    const [videoInputs, setVideoInputs] = pp.state([]);
+                    const [cameraDevice, setCameraDevice] = pp.state(devicePreferences.cameraId);
+                    const [changingDevice, setChangingDevice] = pp.state(false);
+                    function openDeviceSettings() {
+                        dismissRoomMenus();
+                        setMoreOpen(false);
+                        setBackgroundsOpen(false);
+                        setRoomPanel("devices");
+                        refreshDevices();
+                    }
+                    const changeMicrophone = pp.event(async function changeMicrophone(id) {
+                        setMicrophoneDevice(id);
+                        const live = call.current;
+                        if (!live || audioMode !== "computer") return;
+                        setChangingDevice(true);
+                        const previous = [meetingMicrophone.current, meetingOutgoingMicrophone.current];
+                        try {
+                            if (!await startMeetingMicrophone(live.av, id)) { setError("That microphone could not be started."); return; }
+                            previous.forEach(stream => stream?.getTracks().forEach(track => track.stop()));
+                            if (!microphone) live.av.realtimeMuteLocalAudio();
+                            setToast("Microphone changed.");
+                        } catch (failure) {
+                            setError("That microphone could not be started. Check that no other application is using it.");
+                        } finally {
+                            setChangingDevice(false);
+                        }
+                    });
+                    const changeSpeaker = pp.event(async function changeSpeaker(id) {
+                        setSpeakerDevice(id);
+                        const live = call.current;
+                        if (!live || audioMode !== "computer") return;
+                        try {
+                            await live.av.chooseAudioOutput(id || null);
+                            setToast("Speaker changed.");
+                        } catch (failure) {
+                            await live.av.chooseAudioOutput(null).catch(() => {});
+                            setToast("That speaker is unavailable. Using the system default.");
+                        }
+                    });
+                    const changeCamera = pp.event(async function changeCamera(id) {
+                        if (applyingBackground) return;
+                        setCameraDevice(id);
+                        setChangingDevice(true);
+                        setApplyingBackground(true);
+                        try {
+                            const kit = await ensureDevices();
+                            const cameras = await kit.controller.listVideoInputDevices();
+                            cameraChoice.current = Math.max(0, cameras.findIndex(device => device.deviceId === id));
+                            kit.cameraSelected = true;
+                            if (camera) {
+                                await closeCamera(); await openCamera();
+                                if (call.current) call.current.av.startLocalVideoTile(); else startPreview();
+                                setToast("Camera changed.");
+                            }
+                        } catch (failure) {
+                            setError(failure.message || "That camera could not be started.");
+                        } finally {
+                            setApplyingBackground(false);
+                            setChangingDevice(false);
+                        }
+                    });
+                    // Joined with "Don't use audio": turn computer audio on now.
+                    const useComputerAudio = pp.event(async function useComputerAudio() {
+                        const live = call.current;
+                        if (!live || audioMode === "computer") return;
+                        setChangingDevice(true);
+                        try {
+                            if (!await startMeetingMicrophone(live.av, microphoneDevice)) { setError("No microphone is available. Check your device settings."); return; }
+                            if (speakerDevice) await live.av.chooseAudioOutput(speakerDevice).catch(() => live.av.chooseAudioOutput(null));
+                            if (meetingAudio.current) await live.av.bindAudioElement(meetingAudio.current);
+                            live.av.realtimeMuteLocalAudio();
+                            setMicrophone(false);
+                            setAudioMode("computer");
+                            setToast("Computer audio is on. Your microphone is muted until you unmute.");
+                        } catch (failure) {
+                            setError("Computer audio could not be started. Check this site's microphone permission.");
+                        } finally {
+                            setChangingDevice(false);
+                        }
+                    });
 
                     function dismissRoomMenus() {
                         if (reactionsOpen) setReactionsOpen(false);
@@ -3213,11 +3454,11 @@ pub async fn page(Path(id): Path<String>, Query(query): Query<JoinQuery>) -> Res
 
                     // Open the audio and video session Chime just gave us a
                     // seat in.
-                    async function startMeetingMicrophone(av) {
+                    async function startMeetingMicrophone(av, deviceId = microphoneDevice) {
                         const lifetime = microphoneLifetime.current;
                         const microphones = await av.listAudioInputDevices();
                         if (!microphones.length) return false;
-                        const selected = microphones.find(device => device.deviceId === microphoneDevice) || microphones[0];
+                        const selected = microphones.find(device => device.deviceId === deviceId) || microphones[0];
                         const input = await navigator.mediaDevices.getUserMedia({video:false, audio:{deviceId:{exact:selected.deviceId}, autoGainControl:devicePreferences.autoGainControl, noiseSuppression:devicePreferences.noiseSuppression, echoCancellation:true}});
                         if (disposed.current || lifetime !== microphoneLifetime.current) { input.getTracks().forEach(track => track.stop()); return false; }
                         const outgoing = devicePreferences.mutedNotification ? input.clone() : input;
